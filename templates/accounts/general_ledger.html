@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}General Ledger{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">📒 General Ledger</h1>
+        <div>
+            <button onclick="window.print()" class="btn btn-primary">
+                <i class="bi bi-printer"></i> Print
+            </button>
+        </div>
+    </div>
+
+    <!-- Filter Form -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Filter</h6>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">From Date</label>
+                    <input type="date" name="from_date" class="form-control" value="{{ from_date }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">To Date</label>
+                    <input type="date" name="to_date" class="form-control" value="{{ to_date }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Account</label>
+                    <select name="account" class="form-control">
+                        <option value="">All Accounts</option>
+                        {% for acc in accounts %}
+                        <option value="{{ acc.id }}" {% if account_id|add:"0" == acc.id %}selected{% endif %}>
+                            {{ acc.code }} - {{ acc.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search"></i> Filter
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Ledger Entries -->
+    {% for summary in account_summary %}
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">
+                {{ summary.account.code }} - {{ summary.account.name }}
+                <span class="float-end">
+                    Balance: 
+                    <span class="{% if summary.balance > 0 %}text-success{% else %}text-danger{% endif %}">
+                        Rs. {{ summary.balance|floatformat:2 }}
+                    </span>
+                </span>
+            </h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Date</th>
+                            <th>Reference</th>
+                            <th>Description</th>
+                            <th class="text-end">Debit (Rs.)</th>
+                            <th class="text-end">Credit (Rs.)</th>
+                            <th class="text-end">Balance (Rs.)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in summary.entries %}
+                        <tr>
+                            <td>{{ entry.date|date:"d-m-Y" }}</td>
+                            <td>
+                                <a href="{% url 'journal_entry_detail' entry.journal_entry.id %}">
+                                    {{ entry.journal_entry.entry_no }}
+                                </a>
+                            </td>
+                            <td>{{ entry.journal_entry.description|truncatechars:50 }}</td>
+                            <td class="text-end">
+                                {% if entry.debit > 0 %}{{ entry.debit|floatformat:2 }}{% else %}-{% endif %}
+                            </td>
+                            <td class="text-end">
+                                {% if entry.credit > 0 %}{{ entry.credit|floatformat:2 }}{% else %}-{% endif %}
+                            </td>
+                            <td class="text-end">{{ entry.running_balance|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">No entries found</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr>
+                            <th colspan="3" class="text-end">TOTAL</th>
+                            <th class="text-end">{{ summary.total_debit|floatformat:2 }}</th>
+                            <th class="text-end">{{ summary.total_credit|floatformat:2 }}</th>
+                            <th class="text-end">{{ summary.balance|floatformat:2 }}</th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="alert alert-info text-center">
+        <i class="bi bi-info-circle"></i> No ledger entries found for the selected period.
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

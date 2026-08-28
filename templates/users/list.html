@@ -1,0 +1,913 @@
+<!-- users/list.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}👥 User Management - {{ company_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <!-- Header -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between mb-4">
+        <div>
+            <h1 class="h3 mb-1 text-gray-800">
+                <i class="bi bi-people-fill text-primary me-2"></i>User Management
+            </h1>
+            <p class="text-muted small mb-0">
+                Manage system users, roles, and permissions
+            </p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-outline-secondary rounded-pill px-3" onclick="exportUsers()">
+                <i class="bi bi-download me-2"></i>Export
+            </button>
+            <a href="{% url 'user_create' %}" class="btn btn-primary rounded-pill px-4">
+                <i class="bi bi-person-plus me-2"></i>Add User
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-lg-6 col-md-6">
+            <div class="card border-0 shadow-sm h-100 stat-card">
+                <div class="card-body d-flex align-items-center">
+                    <div class="stat-icon bg-primary bg-opacity-10 text-primary rounded-3 p-3 me-3">
+                        <i class="bi bi-people fs-4"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted small mb-0 text-uppercase fw-semibold">Total Users</h6>
+                        <h3 class="mb-0 fw-bold">{{ total_count }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-lg-6 col-md-6">
+            <div class="card border-0 shadow-sm h-100 stat-card">
+                <div class="card-body d-flex align-items-center">
+                    <div class="stat-icon bg-success bg-opacity-10 text-success rounded-3 p-3 me-3">
+                        <i class="bi bi-person-check fs-4"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted small mb-0 text-uppercase fw-semibold">Active</h6>
+                        <h3 class="mb-0 fw-bold">{{ active_count }}</h3>
+                        <small class="text-success">{{ active_percent }}%</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-lg-6 col-md-6">
+            <div class="card border-0 shadow-sm h-100 stat-card">
+                <div class="card-body d-flex align-items-center">
+                    <div class="stat-icon bg-danger bg-opacity-10 text-danger rounded-3 p-3 me-3">
+                        <i class="bi bi-person-x fs-4"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted small mb-0 text-uppercase fw-semibold">Inactive</h6>
+                        <h3 class="mb-0 fw-bold">{{ inactive_count }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-lg-6 col-md-6">
+            <div class="card border-0 shadow-sm h-100 stat-card">
+                <div class="card-body d-flex align-items-center">
+                    <div class="stat-icon bg-warning bg-opacity-10 text-warning rounded-3 p-3 me-3">
+                        <i class="bi bi-clock-history fs-4"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted small mb-0 text-uppercase fw-semibold">Last 7 Days</h6>
+                        <h3 class="mb-0 fw-bold">{{ active_last_7_days }}</h3>
+                        <small class="text-muted">active users</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Role Quick Filters -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="text-muted small me-2">Filter by Role:</span>
+                <a href="?{% if search %}search={{ search }}&{% endif %}" 
+                   class="role-filter-btn {% if not role_filter %}active{% endif %}">
+                    <span class="badge bg-secondary bg-opacity-10 text-secondary px-3 py-2 rounded-pill">
+                        <i class="bi bi-people me-1"></i>All <span class="ms-1">({{ total_count }})</span>
+                    </span>
+                </a>
+                <a href="?role=admin{% if search %}&search={{ search }}{% endif %}" 
+                   class="role-filter-btn {% if role_filter == 'admin' %}active{% endif %}">
+                    <span class="badge bg-danger bg-opacity-10 text-danger px-3 py-2 rounded-pill">
+                        <i class="bi bi-shield-lock me-1"></i>Admin <span class="ms-1">({{ admin_count }})</span>
+                    </span>
+                </a>
+                <a href="?role=owner{% if search %}&search={{ search }}{% endif %}" 
+                   class="role-filter-btn {% if role_filter == 'owner' %}active{% endif %}">
+                    <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill">
+                        <i class="bi bi-building me-1"></i>Owner <span class="ms-1">({{ owner_count }})</span>
+                    </span>
+                </a>
+                <a href="?role=manager{% if search %}&search={{ search }}{% endif %}" 
+                   class="role-filter-btn {% if role_filter == 'manager' %}active{% endif %}">
+                    <span class="badge bg-info bg-opacity-10 text-info px-3 py-2 rounded-pill">
+                        <i class="bi bi-people me-1"></i>Manager <span class="ms-1">({{ manager_count }})</span>
+                    </span>
+                </a>
+                <a href="?role=salesman{% if search %}&search={{ search }}{% endif %}" 
+                   class="role-filter-btn {% if role_filter == 'salesman' %}active{% endif %}">
+                    <span class="badge bg-success bg-opacity-10 text-success px-3 py-2 rounded-pill">
+                        <i class="bi bi-person-badge me-1"></i>Salesman <span class="ms-1">({{ salesman_count }})</span>
+                    </span>
+                </a>
+                <a href="?role=accountant{% if search %}&search={{ search }}{% endif %}" 
+                   class="role-filter-btn {% if role_filter == 'accountant' %}active{% endif %}">
+                    <span class="badge bg-warning bg-opacity-10 text-warning px-3 py-2 rounded-pill">
+                        <i class="bi bi-calculator me-1"></i>Accountant <span class="ms-1">({{ accountant_count }})</span>
+                    </span>
+                </a>
+                <a href="?role=warehouse{% if search %}&search={{ search }}{% endif %}" 
+                   class="role-filter-btn {% if role_filter == 'warehouse' %}active{% endif %}">
+                    <span class="badge bg-secondary bg-opacity-10 text-secondary px-3 py-2 rounded-pill">
+                        <i class="bi bi-box me-1"></i>Warehouse <span class="ms-1">({{ warehouse_count }})</span>
+                    </span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search & Table -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <!-- Search & Bulk Actions Bar -->
+            <div class="row g-3 mb-3">
+                <div class="col-md-5">
+                    <form method="GET" class="d-flex gap-2" id="searchForm">
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-0">
+                                <i class="bi bi-search text-muted"></i>
+                            </span>
+                            <input type="text" name="search" class="form-control border-0 bg-light" 
+                                   placeholder="Search by name, username or email..." 
+                                   value="{{ search }}" id="searchInput">
+                            <input type="hidden" name="role" value="{{ role_filter }}">
+                            <input type="hidden" name="status" value="{{ status_filter }}">
+                            <button class="btn btn-primary px-4" type="submit">
+                                <i class="bi bi-search me-1"></i>Search
+                            </button>
+                        </div>
+                        {% if search or role_filter or status_filter %}
+                            <a href="{% url 'user_list' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle me-1"></i>Clear
+                            </a>
+                        {% endif %}
+                    </form>
+                </div>
+                <div class="col-md-7 text-end">
+                    <div class="d-flex flex-wrap justify-content-end gap-2">
+                        <!-- Bulk Actions -->
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" 
+                                    data-bs-toggle="dropdown" aria-expanded="false" id="bulkActionsBtn" disabled>
+                                <i class="bi bi-check2-square me-1"></i>Bulk Actions
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="#" onclick="bulkAction('activate')">
+                                    <i class="bi bi-check-circle text-success me-2"></i>Activate Selected
+                                </a></li>
+                                <li><a class="dropdown-item" href="#" onclick="bulkAction('deactivate')">
+                                    <i class="bi bi-x-circle text-danger me-2"></i>Deactivate Selected
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="#" onclick="bulkAction('delete')">
+                                    <i class="bi bi-trash me-2"></i>Delete Selected
+                                </a></li>
+                            </ul>
+                        </div>
+                        
+                        <!-- Status Filter -->
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" 
+                                    data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-funnel me-1"></i>Status
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item {% if not status_filter %}active{% endif %}" 
+                                       href="?{% if search %}search={{ search }}&{% endif %}{% if role_filter %}role={{ role_filter }}&{% endif %}">
+                                    <i class="bi bi-circle me-2"></i>All
+                                </a></li>
+                                <li><a class="dropdown-item {% if status_filter == 'active' %}active{% endif %}" 
+                                       href="?status=active{% if search %}&search={{ search }}{% endif %}{% if role_filter %}&role={{ role_filter }}{% endif %}">
+                                    <i class="bi bi-check-circle-fill text-success me-2"></i>Active
+                                </a></li>
+                                <li><a class="dropdown-item {% if status_filter == 'inactive' %}active{% endif %}" 
+                                       href="?status=inactive{% if search %}&search={{ search }}{% endif %}{% if role_filter %}&role={{ role_filter }}{% endif %}">
+                                    <i class="bi bi-x-circle-fill text-danger me-2"></i>Inactive
+                                </a></li>
+                            </ul>
+                        </div>
+                        
+                        <!-- Export -->
+                        <button class="btn btn-outline-success btn-sm" onclick="exportUsers()">
+                            <i class="bi bi-download me-1"></i>Export
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bulk Select Info -->
+            <div id="bulkSelectInfo" class="d-none alert alert-primary border-0 py-2 mb-3">
+                <div class="d-flex align-items-center justify-content-between">
+                    <span>
+                        <i class="bi bi-check2-square me-2"></i>
+                        <span id="selectedCount">0</span> users selected
+                    </span>
+                    <button class="btn btn-sm btn-outline-primary" onclick="clearSelection()">
+                        <i class="bi bi-x me-1"></i>Clear Selection
+                    </button>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="userTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:30px;">
+                                <input class="form-check-input" type="checkbox" id="selectAll" 
+                                       onchange="toggleAllCheckboxes(this)">
+                            </th>
+                            <th class="fw-semibold text-muted small text-uppercase">User</th>
+                            <th class="fw-semibold text-muted small text-uppercase">Role</th>
+                            <th class="fw-semibold text-muted small text-uppercase text-center">Status</th>
+                            <th class="fw-semibold text-muted small text-uppercase text-center">Last Active</th>
+                            <th class="fw-semibold text-muted small text-uppercase text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in page_obj %}
+                        <tr data-user-id="{{ user.id }}" class="user-row">
+                            <td>
+                                <input class="form-check-input user-checkbox" type="checkbox" 
+                                       value="{{ user.id }}" onchange="updateBulkActions()">
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="user-avatar-sm" style="background: {{ user.avatar_color|default:'linear-gradient(135deg, #667eea, #764ba2)' }}">
+                                        {{ user.get_full_name|first|upper }}
+                                    </div>
+                                    <div>
+                                        <div class="fw-semibold">
+                                            {% if user.get_full_name %}
+                                                {{ user.get_full_name|title }}
+                                            {% else %}
+                                                {{ user.username|title }}
+                                            {% endif %}
+                                        </div>
+                                        <div class="small text-muted">
+                                            <i class="bi bi-envelope me-1"></i>{{ user.email|default:'No email' }}
+                                            <span class="mx-1">•</span>
+                                            <i class="bi bi-person me-1"></i>{{ user.username }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="role-badge {{ user.role }}">
+                                    <i class="bi {{ user.role_icon }} me-1"></i>
+                                    {{ user.role_display }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="status-badge {% if user.is_active %}active{% else %}inactive{% endif %}">
+                                    <i class="bi {% if user.is_active %}bi-check-circle-fill{% else %}bi-x-circle-fill{% endif %} me-1"></i>
+                                    {% if user.is_active %}Active{% else %}Inactive{% endif %}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                {% if user.last_login %}
+                                    <span class="small text-muted" title="{{ user.last_login|date:'Y-m-d H:i:s' }}">
+                                        {{ user.last_login|timesince }} ago
+                                    </span>
+                                {% else %}
+                                    <span class="small text-muted">Never</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="d-flex justify-content-center gap-1">
+                                    <!-- Quick View -->
+                                    <button class="btn btn-sm btn-outline-info rounded-circle" 
+                                            title="Quick View" onclick="quickViewUser({{ user.id }})">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    <!-- Edit -->
+                                    <a href="{% url 'user_edit' user.id %}" 
+                                       class="btn btn-sm btn-outline-primary rounded-circle" 
+                                       title="Edit User">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <!-- Reset Password -->
+                                    <a href="{% url 'user_reset_password' user.id %}" 
+                                       class="btn btn-sm btn-outline-warning rounded-circle" 
+                                       title="Reset Password">
+                                        <i class="bi bi-key"></i>
+                                    </a>
+                                    <!-- Toggle Status -->
+                                    <a href="{% url 'user_toggle_status' user.id %}" 
+                                       class="btn btn-sm btn-outline-{% if user.is_active %}danger{% else %}success{% endif %} rounded-circle"
+                                       title="{% if user.is_active %}Deactivate{% else %}Activate{% endif %} User"
+                                       onclick="return confirm('Are you sure you want to {% if user.is_active %}deactivate{% else %}activate{% endif %} this user?');">
+                                        <i class="bi bi-{% if user.is_active %}person-x{% else %}person-check{% endif %}"></i>
+                                    </a>
+                                    {% if user.id != request.user.id %}
+                                    <a href="{% url 'user_delete' user.id %}" 
+                                       class="btn btn-sm btn-outline-danger rounded-circle"
+                                       title="Delete User"
+                                       onclick="return confirm('Are you sure you want to delete this user? This action cannot be undone.');">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5">
+                                <div class="py-4">
+                                    <i class="bi bi-people fs-1 text-muted d-block mb-3"></i>
+                                    <h5 class="text-muted">No users found</h5>
+                                    <p class="text-muted small">Try adjusting your search or filters</p>
+                                    <a href="{% url 'user_create' %}" class="btn btn-primary mt-2">
+                                        <i class="bi bi-person-plus me-2"></i>Add First User
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if page_obj.has_other_pages %}
+            <div class="d-flex flex-wrap align-items-center justify-content-between mt-4 pt-2 border-top">
+                <div class="text-muted small">
+                    Showing <strong>{{ page_obj.start_index }}</strong> to <strong>{{ page_obj.end_index }}</strong> 
+                    of <strong>{{ page_obj.paginator.count }}</strong> users
+                </div>
+                <nav aria-label="Page navigation">
+                    <ul class="pagination pagination-sm mb-0">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">
+                                <i class="bi bi-chevron-left"></i>
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-left"></i></span></li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}{% if search %}&search={{ search }}{% endif %}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">
+                                        {{ num }}
+                                    </a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">
+                                <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-right"></i></span></li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Quick View Modal -->
+<div class="modal fade" id="quickViewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-person-badge text-primary me-2"></i>User Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="quickViewBody">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">
+                    <i class="bi bi-x me-2"></i>Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .stat-card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .stat-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.08) !important;
+    }
+    
+    .stat-icon {
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .user-avatar-sm {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.85rem;
+        flex-shrink: 0;
+    }
+    
+    .role-filter-btn .badge {
+        transition: all 0.2s ease;
+        cursor: pointer;
+        font-weight: 500;
+    }
+    
+    .role-filter-btn.active .badge {
+        background-color: #667eea !important;
+        color: white !important;
+    }
+    
+    .role-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .role-badge.admin {
+        background: rgba(220, 53, 69, 0.12);
+        color: #dc3545;
+    }
+    .role-badge.owner {
+        background: rgba(102, 126, 234, 0.12);
+        color: #667eea;
+    }
+    .role-badge.manager {
+        background: rgba(23, 162, 184, 0.12);
+        color: #17a2b8;
+    }
+    .role-badge.salesman {
+        background: rgba(40, 167, 69, 0.12);
+        color: #28a745;
+    }
+    .role-badge.accountant {
+        background: rgba(255, 193, 7, 0.12);
+        color: #ffc107;
+    }
+    .role-badge.warehouse {
+        background: rgba(108, 117, 125, 0.12);
+        color: #6c757d;
+    }
+    
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 12px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .status-badge.active {
+        background: rgba(40, 167, 69, 0.12);
+        color: #28a745;
+    }
+    .status-badge.inactive {
+        background: rgba(220, 53, 69, 0.12);
+        color: #dc3545;
+    }
+    
+    .btn-outline-primary.rounded-circle,
+    .btn-outline-warning.rounded-circle,
+    .btn-outline-danger.rounded-circle,
+    .btn-outline-success.rounded-circle,
+    .btn-outline-info.rounded-circle {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-width: 1.5px;
+    }
+    
+    .btn-outline-primary.rounded-circle:hover {
+        background: #667eea;
+        color: white;
+        border-color: #667eea;
+    }
+    .btn-outline-warning.rounded-circle:hover {
+        background: #ffc107;
+        color: #1a1a2e;
+        border-color: #ffc107;
+    }
+    .btn-outline-danger.rounded-circle:hover {
+        background: #dc3545;
+        color: white;
+        border-color: #dc3545;
+    }
+    .btn-outline-success.rounded-circle:hover {
+        background: #28a745;
+        color: white;
+        border-color: #28a745;
+    }
+    .btn-outline-info.rounded-circle:hover {
+        background: #17a2b8;
+        color: white;
+        border-color: #17a2b8;
+    }
+    
+    .table td, .table th {
+        vertical-align: middle;
+    }
+    
+    .pagination .page-link {
+        border-radius: 8px;
+        margin: 0 2px;
+        border: none;
+        color: #4a507a;
+        font-weight: 500;
+    }
+    .pagination .page-link:hover {
+        background: #f0f2f7;
+        color: #667eea;
+    }
+    .pagination .page-item.active .page-link {
+        background: #667eea;
+        color: white;
+        border-radius: 8px;
+    }
+    .pagination .page-item.disabled .page-link {
+        color: #b0b5cc;
+    }
+    
+    .user-row {
+        transition: background 0.2s ease;
+    }
+    .user-row:hover {
+        background: rgba(102, 126, 234, 0.03);
+    }
+    .user-row.selected {
+        background: rgba(102, 126, 234, 0.06);
+    }
+    
+    /* Quick View Modal */
+    .quick-view-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 20px;
+        font-size: 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+        color: white;
+        font-weight: 700;
+    }
+    
+    .quick-view-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f2f7;
+    }
+    .quick-view-item:last-child {
+        border-bottom: none;
+    }
+    .quick-view-item .label {
+        color: #6b7094;
+        font-size: 0.8rem;
+        width: 100px;
+        flex-shrink: 0;
+    }
+    .quick-view-item .value {
+        font-weight: 500;
+        font-size: 0.9rem;
+    }
+</style>
+
+<script>
+    // ==========================================
+    // BULK ACTIONS
+    // ==========================================
+    
+    function toggleAllCheckboxes(master) {
+        document.querySelectorAll('.user-checkbox').forEach(cb => {
+            cb.checked = master.checked;
+        });
+        updateBulkActions();
+    }
+    
+    function updateBulkActions() {
+        var checked = document.querySelectorAll('.user-checkbox:checked');
+        var count = checked.length;
+        var btn = document.getElementById('bulkActionsBtn');
+        var info = document.getElementById('bulkSelectInfo');
+        var countSpan = document.getElementById('selectedCount');
+        
+        if (count > 0) {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="bi bi-check2-square me-1"></i>Bulk Actions (${count})`;
+            info.classList.remove('d-none');
+            countSpan.textContent = count;
+            
+            // Highlight rows
+            document.querySelectorAll('.user-row').forEach(row => {
+                var cb = row.querySelector('.user-checkbox');
+                row.classList.toggle('selected', cb && cb.checked);
+            });
+        } else {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-check2-square me-1"></i>Bulk Actions';
+            info.classList.add('d-none');
+            document.querySelectorAll('.user-row').forEach(row => {
+                row.classList.remove('selected');
+            });
+        }
+    }
+    
+    function clearSelection() {
+        document.querySelectorAll('.user-checkbox').forEach(cb => {
+            cb.checked = false;
+        });
+        document.getElementById('selectAll').checked = false;
+        updateBulkActions();
+    }
+    
+    function bulkAction(action) {
+        var selected = document.querySelectorAll('.user-checkbox:checked');
+        var ids = Array.from(selected).map(cb => cb.value);
+        
+        if (ids.length === 0) {
+            alert('Please select at least one user.');
+            return;
+        }
+        
+        var confirmMsg = '';
+        var actionLabel = '';
+        switch(action) {
+            case 'activate':
+                confirmMsg = `Are you sure you want to activate ${ids.length} user(s)?`;
+                actionLabel = 'Activating';
+                break;
+            case 'deactivate':
+                confirmMsg = `Are you sure you want to deactivate ${ids.length} user(s)?`;
+                actionLabel = 'Deactivating';
+                break;
+            case 'delete':
+                confirmMsg = `Are you sure you want to delete ${ids.length} user(s)? This action cannot be undone!`;
+                actionLabel = 'Deleting';
+                break;
+        }
+        
+        if (!confirm(confirmMsg)) return;
+        
+        // Show loading
+        showToast('info', `${actionLabel}...`, 'Please wait');
+        
+        // Send AJAX request
+        fetch('/api/users/bulk-action/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                action: action,
+                user_ids: ids
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('success', `✅ ${data.message}`, 'Success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showToast('danger', `❌ ${data.message}`, 'Error');
+            }
+        })
+        .catch(error => {
+            showToast('danger', '❌ Something went wrong!', 'Error');
+        });
+    }
+    
+    // ==========================================
+    // EXPORT USERS
+    // ==========================================
+    
+    function exportUsers() {
+        showToast('info', '📥 Preparing export...', 'Please wait');
+        window.location.href = '{% url "export_users" %}?role={{ role_filter }}&status={{ status_filter }}&search={{ search }}';
+    }
+    
+    // ==========================================
+    // QUICK VIEW
+    // ==========================================
+    
+    function quickViewUser(userId) {
+        var modal = new bootstrap.Modal(document.getElementById('quickViewModal'));
+        var body = document.getElementById('quickViewBody');
+        
+        // Show loading
+        body.innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        `;
+        
+        modal.show();
+        
+        // Fetch user data
+        fetch(`/api/users/${userId}/quick-view/`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                body.innerHTML = `
+                    <div class="text-center mb-4">
+                        <div class="quick-view-avatar" style="background: ${data.avatar_color || 'linear-gradient(135deg, #667eea, #764ba2)'}">
+                            ${data.full_name ? data.full_name.charAt(0).toUpperCase() : data.username.charAt(0).toUpperCase()}
+                        </div>
+                        <h5 class="mt-3 mb-0 fw-bold">${data.full_name || data.username}</h5>
+                        <span class="badge bg-secondary bg-opacity-10 text-secondary">${data.role_display}</span>
+                    </div>
+                    
+                    <div class="quick-view-item">
+                        <span class="label">Username</span>
+                        <span class="value">${data.username}</span>
+                    </div>
+                    <div class="quick-view-item">
+                        <span class="label">Email</span>
+                        <span class="value">${data.email || 'Not provided'}</span>
+                    </div>
+                    <div class="quick-view-item">
+                        <span class="label">Status</span>
+                        <span class="value">
+                            <span class="status-badge ${data.is_active ? 'active' : 'inactive'}">
+                                <i class="bi ${data.is_active ? 'bi-check-circle-fill' : 'bi-x-circle-fill'} me-1"></i>
+                                ${data.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                        </span>
+                    </div>
+                    <div class="quick-view-item">
+                        <span class="label">Last Login</span>
+                        <span class="value">${data.last_login || 'Never'}</span>
+                    </div>
+                    <div class="quick-view-item">
+                        <span class="label">Date Joined</span>
+                        <span class="value">${data.date_joined}</span>
+                    </div>
+                `;
+            } else {
+                body.innerHTML = `
+                    <div class="text-center py-4 text-danger">
+                        <i class="bi bi-exclamation-triangle fs-1 d-block mb-3"></i>
+                        <p>${data.message || 'Failed to load user data'}</p>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            body.innerHTML = `
+                <div class="text-center py-4 text-danger">
+                    <i class="bi bi-exclamation-triangle fs-1 d-block mb-3"></i>
+                    <p>Failed to load user data</p>
+                </div>
+            `;
+        });
+    }
+    
+    // ==========================================
+    // TOAST NOTIFICATIONS
+    // ==========================================
+    
+    function showToast(type, message, title) {
+        var toastContainer = document.getElementById('toastContainer');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toastContainer';
+            toastContainer.className = 'position-fixed bottom-0 end-0 p-3';
+            toastContainer.style.zIndex = '9999';
+            document.body.appendChild(toastContainer);
+        }
+        
+        var colors = {
+            success: 'bg-success',
+            danger: 'bg-danger',
+            warning: 'bg-warning text-dark',
+            info: 'bg-info text-dark'
+        };
+        
+        var toast = document.createElement('div');
+        toast.className = `toast align-items-center ${colors[type] || 'bg-secondary'} text-white border-0`;
+        toast.role = 'alert';
+        toast.ariaLive = 'assertive';
+        toast.ariaAtomic = 'true';
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    <strong>${title}</strong><br>
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+        
+        toastContainer.appendChild(toast);
+        var bsToast = new bootstrap.Toast(toast, { delay: 4000 });
+        bsToast.show();
+        
+        toast.addEventListener('hidden.bs.toast', function() {
+            this.remove();
+        });
+    }
+    
+    // ==========================================
+    // CSRF TOKEN HELPER
+    // ==========================================
+    
+    function getCsrfToken() {
+        var csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        if (csrfInput) return csrfInput.value;
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        return meta ? meta.getAttribute('content') : '';
+    }
+    
+    // ==========================================
+    // KEYBOARD SHORTCUTS
+    // ==========================================
+    
+    document.addEventListener('keydown', function(e) {
+        // Ctrl+A - Select all
+        if (e.ctrlKey && e.key === 'a') {
+            e.preventDefault();
+            document.getElementById('selectAll').checked = true;
+            toggleAllCheckboxes(document.getElementById('selectAll'));
+        }
+        // Escape - Clear selection
+        if (e.key === 'Escape') {
+            clearSelection();
+        }
+        // Ctrl+F - Focus search
+        if (e.ctrlKey && e.key === 'f') {
+            e.preventDefault();
+            document.getElementById('searchInput').focus();
+        }
+    });
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        updateBulkActions();
+    });
+</script>
+
+<!-- Toast Container -->
+<div id="toastContainer" class="position-fixed bottom-0 end-0 p-3" style="z-index:9999;"></div>
+
+<!-- CSRF Token -->
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+
+{% endblock %}

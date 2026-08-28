@@ -1,0 +1,566 @@
+{% extends "base.html" %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Declare Dividend{% endblock %}
+
+{% block extra_css %}
+<style>
+    .allocation-preview {
+        background: linear-gradient(135deg, #f8f9fc, #ffffff);
+        border-radius: 12px;
+        padding: 20px;
+        border: 1px solid #eef0f5;
+        margin-top: 20px;
+    }
+    
+    .allocation-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 0;
+        border-bottom: 1px solid #f0f2f7;
+    }
+    
+    .allocation-item:last-child {
+        border-bottom: none;
+    }
+    
+    .allocation-color-admin { border-left: 4px solid #dc3545; padding-left: 12px; }
+    .allocation-color-manager { border-left: 4px solid #f0a500; padding-left: 12px; }
+    .allocation-color-shareholders { border-left: 4px solid #28a745; padding-left: 12px; }
+    
+    .percentage-input {
+        width: 80px;
+        text-align: center;
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+    
+    .preview-card {
+        background: white;
+        border-radius: 12px;
+        padding: 15px;
+        border: 2px solid #eef0f5;
+        margin-top: 15px;
+    }
+    
+    .preview-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        font-size: 0.9rem;
+    }
+    
+    .preview-row.total {
+        border-top: 2px solid #e0e3eb;
+        margin-top: 10px;
+        padding-top: 12px;
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+    
+    .preview-row .label { color: #5a6070; }
+    .preview-row .value.admin { color: #dc3545; }
+    .preview-row .value.manager { color: #f0a500; }
+    .preview-row .value.shareholders { color: #28a745; }
+    
+    .warning-box {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: 10px;
+        padding: 12px 15px;
+        margin: 10px 0;
+        font-size: 0.85rem;
+    }
+    
+    .admin-only-badge {
+        background: #dc3545;
+        color: white;
+        padding: 2px 10px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+    }
+    
+    .manager-badge {
+        background: #f0a500;
+        color: #1a1a2e;
+        padding: 2px 10px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+    }
+    
+    .permission-info {
+        padding: 8px 15px;
+        border-radius: 8px;
+        font-size: 0.75rem;
+        margin-bottom: 10px;
+    }
+    
+    .permission-info.admin {
+        background: #fee2e2;
+        border: 1px solid #dc3545;
+        color: #dc3545;
+    }
+    
+    .permission-info.manager {
+        background: #fef3c7;
+        border: 1px solid #f0a500;
+        color: #92400e;
+    }
+    
+    .permission-info.viewer {
+        background: #f3f4f6;
+        border: 1px solid #6b7280;
+        color: #6b7280;
+    }
+    
+    .quick-btn-group .btn {
+        font-size: 0.7rem;
+        padding: 4px 12px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <h1 class="mb-0">
+            💰 Declare Dividend
+            {% if is_admin %}
+                <span class="admin-only-badge ms-2"><i class="bi bi-shield-lock"></i> Admin</span>
+            {% elif is_store_manager %}
+                <span class="manager-badge ms-2"><i class="bi bi-person-badge"></i> Store Manager</span>
+            {% endif %}
+        </h1>
+        <a href="{% url 'dividend_list' %}" class="btn btn-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
+    </div>
+    
+    <!-- Permission Info -->
+    <div class="permission-info {% if is_admin %}admin{% elif is_store_manager %}manager{% else %}viewer{% endif %} mb-3">
+        <i class="bi bi-info-circle"></i>
+        {% if is_admin %}
+            <strong>🔒 Admin Access:</strong> You have full access to create dividend and manage allocations.
+        {% elif is_store_manager %}
+            <strong>👔 Store Manager Access:</strong> You can create dividend but cannot edit allocations after creation.
+        {% else %}
+            <strong>👤 View Only:</strong> You do not have permission to create dividend.
+        {% endif %}
+    </div>
+    
+    <div class="row">
+        <!-- Auto Profit Summary -->
+        <div class="col-md-4 mb-4">
+            <div class="card bg-light h-100">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0"><i class="bi bi-graph-up-arrow"></i> Auto Profit Summary</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="text-muted small">Total Profit (Auto)</label>
+                        <h3 class="text-success">Rs. {{ total_profit|floatformat:2 }}</h3>
+                        <small class="text-muted">Calculated from Sales - Purchases - Expenses</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-muted small">Total Shares (Auto)</label>
+                        <h3>{{ total_shares|floatformat:0 }}</h3>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-muted small">Max Dividend/Share (100%)</label>
+                        <h4 class="text-primary">Rs. {{ max_per_share|floatformat:2 }}</h4>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-muted small">Recommended (50%)</label>
+                        <h4 class="text-warning">Rs. {{ recommended_50|floatformat:2 }}/share</h4>
+                        <small>Balance approach - keep half for business</small>
+                    </div>
+                    <hr>
+                    <div class="small text-muted">
+                        <i class="bi bi-info-circle"></i>
+                        All calculations are automatic based on system data.
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Dividend Form -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-pencil-square"></i> Auto Dividend Declaration</h6>
+                    <div>
+                        {% if is_admin %}
+                            <span class="admin-only-badge"><i class="bi bi-shield-lock"></i> Admin</span>
+                        {% elif is_store_manager %}
+                            <span class="manager-badge"><i class="bi bi-person-badge"></i> Store Manager</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="dividendForm">
+                        {% csrf_token %}
+                        
+                        <!-- Amount Per Share -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Amount Per Share <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text">Rs.</span>
+                                <input type="number" name="amount_per_share" id="amountPerShare" 
+                                       class="form-control form-control-lg" step="0.01" min="0.01" required
+                                       placeholder="Enter amount per share"
+                                       value="{{ recommended_50|floatformat:2 }}">
+                            </div>
+                            <div id="calculationPreview" class="mt-2"></div>
+                            <div class="d-flex flex-wrap gap-3 mt-1">
+                                <small class="text-muted">
+                                    <span id="maxDisplay">Max: Rs. {{ max_per_share|floatformat:2 }}</span>
+                                </small>
+                                <small class="text-muted">
+                                    <span id="recommendedDisplay">Recommended: Rs. {{ recommended_50|floatformat:2 }}</span>
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <!-- Auto Quick Buttons -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">⚡ Quick Select</label>
+                            <div class="btn-group quick-btn-group" role="group">
+                                <button type="button" class="btn btn-outline-info" onclick="setAmount(25)">
+                                    25%
+                                </button>
+                                <button type="button" class="btn btn-outline-warning" onclick="setAmount(50)">
+                                    50%
+                                </button>
+                                <button type="button" class="btn btn-outline-success" onclick="setAmount(75)">
+                                    75%
+                                </button>
+                                <button type="button" class="btn btn-outline-danger" onclick="setAmount(100)">
+                                    100%
+                                </button>
+                            </div>
+                            <small class="d-block text-muted mt-1">% of profit per share (Auto calculated)</small>
+                        </div>
+                        
+                        <!-- ============================================ -->
+                        <!-- ALLOCATION PERCENTAGES                       -->
+                        <!-- ============================================ -->
+                        <div class="card bg-light mt-3">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-pie-chart"></i> Dividend Allocation
+                                    <span class="admin-only-badge ms-2"><i class="bi bi-shield-lock"></i> Admin Only</span>
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                
+                                <!-- Admin -->
+                                <div class="allocation-item allocation-color-admin">
+                                    <div>
+                                        <span class="fw-bold">👑 Admin</span>
+                                        <span class="badge bg-danger ms-2">5% Default</span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <input type="number" name="admin_percentage" id="adminPercent"
+                                               class="form-control percentage-input" step="0.01" min="0" max="100"
+                                               value="5" oninput="updateAllocationPreview()">
+                                        <span>%</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Store Manager -->
+                                <div class="allocation-item allocation-color-manager">
+                                    <div>
+                                        <span class="fw-bold">👔 Store Manager</span>
+                                        <span class="badge bg-warning ms-2">28% Default</span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <input type="number" name="manager_percentage" id="managerPercent"
+                                               class="form-control percentage-input" step="0.01" min="0" max="100"
+                                               value="28" oninput="updateAllocationPreview()">
+                                        <span>%</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Shareholders (Auto-calculated) -->
+                                <div class="allocation-item allocation-color-shareholders">
+                                    <div>
+                                        <span class="fw-bold">👥 Shareholders</span>
+                                        <span class="badge bg-success ms-2" id="shareholdersBadge">67% Auto</span>
+                                    </div>
+                                    <div>
+                                        <span id="shareholdersPercent" class="fw-bold text-success">67.00%</span>
+                                        <input type="hidden" name="shareholders_percentage" id="shareholdersPercentHidden" value="67">
+                                    </div>
+                                </div>
+                                
+                                <div class="warning-box mt-3">
+                                    <i class="bi bi-info-circle-fill"></i>
+                                    <strong>Note:</strong> Admin + Manager + Shareholders = 100%
+                                </div>
+                                
+                                {% if not is_admin %}
+                                <div class="alert alert-warning mt-2 mb-0">
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                    <small>You are viewing allocation settings. Only Admin can change these percentages.</small>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Allocation Preview -->
+                        <div class="allocation-preview" id="allocationPreviewSection">
+                            <h6 class="fw-bold"><i class="bi bi-eye"></i> Allocation Preview</h6>
+                            
+                            <div class="preview-card">
+                                <div class="preview-row">
+                                    <span class="label">💰 Total Dividend</span>
+                                    <span class="value" id="previewTotal">Rs. 0.00</span>
+                                </div>
+                                <div class="preview-row">
+                                    <span class="label">👑 Admin (<span id="previewAdminPercent">5</span>%)</span>
+                                    <span class="value admin" id="previewAdmin">Rs. 0.00</span>
+                                </div>
+                                <div class="preview-row">
+                                    <span class="label">👔 Store Manager (<span id="previewManagerPercent">28</span>%)</span>
+                                    <span class="value manager" id="previewManager">Rs. 0.00</span>
+                                </div>
+                                <div class="preview-row">
+                                    <span class="label">👥 Shareholders (<span id="previewShareholdersPercent">67</span>%)</span>
+                                    <span class="value shareholders" id="previewShareholders">Rs. 0.00</span>
+                                </div>
+                                <div class="preview-row total">
+                                    <span class="label">📊 Total Allocated</span>
+                                    <span class="value" id="previewAllocated">Rs. 0.00</span>
+                                </div>
+                            </div>
+                            
+                            <div id="validationMessage" class="mt-2"></div>
+                        </div>
+                        
+                        <!-- Dates -->
+                        <div class="row mt-3">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">Declaration Date <span class="text-danger">*</span></label>
+                                <input type="date" name="declaration_date" class="form-control" 
+                                       value="{{ today }}" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">Record Date <span class="text-danger">*</span></label>
+                                <input type="date" name="record_date" class="form-control" 
+                                       value="{{ today }}" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">Payment Date</label>
+                                <input type="date" name="payment_date" class="form-control">
+                            </div>
+                        </div>
+                        
+                        <!-- Options -->
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" name="is_interim" class="form-check-input" id="isInterim">
+                                <label class="form-check-label" for="isInterim">
+                                    ☑ Interim Dividend (Paid during the year)
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Notes -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Notes</label>
+                            <textarea name="notes" class="form-control" rows="2" 
+                                      placeholder="e.g., Auto dividend based on profit"></textarea>
+                        </div>
+                        
+                        <!-- Submit -->
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success btn-lg" id="submitBtn">
+                                <i class="bi bi-cash-stack"></i> Create Dividend
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Auto Guide -->
+    <div class="card mt-4">
+        <div class="card-header bg-light">
+            <h6 class="mb-0"><i class="bi bi-question-circle"></i> Auto Calculation Guide</h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Auto Formula:</h6>
+                    <code class="d-block bg-dark text-light p-2 rounded">
+                        Profit = Sales - Purchases - Expenses (Auto)<br>
+                        Per Share = (Profit × Dividend %) ÷ Total Shares (Auto)
+                    </code>
+                </div>
+                <div class="col-md-6">
+                    <h6>Your Auto Data:</h6>
+                    <ul class="list-unstyled">
+                        <li><i class="bi bi-check-circle text-success"></i> Profit: <strong>Rs. {{ total_profit|floatformat:0 }}</strong> (Auto)</li>
+                        <li><i class="bi bi-check-circle text-success"></i> Shares: <strong>{{ total_shares|floatformat:0 }}</strong> (Auto)</li>
+                        <li><i class="bi bi-check-circle text-success"></i> 50% Dividend: <strong>Rs. {{ recommended_50|floatformat:2 }}/share</strong></li>
+                        <li><i class="bi bi-check-circle text-success"></i> 100% Dividend: <strong>Rs. {{ max_per_share|floatformat:2 }}/share</strong></li>
+                    </ul>
+                    <div class="alert alert-info">
+                        <small><i class="bi bi-lightbulb"></i> All calculations are automatic! Just click a percentage button or enter amount.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const totalShares = {{ total_shares|default:0 }};
+    const totalProfit = {{ total_profit|default:0 }};
+    const maxPerShare = {{ max_per_share|default:0 }};
+    const isAdmin = {{ is_admin|yesno:"true,false" }};
+    const isStoreManager = {{ is_store_manager|yesno:"true,false" }};
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        const amountInput = document.getElementById('amountPerShare');
+        const previewDiv = document.getElementById('calculationPreview');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        // Initial preview
+        if (amountInput.value) {
+            updatePreview(parseFloat(amountInput.value) || 0);
+            updateAllocationPreview();
+        }
+        
+        // Live preview
+        amountInput.addEventListener('input', function() {
+            const amount = parseFloat(this.value) || 0;
+            updatePreview(amount);
+            updateAllocationPreview();
+        });
+        
+        function updatePreview(amount) {
+            const totalDividend = amount * totalShares;
+            const exceedsProfit = totalDividend > totalProfit;
+            const remainingProfit = totalProfit - totalDividend;
+            
+            let html = `
+                <div class="alert ${exceedsProfit ? 'alert-danger' : 'alert-info'} mt-2">
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>Total Dividend:</strong> Rs. ${totalDividend.toFixed(2)}
+                        </div>
+                        <div class="col-6">
+                            <strong>Total Shares:</strong> ${totalShares}
+                        </div>
+                    </div>
+                    <div class="row mt-1">
+                        <div class="col-6">
+                            <strong>Profit:</strong> Rs. ${totalProfit.toFixed(2)}
+                        </div>
+                        <div class="col-6">
+                            <strong>Status:</strong> 
+                            ${exceedsProfit ? 
+                                '<span class="text-danger">❌ EXCEEDS profit by Rs. ' + Math.abs(remainingProfit).toFixed(2) + '</span>' : 
+                                '<span class="text-success">✅ Within profit (Remaining: Rs. ' + remainingProfit.toFixed(2) + ')</span>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+            previewDiv.innerHTML = html;
+            
+            // Auto enable/disable
+            submitBtn.disabled = exceedsProfit || amount <= 0;
+            if (exceedsProfit) {
+                submitBtn.classList.remove('btn-success');
+                submitBtn.classList.add('btn-danger');
+                submitBtn.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Invalid - Exceeds Profit!';
+            } else if (amount <= 0) {
+                submitBtn.classList.remove('btn-success');
+                submitBtn.classList.add('btn-secondary');
+                submitBtn.innerHTML = '<i class="bi bi-cash-stack"></i> Enter Amount First';
+            } else {
+                submitBtn.classList.remove('btn-danger', 'btn-secondary');
+                submitBtn.classList.add('btn-success');
+                submitBtn.innerHTML = '<i class="bi bi-cash-stack"></i> Create Dividend';
+            }
+        }
+    });
+    
+    function setAmount(percent) {
+        const amount = (maxPerShare * percent) / 100;
+        document.getElementById('amountPerShare').value = amount.toFixed(2);
+        document.getElementById('amountPerShare').dispatchEvent(new Event('input'));
+        updateAllocationPreview();
+    }
+    
+    // ============================================
+    // ALLOCATION PREVIEW FUNCTION
+    // ============================================
+    function updateAllocationPreview() {
+        const amountPerShare = parseFloat(document.getElementById('amountPerShare').value) || 0;
+        let adminPercent = parseFloat(document.getElementById('adminPercent').value) || 0;
+        let managerPercent = parseFloat(document.getElementById('managerPercent').value) || 0;
+        
+        // Validate
+        adminPercent = Math.min(100, Math.max(0, adminPercent));
+        managerPercent = Math.min(100, Math.max(0, managerPercent));
+        
+        let totalPercent = adminPercent + managerPercent;
+        let shareholdersPercent = 100 - totalPercent;
+        
+        if (shareholdersPercent < 0) {
+            shareholdersPercent = 0;
+            document.getElementById('validationMessage').innerHTML = 
+                '<div class="alert alert-danger">❌ Admin + Manager cannot exceed 100%!</div>';
+            document.getElementById('submitBtn').disabled = true;
+        } else {
+            document.getElementById('validationMessage').innerHTML = '';
+            const amount = parseFloat(document.getElementById('amountPerShare').value) || 0;
+            if (amount > 0 && (amount * totalShares) <= totalProfit) {
+                document.getElementById('submitBtn').disabled = false;
+            }
+        }
+        
+        // Update display
+        document.getElementById('shareholdersPercent').textContent = shareholdersPercent.toFixed(2) + '%';
+        document.getElementById('shareholdersPercentHidden').value = shareholdersPercent;
+        document.getElementById('shareholdersBadge').textContent = shareholdersPercent.toFixed(1) + '% Auto';
+        
+        // Calculate amounts
+        const totalDividend = amountPerShare * totalShares;
+        const adminAmount = (adminPercent / 100) * totalDividend;
+        const managerAmount = (managerPercent / 100) * totalDividend;
+        const shareholdersAmount = (shareholdersPercent / 100) * totalDividend;
+        
+        // Update preview
+        document.getElementById('previewTotal').textContent = 'Rs. ' + totalDividend.toFixed(2);
+        document.getElementById('previewAdmin').textContent = 'Rs. ' + adminAmount.toFixed(2);
+        document.getElementById('previewManager').textContent = 'Rs. ' + managerAmount.toFixed(2);
+        document.getElementById('previewShareholders').textContent = 'Rs. ' + shareholdersAmount.toFixed(2);
+        document.getElementById('previewAllocated').textContent = 'Rs. ' + (adminAmount + managerAmount + shareholdersAmount).toFixed(2);
+        
+        // Update percentage displays
+        document.getElementById('previewAdminPercent').textContent = adminPercent.toFixed(1);
+        document.getElementById('previewManagerPercent').textContent = managerPercent.toFixed(1);
+        document.getElementById('previewShareholdersPercent').textContent = shareholdersPercent.toFixed(1);
+    }
+    
+    // Allocation input events
+    document.getElementById('adminPercent').addEventListener('input', updateAllocationPreview);
+    document.getElementById('managerPercent').addEventListener('input', updateAllocationPreview);
+    
+    // Disable allocation inputs for non-admin
+    if (!isAdmin) {
+        document.getElementById('adminPercent').disabled = true;
+        document.getElementById('managerPercent').disabled = true;
+        document.getElementById('adminPercent').style.background = '#f3f4f6';
+        document.getElementById('managerPercent').style.background = '#f3f4f6';
+        document.getElementById('adminPercent').style.cursor = 'not-allowed';
+        document.getElementById('managerPercent').style.cursor = 'not-allowed';
+    }
+</script>
+{% endblock %}

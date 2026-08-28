@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Daily Summary{% endblock %}
+{% block page_title %}📅 Daily Summary Report{% endblock %}
+
+{% block extra_css %}
+<style>
+    .daily-card { background: white; border-radius: 12px; padding: 15px; text-align: center; border: 1px solid #e9ecef; }
+    .daily-value { font-size: 28px; font-weight: 800; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col-md-4"><form method="post">{% csrf_token %} method="GET" class="d-flex gap-2"><input type="date" name="date" class="form-control" value="{{ report_date|date:'Y-m-d' }}"><button type="submit" class="btn btn-primary">Load</button></form></div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-3"><div class="daily-card"><div class="small text-muted">Total Sales</div><div class="daily-value">PKR {{ total_sales|floatformat:0 }}</div><div class="small">{{ sales_count }} invoices</div></div></div>
+        <div class="col-md-3"><div class="daily-card"><div class="small text-muted">Total Profit</div><div class="daily-value">PKR {{ total_profit|floatformat:0 }}</div></div></div>
+        <div class="col-md-3"><div class="daily-card"><div class="small text-muted">Total Purchases</div><div class="daily-value">PKR {{ total_purchases|floatformat:0 }}</div></div></div>
+        <div class="col-md-3"><div class="daily-card"><div class="small text-muted">Net Income</div><div class="daily-value">PKR {{ net_income|floatformat:0 }}</div></div></div>
+    </div>
+
+    <div class="row mt-3"><div class="col-12"><div class="card"><div class="card-header bg-white"><strong>Daily Breakdown for {{ report_date|date:"d F Y" }}</strong></div>
+        <div class="card-body"><table class="table table-bordered">
+            <tr><th>Metric</th><th>Value</th></tr>
+            <tr><td>Sales Revenue</td><td class="text-end">PKR {{ total_sales|floatformat:2 }}</td></tr>
+            <tr><td>Cost of Purchases</td><td class="text-end">PKR {{ total_purchases|floatformat:2 }}</td></tr>
+            <tr><td>Operating Expenses</td><td class="text-end">PKR {{ total_expenses|floatformat:2 }}</td></tr>
+            <tr class="table-light"><td><strong>Net Income</strong></td><td class="text-end"><strong>PKR {{ net_income|floatformat:2 }}</strong></td></tr>
+        </table></div></div></div></div>
+</div>
+{% endblock %}

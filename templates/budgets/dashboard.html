@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Budget Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    
+    <!-- ========================================== -->
+    <!-- PAGE HEADER                                -->
+    <!-- ========================================== -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-wallet2 text-primary"></i> Budget Dashboard</h2>
+            <p class="text-muted">Real-time budget utilization and financial overview</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'budget_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Create Budget
+            </a>
+            <a href="{% url 'budget_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-list"></i> All Budgets
+            </a>
+            <a href="{% url 'budget_report' %}" class="btn btn-outline-info">
+                <i class="bi bi-graph-up"></i> Reports
+            </a>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- QUICK STATS CARDS                         -->
+    <!-- ========================================== -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-uppercase small opacity-75">Total Budgets</h6>
+                    <h2 class="mb-0">{{ quick_stats.total_budgets }}</h2>
+                    <small>Active budgets</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-uppercase small opacity-75">Total Allocated</h6>
+                    <h2 class="mb-0">Rs. {{ quick_stats.total_allocated|floatformat:0|intcomma }}</h2>
+                    <small>Total budget allocation</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-uppercase small opacity-75">Total Used</h6>
+                    <h2 class="mb-0">Rs. {{ quick_stats.total_used|floatformat:0|intcomma }}</h2>
+                    <small>{{ quick_stats.utilization_percent|floatformat:1 }}% utilized</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-uppercase small opacity-75">Total Remaining</h6>
+                    <h2 class="mb-0">Rs. {{ quick_stats.total_remaining|floatformat:0|intcomma }}</h2>
+                    <small>Available balance</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- ALERT BADGES                              -->
+    <!-- ========================================== -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card border-danger shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-danger"><i class="bi bi-exclamation-triangle"></i> Critical</h6>
+                    <h3>{{ quick_stats.critical_count }}</h3>
+                    <small>Budgets at 95%+ utilization</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-warning shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-warning"><i class="bi bi-exclamation-circle"></i> Near Limit</h6>
+                    <h3>{{ quick_stats.near_limit_count }}</h3>
+                    <small>Budgets at 80-95% utilization</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-danger shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-danger"><i class="bi bi-arrow-up-circle"></i> Over Budget</h6>
+                    <h3>{{ quick_stats.over_budget_count }}</h3>
+                    <small>Budgets exceeding allocation</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- ACTIVE BUDGETS TABLE                      -->
+    <!-- ========================================== -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h6 class="mb-0"><i class="bi bi-list-ul text-primary"></i> Active Budgets</h6>
+            <span class="badge bg-secondary">{{ active_budgets|length }} active</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Budget</th>
+                            <th>Type</th>
+                            <th>Department</th>
+                            <th class="text-end">Allocated</th>
+                            <th class="text-end">Used</th>
+                            <th class="text-end">Remaining</th>
+                            <th class="text-center">Utilization</th>
+                            <th class="text-center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for budget in active_budgets %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'budget_detail' budget.id %}" class="text-decoration-none fw-bold">
+                                    {{ budget.name }}
+                                </a>
+                                <br>
+                                <small class="text-muted">{{ budget.budget_no }}</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-info">{{ budget.get_budget_type_display }}</span>
+                            </td>
+                            <td>{{ budget.department.name|default:"-" }}</td>
+                            <td class="text-end fw-bold">Rs. {{ budget.allocated_amount|floatformat:0|intcomma }}</td>
+                            <td class="text-end text-warning">Rs. {{ budget.used_amount|floatformat:0|intcomma }}</td>
+                            <td class="text-end {% if budget.remaining_amount < 0 %}text-danger{% else %}text-success{% endif %}">
+                                Rs. {{ budget.remaining_amount|floatformat:0|intcomma }}
+                            </td>
+                            <td class="text-center">
+                                <div class="progress" style="height:8px;">
+                                    <div class="progress-bar {% if budget.utilization_percent >= 95 %}bg-danger{% elif budget.utilization_percent >= 80 %}bg-warning{% else %}bg-success{% endif %}" 
+                                         style="width: {{ budget.utilization_percent|floatformat:1 }}%;">
+                                    </div>
+                                </div>
+                                <small>{{ budget.utilization_percent|floatformat:1 }}%</small>
+                            </td>
+                            <td class="text-center">
+                                {% if budget.is_over_budget %}
+                                    <span class="badge bg-danger">⚠️ Over</span>
+                                {% elif budget.utilization_percent >= 95 %}
+                                    <span class="badge bg-danger">🔴 Critical</span>
+                                {% elif budget.utilization_percent >= 80 %}
+                                    <span class="badge bg-warning text-dark">🟡 Near</span>
+                                {% else %}
+                                    <span class="badge bg-success">✅ On Track</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-muted">
+                                <i class="bi bi-inbox fs-1 d-block"></i>
+                                <p>No active budgets found</p>
+                                <a href="{% url 'budget_create' %}" class="btn btn-primary btn-sm">
+                                    <i class="bi bi-plus-circle"></i> Create Your First Budget
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer bg-white">
+            <a href="{% url 'budget_list' %}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-arrow-right"></i> View All Budgets
+            </a>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- DEPARTMENT WISE SUMMARY                   -->
+    <!-- ========================================== -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-building text-primary"></i> Department Wise Summary</h6>
+                </div>
+                <div class="card-body">
+                    {% if department_summary %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Department</th>
+                                    <th class="text-end">Budget</th>
+                                    <th class="text-end">Used</th>
+                                    <th class="text-center">Utilization</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for dept in department_summary %}
+                                <tr>
+                                    <td>
+                                        <span class="fw-bold">{{ dept.name }}</span>
+                                        <br>
+                                        <small class="text-muted">{{ dept.budget_count }} budgets</small>
+                                    </td>
+                                    <td class="text-end">Rs. {{ dept.allocated|floatformat:0|intcomma }}</td>
+                                    <td class="text-end">Rs. {{ dept.used|floatformat:0|intcomma }}</td>
+                                    <td class="text-center">
+                                        <div class="progress" style="height:6px;">
+                                            <div class="progress-bar {% if dept.utilization >= 95 %}bg-danger{% elif dept.utilization >= 80 %}bg-warning{% else %}bg-success{% endif %}" 
+                                                 style="width: {{ dept.utilization|floatformat:1 }}%;">
+                                            </div>
+                                        </div>
+                                        <small>{{ dept.utilization|floatformat:1 }}%</small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-building fs-1 d-block"></i>
+                        <p>No department data available</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- ========================================== -->
+        <!-- TREND CHART                               -->
+        <!-- ========================================== -->
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-graph-up text-primary"></i> Budget Trend (Last 6 Months)</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="budgetTrendChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+</div>
+
+<!-- ========================================== -->
+<!-- CHART.JS SCRIPT                           -->
+<!-- ========================================== -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var ctx = document.getElementById('budgetTrendChart').getContext('2d');
+        var data = {{ trend_data|safe }};
+        
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.map(d => d.month),
+                datasets: [
+                    {
+                        label: 'Allocated',
+                        data: data.map(d => d.allocated),
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Used',
+                        data: data.map(d => d.used),
+                        borderColor: '#f093fb',
+                        backgroundColor: 'rgba(240, 147, 251, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'Rs. ' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

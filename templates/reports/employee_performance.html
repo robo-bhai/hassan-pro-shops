@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Employee Performance{% endblock %}
+{% block page_title %}👔 Employee Performance Report{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filter-bar { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e9ecef; }
+    .employee-card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 12px; border: 1px solid #e9ecef; transition: all 0.2s; }
+    .employee-card:hover { transform: translateX(5px); background: #f8f9fc; }
+    .rank-1 { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: white; }
+    .rank-2 { background: linear-gradient(135deg, #94a3b8, #64748b); color: white; }
+    .rank-3 { background: linear-gradient(135deg, #d97706, #b45309); color: white; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="filter-bar">
+        <form method="post">{% csrf_token %} method="GET" class="row g-3 align-items-end">
+            <div class="col-md-4"><label class="form-label small">From Date</label><input type="date" name="from_date" class="form-control" value="{{ from_date }}"></div>
+            <div class="col-md-4"><label class="form-label small">To Date</label><input type="date" name="to_date" class="form-control" value="{{ to_date }}"></div>
+            <div class="col-md-4"><button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> Show Report</button></div>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-white"><strong><i class="bi bi-person-badge"></i> Employee Sales Performance</strong></div>
+        <div class="card-body">
+            {% for emp in employee_sales %}
+            <div class="employee-card">
+                <div class="d-flex justify-content-between flex-wrap">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="rank-1 rounded-circle text-center fw-bold" style="width: 40px; height: 40px; line-height: 40px;">{{ emp.rank }}</div>
+                        <div><strong>{{ emp.created_by__first_name|default:emp.created_by__username }}</strong><br><small class="text-muted">{{ emp.sale_count }} sales</small></div>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-bold">PKR {{ emp.total_sales|floatformat:0 }}</div>
+                        <div><small>Profit: PKR {{ emp.net_profit|floatformat:0 }}</small></div>
+                    </div>
+                </div>
+                <div class="mt-2"><div class="progress" style="height: 6px;"><div class="progress-bar bg-primary" style="width: {% widthratio emp.total_sales employee_sales.0.total_sales 100 %}%"></div></div></div>
+            </div>
+            {% empty %}<div class="text-center text-muted py-5">No employee sales data available</div>{% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

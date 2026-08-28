@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Share Transfers{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>🔄 Share Transfers</h1>
+        <a href="{% url 'share_transfer_create' %}" class="btn btn-primary">➕ New Transfer</a>
+    </div>
+    
+    <div class="card">
+        <div class="card-body">
+            <form method="GET" class="row g-3 mb-3">
+                <div class="col-md-5">
+                    <input type="text" name="search" class="form-control" placeholder="Search by transfer # or shareholder..." value="{{ search }}">
+                </div>
+                <div class="col-md-5">
+                    <select name="status" class="form-select">
+                        <option value="">All Status</option>
+                        <option value="pending" {% if status == 'pending' %}selected{% endif %}>Pending</option>
+                        <option value="approved" {% if status == 'approved' %}selected{% endif %}>Approved</option>
+                        <option value="completed" {% if status == 'completed' %}selected{% endif %}>Completed</option>
+                        <option value="rejected" {% if status == 'rejected' %}selected{% endif %}>Rejected</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Filter</button>
+                </div>
+            </form>
+            
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Transfer #</th>
+                            <th>From</th>
+                            <th>To</th>
+                            <th>Qty</th>
+                            <th>Price</th>
+                            <th>Total Value</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for transfer in page_obj %}
+                        <tr>
+                            <td><span class="badge bg-secondary">{{ transfer.transfer_no }}</span></td>
+                            <td>{{ transfer.from_shareholder.name }}</td>
+                            <td>{{ transfer.to_shareholder.name }}</td>
+                            <td><strong>{{ transfer.quantity|floatformat:0 }}</strong></td>
+                            <td>Rs. {{ transfer.transfer_price|floatformat:2 }}</td>
+                            <td>Rs. {{ transfer.total_value|floatformat:2 }}</td>
+                            <td>{{ transfer.status_badge|safe }}</td>
+                            <td>{{ transfer.transfer_date|date:'d-m-Y' }}</td>
+                            <td>
+                                <a href="{% url 'share_transfer_detail' transfer.pk %}" class="btn btn-sm btn-primary">View</a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="9" class="text-center">No transfers found</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            {% include "includes/pagination.html" %}
+        </div>
+    </div>
+</div>
+{% endblock %}

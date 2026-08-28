@@ -1,0 +1,512 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Balance Detail - {{ shareholder.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3 px-lg-4">
+    <!-- Page Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 mb-md-4">
+        <div>
+            <h1 class="h4 h-md-3 mb-0 text-gray-800">
+                💰 Balance Detail - {{ shareholder.name }}
+            </h1>
+            <p class="text-muted small mb-0">
+                <span class="badge bg-secondary">{{ shareholder.shareholder_code }}</span>
+                {{ shareholder.get_shareholder_type_display }}
+            </p>
+        </div>
+        
+        <!-- Professional Buttons -->
+        <div class="d-flex flex-wrap gap-1 gap-md-2 mt-2 mt-md-0">
+            <a href="{% url 'shareholder_deposit' shareholder.id %}" 
+               class="btn btn-success btn-sm px-3 px-md-4 py-1 py-md-2 rounded-pill shadow-sm">
+                <i class="bi bi-plus-circle me-1"></i> 
+                <span class="d-none d-sm-inline">Deposit</span>
+                <span class="d-inline d-sm-none">Dep</span>
+            </a>
+            <a href="{% url 'shareholder_withdraw' shareholder.id %}" 
+               class="btn btn-warning btn-sm px-3 px-md-4 py-1 py-md-2 rounded-pill shadow-sm">
+                <i class="bi bi-dash-circle me-1"></i> 
+                <span class="d-none d-sm-inline">Withdraw</span>
+                <span class="d-inline d-sm-none">Wd</span>
+            </a>
+            <a href="{% url 'shareholder_transfer_balance' shareholder.id %}" 
+               class="btn btn-info btn-sm px-3 px-md-4 py-1 py-md-2 rounded-pill shadow-sm text-white">
+                <i class="bi bi-arrow-left-right me-1"></i> 
+                <span class="d-none d-sm-inline">Transfer</span>
+                <span class="d-inline d-sm-none">Trf</span>
+            </a>
+            <a href="{% url 'shareholder_balance_report_pdf' shareholder.id %}" 
+               class="btn btn-danger btn-sm px-3 px-md-4 py-1 py-md-2 rounded-pill shadow-sm" target="_blank">
+                <i class="bi bi-file-pdf me-1"></i> 
+                <span class="d-none d-sm-inline">PDF</span>
+                <span class="d-inline d-sm-none">PDF</span>
+            </a>
+            <a href="{% url 'shareholder_transactions_export' shareholder.id %}" 
+               class="btn btn-success btn-sm px-3 px-md-4 py-1 py-md-2 rounded-pill shadow-sm">
+                <i class="bi bi-file-excel me-1"></i> 
+                <span class="d-none d-sm-inline">Excel</span>
+                <span class="d-inline d-sm-none">XLS</span>
+            </a>
+            {% if request.user.is_superuser %}
+            <a href="{% url 'shareholder_adjust_balance' shareholder.id %}" 
+               class="btn btn-outline-danger btn-sm px-3 px-md-4 py-1 py-md-2 rounded-pill shadow-sm">
+                <i class="bi bi-tools me-1"></i> 
+                <span class="d-none d-sm-inline">Adjust</span>
+                <span class="d-inline d-sm-none">Adj</span>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Shareholder Info Cards -->
+    <div class="row g-2 g-md-3 mb-3 mb-md-4">
+        <div class="col-6 col-md-3">
+            <div class="card bg-primary text-white shadow-sm h-100">
+                <div class="card-body p-2 p-md-3">
+                    <h6 class="card-title mb-0 small text-uppercase">Current Balance</h6>
+                    <h2 class="mb-0 fs-6 fs-md-2">Rs. {{ balance|floatformat:2 }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card bg-success text-white shadow-sm h-100">
+                <div class="card-body p-2 p-md-3">
+                    <h6 class="card-title mb-0 small text-uppercase">Total Shares</h6>
+                    <h2 class="mb-0 fs-6 fs-md-2">{{ total_shares|floatformat:0 }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card bg-info text-white shadow-sm h-100">
+                <div class="card-body p-2 p-md-3">
+                    <h6 class="card-title mb-0 small text-uppercase">Total Investment</h6>
+                    <h2 class="mb-0 fs-6 fs-md-2">Rs. {{ total_investment|floatformat:2 }}</h2>
+                </div>
+            </div>
+        </div>
+        <!-- ✅ NEW: Dividends Card (Replaced Profit/Loss) -->
+        <div class="col-6 col-md-3">
+            <div class="card bg-warning text-dark shadow-sm h-100">
+                <div class="card-body p-2 p-md-3">
+                    <h6 class="card-title mb-0 small text-uppercase">💰 Total Dividends</h6>
+                    <h2 class="mb-0 fs-6 fs-md-2">Rs. {{ total_dividends|floatformat:2 }}</h2>
+                    <small class="d-block">Received so far</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dividend Percentage Card (Optional - Extra Info) -->
+    <div class="row g-2 g-md-3 mb-3 mb-md-4">
+        <div class="col-12">
+            <div class="card bg-light shadow-sm">
+                <div class="card-body p-2 p-md-3">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <h6 class="mb-0 small">📊 Dividend Performance</h6>
+                        </div>
+                        <div class="col-md-6 text-md-end">
+                            <span class="badge bg-success fs-6 py-2 px-3">
+                                {% if total_investment > 0 %}
+                                    {{ total_dividend_percent|floatformat:1 }}% Return
+                                {% else %}
+                                    0% Return
+                                {% endif %}
+                            </span>
+                            <small class="text-muted ms-2">
+                                (Dividends / Investment × 100)
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pending Items -->
+    <div class="row g-2 g-md-3 mb-3 mb-md-4">
+        {% if pending_dividends %}
+        <div class="col-12 col-md-6">
+            <div class="card border-warning h-100">
+                <div class="card-header bg-warning py-1 py-md-2">
+                    <h6 class="mb-0 small"><i class="bi bi-clock"></i> ⏳ Pending Dividends</h6>
+                </div>
+                <div class="card-body p-2 p-md-3">
+                    <ul class="list-unstyled mb-0">
+                        {% for payment in pending_dividends %}
+                        <li class="d-flex justify-content-between align-items-center border-bottom py-1">
+                            <span class="small">{{ payment.dividend.dividend_no }}</span>
+                            <span class="badge bg-warning small">Rs. {{ payment.amount|floatformat:2 }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if pending_transfers_out or pending_transfers_in %}
+        <div class="col-12 col-md-6">
+            <div class="card border-info h-100">
+                <div class="card-header bg-info text-white py-1 py-md-2">
+                    <h6 class="mb-0 small"><i class="bi bi-arrow-left-right"></i> 🔄 Pending Transfers</h6>
+                </div>
+                <div class="card-body p-2 p-md-3">
+                    {% for transfer in pending_transfers_out %}
+                    <div class="d-flex justify-content-between align-items-center border-bottom py-1">
+                        <span class="small">📤 Out to {{ transfer.to_shareholder.name }}</span>
+                        <span class="badge bg-warning small">{{ transfer.quantity }} shares</span>
+                    </div>
+                    {% endfor %}
+                    {% for transfer in pending_transfers_in %}
+                    <div class="d-flex justify-content-between align-items-center border-bottom py-1">
+                        <span class="small">📥 In from {{ transfer.from_shareholder.name }}</span>
+                        <span class="badge bg-primary small">{{ transfer.quantity }} shares</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Transaction Filters -->
+    <div class="card shadow-sm mb-3 mb-md-4">
+        <div class="card-header bg-white py-2">
+            <h6 class="mb-0 small"><i class="bi bi-funnel"></i> Transaction Filters</h6>
+        </div>
+        <div class="card-body p-2 p-md-3">
+            <form method="GET" class="row g-2 g-md-3">
+                <div class="col-6 col-md-3">
+                    <label class="form-label small text-muted mb-0">Type</label>
+                    <select name="type" class="form-select form-select-sm">
+                        <option value="">All Types</option>
+                        {% for type, label in transaction_types %}
+                        <option value="{{ type }}" {% if selected_type == type %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small text-muted mb-0">From Date</label>
+                    <input type="date" name="date_from" class="form-control form-control-sm" value="{{ date_from }}">
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small text-muted mb-0">To Date</label>
+                    <input type="date" name="date_to" class="form-control form-control-sm" value="{{ date_to }}">
+                </div>
+                <div class="col-6 col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="bi bi-filter"></i> <span class="d-none d-sm-inline">Apply</span>
+                    </button>
+                    <a href="{% url 'shareholder_balance_detail' shareholder.id %}" class="btn btn-outline-secondary btn-sm ms-1 ms-md-2">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Transaction Summary by Type -->
+    {% if type_summary %}
+    <div class="card shadow-sm mb-3 mb-md-4">
+        <div class="card-header bg-white py-2">
+            <h6 class="mb-0 small">Transaction Summary by Type</h6>
+        </div>
+        <div class="card-body p-2 p-md-3">
+            <div class="row g-1 g-md-2">
+                {% for key, data in type_summary.items %}
+                <div class="col-6 col-md-3">
+                    <div class="border rounded p-1 p-md-2 text-center">
+                        <div class="small fw-bold">{{ data.label }}</div>
+                        <div class="small">{{ data.count }} transactions</div>
+                        <div class="text-muted small">Rs. {{ data.total_amount|floatformat:2 }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Transaction Table -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white py-2 d-flex flex-wrap justify-content-between align-items-center">
+            <h6 class="mb-0 small"><i class="bi bi-list-ul"></i> Transaction History</h6>
+            <span class="badge bg-secondary">{{ page_obj.paginator.count }} records</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th class="d-none d-sm-table-cell">Date</th>
+                            <th class="d-sm-none">Date/Time</th>
+                            <th>Type</th>
+                            <th class="d-none d-md-table-cell">Description</th>
+                            <th>Amount</th>
+                            <th class="d-none d-lg-table-cell">Balance After</th>
+                            <th class="d-none d-sm-table-cell">By</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for trans in page_obj %}
+                        <tr>
+                            <td class="d-none d-sm-table-cell small">{{ trans.created_at|date:"d-m-Y" }}</td>
+                            <td class="d-sm-none small">{{ trans.created_at|date:"d-m H:i" }}</td>
+                            <td>
+                                <span class="badge {% if trans.is_deposit %}bg-success{% else %}bg-danger{% endif %}" style="font-size:0.6rem;">
+                                    {{ trans.get_transaction_type_display }}
+                                </span>
+                            </td>
+                            <td class="d-none d-md-table-cell small">{{ trans.description|truncatechars:30 }}</td>
+                            <td class="{% if trans.is_deposit %}text-success{% else %}text-danger{% endif %} small fw-bold">
+                                {% if trans.is_deposit %}+{% else %}-{% endif %}Rs. {{ trans.amount|floatformat:2 }}
+                            </td>
+                            <td class="d-none d-lg-table-cell small">Rs. {{ trans.balance_after|floatformat:2 }}</td>
+                            <td class="d-none d-sm-table-cell small">{{ trans.created_by.username|default:"System" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4">
+                                <i class="bi bi-inbox fs-3 d-block"></i>
+                                <p class="text-muted small">No transactions found</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="card-footer bg-white py-2">
+            <nav aria-label="Page navigation">
+                <ul class="pagination pagination-sm justify-content-center mb-0 flex-wrap">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">
+                                {{ num }}
+                            </a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Professional Button Styles */
+    .btn {
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        transition: all 0.3s ease;
+        border: none;
+    }
+    
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.15) !important;
+    }
+    
+    .btn:active {
+        transform: translateY(0px);
+    }
+    
+    .btn-success {
+        background: linear-gradient(135deg, #28a745, #20c997);
+    }
+    
+    .btn-success:hover {
+        background: linear-gradient(135deg, #218838, #1aa87a);
+    }
+    
+    .btn-warning {
+        background: linear-gradient(135deg, #ffc107, #fd7e14);
+        color: #212529;
+    }
+    
+    .btn-warning:hover {
+        background: linear-gradient(135deg, #e0a800, #e06b00);
+        color: #212529;
+    }
+    
+    .btn-info {
+        background: linear-gradient(135deg, #17a2b8, #0dcaf0);
+        color: white;
+    }
+    
+    .btn-info:hover {
+        background: linear-gradient(135deg, #138496, #0ab8d4);
+        color: white;
+    }
+    
+    .btn-danger {
+        background: linear-gradient(135deg, #dc3545, #e74c3c);
+    }
+    
+    .btn-danger:hover {
+        background: linear-gradient(135deg, #c82333, #c0392b);
+    }
+    
+    .btn-outline-danger {
+        border: 2px solid #dc3545;
+        color: #dc3545;
+        background: transparent;
+    }
+    
+    .btn-outline-danger:hover {
+        background: linear-gradient(135deg, #dc3545, #e74c3c);
+        color: white;
+        border-color: transparent;
+    }
+    
+    .rounded-pill {
+        border-radius: 50px !important;
+    }
+    
+    .shadow-sm {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+    }
+    
+    /* Mobile Responsive */
+    @media (max-width: 576px) {
+        .btn {
+            font-size: 0.65rem !important;
+            padding: 0.2rem 0.8rem !important;
+        }
+        .btn i {
+            font-size: 0.7rem;
+        }
+        .gap-1 {
+            gap: 0.2rem !important;
+        }
+        .card-body {
+            padding: 0.5rem !important;
+        }
+        .card-header {
+            padding: 0.4rem 0.5rem !important;
+        }
+        .table td, .table th {
+            padding: 0.2rem 0.2rem !important;
+            font-size: 0.6rem !important;
+        }
+        .badge {
+            font-size: 0.5rem !important;
+            padding: 0.1rem 0.3rem !important;
+        }
+        .pagination-sm .page-link {
+            padding: 0.15rem 0.3rem !important;
+            font-size: 0.6rem !important;
+        }
+        h1 {
+            font-size: 1rem !important;
+        }
+        .fs-6 {
+            font-size: 0.7rem !important;
+        }
+        .form-select-sm, .form-control-sm {
+            font-size: 0.6rem !important;
+            padding: 0.15rem 0.3rem !important;
+        }
+    }
+
+    @media (min-width: 577px) and (max-width: 768px) {
+        .btn {
+            font-size: 0.7rem !important;
+            padding: 0.25rem 1rem !important;
+        }
+        .card-body {
+            padding: 0.6rem !important;
+        }
+        .table td, .table th {
+            padding: 0.3rem 0.3rem !important;
+            font-size: 0.65rem !important;
+        }
+        .fs-6 {
+            font-size: 0.8rem !important;
+        }
+        h1 {
+            font-size: 1.1rem !important;
+        }
+    }
+
+    /* Very small screens */
+    @media (max-width: 360px) {
+        .table td, .table th {
+            padding: 0.1rem 0.1rem !important;
+            font-size: 0.5rem !important;
+        }
+        .badge {
+            font-size: 0.4rem !important;
+            padding: 0.05rem 0.2rem !important;
+        }
+        .btn {
+            font-size: 0.5rem !important;
+            padding: 0.1rem 0.2rem !important;
+        }
+        .pagination-sm .page-link {
+            padding: 0.1rem 0.2rem !important;
+            font-size: 0.5rem !important;
+        }
+        .fs-6 {
+            font-size: 0.55rem !important;
+        }
+        h1 {
+            font-size: 0.8rem !important;
+        }
+    }
+
+    /* Touch friendly */
+    .btn {
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .card {
+        border-radius: 0.5rem !important;
+    }
+
+    .table-responsive {
+        border-radius: 0.5rem;
+    }
+
+    /* Hover effect for touch devices */
+    @media (hover: none) {
+        .btn:hover {
+            transform: none !important;
+        }
+        .btn:active {
+            transform: scale(0.95);
+        }
+    }
+</style>
+{% endblock %}

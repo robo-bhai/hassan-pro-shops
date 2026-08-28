@@ -1,0 +1,422 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+{% load custom_filters %}
+
+{% block title %}Installment Details - {{ installment.sale.bill_no }}{% endblock %}
+{% block page_title %}📋 Installment Details: {{ installment.sale.bill_no }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .payment-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        padding: 20px;
+        color: white;
+        margin-bottom: 20px;
+    }
+    .emi-table th {
+        background: #1a1d2e;
+        color: white;
+    }
+    .overdue-row {
+        background-color: #fff3cd !important;
+    }
+    .paid-row {
+        background-color: #d4edda !important;
+    }
+    .progress-circle {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: conic-gradient(#28a745 0deg, #e9ecef 0deg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+    }
+    .progress-circle span {
+        font-size: 24px;
+        font-weight: bold;
+    }
+    .amount-decimal {
+        font-family: monospace;
+        font-size: 0.9rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Back Button -->
+    <div class="mb-3">
+        <a href="{% url 'installment_list' %}" class="btn btn-secondary">
+            ← Back to Installments
+        </a>
+        <a href="{% url 'installment_pdf' installment.id %}" class="btn btn-danger" target="_blank">
+            📄 Download PDF
+        </a>
+        <a href="{% url 'sale_detail' installment.sale.id %}" class="btn btn-info">
+            🧾 View Sale
+        </a>
+    </div>
+
+    <div class="row">
+        <!-- Left Column - Summary -->
+        <div class="col-md-4">
+            <!-- Payment Card -->
+            <div class="payment-card">
+                <h5>{{ installment.sale.customer.name }}</h5>
+                <p class="mb-1">{{ installment.sale.customer.customer_code }}</p>
+                <p class="mb-0">{{ installment.sale.customer.contact_number|default:"No Phone" }}</p>
+                <hr class="bg-white">
+                <div class="row">
+                    <div class="col-6">
+                        <small>Bill No</small>
+                        <h6>{{ installment.sale.bill_no }}</h6>
+                    </div>
+                    <div class="col-6">
+                        <small>Date</small>
+                        <h6>{{ installment.sale.sale_date|date:"d-m-Y" }}</h6>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Amount Summary with Decimal Support -->
+            <div class="card mb-3">
+                <div class="card-header bg-dark text-white">
+                    <h6 class="mb-0">💰 Amount Summary</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <td>Total Sale Amount</td>
+                            <td class="text-end amount-decimal">Rs. {{ installment.total_amount|floatformat:2|intcomma }}</td>
+                        </tr>
+                        <tr>
+                            <td>Down Payment ({{ installment.plan.down_payment_percent }}%)</td>
+                            <td class="text-end text-success amount-decimal">- Rs. {{ installment.down_payment_amount|floatformat:2|intcomma }}</td>
+                        </tr>
+                        <tr>
+                            <td>Loan Amount</td>
+                            <td class="text-end amount-decimal">Rs. {{ installment.loan_amount|floatformat:2|intcomma }}</td>
+                        </tr>
+                        <tr>
+                            <td>Interest ({{ installment.plan.interest_rate }}%)</td>
+                            <td class="text-end text-warning amount-decimal">+ Rs. {{ installment.total_interest|floatformat:2|intcomma }}</td>
+                        </tr>
+                        <tr class="table-active">
+                            <td><strong>Total Payable</strong></td>
+                            <td class="text-end amount-decimal"><strong>Rs. {{ installment.total_payable|floatformat:2|intcomma }}</strong></td>
+                        </tr>
+                        <tr class="table-success">
+                            <td>Total Paid</td>
+                            <td class="text-end amount-decimal">Rs. {{ installment.total_paid|floatformat:2|intcomma }}</td>
+                        </tr>
+                        <tr class="{% if installment.remaining_amount > 0 %}table-danger{% else %}table-success{% endif %}">
+                            <td><strong>Remaining</strong></td>
+                            <td class="text-end amount-decimal"><strong>Rs. {{ installment.remaining_amount|floatformat:2|intcomma }}</strong></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- EMI Info with Decimal Support -->
+            <div class="card mb-3">
+                <div class="card-header bg-dark text-white">
+                    <h6 class="mb-0">📅 EMI Information</h6>
+                </div>
+                <div class="card-body">
+                    <p><strong>Plan:</strong> {{ installment.plan.name }}</p>
+                    <p><strong>EMI Amount:</strong> Rs. {{ installment.emi_amount|floatformat:2|intcomma }}</p>
+                    <p><strong>Total EMIs:</strong> {{ total_emis }}</p>
+                    <p><strong>Paid EMIs:</strong> {{ paid_emis }}</p>
+                    <p><strong>Pending EMIs:</strong> {{ pending_emis }}</p>
+                    {% if overdue_emis > 0 %}
+                    <p class="text-danger"><strong>⚠️ Overdue EMIs:</strong> {{ overdue_emis }}</p>
+                    {% endif %}
+                    {% if late_fee > 0 %}
+                    <p class="text-warning"><strong>💰 Late Fee Accrued:</strong> Rs. {{ late_fee|floatformat:2|intcomma }}</p>
+                    {% endif %}
+                    <p><strong>Start Date:</strong> {{ installment.start_date|date:"d-m-Y" }}</p>
+                    <p><strong>End Date:</strong> {{ installment.end_date|date:"d-m-Y"|default:"-" }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column - EMI Schedule -->
+        <div class="col-md-8">
+            <!-- Progress Circle -->
+            <div class="card mb-3">
+                <div class="card-body text-center">
+                    <h6>Payment Progress</h6>
+                    {% with degree=progress_percent|multiply:3.6 %}
+                    <div class="progress-circle" style="background: conic-gradient(#28a745 {{ degree|floatformat:0 }}deg, #e9ecef 0deg);">
+                        <span>{{ progress_percent|floatformat:0 }}%</span>
+                    </div>
+                    {% endwith %}
+                    <p class="mt-2">{{ paid_emis }} of {{ total_emis }} EMIs paid</p>
+                </div>
+            </div>
+
+            <!-- EMI Payment Form with Decimal Support -->
+            <div class="card mb-3">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0">💳 Make EMI Payment</h6>
+                </div>
+                <div class="card-body">
+                    <form id="emiPaymentForm">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label>Select EMI</label>
+                                <select id="emiSelect" class="form-select" required>
+                                    <option value="">-- Select EMI --</option>
+                                    {% for emi in emi_payments %}
+                                    {% if emi.status != 'paid' %}
+                                    <option value="{{ emi.id }}" 
+                                            data-amount="{{ emi.remaining_due|floatformat:2 }}" 
+                                            data-due="{{ emi.amount_due|floatformat:2 }}">
+                                        EMI #{{ emi.installment_number }} - Due: {{ emi.due_date|date:"d-m-Y" }} 
+                                        (Rs. {{ emi.remaining_due|floatformat:2|intcomma }})
+                                    </option>
+                                    {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label>Amount</label>
+                                <input type="number" id="emiAmount" class="form-control" step="0.01" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label>Payment Method</label>
+                                <select id="paymentMethod" class="form-select">
+                                    {% for method in payment_methods %}
+                                    <option value="{{ method.id }}">{{ method.get_name_display }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label>&nbsp;</label>
+                                <button type="submit" class="btn btn-success w-100">Pay Now</button>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-md-6">
+                                <input type="text" id="referenceNo" class="form-control" placeholder="Reference No (Optional)">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- EMI Schedule Table with Decimal Support -->
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h6 class="mb-0">📊 EMI Schedule</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-bordered emi-table mb-0">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Due Date</th>
+                                    <th>Amount Due</th>
+                                    <th>Amount Paid</th>
+                                    <th>Remaining</th>
+                                    <th>Status</th>
+                                    <th>Payment Date</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for emi in emi_payments %}
+                                <tr class="{% if emi.is_overdue %}overdue-row{% elif emi.status == 'paid' %}paid-row{% endif %}">
+                                    <td class="text-center">{{ emi.installment_number }}</td>
+                                    <td>{{ emi.due_date|date:"d-m-Y" }}</div>
+                                    <td class="text-end amount-decimal">Rs. {{ emi.amount_due|floatformat:2|intcomma }}</td>
+                                    <td class="text-end amount-decimal">Rs. {{ emi.amount_paid|floatformat:2|intcomma }}</td>
+                                    <td class="text-end amount-decimal {% if emi.remaining_due > 0 %}text-danger{% else %}text-success{% endif %}">
+                                        Rs. {{ emi.remaining_due|floatformat:2|intcomma }}
+                                    </div>
+                                    <td>
+                                        {% if emi.status == 'paid' %}
+                                        <span class="badge bg-success">✅ Paid</span>
+                                        {% elif emi.is_overdue %}
+                                        <span class="badge bg-danger">⚠️ Overdue</span>
+                                        {% else %}
+                                        <span class="badge bg-warning">Pending</span>
+                                        {% endif %}
+                                    </div>
+                                    <td>{{ emi.payment_date|date:"d-m-Y"|default:"-" }}</div>
+                                    <td>
+                                        {% if emi.status != 'paid' %}
+                                        <button class="btn btn-sm btn-primary pay-emi-btn" 
+                                                data-id="{{ emi.id }}" 
+                                                data-amount="{{ emi.remaining_due|floatformat:2 }}">
+                                            💳 Pay
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center py-5 text-muted">
+                                        <i class="bi bi-inbox display-4"></i>
+                                        <p class="mt-2">No EMI payments found</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment History -->
+            {% if payment_history %}
+            <div class="card mt-3">
+                <div class="card-header bg-secondary text-white">
+                    <h6 class="mb-0">📜 Payment History</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Method</th>
+                                    <th>Amount</th>
+                                    <th>Reference</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for payment in payment_history %}
+                                <tr>
+                                    <td>{{ payment.payment_date|date:"d-m-Y H:i" }}</div>
+                                    <td>{{ payment.method.get_name_display }}</div>
+                                    <td class="text-end amount-decimal">Rs. {{ payment.amount|floatformat:2|intcomma }}</div>
+                                    <td>{{ payment.reference_no|default:"-" }}</div>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // Set amount when EMI is selected - with decimal support
+    const emiSelect = document.getElementById('emiSelect');
+    if (emiSelect) {
+        emiSelect.addEventListener('change', function() {
+            const selected = this.options[this.selectedIndex];
+            const amount = selected.getAttribute('data-amount');
+            if (amount && parseFloat(amount) > 0) {
+                document.getElementById('emiAmount').value = parseFloat(amount).toFixed(2);
+            }
+        });
+    }
+    
+    // Pay EMI buttons - with decimal support
+    document.querySelectorAll('.pay-emi-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const emiId = this.getAttribute('data-id');
+            const amount = this.getAttribute('data-amount');
+            const emiSelectElem = document.getElementById('emiSelect');
+            if (emiSelectElem) {
+                emiSelectElem.value = emiId;
+            }
+            const amountInput = document.getElementById('emiAmount');
+            if (amountInput) {
+                amountInput.value = parseFloat(amount).toFixed(2);
+            }
+            // Trigger change event
+            if (emiSelectElem) {
+                const event = new Event('change');
+                emiSelectElem.dispatchEvent(event);
+            }
+            // Submit form
+            const form = document.getElementById('emiPaymentForm');
+            if (form) {
+                form.dispatchEvent(new Event('submit'));
+            }
+        });
+    });
+    
+    // EMI Payment Form Submit - with decimal validation
+    const emiPaymentForm = document.getElementById('emiPaymentForm');
+    if (emiPaymentForm) {
+        emiPaymentForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const emiSelectElem = document.getElementById('emiSelect');
+            const emiId = emiSelectElem ? emiSelectElem.value : null;
+            const amountInput = document.getElementById('emiAmount');
+            const amount = amountInput ? parseFloat(amountInput.value) : 0;
+            const paymentMethodId = document.getElementById('paymentMethod') ? document.getElementById('paymentMethod').value : null;
+            const referenceNo = document.getElementById('referenceNo') ? document.getElementById('referenceNo').value : '';
+            
+            if (!emiId || !amount || amount <= 0) {
+                alert('❌ Please select EMI and enter amount!');
+                return;
+            }
+            
+            // Amount validation - due amount se zyada nahi hona chahiye
+            const selectedOption = emiSelectElem.options[emiSelectElem.selectedIndex];
+            const dueAmount = parseFloat(selectedOption.getAttribute('data-due') || 0);
+            const remainingAmount = parseFloat(selectedOption.getAttribute('data-amount') || 0);
+            const maxAmount = Math.max(dueAmount, remainingAmount);
+            
+            if (amount > maxAmount) {
+                alert(`⚠️ Amount cannot exceed due amount: Rs. ${maxAmount.toFixed(2)}`);
+                return;
+            }
+            
+            // Show loading
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing...';
+            submitBtn.disabled = true;
+            
+            try {
+                const response = await fetch('/ajax/pay-emi/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token|escapejs }}'
+                    },
+                    body: JSON.stringify({
+                        emi_id: emiId,
+                        amount: amount.toFixed(2),
+                        payment_method_id: paymentMethodId,
+                        reference_no: referenceNo
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('✅ ' + data.message);
+                    location.reload();
+                } else {
+                    alert('❌ Error: ' + data.message);
+                }
+            } catch (error) {
+                alert('❌ Network error: ' + error.message);
+            } finally {
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

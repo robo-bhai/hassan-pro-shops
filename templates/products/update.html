@@ -1,0 +1,364 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Edit Product{% endblock %}
+{% block page_title %}✏️ Edit Product{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --border: #eef0f5;
+        --text: #1a1a2e;
+        --text-light: #6b7280;
+        --accent: #0d6efd;
+    }
+    
+    .form-container { max-width: 800px; margin: 0 auto; }
+    
+    .form-card {
+        background: white;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        padding: 30px 35px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    }
+    
+    .form-card .form-header { margin-bottom: 25px; }
+    
+    .form-card .form-header h4 {
+        font-weight: 800;
+        font-size: 1.2rem;
+        color: var(--text);
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .form-card .form-header p {
+        color: var(--text-light);
+        font-size: 0.85rem;
+        margin: 5px 0 0;
+    }
+    
+    .form-section { margin-bottom: 25px; }
+    
+    .form-section-title {
+        font-weight: 700;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        color: #8a8fa0;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #f0f2f7;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .section-icon {
+        width: 28px; height: 28px;
+        border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.85rem;
+    }
+    
+    .icon-basic { background: #eef2ff; color: #667eea; }
+    .icon-barcode { background: #e8f5e9; color: #4caf50; }
+    .icon-category { background: #fff3cd; color: #f2994a; }
+    .icon-stock { background: #fce4ec; color: #e91e63; }
+    
+    .form-label-custom {
+        font-weight: 700; font-size: 0.72rem;
+        text-transform: uppercase; letter-spacing: 1px;
+        color: #5a6070; margin-bottom: 5px;
+        display: flex; align-items: center; gap: 5px;
+    }
+    
+    .form-label-custom .required { color: #dc3545; }
+    
+    .form-control-custom, .form-select-custom {
+        border-radius: 10px; border: 2px solid #eef0f5;
+        padding: 11px 15px; font-size: 0.9rem; font-weight: 500;
+        background: #fafbfc; width: 100%; transition: all 0.2s;
+        margin-bottom: 14px; color: var(--text);
+    }
+    
+    .form-control-custom:focus, .form-select-custom:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 4px rgba(13,110,253,0.08);
+        background: white; outline: none;
+    }
+    
+    textarea.form-control-custom { resize: vertical; min-height: 80px; }
+    
+    .help-text {
+        font-size: 0.72rem; color: #8a8fa0;
+        margin-top: -8px; margin-bottom: 14px;
+        display: flex; align-items: center; gap: 4px;
+    }
+    
+    .current-barcode {
+        background: #f0fff4; border: 2px solid #4caf50;
+        border-radius: 12px; padding: 15px; text-align: center;
+        font-family: 'Courier New', monospace;
+        font-size: 1.1rem; font-weight: 700; color: #2e7d32;
+        letter-spacing: 2px; margin-bottom: 14px;
+    }
+    
+    .current-barcode span {
+        display: block; font-size: 0.7rem; color: #6b7280;
+        font-weight: 500; letter-spacing: 1px; margin-bottom: 3px;
+        font-family: 'Segoe UI', sans-serif;
+    }
+    
+    .no-barcode {
+        background: #fafafa; border: 2px dashed #e0e3eb;
+        border-radius: 12px; padding: 15px; text-align: center;
+        color: #c0c5d0; font-size: 0.85rem; margin-bottom: 14px;
+    }
+    
+    .btn-submit {
+        width: 100%; padding: 15px; border-radius: 12px;
+        font-weight: 700; font-size: 1rem; border: none; cursor: pointer;
+        background: linear-gradient(135deg, #f2994a, #f2c94c);
+        color: #333; display: flex; align-items: center;
+        justify-content: center; gap: 8px; transition: all 0.3s;
+        box-shadow: 0 4px 15px rgba(242,201,76,0.25);
+    }
+    
+    .btn-submit:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(242,201,76,0.4);
+    }
+    
+    .btn-back {
+        width: 100%; padding: 12px; border-radius: 10px;
+        font-weight: 600; font-size: 0.9rem;
+        border: 2px solid #e0e3eb; background: white;
+        color: #5a6070; cursor: pointer; margin-top: 10px;
+        display: flex; align-items: center; justify-content: center;
+        gap: 6px; text-decoration: none; transition: all 0.2s;
+    }
+    
+    .btn-back:hover { background: #f8f9fc; border-color: #c0c5d0; color: #333; }
+    
+    #scannerContainer {
+        border: 2px solid #f0a500; border-radius: 12px;
+        overflow: hidden; max-width: 400px;
+    }
+    
+    @media (max-width: 768px) {
+        .form-card { padding: 20px 16px; border-radius: 12px; }
+        .form-card .form-header h4 { font-size: 1rem; }
+        .form-control-custom, .form-select-custom { padding: 10px 12px; font-size: 0.85rem; }
+        .btn-submit { padding: 13px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="form-container">
+    
+    <form method="POST" id="productForm">
+        {% csrf_token %}
+        
+        <div class="form-card">
+            
+            <div class="form-header">
+                <h4>✏️ Edit Product: {{ product.name }}</h4>
+                <p>Update product details</p>
+            </div>
+            
+            <!-- Section 1: Basic Information -->
+            <div class="form-section">
+                <div class="form-section-title">
+                    <span class="section-icon icon-basic">📋</span> Basic Information
+                </div>
+                
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label-custom">Product Name <span class="required">*</span></label>
+                        <input type="text" name="name" class="form-control-custom" value="{{ product.name }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label-custom">Serial Number</label>
+                        <input type="text" name="serial_no" class="form-control-custom" value="{{ product.serial_no|default:'' }}">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label-custom">Description</label>
+                        <textarea name="description" class="form-control-custom">{{ product.description|default:'' }}</textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label-custom">Used For</label>
+                        <input type="text" name="used" class="form-control-custom" value="{{ product.used|default:'' }}">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Section 2: Barcode -->
+            <div class="form-section">
+                <div class="form-section-title">
+                    <span class="section-icon icon-barcode">🔢</span> Barcode
+                </div>
+                
+                {% if product.barcode %}
+                <div class="current-barcode">
+                    <span>Current Barcode {% if product.use_custom_barcode %}(Custom){% else %}(Auto){% endif %}</span>
+                    {{ product.barcode }}
+                </div>
+                {% else %}
+                <div class="no-barcode">
+                    <i class="bi bi-upc-scan"></i> No barcode assigned
+                </div>
+                {% endif %}
+                
+                <!-- Camera Scanner Button -->
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6">
+                        <button class="btn btn-success w-100" type="button" onclick="startBarcodeScanner()" id="scanBtn" style="border-radius:10px; padding:12px; font-weight:700;">
+                            <i class="bi bi-camera-video"></i> Scan Supplier Barcode
+                        </button>
+                        <button class="btn btn-danger w-100 d-none" type="button" onclick="stopBarcodeScanner()" id="stopBtn" style="border-radius:10px; padding:12px; font-weight:700;">
+                            <i class="bi bi-stop-circle"></i> Stop Camera
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Camera Preview -->
+                <div class="d-none mb-3" id="scannerContainer">
+                    <div id="barcodeReader" style="width:100%;"></div>
+                </div>
+                
+                <label class="form-label-custom">Update Barcode</label>
+                <input type="text" name="barcode" id="barcodeInput" class="form-control-custom" 
+                       placeholder="Scan or type new barcode...">
+                <div class="help-text">
+                    <i class="bi bi-info-circle"></i> Scan supplier barcode or leave blank to keep current
+                </div>
+            </div>
+            
+            <!-- Section 3: Categorization -->
+            <div class="form-section">
+                <div class="form-section-title">
+                    <span class="section-icon icon-category">📂</span> Categorization
+                </div>
+                
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label-custom">Category</label>
+                        <select name="category" class="form-select-custom">
+                            <option value="">None</option>
+                            {% for c in categories %}
+                            <option value="{{ c.id }}" {% if product.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label-custom">Brand</label>
+                        <select name="brand" class="form-select-custom">
+                            <option value="">None</option>
+                            {% for b in brands %}
+                            <option value="{{ b.id }}" {% if product.brand_id == b.id %}selected{% endif %}>{{ b.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label-custom">Unit</label>
+                        <select name="unit" class="form-select-custom">
+                            <option value="">None</option>
+                            {% for u in units %}
+                            <option value="{{ u.id }}" {% if product.unit_id == u.id %}selected{% endif %}>{{ u.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label-custom">Location</label>
+                        <select name="location" class="form-select-custom">
+                            <option value="">None</option>
+                            {% for l in locations %}
+                            <option value="{{ l.id }}" {% if product.location_id == l.id %}selected{% endif %}>{{ l.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label-custom">Type</label>
+                        <select name="types" class="form-select-custom">
+                            <option value="">None</option>
+                            {% for t in types %}
+                            <option value="{{ t.id }}" {% if product.types_id == t.id %}selected{% endif %}>{{ t.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Section 4: Stock Settings -->
+            <div class="form-section">
+                <div class="form-section-title">
+                    <span class="section-icon icon-stock">⚠️</span> Stock Alert Settings
+                </div>
+                
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label-custom">Low Stock Threshold</label>
+                        <input type="number" name="low_stock_threshold" class="form-control-custom" 
+                               value="{{ product.low_stock_threshold }}" min="0" step="1">
+                        <div class="help-text"><i class="bi bi-exclamation-triangle"></i> Alert when stock goes below this level</div>
+                    </div>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn-submit"><i class="bi bi-check-circle"></i> Update Product</button>
+            <a href="{% url 'product_list' %}" class="btn-back"><i class="bi bi-arrow-left"></i> Back to Products</a>
+        </div>
+    </form>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script>
+    let html5QrCode = null;
+    
+    function startBarcodeScanner() {
+        document.getElementById('scannerContainer').classList.remove('d-none');
+        document.getElementById('scanBtn').classList.add('d-none');
+        document.getElementById('stopBtn').classList.remove('d-none');
+        
+        html5QrCode = new Html5Qrcode("barcodeReader");
+        html5QrCode.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 250, height: 120 } },
+            onScanSuccess,
+            onScanFailure
+        ).catch(err => {
+            alert("❌ Camera access denied!");
+            stopBarcodeScanner();
+        });
+    }
+    
+    function stopBarcodeScanner() {
+        if (html5QrCode) {
+            html5QrCode.stop().then(() => {
+                html5QrCode.clear();
+                document.getElementById('scannerContainer').classList.add('d-none');
+                document.getElementById('scanBtn').classList.remove('d-none');
+                document.getElementById('stopBtn').classList.add('d-none');
+            }).catch(err => {});
+        }
+    }
+    
+    function onScanSuccess(decodedText) {
+        document.getElementById('barcodeInput').value = decodedText;
+        stopBarcodeScanner();
+        try { new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACAf39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f3+Af39/gH9/f3+Af39/gH9/f3+Af39/gH9/f3+Af39/gH9/f3+Af39/gH9/f3+Af39/gH9/f3+Af39/gH9/f3+Af39/gA==').play().catch(()=>{}); } catch(e) {}
+        alert('✅ Barcode scanned: ' + decodedText);
+    }
+    
+    function onScanFailure(error) {}
+</script>
+{% endblock %}

@@ -1,0 +1,426 @@
+<!-- purchases/list.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Purchases{% endblock %}
+{% block page_title %}📥 Purchases{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --border: #eef0f5; --text: #1a1a2e; --text-light: #6b7280;
+        --accent: #0d6efd; --success: #11998e; --danger: #dc3545; --warning: #f2994a;
+    }
+    
+    .stats-bar {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px; margin-bottom: 20px;
+    }
+    
+    .stat-card-mini {
+        background: white; border-radius: 14px; padding: 16px 18px;
+        border: 1px solid var(--border); display: flex; align-items: center;
+        gap: 12px; transition: all 0.3s;
+    }
+    .stat-card-mini:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,0.06); }
+    .stat-card-mini .stat-icon {
+        width: 44px; height: 44px; border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.2rem; flex-shrink: 0;
+    }
+    .stat-card-mini .stat-value { font-size: 1.2rem; font-weight: 800; color: var(--text); line-height: 1; }
+    .stat-card-mini .stat-label { font-size: 0.7rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; }
+    
+    .icon-total { background: #eef2ff; color: #667eea; }
+    .icon-amount { background: #e0f7fa; color: #00bcd4; }
+    .icon-paid { background: #d4edda; color: #28a745; }
+    .icon-outstanding { background: #fff3cd; color: #f2994a; }
+    
+    .filter-bar {
+        background: white; border-radius: 14px; padding: 16px 20px;
+        border: 1px solid var(--border); margin-bottom: 20px;
+    }
+    .filter-bar .form-control, .filter-bar .form-select {
+        border-radius: 10px; border: 2px solid #eef0f5;
+        padding: 10px 14px; font-size: 0.9rem; font-weight: 500;
+        background: #fafbfc; transition: all 0.2s;
+    }
+    .filter-bar .form-control:focus, .filter-bar .form-select:focus {
+        border-color: var(--accent); box-shadow: 0 0 0 3px rgba(13,110,253,0.1);
+        background: white; outline: none;
+    }
+    
+    .btn-filter {
+        border-radius: 10px; padding: 10px 20px; font-weight: 700; font-size: 0.85rem;
+        border: none; cursor: pointer;
+        background: linear-gradient(135deg, #667eea, #764ba2); color: white;
+        display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.3s;
+    }
+    .btn-filter:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(102,126,234,0.4); }
+    
+    .table-card {
+        background: white; border-radius: 16px; border: 1px solid var(--border);
+        overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+    .table-header {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 18px 22px; border-bottom: 1px solid var(--border);
+        background: #fafbfc; flex-wrap: wrap; gap: 12px;
+    }
+    .table-header h5 { margin: 0; font-weight: 700; font-size: 1rem; }
+    .badge-count {
+        background: var(--accent); color: white;
+        padding: 5px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
+    }
+    
+    .btn-new-purchase {
+        padding: 8px 16px; border-radius: 10px; font-weight: 700; font-size: 0.82rem;
+        text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+        background: linear-gradient(135deg, #667eea, #764ba2); color: white; transition: all 0.2s;
+    }
+    .btn-new-purchase:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(102,126,234,0.3); color: white; }
+    
+    .table-responsive-custom { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    
+    .purchase-table { width: 100%; border-collapse: collapse; min-width: 950px; }
+    .purchase-table thead th {
+        background: #1a1d2e; color: white; padding: 14px 16px;
+        font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.5px;
+        font-weight: 700; white-space: nowrap; border: none;
+    }
+    .purchase-table tbody td {
+        padding: 12px 16px; border-bottom: 1px solid #f0f2f7;
+        font-size: 0.88rem; color: var(--text); vertical-align: middle;
+    }
+    
+    /* ✅ FIX: Pointer only on rows that are clickable */
+    .purchase-table tbody tr { 
+        transition: all 0.2s; 
+        cursor: pointer; 
+    }
+    .purchase-table tbody tr:hover { background: #f8f9ff; }
+    .purchase-table tbody tr:nth-child(even) { background: #fafbfd; }
+    .purchase-table tbody tr:nth-child(even):hover { background: #f0f4ff; }
+    
+    .text-right { text-align: right; }
+    .text-center { text-align: center; }
+    
+    .amount-positive { color: var(--success); font-weight: 600; }
+    .amount-negative { color: var(--danger); font-weight: 600; }
+    
+    .status-paid {
+        background: #d4edda; color: #155724; padding: 5px 14px;
+        border-radius: 20px; font-size: 0.78rem; font-weight: 600;
+        display: inline-flex; align-items: center; gap: 5px;
+    }
+    .status-pending {
+        background: #fff3cd; color: #856404; padding: 5px 14px;
+        border-radius: 20px; font-size: 0.78rem; font-weight: 600;
+        display: inline-flex; align-items: center; gap: 5px;
+    }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+    .status-paid .status-dot { background: #28a745; }
+    .status-pending .status-dot { background: #f2994a; }
+    
+    .payment-cash {
+        background: #d4edda; color: #155724; padding: 5px 12px;
+        border-radius: 20px; font-size: 0.72rem; font-weight: 600;
+        display: inline-flex; align-items: center; gap: 5px;
+    }
+    .payment-credit {
+        background: #eef2ff; color: #4338ca; padding: 5px 12px;
+        border-radius: 20px; font-size: 0.72rem; font-weight: 600;
+        display: inline-flex; align-items: center; gap: 5px;
+    }
+    .payment-mixed {
+        background: #fff3cd; color: #856404; padding: 5px 12px;
+        border-radius: 20px; font-size: 0.72rem; font-weight: 600;
+        display: inline-flex; align-items: center; gap: 5px;
+    }
+    
+    /* Action Buttons */
+    .action-buttons {
+        display: flex; gap: 4px; justify-content: center; flex-wrap: wrap;
+    }
+    
+    .btn-action {
+        width: 32px; height: 32px; border-radius: 8px;
+        border: none; background: var(--border);
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer; color: var(--text); transition: all 0.2s;
+        font-size: 0.8rem;
+        text-decoration: none;
+    }
+    .btn-action:hover { transform: scale(1.1); color: white; }
+    
+    .btn-action.detail { background: #667eea; color: white; }
+    .btn-action.detail:hover { background: #5a67d8; }
+    
+    .btn-action.ledger { background: #17a2b8; color: white; }
+    .btn-action.ledger:hover { background: #138496; }
+    
+    .btn-action.pdf { background: #dc3545; color: white; }
+    .btn-action.pdf:hover { background: #b02a37; }
+    
+    .btn-action i { font-size: 0.8rem; }
+    
+    .empty-state { text-align: center; padding: 60px 20px; }
+    .empty-state .empty-icon { font-size: 5rem; opacity: 0.2; margin-bottom: 15px; }
+    
+    /* Toast */
+    .toast {
+        opacity: 1 !important;
+        animation: slideUp 0.3s ease;
+    }
+    
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .stats-bar { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+        .stat-card-mini { padding: 12px 14px; gap: 8px; }
+        .stat-card-mini .stat-icon { width: 36px; height: 36px; font-size: 1rem; }
+        .purchase-table { min-width: 800px; }
+        .purchase-table thead th, .purchase-table tbody td { padding: 10px 12px; font-size: 0.78rem; }
+        .btn-action { width: 28px; height: 28px; font-size: 0.7rem; }
+        .action-buttons { gap: 3px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Stats -->
+<div class="stats-bar">
+    <div class="stat-card-mini">
+        <div class="stat-icon icon-total">📥</div>
+        <div><div class="stat-value">{{ page_obj.paginator.count|default:'0' }}</div><div class="stat-label">Total Purchases</div></div>
+    </div>
+    <div class="stat-card-mini">
+        <div class="stat-icon icon-amount">💰</div>
+        <div><div class="stat-value">Rs. {{ total_amount|floatformat:0|default:'0' }}</div><div class="stat-label">Total Amount</div></div>
+    </div>
+    <div class="stat-card-mini">
+        <div class="stat-icon icon-paid">✅</div>
+        <div><div class="stat-value">Rs. {{ total_paid|floatformat:0|default:'0' }}</div><div class="stat-label">Total Paid</div></div>
+    </div>
+    <div class="stat-card-mini">
+        <div class="stat-icon icon-outstanding">⚠️</div>
+        <div><div class="stat-value" style="color:#f2994a;">Rs. {{ total_outstanding|floatformat:0|default:'0' }}</div><div class="stat-label">Outstanding</div></div>
+    </div>
+</div>
+
+<!-- Filter -->
+<div class="filter-bar">
+    <form method="GET" class="row g-2 align-items-end">
+        <div class="col-md-4">
+            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">🔍 Search</label>
+            <input type="text" name="search" class="form-control" placeholder="Bill No, Vendor..." value="{{ search }}">
+        </div>
+        <div class="col-md-3">
+            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">📊 Status</label>
+            <select name="status" class="form-select">
+                <option value="">All</option>
+                <option value="paid" {% if selected_status == 'paid' %}selected{% endif %}>✅ Paid</option>
+                <option value="pending" {% if selected_status == 'pending' %}selected{% endif %}>⚠️ Pending</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">🏭 Warehouse</label>
+            <select name="warehouse" class="form-select">
+                <option value="">All</option>
+                {% for wh in warehouses %}
+                <option value="{{ wh.id }}" {% if selected_warehouse == wh.id|stringformat:"s" %}selected{% endif %}>{{ wh.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn-filter w-100"><i class="bi bi-funnel"></i> Filter</button>
+        </div>
+    </form>
+</div>
+
+<!-- Table -->
+<div class="table-card">
+    <div class="table-header">
+        <h5>📥 Purchase List <span class="badge-count">{{ page_obj.paginator.count|default:'0' }}</span></h5>
+        <a href="{% url 'purchase_create' %}" class="btn-new-purchase"><i class="bi bi-plus-lg"></i> New Purchase</a>
+    </div>
+    
+    <div class="table-responsive-custom">
+        <table class="purchase-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Bill No</th>
+                    <th>Vendor</th>
+                    <th>Warehouse</th>
+                    <th class="text-center">Items</th>
+                    <th class="text-right">Total</th>
+                    <th class="text-right">Paid</th>
+                    <th class="text-right">Outstanding</th>
+                    <th>Payment</th>
+                    <th>Status</th>
+                    <th class="text-center" style="min-width:80px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for purchase in page_obj %}
+                <!-- ✅ FIX: Click on the row goes to purchase detail -->
+                <tr onclick="window.location.href='{% url 'purchase_detail' purchase.pk %}'">
+                    <td>
+                        <div style="font-weight:600;">{{ purchase.pur_date|date:"d M, Y" }}</div>
+                        <small style="color:#8a8fa0;">{{ purchase.pur_date|date:"h:i A" }}</small>
+                    </td>
+                    <td><strong>{{ purchase.bill_no|default:'Pending' }}</strong></td>
+                    <td>
+                        <strong>{{ purchase.vendor.name|truncatechars:18 }}</strong>
+                        {% if purchase.vendor.vendor_code %}
+                        <br><small style="color:#8a8fa0;">{{ purchase.vendor.vendor_code }}</small>
+                        {% endif %}
+                    </td>
+                    <td>{{ purchase.warehouse.name|default:'-' }}</td>
+                    <td class="text-center"><span class="fw-bold">{{ purchase.purchaseitem_set.count }}</span></td>
+                    <td class="text-right">Rs. {{ purchase.total_amount|floatformat:0 }}</td>
+                    <td class="text-right amount-positive">Rs. {{ purchase.paid|floatformat:0 }}</td>
+                    <td class="text-right">
+                        {% with out=purchase.outstanding_balance %}
+                        {% if out <= 0 %}<span class="amount-positive">Rs. 0</span>
+                        {% else %}<span class="amount-negative">Rs. {{ out|floatformat:0 }}</span>{% endif %}
+                        {% endwith %}
+                    </td>
+                    <td class="text-center">
+                        {% if purchase.payment_type == 'cash' %}
+                        <span class="payment-cash"><i class="bi bi-cash"></i> Cash</span>
+                        {% elif purchase.payment_type == 'mixed' %}
+                        <span class="payment-mixed"><i class="bi bi-arrow-left-right"></i> Mixed</span>
+                        {% else %}
+                        <span class="payment-credit"><i class="bi bi-card-list"></i> Credit</span>
+                        {% endif %}
+                        {% if purchase.cash_used > 0 and purchase.payment_type == 'mixed' %}
+                        <br><small class="text-muted" style="font-size:0.65rem;">Cash: Rs. {{ purchase.cash_used|floatformat:0 }}</small>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if purchase.outstanding_balance <= 0 %}
+                        <span class="status-paid"><span class="status-dot"></span> Paid</span>
+                        {% else %}
+                        <span class="status-pending"><span class="status-dot"></span> Pending</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="action-buttons">
+                            <!-- ✅ Detail Button - Opens Purchase Detail -->
+                            <a href="{% url 'purchase_detail' purchase.pk %}" class="btn-action detail" title="View Purchase Detail">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            
+                            <!-- Ledger Button -->
+                            <a href="{% url 'vendor_ledger' purchase.vendor.pk %}" class="btn-action ledger" title="Vendor Ledger">
+                                <i class="bi bi-book"></i>
+                            </a>
+                            
+                            <!-- PDF Button -->
+                            <a href="{% url 'purchase_pdf' purchase.pk %}" target="_blank" class="btn-action pdf" title="Download PDF">
+                                <i class="bi bi-file-pdf"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                
+                {% empty %}
+                <tr>
+                    <td colspan="11">
+                        <div class="empty-state">
+                            <div class="empty-icon">📥</div>
+                            <h4>No Purchases Found</h4>
+                            <p>{% if search %}Try different filters{% else %}No purchases yet{% endif %}</p>
+                            {% if not search %}
+                            <a href="{% url 'purchase_create' %}" class="btn-new-purchase mt-2"><i class="bi bi-plus-lg"></i> Create First Purchase</a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    {% include 'components/pagination.html' %}
+</div>
+
+<!-- Toast Container -->
+<div id="toastContainer" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;"></div>
+
+<script>
+    // ✅ Toast notification function
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toastContainer');
+        const colors = {
+            success: 'bg-success',
+            danger: 'bg-danger',
+            warning: 'bg-warning',
+            info: 'bg-info'
+        };
+        
+        const icons = {
+            success: '✅',
+            danger: '❌',
+            warning: '⚠️',
+            info: 'ℹ️'
+        };
+        
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-white ${colors[type] || 'bg-primary'} border-0`;
+        toast.role = 'alert';
+        toast.ariaLive = 'assertive';
+        toast.ariaAtomic = 'true';
+        toast.style.minWidth = '250px';
+        toast.style.boxShadow = '0 10px 30px rgba(0,0,0,0.2)';
+        toast.style.borderRadius = '12px';
+        toast.style.marginBottom = '10px';
+        
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    ${icons[type] || '📢'} ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        `;
+        
+        container.appendChild(toast);
+        
+        if (typeof bootstrap !== 'undefined' && bootstrap.Toast) {
+            const bsToast = new bootstrap.Toast(toast, { delay: 5000 });
+            bsToast.show();
+            setTimeout(() => {
+                if (toast.parentNode) toast.remove();
+            }, 5500);
+        } else {
+            setTimeout(() => {
+                if (toast.parentNode) toast.remove();
+            }, 5000);
+        }
+    }
+
+    // Check for messages from Django
+    document.addEventListener('DOMContentLoaded', function() {
+        const messages = document.querySelectorAll('.django-message');
+        messages.forEach(msg => {
+            const type = msg.dataset.type || 'info';
+            showToast(msg.textContent, type);
+            msg.remove();
+        });
+    });
+</script>
+
+{% endblock %}

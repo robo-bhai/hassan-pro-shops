@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Borrowers{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-people text-primary"></i> Borrowers</h2>
+            <p class="text-muted">Manage all borrowers</p>
+        </div>
+        <div>
+            <a href="{% url 'borrower_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Add Borrower
+            </a>
+            <a href="{% url 'loan_dashboard' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    
+    <!-- Filters -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-6">
+                    <input type="text" name="search" class="form-control" placeholder="Search by name, code, phone..." value="{{ request.GET.search }}">
+                </div>
+                <div class="col-md-6">
+                    <button type="submit" class="btn btn-primary w-100">Search</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Borrowers Table -->
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Code</th>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Contact</th>
+                            <th>Credit Score</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for borrower in page_obj %}
+                        <tr>
+                            <td><strong>{{ borrower.borrower_code }}</strong></td>
+                            <td>
+                                <span class="fw-bold">{{ borrower.name }}</span>
+                                <br>
+                                <small class="text-muted">{{ borrower.email|default:"-" }}</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ borrower.get_borrower_type_display }}</span>
+                            </td>
+                            <td>
+                                <small>{{ borrower.phone }}</small>
+                                <br>
+                                <small class="text-muted">{{ borrower.address|truncatechars:20 }}</small>
+                            </td>
+                            <td>
+                                <span class="badge 
+                                    {% if borrower.credit_score >= 900 %}bg-success
+                                    {% elif borrower.credit_score >= 750 %}bg-primary
+                                    {% elif borrower.credit_score >= 600 %}bg-warning
+                                    {% elif borrower.credit_score >= 400 %}bg-danger
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ borrower.credit_score }}
+                                </span>
+                                <br>
+                                <small>{{ borrower.get_credit_rating_display }}</small>
+                            </td>
+                            <td>
+                                <span class="badge {% if borrower.status == 'active' %}bg-success{% elif borrower.status == 'blacklisted' %}bg-danger{% else %}bg-secondary{% endif %}">
+                                    {{ borrower.get_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="#" class="btn btn-outline-info">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a href="#" class="btn btn-outline-warning">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">
+                                <i class="bi bi-people fs-2 d-block"></i>
+                                <p>No borrowers found</p>
+                                <a href="{% url 'borrower_create' %}" class="btn btn-primary btn-sm">
+                                    <i class="bi bi-plus-circle"></i> Add Borrower
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer bg-white">
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}&search={{ request.GET.search }}">Previous</a>
+                    </li>
+                    {% endif %}
+                    {% for num in page_obj.paginator.page_range %}
+                    <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                        <a class="page-link" href="?page={{ num }}&search={{ request.GET.search }}">{{ num }}</a>
+                    </li>
+                    {% endfor %}
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}&search={{ request.GET.search }}">Next</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

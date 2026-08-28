@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}BI Insights{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-lightbulb text-warning"></i> BI Insights</h2>
+            <p class="text-muted">AI-generated business insights</p>
+        </div>
+        <div>
+            <a href="{% url 'bi_dashboard' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    
+    <div class="row g-3">
+        {% for insight in insights %}
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <span class="badge 
+                            {% if insight.insight_type == 'opportunity' %}bg-success
+                            {% elif insight.insight_type == 'risk' %}bg-danger
+                            {% elif insight.insight_type == 'trend' %}bg-info
+                            {% elif insight.insight_type == 'anomaly' %}bg-warning
+                            {% else %}bg-primary{% endif %}">
+                            {{ insight.get_insight_type_display }}
+                        </span>
+                        <span class="badge bg-secondary">{{ insight.confidence_score|floatformat:0 }}% confidence</span>
+                    </div>
+                    <h6 class="mt-2 fw-bold">{{ insight.title }}</h6>
+                    <p class="text-muted">{{ insight.description }}</p>
+                    <div class="mt-2">
+                        <span class="badge {% if insight.is_actioned %}bg-success{% else %}bg-warning{% endif %}">
+                            {% if insight.is_actioned %}✅ Actioned{% else %}⏳ Pending{% endif %}
+                        </span>
+                        <small class="text-muted ms-2">{{ insight.created_at|date:"d-m-Y H:i" }}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-lightbulb fs-2 d-block"></i>
+                <p>No insights available</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+</div>
+{% endblock %}

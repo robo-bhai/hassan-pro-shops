@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% block title %}Cash Withdrawal{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card shadow-sm">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0"><i class="bi bi-cash-stack"></i> Cash Withdrawal</h4>
+                </div>
+                <div class="card-body">
+                    <!-- Current Balance Alert -->
+                    <div class="alert alert-info">
+                        <i class="bi bi-wallet2"></i> <strong>Current Cash Balance:</strong>
+                        <h3 class="d-inline-block ms-2 text-success">Rs. {{ current_balance|floatformat:2 }}</h3>
+                    </div>
+                    
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="amount" class="form-label fw-bold">Withdrawal Amount <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text">Rs.</span>
+                                    <input type="number" step="0.01" name="amount" id="amount" class="form-control" required placeholder="0.00">
+                                </div>
+                                <small class="text-muted">Enter amount to withdraw from cash</small>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="category" class="form-label fw-bold">Category <span class="text-danger">*</span></label>
+                                <select name="category" id="category" class="form-select" required>
+                                    <option value="">Select category...</option>
+                                    {% for cat in withdrawal_categories %}
+                                    <option value="{{ cat }}">{{ cat }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="reference_no" class="form-label">Reference No.</label>
+                                <input type="text" name="reference_no" id="reference_no" class="form-control" placeholder="e.g., Bill no, Voucher no">
+                                <small class="text-muted">Optional: Reference number or bill number</small>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="description" class="form-label fw-bold">Description <span class="text-danger">*</span></label>
+                                <input type="text" name="description" id="description" class="form-control" required placeholder="e.g., Office supplies purchase, Salary payment">
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-warning mt-3">
+                            <i class="bi bi-exclamation-triangle"></i> <strong>Note:</strong>
+                            <ul class="mb-0 mt-1">
+                                <li>Withdrawal amount cannot exceed current cash balance</li>
+                                <li>All withdrawals are recorded in transaction history</li>
+                                <li>Please provide accurate description for accounting purposes</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'cash_dashboard' %}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to withdraw this amount?')">
+                                <i class="bi bi-cash-stack"></i> Confirm Withdrawal
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Recent Withdrawals -->
+            <div class="card shadow-sm mt-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="bi bi-clock-history"></i> Recent Withdrawals</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Amount</th>
+                                    <th>Category</th>
+                                    <th>Description</th>
+                                    <th>Reference</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for transaction in recent_withdrawals %}
+                                <tr>
+                                    <td>{{ transaction.date|date:"d-m-Y H:i" }}</td>
+                                    <td class="text-danger">- Rs. {{ transaction.amount|floatformat:2 }}</td>
+                                    <td>{{ transaction.description|truncatechars:30 }}</td>
+                                    <td>{{ transaction.description|truncatechars:40 }}</td>
+                                    <td>{{ transaction.reference_no|default:"-" }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">No withdrawal records yet</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <a href="{% url 'cash_transactions' %}" class="btn btn-sm btn-outline-secondary mt-2">
+                        View All Transactions <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Optional: Add validation for amount not exceeding balance
+    const balance = {{ current_balance|default:0 }};
+    const amountInput = document.getElementById('amount');
+    
+    amountInput.addEventListener('change', function() {
+        if (parseFloat(this.value) > balance) {
+            alert(`Amount cannot exceed current balance of Rs. ${balance.toFixed(2)}`);
+            this.value = '';
+        }
+    });
+</script>
+{% endblock %}

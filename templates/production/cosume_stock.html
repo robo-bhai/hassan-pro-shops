@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Consume Raw Materials{% endblock %}
+{% block page_title %}📦 Consume Raw Materials - {{ order.order_no }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #f8961e, #f4a261);
+        border-radius: 20px;
+        padding: 25px 30px;
+        margin-bottom: 30px;
+        color: white;
+    }
+    
+    .stock-card {
+        background: white;
+        border-radius: 20px;
+        border: 1px solid #e9ecef;
+        overflow: hidden;
+        margin-bottom: 20px;
+    }
+    
+    .stock-header {
+        padding: 18px 24px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+        font-weight: 700;
+    }
+    
+    .stock-body {
+        padding: 20px;
+    }
+    
+    .stock-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .stock-table thead th {
+        background: #1a1a2e;
+        color: white;
+        padding: 12px 16px;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+    }
+    
+    .stock-table tbody td {
+        padding: 12px 16px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .status-ok {
+        color: #059669;
+        font-weight: 600;
+    }
+    
+    .status-error {
+        color: #dc2626;
+        font-weight: 600;
+    }
+    
+    .warning-box {
+        background: #fff3cd;
+        border-radius: 12px;
+        padding: 15px;
+        border-left: 4px solid #f8961e;
+        margin: 20px 0;
+    }
+    
+    .btn-consume {
+        background: linear-gradient(135deg, #059669, #10b981);
+        border: none;
+        padding: 14px 28px;
+        border-radius: 12px;
+        font-weight: 600;
+        color: white;
+        width: 100%;
+    }
+    
+    .btn-consume:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header">
+        <h1><i class="bi bi-box-arrow-down"></i> Consume Raw Materials</h1>
+        <p>{{ order.order_no }} - {{ order.product.name }} ({{ order.quantity|floatformat:0 }} units)</p>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="stock-card">
+                <div class="stock-header">
+                    <i class="bi bi-building"></i> Source Warehouse: 
+                    <strong>{{ source_warehouse.name|default:"Not Assigned" }}</strong>
+                </div>
+                <div class="stock-body">
+                    
+                    {% if not source_warehouse %}
+                    <div class="warning-box">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>No source warehouse assigned!</strong>
+                        <p>Please edit the production order and select a source warehouse first.</p>
+                        <a href="{% url 'production_order_edit' order.pk %}" class="btn btn-warning mt-2">
+                            Edit Order
+                        </a>
+                    </div>
+                    {% else %}
+                    
+                    <!-- Stock Summary Table -->
+                    <h5><i class="bi bi-list-check"></i> Raw Materials Required</h5>
+                    <div style="overflow-x: auto;">
+                        <table class="stock-table">
+                            <thead>
+                                <tr>
+                                    <th>Raw Material</th>
+                                    <th>Required Qty</th>
+                                    <th>Available Stock</th>
+                                    <th>Status</th>
+                                 </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in stock_summary %}
+                                <tr>
+                                    <td>{{ item.raw_material }}</td>
+                                    <td>{{ item.required|floatformat:2 }}</td>
+                                    <td>{{ item.available|floatformat:2 }}</td>
+                                    <td>
+                                        {% if item.is_available %}
+                                        <span class="status-ok">✅ Available</span>
+                                        {% else %}
+                                        <span class="status-error">❌ Shortage: {{ item.shortage|floatformat:2 }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-3">
+                                        No BOM items added. 
+                                        <a href="{% url 'production_bom_add' order.pk %}">Add raw materials first</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    {% if stock_summary %}
+                        {% if all_available %}
+                        <div class="success-box mt-3 p-3" style="background: #d1fae5; border-radius: 12px;">
+                            <i class="bi bi-check-circle-fill text-success"></i>
+                            <strong>All raw materials are available in {{ source_warehouse.name }}!</strong>
+                        </div>
+                        {% else %}
+                        <div class="warning-box">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            <strong>⚠️ Insufficient Stock!</strong>
+                            <ul class="mt-2 mb-0">
+                                {% for item in stock_summary %}
+                                {% if not item.is_available %}
+                                <li>{{ item.raw_material }}: Need {{ item.required|floatformat:2 }}, Available {{ item.available|floatformat:2 }}</li>
+                                {% endif %}
+                                {% endfor %}
+                            </ul>
+                            <hr>
+                            <p class="mb-0">Please purchase the required raw materials first.</p>
+                            <a href="{% url 'purchase_create' %}" class="btn btn-primary mt-2">
+                                <i class="bi bi-cart-plus"></i> Purchase Raw Materials
+                            </a>
+                        </div>
+                        {% endif %}
+                    {% endif %}
+                    
+                    <form method="POST" class="mt-4">
+                        {% csrf_token %}
+                        
+                        {% if all_available and stock_summary %}
+                        <button type="submit" class="btn-consume">
+                            <i class="bi bi-check-lg"></i> Confirm & Consume Stock
+                        </button>
+                        {% else %}
+                        <button type="submit" class="btn-consume" disabled>
+                            <i class="bi bi-x-circle"></i> Cannot Consume - Insufficient Stock
+                        </button>
+                        {% endif %}
+                        
+                        <a href="{% url 'production_order_detail' order.pk %}" class="btn btn-secondary w-100 mt-2">
+                            Cancel
+                        </a>
+                    </form>
+                    
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

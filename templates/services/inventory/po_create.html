@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Create Inventory PO - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>📦 Create Inventory Purchase Order</h2>
+                <a href="{% url 'service_inventory_po_list' %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+            </div>
+            
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <!-- PO Details -->
+                        <h5 class="mb-3">📋 PO Details</h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Supplier <span class="text-danger">*</span></label>
+                                <select name="supplier" class="form-select" required>
+                                    <option value="">Select Supplier</option>
+                                    {% for supplier in suppliers %}
+                                    <option value="{{ supplier.id }}">{{ supplier.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Expected Delivery</label>
+                                <input type="date" name="expected_delivery" class="form-control">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Discount (Rs.)</label>
+                                <input type="number" name="discount" class="form-control" step="0.01" value="0">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Notes</label>
+                                <textarea name="notes" class="form-control" rows="2"></textarea>
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <!-- Items -->
+                        <h5 class="mb-3">📦 Items</h5>
+                        <div id="poItems">
+                            <div class="row g-2 mb-2 item-row">
+                                <div class="col-md-5">
+                                    <select name="item_ids[]" class="form-select item-select">
+                                        <option value="">Select Item</option>
+                                        {% for item in items %}
+                                        <option value="{{ item.id }}">{{ item.item_code }} - {{ item.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="number" name="quantities[]" class="form-control" step="0.01" placeholder="Qty">
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="number" name="prices[]" class="form-control" step="0.01" placeholder="Price">
+                                </div>
+                                <div class="col-md-1">
+                                    <button type="button" class="btn btn-danger btn-sm remove-item-row">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="addItemRow">
+                            <i class="bi bi-plus-circle"></i> Add Item
+                        </button>
+                        
+                        <hr class="my-4">
+                        
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="{% url 'service_inventory_po_list' %}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> Create PO
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add item row
+        document.getElementById('addItemRow').addEventListener('click', function() {
+            const container = document.getElementById('poItems');
+            const firstRow = container.querySelector('.item-row');
+            const newRow = firstRow.cloneNode(true);
+            
+            newRow.querySelectorAll('input').forEach(function(input) {
+                input.value = '';
+            });
+            newRow.querySelector('select').selectedIndex = 0;
+            
+            container.appendChild(newRow);
+        });
+        
+        // Remove item row
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.remove-item-row')) {
+                const row = e.target.closest('.item-row');
+                const container = document.getElementById('poItems');
+                if (container.querySelectorAll('.item-row').length > 1) {
+                    row.remove();
+                } else {
+                    alert('At least one item is required!');
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

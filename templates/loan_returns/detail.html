@@ -1,0 +1,214 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}💰 Loan Return Detail{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            
+            <!-- Header -->
+            <div class="card">
+                <div class="card-header {% if loan_return.status == 'paid' %}bg-success{% elif loan_return.status == 'pending' %}bg-warning{% else %}bg-danger{% endif %} text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">💰 Loan Return #{{ loan_return.return_no }}</h4>
+                        <div>
+                            {% if loan_return.status == 'paid' %}
+                                <span class="badge bg-light text-dark">✅ Paid</span>
+                            {% elif loan_return.status == 'pending' %}
+                                <span class="badge bg-light text-dark">⏳ Pending</span>
+                            {% else %}
+                                <span class="badge bg-light text-dark">❌ Cancelled</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- Status Alert -->
+                    {% if loan_return.status == 'pending' %}
+                        <div class="alert alert-warning">
+                            <i class="bi bi-clock-history"></i>
+                            This loan return is pending. 
+                            <a href="{% url 'loan_return_pay' loan_return.pk %}" class="alert-link">
+                                Click here to process payment
+                            </a>
+                        </div>
+                    {% elif loan_return.status == 'paid' %}
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle"></i>
+                            This loan return has been paid successfully.
+                            <br>
+                            <small>Paid on: {{ loan_return.updated_at|date:"d-m-Y H:i" }}</small>
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Loan Details -->
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <td><strong>Return No:</strong></td>
+                                    <td>{{ loan_return.return_no }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Lender:</strong></td>
+                                    <td>{{ loan_return.lender_name }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Agreement No:</strong></td>
+                                    <td>{{ loan_return.loan_agreement_no }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Return Type:</strong></td>
+                                    <td>{{ loan_return.get_return_type_display }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <td><strong>Return Date:</strong></td>
+                                    <td>{{ loan_return.return_date|date:"d-m-Y" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Due Date:</strong></td>
+                                    <td>{{ loan_return.due_date|date:"d-m-Y"|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Status:</strong></td>
+                                    <td>
+                                        {% if loan_return.status == 'paid' %}
+                                            <span class="badge bg-success">✅ Paid</span>
+                                        {% elif loan_return.status == 'pending' %}
+                                            <span class="badge bg-warning">⏳ Pending</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">❌ Cancelled</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Created By:</strong></td>
+                                    <td>{{ loan_return.created_by.username|default:"System" }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Amount -->
+                    <div class="card mt-3">
+                        <div class="card-header bg-dark text-white">
+                            <h6 class="mb-0">💰 Amount</h6>
+                        </div>
+                        <div class="card-body text-center">
+                            <h3 class="text-primary">Rs. {{ loan_return.total_amount|floatformat:2 }}</h3>
+                            <small class="text-muted">Total Amount</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Associated Loan Info -->
+                    {% if associated_loan %}
+                    <div class="card mt-3">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0">🏦 Associated Loan</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Loan No:</strong> {{ associated_loan.loan_no }}
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Remaining Balance:</strong> 
+                                    {% if associated_loan.remaining_amount > 0 %}
+                                        <span class="text-danger">Rs. {{ associated_loan.remaining_amount|floatformat:2 }}</span>
+                                    {% else %}
+                                        <span class="text-success">Rs. 0.00 ✅</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <a href="{% url 'loan_detail' associated_loan.pk %}" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-eye"></i> View Loan
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Payment Details -->
+                    {% if loan_return.status == 'paid' %}
+                    <div class="card mt-3">
+                        <div class="card-header bg-success text-white">
+                            <h6 class="mb-0">💳 Payment Details</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <strong>Payment Method:</strong>
+                                    <p>{{ loan_return.get_payment_method_display|default:"-" }}</p>
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>Reference No:</strong>
+                                    <p>{{ loan_return.reference_no|default:"-" }}</p>
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>Paid At:</strong>
+                                    <p>{{ loan_return.updated_at|date:"d-m-Y H:i" }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Description & Notes -->
+                    {% if loan_return.description or loan_return.notes %}
+                    <div class="card mt-3">
+                        <div class="card-header bg-secondary text-white">
+                            <h6 class="mb-0">📝 Details</h6>
+                        </div>
+                        <div class="card-body">
+                            {% if loan_return.description %}
+                                <p><strong>Description:</strong> {{ loan_return.description }}</p>
+                            {% endif %}
+                            {% if loan_return.notes %}
+                                <p><strong>Notes:</strong> {{ loan_return.notes }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Receipt -->
+                    {% if loan_return.receipt %}
+                    <div class="card mt-3">
+                        <div class="card-header bg-secondary text-white">
+                            <h6 class="mb-0">📄 Receipt</h6>
+                        </div>
+                        <div class="card-body">
+                            <a href="{{ loan_return.receipt.url }}" target="_blank" class="btn btn-sm btn-primary">
+                                <i class="bi bi-file-earmark-pdf"></i> View Receipt
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Actions -->
+                    <div class="mt-4 d-flex gap-2">
+                        <!-- ✅ Back to Loan List -->
+                        <a href="{% url 'loan_list' %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Loan List
+                        </a>
+                        
+                        {% if loan_return.status == 'pending' %}
+                            <a href="{% url 'loan_return_pay' loan_return.pk %}" class="btn btn-success">
+                                <i class="bi bi-credit-card"></i> Process Payment
+                            </a>
+                        {% endif %}
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

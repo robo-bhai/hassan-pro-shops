@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Appointment Calendar - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>📅 Appointment Calendar</h2>
+                <div>
+                    <a href="{% url 'service_appointment_list' %}" class="btn btn-secondary">
+                        <i class="bi bi-list"></i> List View
+                    </a>
+                    <a href="{% url 'service_request_create' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> New Appointment
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Month Navigation -->
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="?month={{ prev_month.month }}&year={{ prev_month.year }}" class="btn btn-outline-primary">
+                            <i class="bi bi-chevron-left"></i> Previous
+                        </a>
+                        <h4 class="mb-0">{{ month_name }} {{ year }}</h4>
+                        <a href="?month={{ next_month.month }}&year={{ next_month.year }}" class="btn btn-outline-primary">
+                            Next <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Stats -->
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <div class="card text-white bg-primary">
+                        <div class="card-body">
+                            <h6 class="card-title">Total Appointments</h6>
+                            <h3>{{ total_appointments }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Calendar Grid -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr class="text-center">
+                                    <th>Monday</th>
+                                    <th>Tuesday</th>
+                                    <th>Wednesday</th>
+                                    <th>Thursday</th>
+                                    <th>Friday</th>
+                                    <th>Saturday</th>
+                                    <th>Sunday</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for week in calendar_weeks %}
+                                <tr>
+                                    {% for day in week %}
+                                    <td class="calendar-day {% if day.is_today %}bg-light{% endif %}" style="min-height:100px; vertical-align:top;">
+                                        <div class="d-flex justify-content-between">
+                                            <strong>{{ day.day }}</strong>
+                                            {% if day.is_today %}
+                                            <span class="badge bg-primary">Today</span>
+                                            {% endif %}
+                                        </div>
+                                        <div style="font-size:0.75rem;">
+                                            {% for appointment in day.appointments %}
+                                            <div class="appointment-item mb-1 p-1 rounded" 
+                                                 style="background-color: {% if appointment.status == 'scheduled' %}#d4edda{% elif appointment.status == 'completed' %}#cce5ff{% elif appointment.status == 'cancelled' %}#f8d7da{% else %}#ffeeba{% endif %};">
+                                                <div>
+                                                    <strong>{{ appointment.time }}</strong>
+                                                    <span class="badge bg-secondary" style="font-size:0.6rem;">{{ appointment.technician }}</span>
+                                                </div>
+                                                <div style="font-size:0.7rem;">
+                                                    {{ appointment.customer }} - {{ appointment.service }}
+                                                </div>
+                                                <div style="font-size:0.6rem;">
+                                                    <span class="badge bg-{% if appointment.status == 'scheduled' %}primary{% elif appointment.status == 'completed' %}success{% elif appointment.status == 'cancelled' %}danger{% else %}warning{% endif %}" 
+                                                          style="font-size:0.6rem;">
+                                                        {{ appointment.status_badge }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .calendar-day {
+        height: 100px;
+        vertical-align: top;
+        padding: 5px;
+    }
+    .appointment-item {
+        cursor: pointer;
+        border-left: 3px solid #007bff;
+        font-size: 0.7rem;
+        padding: 3px 5px;
+        margin-bottom: 2px;
+        border-radius: 3px;
+    }
+    .appointment-item:hover {
+        opacity: 0.8;
+    }
+</style>
+{% endblock %}

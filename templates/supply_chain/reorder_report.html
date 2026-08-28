@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Reorder Report{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-cart-plus text-primary"></i> Reorder Report</h2>
+            <p class="text-muted">Products that need reordering</p>
+        </div>
+        <div>
+            <a href="{% url 'supply_chain_dashboard' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- REPORT TABLE                              -->
+    <!-- ========================================== -->
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Product</th>
+                            <th>Current Stock</th>
+                            <th>Reorder Level</th>
+                            <th>Reorder Quantity</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in reorder_items %}
+                        <tr>
+                            <td>
+                                <a href="#" class="text-decoration-none fw-bold">
+                                    {{ item.product.name }}
+                                </a>
+                            </td>
+                            <td class="text-danger">{{ item.current_stock|floatformat:0 }}</td>
+                            <td>{{ item.reorder_level|floatformat:0 }}</td>
+                            <td>{{ item.reorder_quantity|floatformat:0 }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if item.current_stock == 0 %}bg-danger
+                                    {% else %}bg-warning{% endif %}">
+                                    {% if item.current_stock == 0 %}Urgent!{% else %}Reorder Needed{% endif %}
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-success">
+                                    <i class="bi bi-cart-plus"></i> Create PO
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">
+                                <i class="bi bi-check-circle fs-2 d-block text-success"></i>
+                                <p>No reorder needed!</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Transfer Order Details{% endblock %}
+{% block page_title %}🚚 Transfer Order: {{ transfer.transfer_no }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #4361ee, #3a0ca3);
+        border-radius: 20px;
+        padding: 25px 30px;
+        margin-bottom: 30px;
+        color: white;
+    }
+    
+    .info-card {
+        background: white;
+        border-radius: 20px;
+        border: 1px solid #e9ecef;
+        overflow: hidden;
+        margin-bottom: 20px;
+    }
+    
+    .info-card-header {
+        padding: 15px 20px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+        font-weight: 700;
+    }
+    
+    .info-card-body {
+        padding: 20px;
+    }
+    
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+    }
+    
+    .info-item {
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 12px;
+    }
+    
+    .info-item .label {
+        font-size: 0.7rem;
+        color: #6c757d;
+        text-transform: uppercase;
+    }
+    
+    .info-item .value {
+        font-weight: 700;
+        font-size: 1rem;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    
+    .btn-action {
+        padding: 8px 20px;
+        border-radius: 10px;
+        text-decoration: none;
+        font-weight: 600;
+        display: inline-block;
+    }
+    
+    .btn-approve { background: #059669; color: white; }
+    .btn-deliver { background: #4361ee; color: white; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1><i class="bi bi-truck"></i> {{ transfer.transfer_no }}</h1>
+                <p>{{ transfer.get_transfer_type_display }}</p>
+            </div>
+            <div>
+                {% if transfer.status == 'pending' %}
+                <a href="{% url 'transfer_order_approve' transfer.pk %}" class="btn-action btn-approve" onclick="return confirm('Approve this transfer?')">
+                    <i class="bi bi-check-lg"></i> Approve
+                </a>
+                {% endif %}
+                {% if transfer.status == 'approved' %}
+                <a href="{% url 'transfer_order_deliver' transfer.pk %}" class="btn-action btn-deliver" onclick="return confirm('Mark as delivered? Stock will be updated.')">
+                    <i class="bi bi-check2-circle"></i> Mark Delivered
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="info-card">
+                <div class="info-card-header"><i class="bi bi-info-circle"></i> Transfer Information</div>
+                <div class="info-card-body">
+                    <div class="info-grid">
+                        <div class="info-item"><div class="label">Status</div><div class="value"><span class="status-badge status-{{ transfer.status }}">{{ transfer.get_status_display }}</span></div></div>
+                        <div class="info-item"><div class="label">Created Date</div><div class="value">{{ transfer.created_at|date:"d M Y H:i" }}</div></div>
+                        <div class="info-item"><div class="label">From Warehouse</div><div class="value">{{ transfer.from_warehouse.name }}</div></div>
+                        <div class="info-item"><div class="label">To Warehouse</div><div class="value">{{ transfer.to_warehouse.name|default:'-' }}</div></div>
+                        <div class="info-item"><div class="label">Product</div><div class="value">{{ transfer.product.name }}</div></div>
+                        <div class="info-item"><div class="label">Quantity</div><div class="value">{{ transfer.quantity|floatformat:0 }} units</div></div>
+                        <div class="info-item"><div class="label">Price</div><div class="value">Rs.{{ transfer.price|floatformat:2 }}</div></div>
+                        <div class="info-item"><div class="label">Total Value</div><div class="value">Rs.{{ transfer.price|floatformat:2|multiply:transfer.quantity|floatformat:2 }}</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-6">
+            <div class="info-card">
+                <div class="info-card-header"><i class="bi bi-truck"></i> Transport Details</div>
+                <div class="info-card-body">
+                    <div class="info-grid">
+                        <div class="info-item"><div class="label">Vehicle No</div><div class="value">{{ transfer.vehicle_no|default:'-' }}</div></div>
+                        <div class="info-item"><div class="label">Driver Name</div><div class="value">{{ transfer.driver_name|default:'-' }}</div></div>
+                        <div class="info-item"><div class="label">Driver Contact</div><div class="value">{{ transfer.driver_contact|default:'-' }}</div></div>
+                        <div class="info-item"><div class="label">Expected Date</div><div class="value">{{ transfer.expected_delivery_date|date:"d M Y"|default:'-' }}</div></div>
+                        <div class="info-item"><div class="label">Delivered Date</div><div class="value">{{ transfer.delivered_date|date:"d M Y H:i"|default:'-' }}</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="text-center">
+        <a href="{% url 'transfer_order_list' %}" class="btn btn-secondary">← Back to Transfers</a>
+    </div>
+</div>
+{% endblock %}

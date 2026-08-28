@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Edit Production Order{% endblock %}
+{% block page_title %}✏️ Edit Production Order{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #f8961e, #f4a261);
+        border-radius: 20px;
+        padding: 25px 30px;
+        margin-bottom: 30px;
+        color: white;
+    }
+    
+    .form-card {
+        background: white;
+        border-radius: 20px;
+        border: 1px solid #e9ecef;
+        overflow: hidden;
+    }
+    
+    .form-header {
+        padding: 18px 24px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+        font-weight: 700;
+    }
+    
+    .form-body {
+        padding: 30px;
+    }
+    
+    .form-group {
+        margin-bottom: 24px;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #6c757d;
+        margin-bottom: 8px;
+        display: block;
+    }
+    
+    .form-control, .form-select {
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 12px 16px;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #f8961e;
+        box-shadow: 0 0 0 3px rgba(248, 150, 30, 0.1);
+    }
+    
+    .btn-submit {
+        background: linear-gradient(135deg, #f8961e, #f4a261);
+        border: none;
+        padding: 14px 28px;
+        border-radius: 12px;
+        font-weight: 600;
+        color: white;
+        width: 100%;
+    }
+    
+    .warning-box {
+        background: #fff3cd;
+        border-radius: 12px;
+        padding: 15px;
+        margin-top: 20px;
+        border-left: 4px solid #f8961e;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header">
+        <h1><i class="bi bi-pencil-square"></i> Edit Production Order</h1>
+        <p>{{ order.order_no }} - {{ order.product.name }}</p>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="form-card">
+                <div class="form-header">
+                    <i class="bi bi-info-circle"></i> Edit Order Details
+                </div>
+                <div class="form-body">
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <div class="form-group">
+                            <label class="form-label">Product</label>
+                            <input type="text" class="form-control" value="{{ order.product.name }}" disabled>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Production Quantity *</label>
+                            <input type="number" name="quantity" class="form-control" value="{{ order.quantity }}" step="1" min="1" required>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="form-label">Planned Start Date *</label>
+                                    <input type="date" name="planned_start_date" class="form-control" value="{{ order.planned_start_date|date:'Y-m-d' }}" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="form-label">Planned End Date *</label>
+                                    <input type="date" name="planned_end_date" class="form-control" value="{{ order.planned_end_date|date:'Y-m-d' }}" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="form-label">Source Warehouse *</label>
+                                    <select name="source_warehouse" class="form-select" required>
+                                        {% for warehouse in warehouses %}
+                                        <option value="{{ warehouse.id }}" {% if order.source_warehouse.id == warehouse.id %}selected{% endif %}>
+                                            {{ warehouse.name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="form-label">Target Warehouse</label>
+                                    <select name="target_warehouse" class="form-select">
+                                        <option value="">-- Same as Source --</option>
+                                        {% for warehouse in warehouses %}
+                                        <option value="{{ warehouse.id }}" {% if order.target_warehouse.id == warehouse.id %}selected{% endif %}>
+                                            {{ warehouse.name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Notes</label>
+                            <textarea name="notes" class="form-control" rows="3">{{ order.notes }}</textarea>
+                        </div>
+                        
+                        <div class="warning-box">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <strong>Note:</strong> Only <strong>Draft</strong> or <strong>Planned</strong> orders can be edited.
+                            Current status: <span class="badge bg-secondary">{{ order.get_status_display }}</span>
+                        </div>
+                        
+                        <button type="submit" class="btn-submit mt-3">
+                            <i class="bi bi-save"></i> Save Changes
+                        </button>
+                        <a href="{% url 'production_order_detail' order.pk %}" class="btn btn-secondary w-100 mt-2">
+                            Cancel
+                        </a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

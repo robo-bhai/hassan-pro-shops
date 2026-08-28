@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Mark Attendance{% endblock %}
+{% block page_title %}📅 Mark Attendance - {{ today|date:"d F Y" }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #4cc9f0, #00b4d8);
+        border-radius: 20px;
+        padding: 25px 30px;
+        margin-bottom: 30px;
+        color: white;
+    }
+    
+    .attendance-card {
+        background: white;
+        border-radius: 20px;
+        border: 1px solid #e9ecef;
+        overflow: hidden;
+    }
+    
+    .employee-list {
+        max-height: 500px;
+        overflow-y: auto;
+    }
+    
+    .employee-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 20px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .employee-item:hover {
+        background: #f8f9fa;
+    }
+    
+    .attendance-status {
+        display: flex;
+        gap: 10px;
+    }
+    
+    .status-btn {
+        padding: 6px 15px;
+        border-radius: 30px;
+        border: 2px solid #e9ecef;
+        background: white;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 0.8rem;
+    }
+    
+    .status-btn.present.active { background: #059669; border-color: #059669; color: white; }
+    .status-btn.absent.active { background: #dc2626; border-color: #dc2626; color: white; }
+    .status-btn.late.active { background: #f8961e; border-color: #f8961e; color: white; }
+    .status-btn.halfday.active { background: #4361ee; border-color: #4361ee; color: white; }
+    
+    .btn-submit {
+        background: linear-gradient(135deg, #4cc9f0, #00b4d8);
+        border: none;
+        padding: 12px 28px;
+        border-radius: 12px;
+        font-weight: 600;
+        color: white;
+        width: 100%;
+    }
+    
+    .btn-submit:hover { transform: translateY(-2px); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header">
+        <h1><i class="bi bi-calendar-check"></i> Mark Attendance</h1>
+        <p>Date: <strong>{{ today|date:"l, d F Y" }}</strong></p>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <div class="attendance-card">
+                <div class="employee-list">
+                    {% for employee in employees %}
+                    <div class="employee-item">
+                        <div>
+                            <strong>{{ employee.name }}</strong>
+                            <br>
+                            <small class="text-muted">{{ employee.employee_id }} · {{ employee.get_department_display }}</small>
+                        </div>
+                        <div class="attendance-status">
+                            <button type="button" class="status-btn present" data-employee="{{ employee.id }}" data-status="present">✅ Present</button>
+                            <button type="button" class="status-btn absent" data-employee="{{ employee.id }}" data-status="absent">❌ Absent</button>
+                            <button type="button" class="status-btn late" data-employee="{{ employee.id }}" data-status="late">⏰ Late</button>
+                            <button type="button" class="status-btn halfday" data-employee="{{ employee.id }}" data-status="halfday">📅 Half Day</button>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-5">
+                        <p>No active employees found. Please add employees first.</p>
+                        <a href="{% url 'employee_create' %}" class="btn btn-primary">Add Employee</a>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                {% if employees %}
+                <div class="p-3 border-top">
+                    <button id="saveAttendance" class="btn-submit">
+                        <i class="bi bi-save"></i> Save Attendance
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let attendanceData = {};
+    
+    document.querySelectorAll('.status-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const employeeId = this.dataset.employee;
+            const status = this.dataset.status;
+            
+            document.querySelectorAll(`.status-btn[data-employee="${employeeId}"]`).forEach(b => {
+                b.classList.remove('active');
+            });
+            
+            this.classList.add('active');
+            attendanceData[employeeId] = status;
+        });
+    });
+    
+    document.getElementById('saveAttendance')?.addEventListener('click', function() {
+        if (Object.keys(attendanceData).length === 0) {
+            alert('Please mark attendance for at least one employee!');
+            return;
+        }
+        
+        fetch('{% url "attendance_save" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                attendance: attendanceData,
+                date: '{{ today|date:"Y-m-d" }}'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('✅ Attendance saved successfully!');
+                window.location.href = '{% url "attendance_today" %}';
+            } else {
+                alert('❌ Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('❌ Error saving attendance');
+        });
+    });
+</script>
+{% endblock %}

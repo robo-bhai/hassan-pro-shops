@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Deposit - {{ shareholder.name }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-plus-circle"></i> Deposit to {{ shareholder.name }}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Current Balance -->
+                    <div class="alert alert-info">
+                        <strong>💰 Current Balance:</strong> Rs. {{ current_balance|floatformat:2 }}
+                    </div>
+
+                    <!-- ✅ NEW: Info Note -->
+                    <div class="alert alert-success">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Note:</strong>
+                        <ul class="mb-0 mt-1">
+                            <li>✅ Shareholder balance <strong>barhega</strong> (Add hoga)</li>
+                            <li>❌ Main cash balance <strong>nahi badlega</strong> (No change)</li>
+                            <li>📌 Sirf internal record hai, actual cash transfer nahi</li>
+                        </ul>
+                    </div>
+
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Amount (Rs.)</label>
+                            <input type="number" name="amount" class="form-control form-control-lg" 
+                                   step="0.01" min="0.01" required
+                                   placeholder="Enter amount to deposit"
+                                   id="amountInput">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <input type="text" name="description" class="form-control" 
+                                   value="Internal deposit" placeholder="e.g., Bonus, Adjustment, etc.">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Reference No. (Optional)</label>
+                            <input type="text" name="reference_no" class="form-control" 
+                                   placeholder="e.g., Transaction reference">
+                        </div>
+
+                        <!-- Quick Deposit Buttons -->
+                        <div class="mb-3">
+                            <label class="form-label">Quick Deposit Amounts</label>
+                            <div class="d-flex gap-2 flex-wrap">
+                                <button type="button" class="btn btn-outline-success btn-sm" onclick="setAmount(1000)">Rs. 1,000</button>
+                                <button type="button" class="btn btn-outline-success btn-sm" onclick="setAmount(5000)">Rs. 5,000</button>
+                                <button type="button" class="btn btn-outline-success btn-sm" onclick="setAmount(10000)">Rs. 10,000</button>
+                                <button type="button" class="btn btn-outline-success btn-sm" onclick="setAmount(25000)">Rs. 25,000</button>
+                                <button type="button" class="btn btn-outline-success btn-sm" onclick="setAmount(50000)">Rs. 50,000</button>
+                                <button type="button" class="btn btn-outline-success btn-sm" onclick="setAmount(100000)">Rs. 100,000</button>
+                            </div>
+                        </div>
+
+                        <!-- Deposit Summary -->
+                        <div class="alert alert-secondary" id="depositSummary">
+                            <strong>📊 Deposit Summary:</strong><br>
+                            <span id="depositAmountDisplay">Amount: Rs. 0.00</span><br>
+                            <span id="newBalanceDisplay">New Balance: Rs. {{ current_balance|floatformat:2 }}</span>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'shareholder_balance_detail' shareholder.id %}" class="btn btn-secondary">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-check-circle"></i> Confirm Deposit
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function setAmount(amount) {
+    document.getElementById('amountInput').value = amount;
+    updateSummary(amount);
+}
+
+function updateSummary(amount) {
+    const currentBalance = {{ current_balance|floatformat:2 }};
+    const depositAmount = parseFloat(amount) || 0;
+    const newBalance = currentBalance + depositAmount;
+    
+    document.getElementById('depositAmountDisplay').textContent = `Amount: Rs. ${depositAmount.toFixed(2)}`;
+    document.getElementById('newBalanceDisplay').textContent = `New Balance: Rs. ${newBalance.toFixed(2)}`;
+}
+
+document.getElementById('amountInput').addEventListener('input', function() {
+    updateSummary(this.value);
+});
+
+updateSummary(0);
+</script>
+{% endblock %}

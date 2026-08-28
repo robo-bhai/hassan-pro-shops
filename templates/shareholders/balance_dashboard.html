@@ -1,0 +1,499 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Shareholder Cash Balance Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3 px-lg-4">
+    <!-- Page Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 mb-md-4">
+        <div>
+            <h1 class="h4 h-md-3 mb-0 text-gray-800">💰 Shareholder Cash Balance Dashboard</h1>
+            <p class="text-muted small mb-0">Manage and view all shareholders' cash balances, dividends and returns</p>
+        </div>
+        <div>
+            <a href="{% url 'shareholder_list' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-people"></i> <span class="d-none d-sm-inline">All Shareholders</span>
+                <span class="d-inline d-sm-none">List</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row g-2 g-md-3 mb-3 mb-md-4">
+        <div class="col-6 col-md-3">
+            <div class="card bg-primary text-white shadow-sm h-100">
+                <div class="card-body p-2 p-md-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title mb-0 small text-uppercase">Total Balance</h6>
+                            <h2 class="mb-0 fs-6 fs-md-2">Rs. {{ total_balance|floatformat:2 }}</h2>
+                        </div>
+                        <i class="bi bi-wallet2 fs-4 fs-md-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card bg-success text-white shadow-sm h-100">
+                <div class="card-body p-2 p-md-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title mb-0 small text-uppercase">Active</h6>
+                            <h2 class="mb-0 fs-6 fs-md-2">{{ total_shareholders }}</h2>
+                        </div>
+                        <i class="bi bi-people fs-4 fs-md-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card bg-secondary text-white shadow-sm h-100">
+                <div class="card-body p-2 p-md-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title mb-0 small text-uppercase">Balance W/O Share</h6>
+                            <h2 class="mb-0 fs-6 fs-md-2">Rs. {{ total_balance_without_share|floatformat:2 }}</h2>
+                        </div>
+                        <i class="bi bi-cash-stack fs-4 fs-md-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card bg-info text-white shadow-sm h-100">
+                <div class="card-body p-2 p-md-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title mb-0 small text-uppercase">Total Dividends</h6>
+                            <h2 class="mb-0 fs-6 fs-md-2">Rs. {{ total_dividends|floatformat:2 }}</h2>
+                        </div>
+                        <i class="bi bi-currency-rupee fs-4 fs-md-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ NEW: Paid/Unpaid Dividends Cards -->
+    <div class="row g-2 g-md-3 mb-3 mb-md-4">
+        <div class="col-6 col-md-3">
+            <div class="card bg-success text-white shadow-sm h-100">
+                <div class="card-body p-2 p-md-3">
+                    <h6 class="card-title mb-0 small text-uppercase">✅ Paid Dividends</h6>
+                    <h2 class="mb-0 fs-6 fs-md-2">Rs. {{ total_paid_dividends|floatformat:2 }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card bg-warning text-dark shadow-sm h-100">
+                <div class="card-body p-2 p-md-3">
+                    <h6 class="card-title mb-0 small text-uppercase">⏳ Unpaid Dividends</h6>
+                    <h2 class="mb-0 fs-6 fs-md-2">Rs. {{ total_unpaid_dividends|floatformat:2 }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card bg-light h-100">
+                <div class="card-body p-2 p-md-3 text-center">
+                    <h6 class="text-muted small mb-0">Total Shares</h6>
+                    <h3 class="mb-0 fs-5 fs-md-3">{{ total_shares|floatformat:0 }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card bg-light h-100">
+                <div class="card-body p-2 p-md-3 text-center">
+                    <h6 class="text-muted small mb-0">Total Investment</h6>
+                    <h3 class="mb-0 fs-6 fs-md-3">Rs. {{ total_investment|floatformat:2 }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Latest Share Price -->
+    {% if latest_price %}
+    <div class="alert alert-info py-2 py-md-3 mb-3 mb-md-4">
+        <i class="bi bi-info-circle"></i> Current Share Price: <strong>Rs. {{ latest_price.price|floatformat:2 }}</strong> 
+        <span class="d-none d-sm-inline">(as of {{ latest_price.date|date:"d-m-Y" }})</span>
+        <span class="d-inline d-sm-none">({{ latest_price.date|date:"d-m-y" }})</span>
+    </div>
+    {% endif %}
+
+    <!-- Dividend % Card -->
+    <div class="row g-2 g-md-3 mb-3 mb-md-4">
+        <div class="col-12">
+            <div class="card bg-warning text-dark shadow-sm">
+                <div class="card-body p-2 p-md-3 text-center">
+                    <h6 class="text-muted small mb-0">Total Dividend %</h6>
+                    <h3 class="mb-0">{{ total_dividend_percent|floatformat:1 }}%</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Balance Table -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white py-2 d-flex flex-wrap justify-content-between align-items-center">
+            <h5 class="mb-0 small">Shareholder Balances</h5>
+            <span class="badge bg-secondary">{{ shareholder_balances|length }} records</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped mb-0" id="balanceTable">
+                    <thead class="table-dark">
+                        <tr>
+                            <th class="d-none d-sm-table-cell">#</th>
+                            <th>Code</th>
+                            <th>Name</th>
+                            <th class="d-none d-md-table-cell">Type</th>
+                            <th>Balance</th>
+                            <th class="d-none d-lg-table-cell">Balance W/O Share</th>
+                            <th class="d-none d-sm-table-cell">Shares</th>
+                            <th class="d-none d-md-table-cell">Investment</th>
+                            <th>Dividends</th>
+                            <th>Paid</th>
+                            <th>Unpaid</th>
+                            <th class="d-none d-sm-table-cell">Div %</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in shareholder_balances %}
+                        <tr>
+                            <td class="d-none d-sm-table-cell">{{ forloop.counter }}</td>
+                            <td>
+                                <span class="badge bg-secondary" style="font-size:0.6rem;">{{ item.shareholder.shareholder_code }}</span>
+                            </td>
+                            <td class="text-truncate" style="max-width:80px;">
+                                <a href="{% url 'shareholder_balance_detail' item.shareholder.id %}" class="text-decoration-none">
+                                    {{ item.shareholder.name }}
+                                </a>
+                            </td>
+                            <td class="d-none d-md-table-cell small">{{ item.shareholder.get_shareholder_type_display }}</td>
+                            
+                            <!-- Balance -->
+                            <td>
+                                {% if item.balance > 0 %}
+                                <span class="text-success fw-bold small">Rs. {{ item.balance|floatformat:2 }}</span>
+                                {% elif item.balance == 0 %}
+                                <span class="text-muted small">Rs. 0.00</span>
+                                {% else %}
+                                <span class="text-danger fw-bold small">Rs. {{ item.balance|floatformat:2 }}</span>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- Balance Without Share -->
+                            <td class="d-none d-lg-table-cell">
+                                {% if item.balance_without_share > 0 %}
+                                <span class="text-success small">Rs. {{ item.balance_without_share|floatformat:2 }}</span>
+                                {% elif item.balance_without_share == 0 %}
+                                <span class="text-muted small">Rs. 0.00</span>
+                                {% else %}
+                                <span class="text-danger small">Rs. {{ item.balance_without_share|floatformat:2 }}</span>
+                                {% endif %}
+                            </td>
+                            
+                            <td class="d-none d-sm-table-cell">{{ item.shares|floatformat:0 }}</td>
+                            <td class="d-none d-md-table-cell small">Rs. {{ item.investment|floatformat:2 }}</td>
+                            
+                            <!-- Total Dividends -->
+                            <td>
+                                {% if item.dividends > 0 %}
+                                <span class="text-info fw-bold small">Rs. {{ item.dividends|floatformat:2 }}</span>
+                                {% elif item.dividends == 0 %}
+                                <span class="text-muted small">Rs. 0.00</span>
+                                {% else %}
+                                <span class="text-muted small">-</span>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- ✅ NEW: Paid Dividends -->
+                            <td>
+                                {% if item.paid_dividends > 0 %}
+                                <span class="text-success fw-bold small">Rs. {{ item.paid_dividends|floatformat:2 }}</span>
+                                {% elif item.paid_dividends == 0 %}
+                                <span class="text-muted small">Rs. 0.00</span>
+                                {% else %}
+                                <span class="text-muted small">-</span>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- ✅ NEW: Unpaid Dividends -->
+                            <td>
+                                {% if item.unpaid_dividends > 0 %}
+                                <span class="text-warning fw-bold small">Rs. {{ item.unpaid_dividends|floatformat:2 }}</span>
+                                {% elif item.unpaid_dividends == 0 %}
+                                <span class="text-muted small">Rs. 0.00</span>
+                                {% else %}
+                                <span class="text-muted small">-</span>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- Dividend Percentage -->
+                            <td class="d-none d-sm-table-cell">
+                                {% if item.dividend_percent > 0 %}
+                                <span class="badge bg-success">{{ item.dividend_percent|floatformat:1 }}%</span>
+                                {% elif item.investment > 0 and item.dividends == 0 %}
+                                <span class="badge bg-secondary">0%</span>
+                                {% else %}
+                                <span class="badge bg-secondary">-</span>
+                                {% endif %}
+                            </td>
+                            
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'shareholder_balance_detail' item.shareholder.id %}" 
+                                       class="btn btn-outline-primary" title="View">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="13" class="text-center py-4">
+                                <i class="bi bi-inbox fs-2 d-block"></i>
+                                <p class="text-muted small">No active shareholders found</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="table-secondary fw-bold">
+                            <td colspan="4" class="text-end small">TOTALS:</td>
+                            <td class="small">Rs. {{ total_balance|floatformat:2 }}</td>
+                            <td class="d-none d-lg-table-cell small">Rs. {{ total_balance_without_share|floatformat:2 }}</td>
+                            <td class="d-none d-sm-table-cell">{{ total_shares|floatformat:0 }}</td>
+                            <td class="d-none d-md-table-cell small">Rs. {{ total_investment|floatformat:2 }}</td>
+                            <td class="small">Rs. {{ total_dividends|floatformat:2 }}</td>
+                            <td class="small text-success">Rs. {{ total_paid_dividends|floatformat:2 }}</td>
+                            <td class="small text-warning">Rs. {{ total_unpaid_dividends|floatformat:2 }}</td>
+                            <td class="d-none d-sm-table-cell">{{ total_dividend_percent|floatformat:1 }}%</td>
+                            <td>-</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Transactions -->
+    <div class="card shadow-sm mt-3 mt-md-4">
+        <div class="card-header bg-white py-2 d-flex flex-wrap justify-content-between align-items-center">
+            <h5 class="mb-0 small"><i class="bi bi-clock-history"></i> Recent Transactions</h5>
+            <span class="badge bg-secondary">{{ recent_transactions|length }} records</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th class="d-none d-sm-table-cell">Date</th>
+                            <th class="d-sm-none">Date/Time</th>
+                            <th>Shareholder</th>
+                            <th class="d-none d-md-table-cell">Type</th>
+                            <th>Amount</th>
+                            <th class="d-none d-lg-table-cell">Description</th>
+                            <th class="d-none d-sm-table-cell">By</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for trans in recent_transactions %}
+                        <tr>
+                            <td class="d-none d-sm-table-cell small">{{ trans.created_at|date:"d-m-Y" }}</td>
+                            <td class="d-sm-none small">{{ trans.created_at|date:"d-m H:i" }}</td>
+                            <td class="text-truncate" style="max-width:60px;">
+                                <a href="{% url 'shareholder_balance_detail' trans.shareholder.id %}" class="text-decoration-none">
+                                    {{ trans.shareholder.name }}
+                                </a>
+                            </td>
+                            <td class="d-none d-md-table-cell">
+                                <span class="badge {% if trans.is_deposit %}bg-success{% else %}bg-danger{% endif %}" style="font-size:0.6rem;">
+                                    {{ trans.get_transaction_type_display }}
+                                </span>
+                            </td>
+                            <td class="{% if trans.is_deposit %}text-success{% else %}text-danger{% endif %} small">
+                                {% if trans.is_deposit %}+{% else %}-{% endif %}Rs. {{ trans.amount|floatformat:2 }}
+                            </td>
+                            <td class="d-none d-lg-table-cell small">{{ trans.description|truncatechars:25 }}</td>
+                            <td class="d-none d-sm-table-cell small">{{ trans.created_by.username|default:"System" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-3 text-muted small">No recent transactions</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Mobile Responsive Styles */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+        }
+        .card-body {
+            padding: 0.5rem !important;
+        }
+        .card-header {
+            padding: 0.4rem 0.5rem !important;
+        }
+        .btn-group-sm > .btn {
+            padding: 0.1rem 0.3rem;
+            font-size: 0.6rem;
+        }
+        .table td, .table th {
+            padding: 0.2rem 0.2rem !important;
+            font-size: 0.6rem !important;
+        }
+        .badge {
+            font-size: 0.5rem !important;
+            padding: 0.1rem 0.3rem !important;
+        }
+        .text-truncate {
+            max-width: 50px !important;
+        }
+        h1 {
+            font-size: 1rem !important;
+        }
+        .fs-6 {
+            font-size: 0.7rem !important;
+        }
+        .fs-5 {
+            font-size: 0.8rem !important;
+        }
+        .fs-4 {
+            font-size: 0.9rem !important;
+        }
+    }
+    
+    @media (min-width: 577px) and (max-width: 768px) {
+        .container-fluid {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+        }
+        .card-body {
+            padding: 0.6rem !important;
+        }
+        .table td, .table th {
+            padding: 0.3rem 0.3rem !important;
+            font-size: 0.65rem !important;
+        }
+        .text-truncate {
+            max-width: 80px !important;
+        }
+        h1 {
+            font-size: 1.1rem !important;
+        }
+        .fs-6 {
+            font-size: 0.8rem !important;
+        }
+    }
+
+    /* Very small screens */
+    @media (max-width: 360px) {
+        .btn-group-sm > .btn {
+            padding: 0.05rem 0.2rem;
+            font-size: 0.5rem;
+        }
+        .table td, .table th {
+            padding: 0.1rem 0.1rem !important;
+            font-size: 0.5rem !important;
+        }
+        .badge {
+            font-size: 0.4rem !important;
+            padding: 0.05rem 0.2rem !important;
+        }
+        .text-truncate {
+            max-width: 35px !important;
+        }
+        .fs-6 {
+            font-size: 0.6rem !important;
+        }
+        .fs-5 {
+            font-size: 0.7rem !important;
+        }
+        h1 {
+            font-size: 0.8rem !important;
+        }
+    }
+
+    /* Touch friendly */
+    .btn {
+        touch-action: manipulation;
+    }
+
+    .card {
+        border-radius: 0.5rem !important;
+    }
+
+    .table-responsive {
+        border-radius: 0.5rem;
+    }
+
+    /* DataTable responsive adjustments */
+    .dataTables_wrapper .dataTables_length,
+    .dataTables_wrapper .dataTables_filter {
+        margin-bottom: 0.5rem;
+    }
+
+    .dataTables_wrapper .dataTables_length label,
+    .dataTables_wrapper .dataTables_filter label {
+        font-size: 0.7rem !important;
+    }
+
+    .dataTables_wrapper .dataTables_info,
+    .dataTables_wrapper .dataTables_paginate {
+        font-size: 0.65rem !important;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('#balanceTable').DataTable({
+        order: [[8, 'desc']], // Sort by Dividends column
+        pageLength: 10,
+        responsive: true,
+        language: {
+            search: "<span class='d-none d-sm-inline'>Search shareholders:</span>",
+            lengthMenu: "<span class='d-none d-sm-inline'>Show _MENU_ entries</span>",
+            info: "<span class='d-none d-sm-inline'>Showing _START_ to _END_ of _TOTAL_ shareholders</span>",
+            infoEmpty: "No records",
+            infoFiltered: "(filtered from _MAX_ total)",
+            zeroRecords: "No matching shareholders found",
+            paginate: {
+                previous: "<i class='bi bi-chevron-left'></i>",
+                next: "<i class='bi bi-chevron-right'></i>"
+            }
+        },
+        columnDefs: [
+            { orderable: false, targets: [12] } // Actions column not sortable
+        ],
+        responsive: {
+            details: {
+                display: $.fn.dataTable.Responsive.display.modal({
+                    header: function(row) {
+                        var data = row.data();
+                        return 'Details for ' + data[2];
+                    }
+                }),
+                renderer: $.fn.dataTable.Responsive.renderer.tableAll({
+                    tableClass: 'table table-bordered table-sm mb-0'
+                })
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

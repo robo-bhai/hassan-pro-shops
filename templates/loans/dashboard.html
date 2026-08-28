@@ -1,0 +1,385 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}🏦 Loan Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2>🏦 Loan Management Dashboard</h2>
+                <div>
+                    <a href="{% url 'loan_create' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> New Loan
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Total Loans</h6>
+                            <h2 class="mb-0">{{ total_loans }}</h2>
+                        </div>
+                        <div class="fs-1">
+                            <i class="bi bi-bank"></i>
+                        </div>
+                    </div>
+                    <small>Active: {{ active_loans }}</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Total Paid</h6>
+                            <h2 class="mb-0">Rs. {{ total_paid|floatformat:0 }}</h2>
+                        </div>
+                        <div class="fs-1">
+                            <i class="bi bi-check-circle"></i>
+                        </div>
+                    </div>
+                    <small>{{ paid_percent|floatformat:1 }}% of total</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Remaining</h6>
+                            <h2 class="mb-0">Rs. {{ total_remaining|floatformat:0 }}</h2>
+                        </div>
+                        <div class="fs-1">
+                            <i class="bi bi-clock-history"></i>
+                        </div>
+                    </div>
+                    <small>Active loans: {{ active_loans }}</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Overdue</h6>
+                            <h2 class="mb-0">{{ overdue_count }}</h2>
+                        </div>
+                        <div class="fs-1">
+                            <i class="bi bi-exclamation-triangle"></i>
+                        </div>
+                    </div>
+                    <small>Amount: Rs. {{ overdue_amount|floatformat:0 }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Charts Row -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">📊 Loan by Type</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="loanTypeChart" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">📈 Monthly Payments</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="monthlyPaymentChart" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">⚡ Quick Actions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex gap-2 flex-wrap">
+                        <a href="{% url 'loan_create' %}" class="btn btn-primary">
+                            <i class="bi bi-plus-circle"></i> New Loan
+                        </a>
+                        <a href="{% url 'loan_list' %}" class="btn btn-info">
+                            <i class="bi bi-list"></i> View All Loans
+                        </a>
+                        <a href="{% url 'loan_return_list' %}" class="btn btn-secondary">
+                            <i class="bi bi-clock-history"></i> Payment History
+                        </a>
+                        <a href="{% url 'loan_export_report' %}" class="btn btn-success">
+                            <i class="bi bi-file-earmark-excel"></i> Export Excel
+                        </a>
+                        <a href="{% url 'loan_export_pdf' %}" class="btn btn-danger">
+                            <i class="bi bi-file-earmark-pdf"></i> Export PDF
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Activity & Alerts -->
+    <div class="row">
+        <div class="col-md-7">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">🔄 Recent Loan Activity</h6>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        {% for activity in recent_activities %}
+                        <div class="list-group-item list-group-item-action">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    {% if activity.type == 'loan_created' %}
+                                        <span class="badge bg-primary me-2">New</span>
+                                    {% elif activity.type == 'payment_made' %}
+                                        <span class="badge bg-success me-2">Payment</span>
+                                    {% elif activity.type == 'overdue' %}
+                                        <span class="badge bg-danger me-2">Overdue</span>
+                                    {% elif activity.type == 'fully_paid' %}
+                                        <span class="badge bg-info me-2">Paid</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary me-2">Update</span>
+                                    {% endif %}
+                                    {{ activity.message }}
+                                </div>
+                                <small class="text-muted">{{ activity.time_ago }}</small>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p class="text-muted text-center py-3">
+                            <i class="bi bi-inbox fs-4 d-block"></i>
+                            No recent activity
+                        </p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-5">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">⚠️ Upcoming Payments</h6>
+                </div>
+                <div class="card-body">
+                    {% if upcoming_payments %}
+                        {% for payment in upcoming_payments %}
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                            <div>
+                                <strong>{{ payment.lender }}</strong>
+                                <br>
+                                <small class="text-muted">{{ payment.agreement_no }}</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge {% if payment.status == 'overdue' %}bg-danger{% elif payment.status == 'due_soon' %}bg-warning{% else %}bg-success{% endif %}">
+                                    {% if payment.status == 'overdue' %}
+                                        🔴 {{ payment.days_left|default:0 }} days overdue
+                                    {% elif payment.status == 'due_soon' %}
+                                        🟡 {{ payment.days_left }} days left
+                                    {% else %}
+                                        🟢 {{ payment.days_left }} days left
+                                    {% endif %}
+                                </span>
+                                <br>
+                                <strong>Rs. {{ payment.amount|floatformat:2 }}</strong>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted text-center py-3">
+                            <i class="bi bi-check-circle fs-4 d-block"></i>
+                            No upcoming payments
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Lender Summary -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">🏢 Lender Wise Summary</h6>
+                </div>
+                <div class="card-body">
+                    {% if lender_summary %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Lender</th>
+                                    <th>Total Loans</th>
+                                    <th>Principal</th>
+                                    <th>Paid</th>
+                                    <th>Remaining</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for lender in lender_summary %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td><strong>{{ lender.name }}</strong></td>
+                                    <td>{{ lender.count }}</td>
+                                    <td>Rs. {{ lender.total_principal|floatformat:2 }}</td>
+                                    <td class="text-success">Rs. {{ lender.total_paid|floatformat:2 }}</td>
+                                    <td class="{% if lender.total_remaining > 0 %}text-danger{% else %}text-success{% endif %}">
+                                        Rs. {{ lender.total_remaining|floatformat:2 }}
+                                    </td>
+                                    <td>
+                                        {% if lender.total_remaining <= 0 %}
+                                            <span class="badge bg-success">✅ Paid</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">⏳ Active</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'loan_list' %}?search={{ lender.name }}" class="btn btn-sm btn-info">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-3">
+                        <i class="bi bi-inbox fs-4 d-block"></i>
+                        No lenders found
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Footer Note -->
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="text-center text-muted">
+                <small>
+                    <i class="bi bi-info-circle"></i>
+                    Total Loans: {{ total_loans }} | 
+                    Total Principal: Rs. {{ total_principal|floatformat:2 }} | 
+                    Total Paid: Rs. {{ total_paid|floatformat:2 }}
+                </small>
+            </div>
+        </div>
+    </div>
+    
+</div>
+
+<!-- Chart.js for Charts -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Loan by Type Chart
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx1 = document.getElementById('loanTypeChart').getContext('2d');
+        new Chart(ctx1, {
+            type: 'doughnut',
+            data: {
+                labels: {{ loan_type_labels|safe }},
+                datasets: [{
+                    data: {{ loan_type_data|safe }},
+                    backgroundColor: ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b', '#fa709a', '#fee140'],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true,
+                            pointStyle: 'circle'
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.label || '';
+                                let value = context.parsed || 0;
+                                let total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                let percentage = ((value / total) * 100).toFixed(1);
+                                return label + ': ' + value + ' (' + percentage + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Monthly Payment Chart
+        const ctx2 = document.getElementById('monthlyPaymentChart').getContext('2d');
+        new Chart(ctx2, {
+            type: 'bar',
+            data: {
+                labels: {{ monthly_labels|safe }},
+                datasets: [{
+                    label: 'Payments Made',
+                    data: {{ monthly_payments|safe }},
+                    backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                    borderColor: '#667eea',
+                    borderWidth: 2,
+                    borderRadius: 5,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'Rs. ' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

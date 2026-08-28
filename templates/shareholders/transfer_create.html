@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Create Share Transfer{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>🔄 Create Share Transfer</h1>
+        <a href="{% url 'share_transfer_list' %}" class="btn btn-secondary">← Back to Transfers</a>
+    </div>
+    
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h6 class="mb-0">📝 Transfer Details</h6>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">From Shareholder *</label>
+                            <select name="from_shareholder" class="form-select" required>
+                                <option value="">Select Shareholder</option>
+                                {% for shareholder in shareholders %}
+                                <option value="{{ shareholder.id }}">
+                                    {{ shareholder.shareholder_code }} - {{ shareholder.name }} 
+                                    ({{ shareholder.total_shares|floatformat:0 }} shares)
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">To Shareholder *</label>
+                            <select name="to_shareholder" class="form-select" required>
+                                <option value="">Select Shareholder</option>
+                                {% for shareholder in shareholders %}
+                                <option value="{{ shareholder.id }}">
+                                    {{ shareholder.shareholder_code }} - {{ shareholder.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Quantity *</label>
+                            <input type="number" name="quantity" class="form-control" 
+                                   min="1" required placeholder="Number of shares to transfer">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Transfer Price (per share)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">Rs.</span>
+                                <input type="number" name="transfer_price" class="form-control" 
+                                       step="0.01" min="0" value="0" placeholder="0.00">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Transfer Date</label>
+                            <input type="date" name="transfer_date" class="form-control" 
+                                   value="{{ today|default:'' }}">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Reason</label>
+                            <select name="reason" class="form-select">
+                                <option value="">Select Reason</option>
+                                <option value="Sale">Sale</option>
+                                <option value="Gift">Gift</option>
+                                <option value="Inheritance">Inheritance</option>
+                                <option value="Transfer">Transfer</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Notes</label>
+                            <textarea name="notes" class="form-control" rows="3" 
+                                      placeholder="Additional notes..."></textarea>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info">
+                    <strong>💡 Note:</strong> Transfer will be created with status <strong>Pending</strong>. 
+                    It needs to be <strong>Approved</strong> and then <strong>Completed</strong> to move shares.
+                </div>
+                
+                <div class="text-end">
+                    <button type="submit" class="btn btn-success btn-lg">
+                        🔄 Create Transfer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Show shares count when from shareholder is selected
+    document.querySelector('select[name="from_shareholder"]').addEventListener('change', function() {
+        const selected = this.options[this.selectedIndex];
+        const shares = selected.text.match(/\(([^)]+)\)/);
+        if (shares) {
+            document.querySelector('input[name="quantity"]').max = shares[1].replace(/,/g, '');
+        }
+    });
+</script>
+{% endblock %}

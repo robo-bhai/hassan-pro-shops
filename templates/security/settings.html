@@ -1,0 +1,286 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Security Settings{% endblock %}
+
+{% block extra_css %}
+<style>
+    .settings-group {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 16px;
+    }
+    .settings-group .group-title {
+        font-weight: 600;
+        font-size: 14px;
+        color: #2d3748;
+        margin-bottom: 12px;
+    }
+    .toggle-switch {
+        width: 50px;
+        height: 26px;
+        background: #ccc;
+        border-radius: 13px;
+        position: relative;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    .toggle-switch.active {
+        background: #28a745;
+    }
+    .toggle-switch .toggle-slider {
+        width: 22px;
+        height: 22px;
+        background: white;
+        border-radius: 50%;
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .toggle-switch.active .toggle-slider {
+        left: 26px;
+    }
+    .setting-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid #f1f3f5;
+    }
+    .setting-item:last-child {
+        border-bottom: none;
+    }
+    .setting-item .setting-label {
+        font-weight: 500;
+    }
+    .setting-item .setting-desc {
+        font-size: 12px;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-gear text-primary"></i> Security Settings</h2>
+            <p class="text-muted">Configure system security parameters</p>
+        </div>
+        <div>
+            <a href="{% url 'security_dashboard' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+                
+                <!-- Authentication -->
+                <div class="settings-group">
+                    <div class="group-title">🔐 Authentication</div>
+                    
+                    <div class="setting-item">
+                        <div>
+                            <div class="setting-label">Two-Factor Authentication</div>
+                            <div class="setting-desc">Enable 2FA for all users</div>
+                        </div>
+                        <div class="toggle-switch {% if settings.enable_2fa %}active{% endif %}" onclick="toggleSwitch(this)">
+                            <input type="hidden" name="enable_2fa" value="{% if settings.enable_2fa %}on{% endif %}">
+                            <div class="toggle-slider"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div>
+                            <div class="setting-label">Auto Logout</div>
+                            <div class="setting-desc">Auto logout inactive users</div>
+                        </div>
+                        <div class="toggle-switch {% if settings.enable_auto_logout %}active{% endif %}" onclick="toggleSwitch(this)">
+                            <input type="hidden" name="enable_auto_logout" value="{% if settings.enable_auto_logout %}on{% endif %}">
+                            <div class="toggle-slider"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-4">
+                            <label class="form-label">Max Login Attempts</label>
+                            <input type="number" name="max_login_attempts" class="form-control" value="{{ settings.max_login_attempts }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Lockout Time (minutes)</label>
+                            <input type="number" name="lockout_time" class="form-control" value="{{ settings.lockout_time }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Session Timeout (minutes)</label>
+                            <input type="number" name="session_timeout" class="form-control" value="{{ settings.session_timeout }}">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Password Policy -->
+                <div class="settings-group">
+                    <div class="group-title">🔑 Password Policy</div>
+                    
+                    <div class="setting-item">
+                        <div>
+                            <div class="setting-label">Prevent Password Reuse</div>
+                            <div class="setting-desc">Prevent users from reusing old passwords</div>
+                        </div>
+                        <div class="toggle-switch {% if settings.prevent_password_reuse %}active{% endif %}" onclick="toggleSwitch(this)">
+                            <input type="hidden" name="prevent_password_reuse" value="{% if settings.prevent_password_reuse %}on{% endif %}">
+                            <div class="toggle-slider"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-3">
+                            <label class="form-label">Min Password Length</label>
+                            <input type="number" name="min_password_length" class="form-control" value="{{ settings.min_password_length }}">
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check mt-4">
+                                <input type="checkbox" name="require_uppercase" class="form-check-input" {% if settings.require_uppercase %}checked{% endif %}>
+                                <label class="form-check-label">Uppercase</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check mt-4">
+                                <input type="checkbox" name="require_lowercase" class="form-check-input" {% if settings.require_lowercase %}checked{% endif %}>
+                                <label class="form-check-label">Lowercase</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check mt-4">
+                                <input type="checkbox" name="require_numbers" class="form-check-input" {% if settings.require_numbers %}checked{% endif %}>
+                                <label class="form-check-label">Numbers</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input type="checkbox" name="require_special_chars" class="form-check-input" {% if settings.require_special_chars %}checked{% endif %}>
+                                <label class="form-check-label">Special Characters</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Password Expiry (days)</label>
+                            <input type="number" name="password_expiry_days" class="form-control" value="{{ settings.password_expiry_days }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Password History Count</label>
+                            <input type="number" name="password_history_count" class="form-control" value="{{ settings.password_history_count }}">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- IP Security -->
+                <div class="settings-group">
+                    <div class="group-title">🌐 IP Security</div>
+                    
+                    <div class="setting-item">
+                        <div>
+                            <div class="setting-label">IP Whitelist</div>
+                            <div class="setting-desc">Allow only whitelisted IPs</div>
+                        </div>
+                        <div class="toggle-switch {% if settings.enable_ip_whitelist %}active{% endif %}" onclick="toggleSwitch(this)">
+                            <input type="hidden" name="enable_ip_whitelist" value="{% if settings.enable_ip_whitelist %}on{% endif %}">
+                            <div class="toggle-slider"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div>
+                            <div class="setting-label">IP Blacklist</div>
+                            <div class="setting-desc">Block malicious IPs</div>
+                        </div>
+                        <div class="toggle-switch {% if settings.enable_ip_blacklist %}active{% endif %}" onclick="toggleSwitch(this)">
+                            <input type="hidden" name="enable_ip_blacklist" value="{% if settings.enable_ip_blacklist %}on{% endif %}">
+                            <div class="toggle-slider"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- API Security -->
+                <div class="settings-group">
+                    <div class="group-title">🔌 API Security</div>
+                    
+                    <div class="setting-item">
+                        <div>
+                            <div class="setting-label">API Authentication</div>
+                            <div class="setting-desc">Require API key for API access</div>
+                        </div>
+                        <div class="toggle-switch {% if settings.enable_api_auth %}active{% endif %}" onclick="toggleSwitch(this)">
+                            <input type="hidden" name="enable_api_auth" value="{% if settings.enable_api_auth %}on{% endif %}">
+                            <div class="toggle-slider"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-6">
+                            <label class="form-label">API Rate Limit (requests/min)</label>
+                            <input type="number" name="api_rate_limit" class="form-control" value="{{ settings.api_rate_limit }}">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Alerts -->
+                <div class="settings-group">
+                    <div class="group-title">🔔 Security Alerts</div>
+                    
+                    <div class="setting-item">
+                        <div>
+                            <div class="setting-label">Enable Security Alerts</div>
+                            <div class="setting-desc">Send alerts for security events</div>
+                        </div>
+                        <div class="toggle-switch {% if settings.enable_security_alerts %}active{% endif %}" onclick="toggleSwitch(this)">
+                            <input type="hidden" name="enable_security_alerts" value="{% if settings.enable_security_alerts %}on{% endif %}">
+                            <div class="toggle-slider"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-6">
+                            <label class="form-label">Alert Email</label>
+                            <input type="email" name="alert_email" class="form-control" value="{{ settings.alert_email }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Alert WhatsApp</label>
+                            <input type="text" name="alert_whatsapp" class="form-control" value="{{ settings.alert_whatsapp }}">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Save Settings
+                    </button>
+                    <a href="{% url 'security_dashboard' %}" class="btn btn-secondary">
+                        <i class="bi bi-x-circle"></i> Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+</div>
+
+<script>
+    function toggleSwitch(element) {
+        element.classList.toggle('active');
+        var input = element.querySelector('input[type="hidden"]');
+        if (input) {
+            input.value = element.classList.contains('active') ? 'on' : 'off';
+        }
+    }
+</script>
+{% endblock %}

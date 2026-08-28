@@ -1,0 +1,214 @@
+{% extends 'ceo/base_executive.html' %}
+{% load humanize %}
+
+{% block page_title %}Executive Dashboard{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Key Metrics -->
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <small class="text-muted">Today's Revenue</small>
+                    <h3 class="mb-0">Rs. {{ revenue_today|floatformat:0|intcomma }}</h3>
+                    <small class="text-success"><i class="bi bi-arrow-up"></i> +12%</small>
+                </div>
+                <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                    <i class="bi bi-currency-rupee"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <small class="text-muted">Month-to-Date</small>
+                    <h3 class="mb-0">Rs. {{ revenue_mtd|floatformat:0|intcomma }}</h3>
+                    <small class="text-success"><i class="bi bi-arrow-up"></i> vs last month</small>
+                </div>
+                <div class="stat-icon bg-success bg-opacity-10 text-success">
+                    <i class="bi bi-calendar-month"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <small class="text-muted">Today's Profit</small>
+                    <h3 class="mb-0">Rs. {{ profit_today|floatformat:0|intcomma }}</h3>
+                    <small class="text-success">Margin: 22%</small>
+                </div>
+                <div class="stat-icon bg-warning bg-opacity-10 text-warning">
+                    <i class="bi bi-graph-up"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <small class="text-muted">Strategic Progress</small>
+                    <h3 class="mb-0">{{ objective_progress|floatformat:0 }}%</h3>
+                    <small>Q{{ current_quarter|default:'4' }} {{ now|date:"Y" }}</small>
+                </div>
+                <div class="stat-icon bg-info bg-opacity-10 text-info">
+                    <i class="bi bi-trophy"></i>
+                </div>
+            </div>
+            <div class="progress mt-2">
+                <div class="progress-bar bg-info" style="width: {{ objective_progress|floatformat:0 }}%"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mt-2">
+    <!-- Sales Trend Chart -->
+    <div class="col-md-8">
+        <div class="stat-card">
+            <h6><i class="bi bi-graph-up"></i> 12-Month Revenue Trend</h6>
+            <canvas id="salesChart" height="250"></canvas>
+        </div>
+    </div>
+    
+    <!-- Quick Alerts -->
+    <div class="col-md-4">
+        <div class="stat-card">
+            <h6><i class="bi bi-bell"></i> Priority Alerts</h6>
+            <div class="mt-3">
+                <div class="d-flex justify-content-between mb-2">
+                    <span><i class="bi bi-box"></i> Low Stock</span>
+                    <span class="badge bg-warning">{{ low_stock_count }} items</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span><i class="bi bi-cart"></i> Pending Orders</span>
+                    <span class="badge bg-danger">{{ pending_sale_orders }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span><i class="bi bi-calendar"></i> Active Installments</span>
+                    <span class="badge bg-info">{{ active_installments }}</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span><i class="bi bi-currency-rupee"></i> Customer Outstanding</span>
+                    <span class="badge bg-primary">Rs. {{ total_customer_outstanding|floatformat:0|intcomma }}</span>
+                </div>
+            </div>
+            <hr>
+            <div class="text-center">
+                <a href="{% url 'ceo:risk_management' %}" class="btn btn-sm btn-outline-danger">View Risk Assessment</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mt-2">
+    <!-- Top Products -->
+    <div class="col-md-6">
+        <div class="stat-card">
+            <h6><i class="bi bi-star"></i> Top 5 Products (30 Days)</h6>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr><th>Product</th><th>Sales</th><th>Qty</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for product in top_products %}
+                        <tr>
+                            <td>{{ product.product__name|truncatechars:30 }}</td>
+                            <td>Rs. {{ product.total_sales|floatformat:0|intcomma }}</td>
+                            <td>{{ product.total_qty|floatformat:0 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-center">No data</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Sales -->
+    <div class="col-md-6">
+        <div class="stat-card">
+            <h6><i class="bi bi-clock-history"></i> Recent Sales</h6>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr><th>Bill No</th><th>Customer</th><th>Amount</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for sale in recent_sales %}
+                        <tr>
+                            <td>{{ sale.bill_no }}</td>
+                            <td>{{ sale.customer.name|truncatechars:20 }}</td>
+                            <td>Rs. {{ sale.total_amount|floatformat:0|intcomma }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-center">No recent sales</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="stat-card">
+            <h6><i class="bi bi-activity"></i> Executive Actions</h6>
+            <div class="d-flex gap-3 flex-wrap">
+                <a href="{% url 'ceo:strategic_objectives' %}" class="btn btn-outline-primary">
+                    <i class="bi bi-bullseye"></i> Manage OKRs
+                </a>
+                <a href="{% url 'ceo:executive_meetings' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-calendar"></i> Schedule Meeting
+                </a>
+                <a href="{% url 'ceo:executive_briefings' %}" class="btn btn-outline-info">
+                    <i class="bi bi-envelope-paper"></i> Generate Briefing
+                </a>
+                <a href="{% url 'ceo:financial_analytics' %}" class="btn btn-outline-success">
+                    <i class="bi bi-graph-up"></i> View Analytics
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const ctx = document.getElementById('salesChart').getContext('2d');
+    const monthlyData = {{ monthly_trend|safe }};
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: monthlyData.map(d => d.month),
+            datasets: [{
+                label: 'Revenue (Rs.)',
+                data: monthlyData.map(d => d.sales),
+                borderColor: '#667eea',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { position: 'top' }
+            }
+        }
+    });
+</script>
+{% endblock %}

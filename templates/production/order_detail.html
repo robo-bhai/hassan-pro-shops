@@ -1,0 +1,557 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Production Order Details{% endblock %}
+{% block page_title %}📋 Production Order: {{ order.order_no }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #4361ee, #3a0ca3);
+        border-radius: 20px;
+        padding: 25px 30px;
+        margin-bottom: 30px;
+        color: white;
+    }
+    
+    .info-card {
+        background: white;
+        border-radius: 20px;
+        border: 1px solid #e9ecef;
+        overflow: hidden;
+        margin-bottom: 20px;
+    }
+    
+    .info-card-header {
+        padding: 15px 20px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+        font-weight: 700;
+    }
+    
+    .info-card-body {
+        padding: 20px;
+    }
+    
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+    }
+    
+    .info-item {
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 12px;
+    }
+    
+    .info-item .label {
+        font-size: 0.7rem;
+        color: #6c757d;
+        text-transform: uppercase;
+    }
+    
+    .info-item .value {
+        font-weight: 700;
+        font-size: 1rem;
+    }
+    
+    .progress-large {
+        height: 20px;
+        background: #e9ecef;
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 15px 0;
+    }
+    
+    .progress-fill-large {
+        height: 100%;
+        background: linear-gradient(90deg, #059669, #10b981);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .btn-action-group {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    
+    .btn-primary-custom {
+        background: linear-gradient(135deg, #4361ee, #3a0ca3);
+        padding: 8px 16px;
+        border-radius: 10px;
+        color: white;
+        text-decoration: none;
+        font-size: 0.8rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .btn-success-custom {
+        background: linear-gradient(135deg, #059669, #10b981);
+        padding: 8px 16px;
+        border-radius: 10px;
+        color: white;
+        text-decoration: none;
+        font-size: 0.8rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .btn-warning-custom {
+        background: linear-gradient(135deg, #f8961e, #f4a261);
+        padding: 8px 16px;
+        border-radius: 10px;
+        color: white;
+        text-decoration: none;
+        font-size: 0.8rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .btn-danger-custom {
+        background: linear-gradient(135deg, #dc2626, #ef4444);
+        padding: 8px 16px;
+        border-radius: 10px;
+        color: white;
+        text-decoration: none;
+        font-size: 0.8rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .data-table thead th {
+        background: #1a1a2e;
+        color: white;
+        padding: 10px 12px;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+    }
+    
+    .data-table tbody td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #e9ecef;
+        font-size: 0.85rem;
+    }
+    
+    .data-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .status-draft { background: #e5e7eb; color: #6b7280; }
+    .status-planned { background: #fed7aa; color: #ea580c; }
+    .status-approved { background: #d1fae5; color: #059669; }
+    .status-in_progress { background: #e0e7ff; color: #4361ee; }
+    .status-completed { background: #d1fae5; color: #059669; }
+    .status-cancelled { background: #fee2e2; color: #dc2626; }
+    
+    .operation-status {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 6px;
+    }
+    .operation-pending { background: #f8961e; }
+    .operation-progress { background: #4361ee; }
+    .operation-completed { background: #059669; }
+    
+    .cost-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    .cost-total {
+        font-size: 1.1rem;
+        font-weight: 800;
+        color: #059669;
+        padding-top: 10px;
+        margin-top: 10px;
+        border-top: 2px solid #059669;
+    }
+    
+    @media (max-width: 768px) {
+        .data-table { min-width: 600px; }
+        .btn-action-group { flex-direction: column; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header Section -->
+    <div class="page-header">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h1><i class="bi bi-clipboard"></i> {{ order.order_no }}</h1>
+                <p class="mb-0">{{ order.product.name }} - {{ order.quantity|floatformat:0 }} units</p>
+                <small>Created: {{ order.created_at|date:"d M Y H:i" }}</small>
+            </div>
+            <div class="btn-action-group">
+                {% if order.status == 'draft' or order.status == 'planned' %}
+                <a href="{% url 'production_order_edit' order.pk %}" class="btn-primary-custom">
+                    <i class="bi bi-pencil"></i> Edit
+                </a>
+                {% endif %}
+                
+                {% if order.status == 'draft' %}
+                <a href="{% url 'production_order_start' order.pk %}" class="btn-success-custom" onclick="return confirm('Start production?')">
+                    <i class="bi bi-play-fill"></i> Start Production
+                </a>
+                {% endif %}
+                
+                {% if order.status == 'approved' %}
+                <a href="{% url 'production_order_start' order.pk %}" class="btn-success-custom" onclick="return confirm('Start production?')">
+                    <i class="bi bi-play-fill"></i> Start Production
+                </a>
+                {% endif %}
+                
+                {% if order.status == 'in_progress' %}
+                <a href="{% url 'production_order_complete' order.pk %}" class="btn-success-custom" onclick="return confirm('Mark as completed?')">
+                    <i class="bi bi-check-lg"></i> Complete Order
+                </a>
+                {% endif %}
+                
+                <a href="{% url 'production_report_pdf' order.pk %}" class="btn-warning-custom" target="_blank">
+                    <i class="bi bi-printer"></i> Report PDF
+                </a>
+                
+                {% if order.status == 'draft' %}
+                <a href="{% url 'production_order_delete' order.pk %}" class="btn-danger-custom" onclick="return confirm('Delete this order?')">
+                    <i class="bi bi-trash"></i> Delete
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Progress Bar -->
+    <div class="info-card">
+        <div class="info-card-body">
+            <div class="d-flex justify-content-between mb-1">
+                <span><i class="bi bi-graph-up"></i> Production Progress</span>
+                <span><strong>{{ progress|floatformat:0 }}%</strong></span>
+            </div>
+            <div class="progress-large">
+                <div class="progress-fill-large" style="width: {{ progress|floatformat:0 }}%">
+                    {% if progress > 30 %}{{ progress|floatformat:0 }}%{% endif %}
+                </div>
+            </div>
+            <div class="text-center mt-2">
+                <strong>{{ order.produced_quantity|floatformat:0 }}</strong> / {{ order.quantity|floatformat:0 }} units produced
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Left Column: BOM & Operations -->
+        <div class="col-lg-8">
+            <!-- BOM Items Section -->
+            <div class="info-card">
+                <div class="info-card-header">
+                    <i class="bi bi-boxes"></i> Bill of Materials (BOM)
+                    <a href="{% url 'production_bom_add' order.pk %}" class="float-end btn-sm btn-primary">
+                        <i class="bi bi-plus-lg"></i> Add Raw Material
+                    </a>
+                </div>
+                <div class="info-card-body p-0">
+                    <div style="overflow-x: auto;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Raw Material</th>
+                                    <th>Qty Required</th>
+                                    <th>Consumed</th>
+                                    <th>Cost/Unit</th>
+                                    <th>Total Cost</th>
+                                    <th style="width: 80px">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for bom in bom_items %}
+                                <tr>
+                                    <td><strong>{{ bom.raw_material.name }}</strong><br>
+                                        <small class="text-muted">{{ bom.raw_material.unit.name|default:'unit' }}</small>
+                                    </td>
+                                    <td>{{ bom.quantity_required|floatformat:2 }}</td>
+                                    <td>
+                                        {% if bom.quantity_consumed > 0 %}
+                                        <span class="text-success">✓ {{ bom.quantity_consumed|floatformat:2 }}</span>
+                                        {% else %}
+                                        <span class="text-muted">0</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>Rs.{{ bom.cost_per_unit|floatformat:2 }}</td>
+                                    <td>Rs.{{ bom.total_cost|floatformat:2 }}</td>
+                                    <td>
+                                        <a href="{% url 'production_bom_edit' bom.pk %}" class="text-warning me-2" title="Edit">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <a href="{% url 'production_bom_delete' bom.pk %}" class="text-danger" onclick="return confirm('Delete this BOM item?')" title="Delete">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-4">
+                                        <i class="bi bi-inbox" style="font-size: 2rem; opacity: 0.3;"></i>
+                                        <p class="mt-2">No BOM items added yet</p>
+                                        <a href="{% url 'production_bom_add' order.pk %}" class="btn-sm btn-primary">Add Raw Material</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Operations Section -->
+            <div class="info-card">
+                <div class="info-card-header">
+                    <i class="bi bi-list-check"></i> Production Operations
+                    <a href="{% url 'production_operation_add' order.pk %}" class="float-end btn-sm btn-primary">
+                        <i class="bi bi-plus-lg"></i> Add Operation
+                    </a>
+                </div>
+                <div class="info-card-body p-0">
+                    <div style="overflow-x: auto;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Operation</th>
+                                    <th>Assigned To</th>
+                                    <th>Est. Hours</th>
+                                    <th>Actual Hours</th>
+                                    <th>Status</th>
+                                    <th style="width: 80px">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for op in operations %}
+                                <tr>
+                                    <td><strong>{{ op.sequence }}</strong></td>
+                                    <td>{{ op.operation_name }}</td>
+                                    <td>{{ op.assigned_to.name|default:'-' }}</td>
+                                    <td>{{ op.estimated_hours|floatformat:1 }}</td>
+                                    <td>
+                                        {% if op.actual_hours > 0 %}
+                                        {{ op.actual_hours|floatformat:1 }}
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="operation-status operation-{{ op.status }}"></span>
+                                        {{ op.get_status_display }}
+                                    </td>
+                                    <td>
+                                        {% if op.status == 'pending' %}
+                                        <a href="{% url 'production_operation_start' op.pk %}" class="btn-sm btn-success" onclick="return confirm('Start this operation?')">
+                                            <i class="bi bi-play-fill"></i>
+                                        </a>
+                                        {% elif op.status == 'in_progress' %}
+                                        <a href="{% url 'production_operation_complete' op.pk %}" class="btn-sm btn-primary" onclick="return confirm('Complete this operation?')">
+                                            <i class="bi bi-check-lg"></i>
+                                        </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center py-4">
+                                        <i class="bi bi-inbox" style="font-size: 2rem; opacity: 0.3;"></i>
+                                        <p class="mt-2">No operations added yet</p>
+                                        <a href="{% url 'production_operation_add' order.pk %}" class="btn-sm btn-primary">Add Operation</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Column: Info & Cost -->
+        <div class="col-lg-4">
+            <!-- Order Information -->
+            <div class="info-card">
+                <div class="info-card-header">
+                    <i class="bi bi-info-circle"></i> Order Information
+                </div>
+                <div class="info-card-body">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="label">Status</div>
+                            <div class="value">
+                                <span class="status-badge status-{{ order.status }}">
+                                    {{ order.get_status_display }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <div class="label">Planned Start</div>
+                            <div class="value">{{ order.planned_start_date|date:"d M Y"|default:'-' }}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="label">Planned End</div>
+                            <div class="value">{{ order.planned_end_date|date:"d M Y"|default:'-' }}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="label">Actual Start</div>
+                            <div class="value">{{ order.actual_start_date|date:"d M Y"|default:'Not started' }}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="label">Actual End</div>
+                            <div class="value">{{ order.actual_end_date|date:"d M Y"|default:'Not completed' }}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="label">Source Warehouse</div>
+                            <div class="value">{{ order.source_warehouse.name|default:'Not assigned' }}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="label">Target Warehouse</div>
+                            <div class="value">{{ order.target_warehouse.name|default:order.source_warehouse.name|default:'Not assigned' }}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="label">Created By</div>
+                            <div class="value">{{ order.created_by.username|default:'System' }}</div>
+                        </div>
+                    </div>
+                    {% if order.notes %}
+                    <hr>
+                    <div class="mt-2">
+                        <div class="label">Notes</div>
+                        <div class="value small">{{ order.notes }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Cost Summary -->
+            <div class="info-card">
+                <div class="info-card-header">
+                    <i class="bi bi-currency-rupee"></i> Cost Summary
+                </div>
+                <div class="info-card-body">
+                    <div class="cost-row">
+                        <span>Material Cost:</span>
+                        <strong>Rs.{{ order.total_material_cost|floatformat:2 }}</strong>
+                    </div>
+                    <div class="cost-row">
+                        <span>Labor Cost:</span>
+                        <strong>Rs.{{ order.total_labor_cost|floatformat:2 }}</strong>
+                    </div>
+                    <div class="cost-row">
+                        <span>Overhead Cost:</span>
+                        <strong>Rs.{{ order.total_overhead_cost|floatformat:2 }}</strong>
+                    </div>
+                    <div class="cost-total d-flex justify-content-between">
+                        <span>Total Cost:</span>
+                        <strong>Rs.{{ order.total_production_cost|floatformat:2 }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mt-2">
+                        <span>Cost per Unit:</span>
+                        <strong>
+                            {% if order.quantity > 0 %}
+                            Rs.{{ order.total_production_cost|floatformat:2 }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </strong>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Stock Actions -->
+            <div class="info-card">
+                <div class="info-card-header">
+                    <i class="bi bi-box"></i> Stock Actions
+                </div>
+                <div class="info-card-body">
+                    <div class="d-grid gap-2">
+                        {% if order.status == 'approved' or order.status == 'in_progress' %}
+                        <a href="{% url 'production_consume_stock' order.pk %}" class="btn btn-warning" onclick="return confirm('Consume raw materials from warehouse?')">
+                            <i class="bi bi-arrow-down-circle"></i> Consume Raw Materials
+                        </a>
+                        {% endif %}
+                        
+                        {% if order.status == 'in_progress' %}
+                        <a href="{% url 'production_produce_stock' order.pk %}" class="btn btn-success">
+                            <i class="bi bi-arrow-up-circle"></i> Add Finished Goods
+                        </a>
+                        {% endif %}
+                        
+                        {% if order.status == 'completed' %}
+                        <div class="alert alert-success mb-0">
+                            <i class="bi bi-check-circle-fill"></i> Order Completed!
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recent Stock Updates -->
+            {% if stock_updates %}
+            <div class="info-card">
+                <div class="info-card-header">
+                    <i class="bi bi-clock-history"></i> Recent Stock Updates
+                </div>
+                <div class="info-card-body p-0">
+                    <div style="overflow-x: auto;">
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>Type</th><th>Product</th><th>Qty</th><th>Date</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for update in stock_updates|slice:":5" %}
+                                <tr>
+                                    <td>
+                                        {% if update.update_type == 'consume' %}
+                                        <span class="text-warning">📤 Consume</span>
+                                        {% else %}
+                                        <span class="text-success">📥 Produce</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ update.product.name|truncatechars:20 }}</td>
+                                    <td>{{ update.quantity|floatformat:2 }}</td>
+                                    <td><small>{{ update.created_at|date:"d M H:i" }}</small></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

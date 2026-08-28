@@ -1,0 +1,166 @@
+{% extends 'shareholders/portal/base.html' %}
+{% load static %}
+
+{% block title %}Withdrawal Request{% endblock %}
+
+{% block portal_content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-8 offset-lg-2">
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb" class="mt-2">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'shareholder_portal_dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Withdrawal Request</li>
+                </ol>
+            </nav>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <h4 class="mb-0"><i class="bi bi-dash-circle"></i> Withdrawal Request</h4>
+                </div>
+                <div class="card-body">
+                    <!-- Info Alert -->
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        Your withdrawal request will be sent to admin for approval.
+                        You will be notified once approved.
+                    </div>
+
+                    <!-- Current Balance -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title text-white-50">Current Balance</h6>
+                                    <h3 class="mb-0">Rs. {{ current_balance|floatformat:2 }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card bg-warning text-dark">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title">Pending Requests</h6>
+                                    <h3 class="mb-0">{{ pending_requests }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form method="POST" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <!-- Amount -->
+                        <div class="mb-3">
+                            <label class="form-label">Amount (Rs.) <span class="text-danger">*</span></label>
+                            <input type="number" name="amount" class="form-control form-control-lg" 
+                                   step="0.01" min="100" max="{{ max_amount|floatformat:0 }}" required
+                                   placeholder="Enter amount to withdraw"
+                                   id="withdrawalAmount">
+                            <small class="text-muted">
+                                Minimum: Rs. 100 | Maximum: Rs. {{ max_amount|floatformat:0 }}
+                                (Available Balance: Rs. {{ current_balance|floatformat:2 }})
+                            </small>
+                            <div id="amountWarning" class="text-danger d-none mt-1">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                Amount exceeds available balance!
+                            </div>
+                        </div>
+
+                        <!-- Payment Method -->
+                        <div class="mb-3">
+                            <label class="form-label">Payment Method <span class="text-danger">*</span></label>
+                            <select name="payment_method" class="form-select" required>
+                                <option value="">Select Payment Method</option>
+                                {% for code, label in payment_methods %}
+                                <option value="{{ code }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Account Details -->
+                        <div class="mb-3">
+                            <label class="form-label">Account Details <span class="text-danger">*</span></label>
+                            <textarea name="account_details" class="form-control" rows="3" required
+                                      placeholder="Bank account number, JazzCash number, IBAN, etc."></textarea>
+                            <small class="text-muted">Please provide complete account details for payment</small>
+                        </div>
+
+                        <!-- Reference Number -->
+                        <div class="mb-3">
+                            <label class="form-label">Reference Number</label>
+                            <input type="text" name="reference_no" class="form-control" 
+                                   placeholder="Any reference number or transaction ID">
+                        </div>
+
+                        <!-- Description -->
+                        <div class="mb-3">
+                            <label class="form-label">Description / Notes</label>
+                            <textarea name="description" class="form-control" rows="2"
+                                      placeholder="Any additional information..."></textarea>
+                        </div>
+
+                        <!-- Attachment -->
+                        <div class="mb-3">
+                            <label class="form-label">Attachment (Optional)</label>
+                            <input type="file" name="attachment" class="form-control" 
+                                   accept=".jpg,.jpeg,.png,.pdf,.doc,.docx">
+                            <small class="text-muted">Upload any supporting document</small>
+                        </div>
+
+                        <!-- Note -->
+                        <div class="alert alert-danger">
+                            <i class="bi bi-shield-exclamation"></i>
+                            <strong>Note:</strong> Your request will be reviewed by admin.
+                            Balance will be deducted after approval.
+                            <br>
+                            <small>Estimated processing time: 24-48 hours</small>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'shareholder_portal_dashboard' %}" class="btn btn-secondary me-md-2">
+                                <i class="bi bi-arrow-left"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-warning btn-lg">
+                                <i class="bi bi-send"></i> Submit Request
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Quick Links -->
+            <div class="row mt-3">
+                <div class="col-6">
+                    <a href="{% url 'shareholder_portal_withdrawal_history' %}" class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-clock-history"></i> View History
+                    </a>
+                </div>
+                <div class="col-6">
+                    <a href="{% url 'shareholder_portal_dashboard' %}" class="btn btn-outline-primary w-100">
+                        <i class="bi bi-house"></i> Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Live amount validation
+    document.getElementById('withdrawalAmount')?.addEventListener('input', function() {
+        const maxAmount = {{ max_amount|floatformat:2 }};
+        const amount = parseFloat(this.value) || 0;
+        const warning = document.getElementById('amountWarning');
+        
+        if (amount > maxAmount) {
+            warning.classList.remove('d-none');
+            this.classList.add('is-invalid');
+        } else {
+            warning.classList.add('d-none');
+            this.classList.remove('is-invalid');
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Loan Detail{% endblock %}
+
+{% block extra_css %}
+<style>
+    .loan-info-card {
+        border: none;
+        border-radius: 12px;
+        padding: 16px 20px;
+        background: #f8f9fa;
+        margin-bottom: 12px;
+    }
+    .loan-info-card .label {
+        font-size: 11px;
+        text-transform: uppercase;
+        color: #6c757d;
+        letter-spacing: 0.5px;
+    }
+    .loan-info-card .value {
+        font-size: 16px;
+        font-weight: 600;
+    }
+    .emi-status {
+        padding: 2px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    .emi-status.paid { background: #d4edda; color: #155724; }
+    .emi-status.pending { background: #fff3cd; color: #856404; }
+    .emi-status.overdue { background: #f8d7da; color: #721c24; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-file-earmark-text text-primary"></i> {{ loan.loan_no }}</h2>
+            <p class="text-muted">{{ loan.borrower.name }} • {{ loan.get_loan_type_display }}</p>
+        </div>
+        <div>
+            <a href="{% url 'loan_make_payment' loan.id %}" class="btn btn-success">
+                <i class="bi bi-plus-circle"></i> Make Payment
+            </a>
+            <a href="{% url 'loan_list' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    
+    <!-- Status Banner -->
+    <div class="alert 
+        {% if loan.status == 'active' %}alert-success
+        {% elif loan.status == 'pending' %}alert-warning
+        {% elif loan.status == 'defaulted' %}alert-danger
+        {% elif loan.status == 'paid' %}alert-primary
+        {% else %}alert-secondary{% endif %} mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <strong>Status: {{ loan.get_status_display }}</strong>
+                {% if is_overdue %}
+                <span class="badge bg-danger ms-2">⚠️ {{ loan.days_overdue }} days overdue</span>
+                {% endif %}
+            </div>
+            <div>
+                {% if loan.status == 'pending' %}
+                <a href="{% url 'loan_approve' loan.id %}" class="btn btn-success btn-sm" onclick="return confirm('Approve this loan?')">
+                    <i class="bi bi-check-circle"></i> Approve
+                </a>
+                {% endif %}
+                {% if loan.status == 'approved' %}
+                <a href="{% url 'loan_disburse' loan.id %}" class="btn btn-primary btn-sm" onclick="return confirm('Disburse this loan?')">
+                    <i class="bi bi-play-circle"></i> Disburse
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Loan Info -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="loan-info-card">
+                <div class="label">Principal</div>
+                <div class="value">Rs. {{ loan.principal|floatformat:0|intcomma }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="loan-info-card">
+                <div class="label">Interest Rate</div>
+                <div class="value">{{ loan.interest_rate }}%</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="loan-info-card">
+                <div class="label">EMI Amount</div>
+                <div class="value">Rs. {{ loan.emi_amount|floatformat:0|intcomma }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="loan-info-card">
+                <div class="label">Tenure</div>
+                <div class="value">{{ loan.tenure_months }} months</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="loan-info-card">
+                <div class="label">Total Payable</div>
+                <div class="value">Rs. {{ loan.total_payable|floatformat:0|intcomma }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="loan-info-card">
+                <div class="label">Paid Amount</div>
+                <div class="value text-success">Rs. {{ loan.paid_amount|floatformat:0|intcomma }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="loan-info-card">
+                <div class="label">Outstanding</div>
+                <div class="value text-danger">Rs. {{ outstanding|floatformat:0|intcomma }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="loan-info-card">
+                <div class="label">Next Due</div>
+                <div class="value">{{ loan.next_due_date|date:"d-m-Y"|default:"-" }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- EMI Schedule -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h6 class="mb-0"><i class="bi bi-calendar-check text-primary"></i> EMI Schedule</h6>
+            <span class="badge bg-secondary">{{ paid_emis }}/{{ total_emis }} Paid</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>Due Date</th>
+                            <th>Amount</th>
+                            <th>Paid</th>
+                            <th>Status</th>
+                            <th>Payment Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for emi in emis %}
+                        <tr class="{% if emi.status == 'overdue' %}table-danger{% endif %}">
+                            <td>{{ emi.emi_number }}</td>
+                            <td>{{ emi.due_date|date:"d-m-Y" }}</td>
+                            <td>Rs. {{ emi.amount_due|floatformat:0|intcomma }}</td>
+                            <td>Rs. {{ emi.amount_paid|floatformat:0|intcomma }}</td>
+                            <td>
+                                <span class="emi-status {{ emi.status }}">
+                                    {{ emi.get_status_display }}
+                                </span>
+                            </td>
+                            <td>{{ emi.paid_at|date:"d-m-Y"|default:"-" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">
+                                <i class="bi bi-calendar fs-2 d-block"></i>
+                                <p>No EMI schedule generated</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

@@ -1,0 +1,439 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Service Request #{{ request.request_no }} - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>📋 Service Request #{{ request.request_no }}</h2>
+                <div>
+                    {% if request.status != 'completed' and request.status != 'cancelled' %}
+                    <a href="{% url 'service_request_edit' request.id %}" class="btn btn-warning">
+                        <i class="bi bi-pencil"></i> Edit
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'service_request_list' %}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Status & Priority Badges -->
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <small class="text-muted">Status</small>
+                            <h4>
+                                {% if request.status == 'pending' %}
+                                <span class="badge bg-secondary">⏳ Pending</span>
+                                {% elif request.status == 'confirmed' %}
+                                <span class="badge bg-primary">✅ Confirmed</span>
+                                {% elif request.status == 'assigned' %}
+                                <span class="badge bg-info">👤 Assigned</span>
+                                {% elif request.status == 'in_progress' %}
+                                <span class="badge bg-warning">⚙️ In Progress</span>
+                                {% elif request.status == 'completed' %}
+                                <span class="badge bg-success">🎯 Completed</span>
+                                {% elif request.status == 'cancelled' %}
+                                <span class="badge bg-danger">❌ Cancelled</span>
+                                {% endif %}
+                            </h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <small class="text-muted">Priority</small>
+                            <h4>
+                                {% if request.priority == 'low' %}
+                                <span class="badge bg-secondary">🟢 Low</span>
+                                {% elif request.priority == 'medium' %}
+                                <span class="badge bg-primary">🟡 Medium</span>
+                                {% elif request.priority == 'high' %}
+                                <span class="badge bg-warning">🔴 High</span>
+                                {% else %}
+                                <span class="badge bg-danger">🔥 Urgent</span>
+                                {% endif %}
+                            </h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <small class="text-muted">Amount</small>
+                            <h4>Rs. {{ request.total_amount|floatformat:2|intcomma }}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card {% if request.is_overdue %}border-danger{% endif %}">
+                        <div class="card-body text-center">
+                            <small class="text-muted">Overdue</small>
+                            <h4>
+                                {% if request.is_overdue %}
+                                <span class="text-danger">⚠️ {{ request.days_overdue }} days</span>
+                                {% else %}
+                                <span class="text-success">✅ On Time</span>
+                                {% endif %}
+                            </h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-8">
+                    <!-- Request Details -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">📋 Request Details</h5>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-bordered">
+                                <tr>
+                                    <th style="width:150px;">Request No</th>
+                                    <td><strong>{{ request.request_no }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <th>Customer</th>
+                                    <td>
+                                        <strong>{{ request.customer.name }}</strong>
+                                        <br>
+                                        <small class="text-muted">{{ request.customer.customer_code }}</small>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Service</th>
+                                    <td>
+                                        <strong>{{ request.service.name }}</strong>
+                                        <br>
+                                        <small class="text-muted">{{ request.service.service_code }}</small>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Description</th>
+                                    <td>{{ request.description|linebreaks }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Requested Date</th>
+                                    <td>{{ request.requested_date|date:"d-m-Y" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Scheduled Date</th>
+                                    <td>{{ request.scheduled_date|date:"d-m-Y"|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Completed Date</th>
+                                    <td>{{ request.completed_date|date:"d-m-Y"|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Estimated Hours</th>
+                                    <td>{{ request.estimated_hours|default:"-" }} hours</td>
+                                </tr>
+                                <tr>
+                                    <th>Quoted Price</th>
+                                    <td>Rs. {{ request.quoted_price|floatformat:2|intcomma }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Actual Price</th>
+                                    <td>Rs. {{ request.actual_price|floatformat:2|default:"-"|intcomma }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Discount</th>
+                                    <td>Rs. {{ request.discount|floatformat:2|intcomma }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Created By</th>
+                                    <td>{{ request.created_by.username|default:"System" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Created At</th>
+                                    <td>{{ request.created_at|date:"d-m-Y H:i" }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Location & Contact -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">📍 Location & Contact</h5>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-bordered">
+                                <tr>
+                                    <th style="width:150px;">Service Address</th>
+                                    <td>{{ request.service_address|default:"-"|linebreaks }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Contact Person</th>
+                                    <td>{{ request.contact_person|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Contact Phone</th>
+                                    <td>{{ request.contact_phone|default:"-" }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Notes -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">📝 Notes</h5>
+                        </div>
+                        <div class="card-body">
+                            {{ request.notes|default:"No notes."|linebreaks }}
+                        </div>
+                    </div>
+                    
+                    <!-- Products Used -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">📦 Products Used</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if used_products %}
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Product</th>
+                                            <th>Quantity</th>
+                                            <th>Price</th>
+                                            <th>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for item in used_products %}
+                                        <tr>
+                                            <td>{{ item.product.name }}</td>
+                                            <td>{{ item.quantity }}</td>
+                                            <td>Rs. {{ item.price|floatformat:2 }}</td>
+                                            <td>Rs. {{ item.total|floatformat:2 }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <p class="text-muted text-center">No products used yet.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Appointments -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">📅 Appointments</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if appointments %}
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Technician</th>
+                                            <th>Date</th>
+                                            <th>Time</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for app in appointments %}
+                                        <tr>
+                                            <td>{{ app.technician.name }}</td>
+                                            <td>{{ app.appointment_date|date:"d-m-Y" }}</td>
+                                            <td>
+                                                {{ app.start_time|time:"H:i" }}
+                                                {% if app.end_time %}
+                                                - {{ app.end_time|time:"H:i" }}
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if app.status == 'scheduled' %}
+                                                <span class="badge bg-primary">Scheduled</span>
+                                                {% elif app.status == 'completed' %}
+                                                <span class="badge bg-success">Completed</span>
+                                                {% else %}
+                                                <span class="badge bg-secondary">{{ app.get_status_display }}</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <p class="text-muted text-center">No appointments scheduled.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Feedback -->
+                    {% if feedback %}
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">⭐ Customer Feedback</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-2">
+                                <strong>Overall Rating:</strong>
+                                {% for i in "12345" %}
+                                {% if forloop.counter <= feedback.rating %}
+                                <i class="bi bi-star-fill text-warning"></i>
+                                {% else %}
+                                <i class="bi bi-star text-muted"></i>
+                                {% endif %}
+                                {% endfor %}
+                                ({{ feedback.rating }}★)
+                            </div>
+                            <div class="mb-2">
+                                <strong>Comment:</strong> {{ feedback.comment }}
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <small>Technician: {{ feedback.technician_rating }}★</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <small>Timeliness: {{ feedback.timeliness_rating }}★</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <small>Quality: {{ feedback.quality_rating }}★</small>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <strong>Would Recommend:</strong>
+                                {% if feedback.would_recommend %}
+                                <span class="badge bg-success">✅ Yes</span>
+                                {% else %}
+                                <span class="badge bg-danger">❌ No</span>
+                                {% endif %}
+                            </div>
+                            <div class="mt-2">
+                                <strong>Avg Rating:</strong>
+                                <span class="badge bg-warning">{{ feedback.average_rating|floatformat:1 }} ★</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-4">
+                    <!-- Quick Actions -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">⚡ Quick Actions</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                {% if request.status != 'completed' and request.status != 'cancelled' %}
+                                <a href="{% url 'service_request_edit' request.id %}" class="btn btn-warning">
+                                    <i class="bi bi-pencil"></i> Edit Request
+                                </a>
+                                <a href="{% url 'service_request_appointment' request.id %}" class="btn btn-info">
+                                    <i class="bi bi-calendar-plus"></i> Schedule Appointment
+                                </a>
+                                {% endif %}
+                                
+                                {% if request.status == 'pending' %}
+                                <a href="{% url 'service_request_status_update' request.id 'confirmed' %}" class="btn btn-primary">
+                                    <i class="bi bi-check-circle"></i> Confirm
+                                </a>
+                                <a href="{% url 'service_request_status_update' request.id 'assigned' %}" class="btn btn-info">
+                                    <i class="bi bi-person"></i> Assign
+                                </a>
+                                {% endif %}
+                                
+                                {% if request.status == 'assigned' or request.status == 'confirmed' %}
+                                <a href="{% url 'service_request_status_update' request.id 'in_progress' %}" class="btn btn-warning">
+                                    <i class="bi bi-play-circle"></i> Start Work
+                                </a>
+                                {% endif %}
+                                
+                                {% if request.status == 'in_progress' %}
+                                <a href="{% url 'service_request_status_update' request.id 'completed' %}" class="btn btn-success">
+                                    <i class="bi bi-check-circle"></i> Mark Complete
+                                </a>
+                                {% endif %}
+                                
+                                {% if request.status == 'completed' and not request.invoice %}
+                                <a href="{% url 'service_request_invoice' request.id %}" class="btn btn-primary">
+                                    <i class="bi bi-file-pdf"></i> Generate Invoice
+                                </a>
+                                {% endif %}
+                                
+                                {% if request.status == 'completed' and not feedback %}
+                                <a href="{% url 'service_request_feedback' request.id %}" class="btn btn-info">
+                                    <i class="bi bi-star"></i> Get Feedback
+                                </a>
+                                {% endif %}
+                                
+                                {% if request.status != 'completed' and request.status != 'cancelled' %}
+                                <a href="{% url 'service_request_status_update' request.id 'cancelled' %}" class="btn btn-danger" 
+                                   onclick="return confirm('Are you sure you want to cancel this request?')">
+                                    <i class="bi bi-x-circle"></i> Cancel Request
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Technician Info -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">👤 Technician</h5>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-bordered">
+                                <tr>
+                                    <th>Technician</th>
+                                    <td>{{ request.technician.name|default:"Not Assigned" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Assigned At</th>
+                                    <td>{{ request.assigned_at|date:"d-m-Y H:i"|default:"-" }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Follow-up -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">📌 Follow-up</h5>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-bordered">
+                                <tr>
+                                    <th>Required</th>
+                                    <td>{% if request.follow_up_required %}✅ Yes{% else %}❌ No{% endif %}</td>
+                                </tr>
+                                <tr>
+                                    <th>Date</th>
+                                    <td>{{ request.follow_up_date|date:"d-m-Y"|default:"-" }}</td>
+                                </tr>
+                            </table>
+                            {% if request.invoice %}
+                            <div class="mt-2">
+                                <strong>Invoice:</strong>
+                                <a href="{% url 'sale_detail' request.invoice.id %}" class="btn btn-sm btn-outline-primary">
+                                    {{ request.invoice.bill_no }}
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,652 @@
+<!-- vendors/ledger_report.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Vendor Ledger Report - {{ company_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary: #667eea;
+        --primary-dark: #5a67d8;
+        --success: #28a745;
+        --danger: #dc3545;
+        --warning: #f2994a;
+        --text: #1a1a2e;
+        --text-light: #6b7280;
+        --border: #eef0f5;
+        --shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+
+    /* Header */
+    .page-header {
+        background: white;
+        border-radius: 16px;
+        padding: 20px 24px;
+        border: 1px solid var(--border);
+        margin-bottom: 24px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+    }
+    .page-header .title-section h1 {
+        font-size: 1.4rem;
+        font-weight: 800;
+        margin: 0;
+        color: var(--text);
+    }
+    .page-header .title-section .subtitle {
+        font-size: 0.85rem;
+        color: var(--text-light);
+        margin-top: 2px;
+    }
+    .header-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .header-actions .btn {
+        border-radius: 10px;
+        padding: 8px 18px;
+        font-weight: 600;
+        font-size: 0.82rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.3s;
+        border: none;
+        text-decoration: none;
+    }
+    .header-actions .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+    }
+    .btn-back {
+        background: #f0f2f7;
+        color: var(--text);
+    }
+    .btn-back:hover {
+        background: #e5e7ee;
+        color: var(--text);
+    }
+    .btn-export {
+        background: linear-gradient(135deg, #28a745, #1e7e34);
+        color: white;
+    }
+    .btn-export:hover {
+        background: linear-gradient(135deg, #1e7e34, #155d27);
+        color: white;
+    }
+    .btn-pdf {
+        background: linear-gradient(135deg, #dc3545, #c82333);
+        color: white;
+    }
+    .btn-pdf:hover {
+        background: linear-gradient(135deg, #c82333, #a71d2a);
+        color: white;
+    }
+
+    /* Stats Cards */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    .stat-card {
+        background: white;
+        border-radius: 14px;
+        padding: 16px 20px;
+        border: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        transition: all 0.3s;
+    }
+    .stat-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+    }
+    .stat-card .icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        flex-shrink: 0;
+    }
+    .stat-card .icon.primary { background: #eef2ff; color: #667eea; }
+    .stat-card .icon.success { background: #d4edda; color: #28a745; }
+    .stat-card .icon.danger { background: #f8d7da; color: #dc3545; }
+    .stat-card .icon.warning { background: #fff3cd; color: #f2994a; }
+    .stat-card .value { font-size: 1.3rem; font-weight: 800; color: var(--text); line-height: 1; }
+    .stat-card .label { font-size: 0.7rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; }
+
+    /* Filter Bar */
+    .filter-bar {
+        background: white;
+        border-radius: 14px;
+        padding: 16px 20px;
+        border: 1px solid var(--border);
+        margin-bottom: 24px;
+    }
+    .filter-bar .form-control, .filter-bar .form-select {
+        border-radius: 10px;
+        border: 2px solid #eef0f5;
+        padding: 10px 14px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        background: #fafbfc;
+        transition: all 0.2s;
+    }
+    .filter-bar .form-control:focus, .filter-bar .form-select:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+        background: white;
+        outline: none;
+    }
+    .btn-filter {
+        border-radius: 10px;
+        padding: 10px 20px;
+        font-weight: 700;
+        font-size: 0.85rem;
+        border: none;
+        cursor: pointer;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        transition: all 0.3s;
+        width: 100%;
+    }
+    .btn-filter:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(102,126,234,0.4);
+    }
+
+    /* Ledger Table */
+    .ledger-card {
+        background: white;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        overflow: hidden;
+        box-shadow: var(--shadow);
+    }
+    .ledger-header {
+        padding: 16px 22px;
+        border-bottom: 1px solid var(--border);
+        background: #fafbfc;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .ledger-header h6 {
+        margin: 0;
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: var(--text);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .ledger-header .badge-count {
+        background: var(--primary);
+        color: white;
+        padding: 3px 12px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    .ledger-body {
+        padding: 0;
+        overflow-x: auto;
+    }
+
+    .ledger-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.88rem;
+        min-width: 800px;
+    }
+    .ledger-table thead th {
+        background: #1a1d2e;
+        color: white;
+        padding: 12px 16px;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 1.2px;
+        font-weight: 700;
+        white-space: nowrap;
+        border: none;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+    }
+    .ledger-table tbody td {
+        padding: 10px 16px;
+        border-bottom: 1px solid #f0f2f7;
+        color: var(--text);
+        vertical-align: middle;
+    }
+    .ledger-table tbody tr {
+        transition: background 0.2s;
+    }
+    .ledger-table tbody tr:hover {
+        background: #f8f9ff;
+    }
+    .ledger-table tbody tr:nth-child(even) {
+        background: #fafbfd;
+    }
+    .ledger-table tbody tr:nth-child(even):hover {
+        background: #f0f4ff;
+    }
+    .ledger-table .text-end { text-align: right; }
+    .ledger-table .text-center { text-align: center; }
+
+    .ledger-table tfoot td {
+        padding: 12px 16px;
+        border-top: 2px solid var(--border);
+        font-weight: 700;
+        background: #f8f9fc;
+    }
+    .ledger-table tfoot .grand-total {
+        background: #1a1d2e;
+        color: white;
+        font-size: 1rem;
+    }
+    .ledger-table tfoot .grand-total td {
+        padding: 14px 16px;
+    }
+
+    .type-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 12px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    .type-badge.purchase { background: #eef2ff; color: #4338ca; }
+    .type-badge.return { background: #f8d7da; color: #721c24; }
+    .type-badge.payment { background: #d4edda; color: #155724; }
+    .type-badge.opening { background: #fff3cd; color: #856404; }
+
+    .amount-positive { color: var(--success); font-weight: 600; }
+    .amount-negative { color: var(--danger); font-weight: 600; }
+
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--text-light);
+    }
+    .empty-state .icon {
+        font-size: 4rem;
+        opacity: 0.3;
+        margin-bottom: 15px;
+    }
+    .empty-state h5 {
+        font-weight: 600;
+        color: var(--text);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .page-header {
+            padding: 16px;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .header-actions {
+            width: 100%;
+            justify-content: flex-start;
+        }
+        .header-actions .btn {
+            flex: 1;
+            justify-content: center;
+            padding: 8px 12px;
+            font-size: 0.75rem;
+        }
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        .stat-card {
+            padding: 12px 14px;
+        }
+        .stat-card .value {
+            font-size: 1rem;
+        }
+        .ledger-table {
+            font-size: 0.78rem;
+            min-width: 600px;
+        }
+        .ledger-table thead th,
+        .ledger-table tbody td,
+        .ledger-table tfoot td {
+            padding: 8px 12px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .stats-grid {
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .stat-card {
+            padding: 10px 12px;
+        }
+        .stat-card .icon {
+            width: 32px;
+            height: 32px;
+            font-size: 0.9rem;
+        }
+        .stat-card .value {
+            font-size: 0.9rem;
+        }
+        .stat-card .label {
+            font-size: 0.6rem;
+        }
+        .header-actions .btn span {
+            display: none;
+        }
+    }
+
+    /* Print Styles */
+    @media print {
+        .header-actions, .filter-bar, .no-print {
+            display: none !important;
+        }
+        .page-header {
+            border: none !important;
+            box-shadow: none !important;
+        }
+        .ledger-card {
+            border: 1px solid #ddd !important;
+            box-shadow: none !important;
+        }
+        .ledger-table thead th {
+            background: #333 !important;
+            color: white !important;
+        }
+        .ledger-table tfoot .grand-total {
+            background: #333 !important;
+            color: white !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-4 py-3 py-md-4">
+
+    <!-- ========== HEADER ========== -->
+    <div class="page-header">
+        <div class="title-section">
+            <h1>
+                <i class="bi bi-book text-primary me-2"></i>Vendor Ledger Report
+            </h1>
+            <div class="subtitle">
+                <i class="bi bi-building me-1"></i>
+                <strong>{{ vendor.name }}</strong>
+                <span class="mx-2">•</span>
+                <i class="bi bi-hash me-1"></i>
+                {{ vendor.vendor_code|default:'N/A' }}
+                <span class="mx-2">•</span>
+                <i class="bi bi-calendar3 me-1"></i>
+                {{ from_date|date:"d M, Y" }} - {{ to_date|date:"d M, Y" }}
+            </div>
+        </div>
+        <div class="header-actions no-print">
+            <a href="{% url 'vendor_list' %}" class="btn btn-back">
+                <i class="bi bi-arrow-left"></i> <span>Back</span>
+            </a>
+            <a href="{% url 'vendor_ledger_export' vendor.pk %}?from_date={{ from_date|date:'Y-m-d' }}&to_date={{ to_date|date:'Y-m-d' }}" class="btn btn-export">
+                <i class="bi bi-file-excel"></i> <span>Export</span>
+            </a>
+            <a href="{% url 'vendor_ledger_pdf' vendor.pk %}?from_date={{ from_date|date:'Y-m-d' }}&to_date={{ to_date|date:'Y-m-d' }}" target="_blank" class="btn btn-pdf">
+                <i class="bi bi-file-pdf"></i> <span>PDF</span>
+            </a>
+            <button onclick="window.print()" class="btn btn-back">
+                <i class="bi bi-printer"></i> <span>Print</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ========== STATS CARDS ========== -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="icon primary"><i class="bi bi-cart-plus"></i></div>
+            <div>
+                <div class="value">{{ total_purchases|floatformat:0|default:'0' }}</div>
+                <div class="label">Total Purchases</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="icon success"><i class="bi bi-cash"></i></div>
+            <div>
+                <div class="value">Rs. {{ total_purchase_amount|floatformat:0|default:'0' }}</div>
+                <div class="label">Purchase Amount</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="icon warning"><i class="bi bi-arrow-return-left"></i></div>
+            <div>
+                <div class="value">Rs. {{ total_returns|floatformat:0|default:'0' }}</div>
+                <div class="label">Total Returns</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="icon danger"><i class="bi bi-wallet2"></i></div>
+            <div>
+                <div class="value">Rs. {{ total_outstanding|floatformat:0|default:'0' }}</div>
+                <div class="label">Outstanding</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== FILTER BAR ========== -->
+    <div class="filter-bar no-print">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">📅 From Date</label>
+                <input type="date" name="from_date" class="form-control" value="{{ from_date|date:'Y-m-d' }}">
+            </div>
+            <div class="col-md-4">
+                <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">📅 To Date</label>
+                <input type="date" name="to_date" class="form-control" value="{{ to_date|date:'Y-m-d' }}">
+            </div>
+            <div class="col-md-4">
+                <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">&nbsp;</label>
+                <button type="submit" class="btn-filter"><i class="bi bi-funnel"></i> Apply Filter</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- ========== LEDGER TABLE ========== -->
+    <div class="ledger-card">
+        <div class="ledger-header">
+            <h6>
+                <i class="bi bi-list-ul me-2"></i> Ledger Entries
+                <span class="badge-count">{{ entries|length }}</span>
+            </h6>
+            <div style="font-size:0.78rem;color:var(--text-light);">
+                <i class="bi bi-clock me-1"></i>
+                Opening Balance: <strong>Rs. {{ opening_balance|floatformat:2|default:'0.00' }}</strong>
+            </div>
+        </div>
+        <div class="ledger-body">
+            <table class="ledger-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Reference</th>
+                        <th>Description</th>
+                        <th class="text-center">Type</th>
+                        <th class="text-end">Debit</th>
+                        <th class="text-end">Credit</th>
+                        <th class="text-end">Balance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if opening_balance > 0 %}
+                    <tr>
+                        <td>{{ from_date|date:"d M, Y" }}</td>
+                        <td>--</td>
+                        <td><strong>Opening Balance</strong></td>
+                        <td class="text-center">
+                            <span class="type-badge opening">
+                                <i class="bi bi-clock-history"></i> Opening
+                            </span>
+                        </td>
+                        <td class="text-end">Rs. {{ opening_balance|floatformat:2 }}</td>
+                        <td class="text-end">--</td>
+                        <td class="text-end fw-bold">Rs. {{ opening_balance|floatformat:2 }}</td>
+                    </tr>
+                    {% endif %}
+
+                    {% for entry in entries %}
+                    <tr>
+                        <td>{{ entry.date|date:"d M, Y" }}</td>
+                        <td>
+                            <strong>{{ entry.reference }}</strong>
+                            {% if entry.id %}
+                            <br><small style="color:var(--text-light);font-size:0.7rem;">ID: #{{ entry.id }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span style="font-weight:500;">{{ entry.description|default:'-' }}</span>
+                            {% if entry.notes %}
+                            <br><small style="color:var(--text-light);font-size:0.7rem;">{{ entry.notes }}</small>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <span class="type-badge {{ entry.type }}">
+                                <i class="bi 
+                                    {% if entry.type == 'purchase' %}bi-cart-plus
+                                    {% elif entry.type == 'return' %}bi-arrow-return-left
+                                    {% elif entry.type == 'payment' %}bi-cash
+                                    {% else %}bi-clock-history{% endif %}">
+                                </i>
+                                {{ entry.type_display }}
+                            </span>
+                        </td>
+                        <td class="text-end amount-positive">
+                            {% if entry.debit > 0 %}Rs. {{ entry.debit|floatformat:2 }}{% else %}--{% endif %}
+                        </td>
+                        <td class="text-end amount-negative">
+                            {% if entry.credit > 0 %}Rs. {{ entry.credit|floatformat:2 }}{% else %}--{% endif %}
+                        </td>
+                        <td class="text-end fw-bold 
+                            {% if entry.balance >= 0 %}amount-positive{% else %}amount-negative{% endif %}">
+                            Rs. {{ entry.balance|floatformat:2 }}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <div class="icon">📭</div>
+                                <h5>No Transactions Found</h5>
+                                <p style="font-size:0.9rem;">No transactions for this period</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="4" class="text-end fw-bold">Summary</td>
+                        <td class="text-end fw-bold amount-positive">Rs. {{ total_debit|floatformat:2|default:'0.00' }}</td>
+                        <td class="text-end fw-bold amount-negative">Rs. {{ total_credit|floatformat:2|default:'0.00' }}</td>
+                        <td class="text-end fw-bold 
+                            {% if closing_balance >= 0 %}amount-positive{% else %}amount-negative{% endif %}">
+                            Rs. {{ closing_balance|floatformat:2|default:'0.00' }}
+                        </td>
+                    </tr>
+                    <tr class="grand-total">
+                        <td colspan="4" class="text-end" style="font-size:0.9rem;">
+                            <i class="bi bi-wallet2 me-1"></i> Closing Balance
+                        </td>
+                        <td colspan="2"></td>
+                        <td class="text-end" style="font-size:1.1rem;font-weight:800;">
+                            Rs. {{ closing_balance|floatformat:2|default:'0.00' }}
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <!-- ========== VENDOR SUMMARY ========== -->
+    <div class="row g-3 mt-3">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="fw-bold mb-3"><i class="bi bi-person-badge me-2"></i>Vendor Details</h6>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <small class="text-muted d-block">Name</small>
+                            <span class="fw-semibold">{{ vendor.name }}</span>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block">Code</small>
+                            <span class="fw-semibold">{{ vendor.vendor_code|default:'N/A' }}</span>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block">Contact</small>
+                            <span class="fw-semibold">{{ vendor.contact_number|default:'N/A' }}</span>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block">Group</small>
+                            <span class="fw-semibold">{{ vendor.group.name|default:'N/A' }}</span>
+                        </div>
+                        <div class="col-12">
+                            <small class="text-muted d-block">Address</small>
+                            <span class="fw-semibold">{{ vendor.address|default:'N/A' }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="fw-bold mb-3"><i class="bi bi-wallet2 me-2"></i>Balance Summary</h6>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <small class="text-muted d-block">Opening Balance</small>
+                            <span class="fw-semibold">Rs. {{ opening_balance|floatformat:2|default:'0.00' }}</span>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block">Total Purchases</small>
+                            <span class="fw-semibold text-success">Rs. {{ total_purchase_amount|floatformat:2|default:'0.00' }}</span>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block">Total Returns</small>
+                            <span class="fw-semibold text-danger">Rs. {{ total_returns|floatformat:2|default:'0.00' }}</span>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block">Closing Balance</small>
+                            <span class="fw-semibold 
+                                {% if closing_balance >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                Rs. {{ closing_balance|floatformat:2|default:'0.00' }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

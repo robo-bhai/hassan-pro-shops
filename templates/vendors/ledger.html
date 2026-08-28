@@ -1,0 +1,451 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Vendor Ledger{% endblock %}
+{% block page_title %}📒 {{ vendor.name }} - Ledger{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --border: #eef0f5;
+        --text: #1a1a2e;
+        --text-light: #6b7280;
+        --success: #11998e;
+        --danger: #dc3545;
+        --warning: #f2994a;
+        --primary: #0d6efd;
+    }
+    
+    .vendor-info-card {
+        background: white;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        padding: 20px 24px;
+        margin-bottom: 20px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 16px;
+    }
+    
+    .vendor-info-item {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .vendor-info-item .label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--text-light);
+        font-weight: 600;
+    }
+    
+    .vendor-info-item .value {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--text);
+        margin-top: 2px;
+    }
+    
+    .vendor-info-item .value.outstanding {
+        color: var(--danger);
+    }
+    
+    .vendor-info-item .value.paid {
+        color: var(--success);
+    }
+    
+    .vendor-info-item .value.return {
+        color: var(--danger);
+    }
+    
+    .ledger-table-card {
+        background: white;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        overflow: hidden;
+        margin-top: 20px;
+    }
+    
+    .ledger-table-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+        background: #fafbfc;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .ledger-table-header h5 {
+        margin: 0;
+        font-weight: 700;
+        font-size: 1rem;
+    }
+    
+    .badge-count {
+        background: var(--primary);
+        color: white;
+        padding: 4px 14px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .table-responsive-custom {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .ledger-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 600px;
+    }
+    
+    .ledger-table thead th {
+        background: #1a1d2e;
+        color: white;
+        padding: 12px 16px;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        font-weight: 700;
+        white-space: nowrap;
+        border: none;
+    }
+    
+    .ledger-table tbody td {
+        padding: 12px 16px;
+        border-bottom: 1px solid #f0f2f7;
+        font-size: 0.88rem;
+        color: var(--text);
+        vertical-align: middle;
+    }
+    
+    .ledger-table tbody tr:hover {
+        background: #f8f9ff;
+    }
+    
+    .ledger-table tbody tr:nth-child(even) {
+        background: #fafbfd;
+    }
+    
+    .ledger-table tbody tr:nth-child(even):hover {
+        background: #f0f4ff;
+    }
+    
+    .text-right {
+        text-align: right;
+    }
+    .text-center {
+        text-align: center;
+    }
+    
+    /* ✅ Simple Amount Colors */
+    .amount-purchase {
+        color: var(--danger);
+        font-weight: 700;
+    }
+    
+    .amount-return {
+        color: var(--success);
+        font-weight: 700;
+    }
+    
+    .amount-opening {
+        color: var(--primary);
+        font-weight: 700;
+    }
+    
+    .type-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    
+    .type-badge.purchase {
+        background: #eef2ff;
+        color: var(--primary);
+    }
+    
+    .type-badge.return {
+        background: #fee2e2;
+        color: var(--danger);
+    }
+    
+    .type-badge.opening {
+        background: #e8f5e9;
+        color: var(--success);
+    }
+    
+    .type-badge .icon {
+        margin-right: 4px;
+    }
+    
+    .link-detail {
+        color: var(--primary);
+        text-decoration: none;
+        font-weight: 600;
+    }
+    
+    .link-detail:hover {
+        text-decoration: underline;
+    }
+    
+    .return-reason {
+        font-size: 0.75rem;
+        color: var(--text-light);
+        display: block;
+        margin-top: 2px;
+    }
+    
+    /* ✅ Simple Summary Stats */
+    .summary-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    
+    .summary-stat {
+        background: white;
+        border-radius: 12px;
+        padding: 14px 18px;
+        border: 1px solid var(--border);
+        text-align: center;
+    }
+    
+    .summary-stat .stat-number {
+        font-size: 1.3rem;
+        font-weight: 800;
+    }
+    
+    .summary-stat .stat-label {
+        font-size: 0.7rem;
+        color: var(--text-light);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+    }
+    
+    .summary-stat .stat-number.primary { color: var(--primary); }
+    .summary-stat .stat-number.danger { color: var(--danger); }
+    .summary-stat .stat-number.success { color: var(--success); }
+    
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+    }
+    
+    .empty-state .empty-icon {
+        font-size: 4rem;
+        opacity: 0.2;
+        margin-bottom: 10px;
+    }
+    
+    @media (max-width: 768px) {
+        .vendor-info-card {
+            grid-template-columns: repeat(2, 1fr);
+            padding: 16px;
+        }
+        .ledger-table { min-width: 500px; }
+        .ledger-table thead th,
+        .ledger-table tbody td { padding: 10px 12px; font-size: 0.78rem; }
+        .summary-stats {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .vendor-info-card {
+            grid-template-columns: 1fr 1fr;
+            padding: 12px;
+        }
+        .type-badge {
+            font-size: 0.6rem;
+            padding: 2px 8px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ✅ Vendor Information -->
+<div class="vendor-info-card">
+    <div class="vendor-info-item">
+        <span class="label">Vendor</span>
+        <span class="value">{{ vendor.name }}</span>
+    </div>
+    <div class="vendor-info-item">
+        <span class="label">Code</span>
+        <span class="value">{{ vendor.vendor_code|default:"N/A" }}</span>
+    </div>
+    <div class="vendor-info-item">
+        <span class="label">Opening Balance</span>
+        <span class="value">Rs. {{ vendor.opening_balance|floatformat:2 }}</span>
+    </div>
+    <div class="vendor-info-item">
+        <span class="label">Total Purchases</span>
+        <span class="value">Rs. {{ total_purchase_amount|floatformat:2 }}</span>
+    </div>
+    <div class="vendor-info-item">
+        <span class="label">Total Returns</span>
+        <span class="value return">Rs. {{ total_return_amount|floatformat:2 }}</span>
+    </div>
+    <div class="vendor-info-item">
+        <span class="label">Total Paid</span>
+        <span class="value paid">Rs. {{ total_paid|floatformat:2 }}</span>
+    </div>
+    <div class="vendor-info-item">
+        <span class="label">Outstanding</span>
+        <span class="value {% if total_outstanding > 0 %}outstanding{% else %}paid{% endif %}">
+            Rs. {{ total_outstanding|floatformat:2 }}
+        </span>
+    </div>
+</div>
+
+<!-- ✅ Simple Summary Stats -->
+<div class="summary-stats">
+    <div class="summary-stat">
+        <div class="stat-number primary">{{ purchases.count }}</div>
+        <div class="stat-label">📥 Purchases</div>
+    </div>
+    <div class="summary-stat">
+        <div class="stat-number danger">{{ purchase_returns.count }}</div>
+        <div class="stat-label">🔄 Returns</div>
+    </div>
+    <div class="summary-stat">
+        <div class="stat-number success">Rs. {{ total_paid|floatformat:0 }}</div>
+        <div class="stat-label">✅ Paid</div>
+    </div>
+    <div class="summary-stat">
+        <div class="stat-number danger">Rs. {{ total_outstanding|floatformat:0 }}</div>
+        <div class="stat-label">⚠️ Outstanding</div>
+    </div>
+</div>
+
+<!-- ✅ Super Simple Ledger Table -->
+<div class="ledger-table-card">
+    <div class="ledger-table-header">
+        <h5>📋 Transactions <span class="badge-count">{{ ledger_entries|length }}</span></h5>
+        <div>
+            <a href="{% url 'vendor_list' %}" class="btn btn-sm btn-outline-secondary" style="border-radius:8px; padding:6px 14px; font-weight:600;">
+                ← Back
+            </a>
+        </div>
+    </div>
+    
+    <div class="table-responsive-custom">
+        <table class="ledger-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Details</th>
+                    <th class="text-right">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in ledger_entries %}
+                <tr>
+                    <td>{{ entry.date|date:"d-m-Y" }}</td>
+                    <td>
+                        {% if entry.type == 'purchase' %}
+                        <span class="type-badge purchase">📥 Purchase</span>
+                        {% elif entry.type == 'return' %}
+                        <span class="type-badge return">🔄 Return</span>
+                        {% elif entry.type == 'opening' %}
+                        <span class="type-badge opening">🏁 Opening</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if entry.type == 'purchase' and entry.object %}
+                        <a href="{% url 'purchase_detail' entry.object.pk %}" class="link-detail">
+                            {{ entry.reference }}
+                        </a>
+                        {% elif entry.type == 'return' and entry.object %}
+                        <a href="{% url 'purchase_return_detail' entry.object.pk %}" class="link-detail">
+                            {{ entry.reference }}
+                        </a>
+                        <span class="return-reason">Reason: {{ entry.return_reason }}</span>
+                        {% else %}
+                        {{ entry.reference }}
+                        {% endif %}
+                    </td>
+                    <td class="text-right">
+                        {% if entry.type == 'purchase' or entry.type == 'opening' %}
+                        <span class="amount-purchase">+ Rs. {{ entry.debit|floatformat:2 }}</span>
+                        {% elif entry.type == 'return' %}
+                        <span class="amount-return">- Rs. {{ entry.credit|floatformat:2 }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4">
+                        <div class="empty-state">
+                            <div class="empty-icon">📒</div>
+                            <p>No transactions found.</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ✅ Purchase Returns Table -->
+{% if purchase_returns %}
+<div class="ledger-table-card" style="border-left: 4px solid #dc3545;">
+    <div class="ledger-table-header" style="background:#fef2f2; border-bottom-color:#fecaca;">
+        <h5 style="color:#dc2626;">🔄 Returns <span class="badge-count" style="background:#dc2626;">{{ purchase_returns.count }}</span></h5>
+    </div>
+    <div class="table-responsive-custom">
+        <table class="ledger-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Return No</th>
+                    <th>Reason</th>
+                    <th class="text-right">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ret in purchase_returns %}
+                <tr>
+                    <td>{{ ret.purchase_return_date|date:"d-m-Y" }}</td>
+                    <td>
+                        <a href="{% url 'purchase_return_detail' ret.pk %}" class="link-detail">
+                            {{ ret.bill_no|default:ret.id }}
+                        </a>
+                    </td>
+                    <td>
+                        <span class="type-badge return">{{ ret.get_return_reason_display }}</span>
+                    </td>
+                    <td class="text-right">
+                        <span class="amount-return">Rs. {{ ret.total_return_amount|floatformat:2 }}</span>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4">
+                        <div class="empty-state">
+                            <p>No returns found.</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

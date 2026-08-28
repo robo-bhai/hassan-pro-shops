@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CEO Dashboard | {{ company_name }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #667eea;
+            --secondary: #764ba2;
+            --dark: #1a1a2e;
+            --success: #28a745;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --info: #17a2b8;
+        }
+        
+        body {
+            background: #f5f7fb;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .sidebar {
+            background: linear-gradient(135deg, var(--dark) 0%, #16213e 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        
+        .sidebar .nav-link {
+            color: rgba(255,255,255,0.8);
+            padding: 12px 20px;
+            margin: 4px 0;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+        
+        .sidebar .nav-link:hover, .sidebar .nav-link.active {
+            background: rgba(102, 126, 234, 0.3);
+            color: white;
+        }
+        
+        .sidebar .nav-link i {
+            margin-right: 10px;
+            width: 24px;
+        }
+        
+        .top-bar {
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            padding: 15px 25px;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            transition: transform 0.3s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-3px);
+        }
+        
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        
+        .badge-critical { background: #dc3545; color: white; }
+        .badge-high { background: #fd7e14; color: white; }
+        .badge-medium { background: #ffc107; color: black; }
+        .badge-low { background: #28a745; color: white; }
+        
+        .progress {
+            height: 8px;
+            border-radius: 10px;
+        }
+        
+        .table-responsive {
+            border-radius: 12px;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-2 p-0">
+                <div class="sidebar p-3">
+                    <div class="text-center mb-4 mt-3">
+                        <i class="bi bi-gem fs-1"></i>
+                        <h5 class="mt-2">{{ company_name }}</h5>
+                        <small>CEO Portal</small>
+                    </div>
+                    <hr class="bg-light">
+                    <nav class="nav flex-column">
+                        <a class="nav-link" href="{% url 'ceo:dashboard' %}">
+                            <i class="bi bi-speedometer2"></i> Dashboard
+                        </a>
+                        <a class="nav-link" href="{% url 'ceo:strategic_objectives' %}">
+                            <i class="bi bi-bullseye"></i> OKRs
+                        </a>
+                        <a class="nav-link" href="{% url 'ceo:risk_management' %}">
+                            <i class="bi bi-shield-exclamation"></i> Risks
+                        </a>
+                        <a class="nav-link" href="{% url 'ceo:executive_meetings' %}">
+                            <i class="bi bi-calendar-event"></i> Meetings
+                        </a>
+                        <a class="nav-link" href="{% url 'ceo:executive_briefings' %}">
+                            <i class="bi bi-envelope-paper"></i> Briefings
+                        </a>
+                        <a class="nav-link" href="{% url 'ceo:financial_analytics' %}">
+                            <i class="bi bi-graph-up"></i> Analytics
+                        </a>
+                        <hr class="bg-light">
+                        <a class="nav-link" href="/">
+                            <i class="bi bi-arrow-left"></i> Back to Main
+                        </a>
+                        <a class="nav-link" href="{% url 'ceo:ceo_settings' %}">
+                            <i class="bi bi-gear"></i> Settings
+                        </a>
+                    </nav>
+                </div>
+            </div>
+            
+            <!-- Main Content -->
+            <div class="col-md-10 p-0">
+                <div class="top-bar d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">{% block page_title %}Dashboard{% endblock %}</h4>
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="text-muted">
+                            <i class="bi bi-person-circle"></i> {{ request.user.username }}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="p-4">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                    
+                    {% block content %}{% endblock %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

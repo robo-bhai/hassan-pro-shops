@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Service Reports - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>📊 Service Reports</h2>
+                <div>
+                    <a href="{% url 'technician_performance_report' %}" class="btn btn-info">
+                        <i class="bi bi-person"></i> Technician Performance
+                    </a>
+                    <a href="{% url 'service_request_list' %}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Date Filter -->
+            <div class="card mb-3">
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">From Date</label>
+                            <input type="date" name="from_date" class="form-control" value="{{ from_date }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">To Date</label>
+                            <input type="date" name="to_date" class="form-control" value="{{ to_date }}">
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">Apply Filter</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Stats Cards -->
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <div class="card text-white bg-primary">
+                        <div class="card-body">
+                            <h6 class="card-title"><i class="bi bi-clipboard"></i> Total Requests</h6>
+                            <h2 class="mb-0">{{ total_requests|default:0 }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-success">
+                        <div class="card-body">
+                            <h6 class="card-title"><i class="bi bi-check-circle"></i> Completed</h6>
+                            <h2 class="mb-0">{{ completed_count|default:0 }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-warning">
+                        <div class="card-body">
+                            <h6 class="card-title"><i class="bi bi-currency-rupee"></i> Total Revenue</h6>
+                            <h2 class="mb-0">Rs. {{ total_revenue|default:0|floatformat:0|intcomma }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-info">
+                        <div class="card-body">
+                            <h6 class="card-title"><i class="bi bi-star"></i> Avg Rating</h6>
+                            <h2 class="mb-0">{{ avg_rating|default:0|floatformat:1 }} ★</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <!-- Service Type Breakdown -->
+                <div class="col-md-6">
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Service Type Breakdown</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if type_breakdown %}
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Service Type</th>
+                                            <th>Count</th>
+                                            <th>Percentage</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for type, count in type_breakdown.items %}
+                                        <tr>
+                                            <td>{{ type }}</td>
+                                            <td><strong>{{ count }}</strong></td>
+                                            <td>
+                                                <div class="progress" style="height:20px;">
+                                                    <div class="progress-bar bg-{% if forloop.counter == 1 %}success{% elif forloop.counter == 2 %}info{% elif forloop.counter == 3 %}warning{% else %}secondary{% endif %}" 
+                                                         role="progressbar" 
+                                                         style="width: {% widthratio count total_requests 100 %}%;" 
+                                                         aria-valuenow="{% widthratio count total_requests 100 %}" 
+                                                         aria-valuemin="0" 
+                                                         aria-valuemax="100">
+                                                        {% widthratio count total_requests 100 %}%
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <p class="text-muted text-center">No data available for the selected period.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Technician Performance -->
+                <div class="col-md-6">
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-person-badge"></i> Technician Performance</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if technician_performance %}
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Technician</th>
+                                            <th>Total</th>
+                                            <th>Completed</th>
+                                            <th>Rating</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for tech in technician_performance %}
+                                        <tr>
+                                            <td><strong>{{ tech.name }}</strong></td>
+                                            <td>{{ tech.total }}</td>
+                                            <td>
+                                                <span class="badge bg-success">{{ tech.completed }}</span>
+                                            </td>
+                                            <td>
+                                                {% if tech.avg_rating > 0 %}
+                                                <span class="badge bg-warning">{{ tech.avg_rating|floatformat:1 }} ★</span>
+                                                {% else %}
+                                                <span class="badge bg-secondary">-</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <p class="text-muted text-center">No technician data available.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Status Distribution -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Status Distribution</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <h6>Pending</h6>
+                                        <h3>{{ pending|default:0 }}</h3>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <h6>In Progress</h6>
+                                        <h3>{{ in_progress|default:0 }}</h3>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <h6>Completed</h6>
+                                        <h3>{{ completed_count|default:0 }}</h3>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <h6>Cancelled</h6>
+                                        <h3>{{ cancelled|default:0 }}</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,271 @@
+{% extends 'ceo/base_executive.html' %}
+{% load humanize %}
+
+{% block page_title %}Strategic Objectives (OKRs){% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5><i class="bi bi-bullseye"></i> Quarterly OKRs</h5>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createObjectiveModal">
+                    <i class="bi bi-plus-circle"></i> Create Objective
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    {% for objective in objectives %}
+    <div class="col-md-6 mb-4">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h6>{{ objective.objective|truncatechars:80 }}</h6>
+                    <div class="mt-2">
+                        <span class="badge {% if objective.priority == 'critical' %}bg-danger{% elif objective.priority == 'high' %}bg-warning{% elif objective.priority == 'medium' %}bg-info{% else %}bg-success{% endif %}">
+                            {{ objective.get_priority_display }}
+                        </span>
+                        <span class="badge {% if objective.status == 'completed' %}bg-success{% elif objective.status == 'in_progress' %}bg-primary{% elif objective.status == 'at_risk' %}bg-danger{% else %}bg-secondary{% endif %} ms-1">
+                            {{ objective.get_status_display }}
+                        </span>
+                        <small class="text-muted ms-2">{{ objective.quarter }} {{ objective.year }}</small>
+                    </div>
+                </div>
+                <div class="text-end">
+                    <h3 class="mb-0">{{ objective.progress_percentage|floatformat:0 }}%</h3>
+                    <small class="text-muted">Progress</small>
+                </div>
+            </div>
+            
+            <div class="progress mt-3">
+                <div class="progress-bar bg-success" style="width: {{ objective.progress_percentage|floatformat:0 }}%"></div>
+            </div>
+            
+            <div class="row mt-3">
+                <div class="col-6">
+                    <small class="text-muted">Start Date</small>
+                    <div>{{ objective.start_date|date:"d M Y" }}</div>
+                </div>
+                <div class="col-6">
+                    <small class="text-muted">Target Date</small>
+                    <div>{{ objective.target_date|date:"d M Y" }}</div>
+                </div>
+            </div>
+            
+            <hr>
+            
+            <h6>Key Results</h6>
+            {% for kr in objective.key_results.all %}
+            <div class="mb-3">
+                <div class="d-flex justify-content-between">
+                    <span>{{ kr.title }}</span>
+                    <span>{{ kr.current_value|floatformat:0 }}/{{ kr.target_value|floatformat:0 }} {{ kr.unit }}</span>
+                </div>
+                <div class="progress">
+                    <div class="progress-bar bg-info" style="width: {{ kr.progress_percentage|floatformat:0 }}%"></div>
+                </div>
+                <button class="btn btn-sm btn-outline-secondary mt-1" data-bs-toggle="modal" data-bs-target="#updateProgressModal{{ kr.id }}">
+                    <i class="bi bi-pencil"></i> Update Progress
+                </button>
+            </div>
+            
+            <!-- Update Progress Modal -->
+            <div class="modal fade" id="updateProgressModal{{ kr.id }}" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <form method="POST">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="update_progress">
+                            <input type="hidden" name="kr_id" value="{{ kr.id }}">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Update Progress: {{ kr.title }}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <label>Current Value ({{ kr.unit }})</label>
+                                <input type="number" step="any" name="current_value" class="form-control" value="{{ kr.current_value }}">
+                                <label class="mt-2">Notes</label>
+                                <textarea name="notes" class="form-control" rows="2">{{ kr.update_notes }}</textarea>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="submit" class="btn btn-primary">Save</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-muted">No key results yet. <button class="btn btn-link p-0" data-bs-toggle="modal" data-bs-target="#addKRModal{{ objective.id }}">Add KR</button></p>
+            {% endfor %}
+            
+            <button class="btn btn-sm btn-outline-primary mt-2" data-bs-toggle="modal" data-bs-target="#addKRModal{{ objective.id }}">
+                <i class="bi bi-plus"></i> Add Key Result
+            </button>
+            
+            <!-- Add KR Modal -->
+            <div class="modal fade" id="addKRModal{{ objective.id }}" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <form method="POST">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="add_key_result">
+                            <input type="hidden" name="objective_id" value="{{ objective.id }}">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Add Key Result</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <label>Title</label>
+                                <input type="text" name="title" class="form-control" required>
+                                <label class="mt-2">Description</label>
+                                <textarea name="description" class="form-control" rows="2"></textarea>
+                                <label class="mt-2">Target Value</label>
+                                <input type="number" step="any" name="target_value" class="form-control" required>
+                                <label class="mt-2">Unit</label>
+                                <select name="unit" class="form-control">
+                                    <option value="%">%</option>
+                                    <option value="Rs.">Rs.</option>
+                                    <option value="Units">Units</option>
+                                    <option value="Customers">Customers</option>
+                                </select>
+                                <label class="mt-2">Start Value</label>
+                                <input type="number" step="any" name="start_value" class="form-control" value="0">
+                            </div>
+                            <div class="modal-footer">
+                                <button type="submit" class="btn btn-primary">Add</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="stat-card text-center">
+            <i class="bi bi-emoji-smile fs-1 text-muted"></i>
+            <h5>No Objectives Yet</h5>
+            <p>Create your first strategic objective to start tracking OKRs.</p>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createObjectiveModal">
+                <i class="bi bi-plus-circle"></i> Create Objective
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Create Objective Modal -->
+<div class="modal fade" id="createObjectiveModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="create_objective">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create Strategic Objective</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <label>Objective</label>
+                    <textarea name="objective" class="form-control" rows="2" required placeholder="e.g., Increase Q4 revenue by 25%"></textarea>
+                    
+                    <label class="mt-2">Description</label>
+                    <textarea name="description" class="form-control" rows="2" placeholder="Detailed description"></textarea>
+                    
+                    <div class="row mt-2">
+                        <div class="col-md-4">
+                            <label>Quarter</label>
+                            <select name="quarter" class="form-control" required>
+                                <option value="Q1">Q1 (Jan-Mar)</option>
+                                <option value="Q2">Q2 (Apr-Jun)</option>
+                                <option value="Q3">Q3 (Jul-Sep)</option>
+                                <option value="Q4" selected>Q4 (Oct-Dec)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label>Year</label>
+                            <select name="year" class="form-control" required>
+                                {% for y in years %}
+                                <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label>Priority</label>
+                            <select name="priority" class="form-control">
+                                {% for p in priorities %}
+                                <option value="{{ p.0 }}">{{ p.1 }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-2">
+                        <div class="col-md-6">
+                            <label>Start Date</label>
+                            <input type="date" name="start_date" class="form-control" required value="{{ now|date:'Y-m-d' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label>Target Date</label>
+                            <input type="date" name="target_date" class="form-control" required value="{{ now|date:'Y-m-d'|add:'+90 days' }}">
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-2">
+                        <div class="col-md-6">
+                            <label>Estimated Revenue Impact (Rs.)</label>
+                            <input type="number" name="estimated_revenue_impact" class="form-control" value="0">
+                        </div>
+                        <div class="col-md-6">
+                            <label>Estimated Cost Saving (Rs.)</label>
+                            <input type="number" name="estimated_cost_saving" class="form-control" value="0">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Create Objective</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="stat-card">
+            <form method="GET" class="row g-3">
+                <div class="col-md-3">
+                    <label>Year</label>
+                    <select name="year" class="form-control" onchange="this.form.submit()">
+                        {% for y in years %}
+                        <option value="{{ y }}" {% if y|stringformat:"s" == request.GET.year|default:selected_year|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label>Quarter</label>
+                    <select name="quarter" class="form-control" onchange="this.form.submit()">
+                        <option value="">All Quarters</option>
+                        {% for q in quarters %}
+                        <option value="{{ q.0 }}" {% if q.0 == request.GET.quarter %}selected{% endif %}>{{ q.1 }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-submit form on filter change
+    document.querySelectorAll('select[name="year"], select[name="quarter"]').forEach(select => {
+        select.addEventListener('change', () => select.closest('form').submit());
+    });
+</script>
+{% endblock %}

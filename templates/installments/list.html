@@ -1,0 +1,352 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+{% load custom_filters %}
+
+{% block title %}Installment Plans | Premium Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- ✅ BUTTONS - Top Right (Both Buttons) -->
+    <div class="d-flex justify-content-end align-items-center mb-4 gap-2">
+        <a href="{% url 'installment_plan_list' %}" class="btn btn-outline-info rounded-pill shadow-sm px-4 py-2">
+            <i class="bi bi-grid-3x3-gap-fill"></i> View All Plans
+        </a>
+        <a href="{% url 'installment_create' %}" class="btn btn-primary rounded-pill shadow-sm px-4 py-2">
+            <i class="bi bi-plus-lg"></i> New Installment Plan
+        </a>
+    </div>
+
+    <!-- Premium Stats Cards -->
+    <div class="row g-4 mb-5">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100 bg-gradient-primary text-white">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="text-white-50 mb-2">Total Installments</h6>
+                            <h2 class="fw-bold mb-0">{{ total_installments }}</h2>
+                            <small class="text-white-70">Active: {{ total_active }}</small>
+                        </div>
+                        <div class="bg-white bg-opacity-25 rounded-3 p-2">
+                            📋
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100 bg-gradient-success text-white">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="text-white-50 mb-2">Total Amount</h6>
+                            <h2 class="fw-bold mb-0">Rs. {{ total_amount|floatformat:0|intcomma }}</h2>
+                            <small>Paid: Rs. {{ total_paid|floatformat:0|intcomma }}</small>
+                        </div>
+                        <div class="bg-white bg-opacity-25 rounded-3 p-2">
+                            💰
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100 bg-gradient-warning text-dark">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="text-dark-50 mb-2">Outstanding</h6>
+                            <h2 class="fw-bold mb-0">Rs. {{ total_outstanding|floatformat:0|intcomma }}</h2>
+                            <small>Overdue: {{ overdue_count }}</small>
+                        </div>
+                        <div class="bg-dark bg-opacity-10 rounded-3 p-2">
+                            ⚠️
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100 bg-gradient-danger text-white">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="text-white-50 mb-2">Defaulted</h6>
+                            <h2 class="fw-bold mb-0">{{ total_defaulted }}</h2>
+                            <small>Completed: {{ total_completed }}</small>
+                        </div>
+                        <div class="bg-white bg-opacity-25 rounded-3 p-2">
+                            ❌
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Premium Filter Card -->
+    <div class="card border-0 shadow-sm rounded-4 mb-5">
+        <div class="card-body p-4">
+            <h6 class="mb-3 fw-semibold"><i class="bi bi-funnel"></i> Advanced Filters</h6>
+            <form method="post">{% csrf_token %} method="get" class="row g-3">
+                <div class="col-md-4">
+                    <input type="text" name="search" class="form-control form-control-lg rounded-3" 
+                           placeholder="🔍 Search by Bill No, Customer..." value="{{ search }}">
+                </div>
+                <div class="col-md-2">
+                    <select name="status" class="form-select form-select-lg rounded-3">
+                        <option value="">📌 All Status</option>
+                        {% for code, label in status_choices %}
+                        <option value="{{ code }}" {% if selected_status == code %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select name="plan" class="form-select form-select-lg rounded-3">
+                        <option value="">📦 All Plans</option>
+                        {% for plan in plans %}
+                        <option value="{{ plan.id }}" {% if selected_plan|stringformat:"s" == plan.id|stringformat:"s" %}selected{% endif %}>{{ plan.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary btn-lg w-100 rounded-3 shadow-sm">
+                        🔍 Apply Filters
+                    </button>
+                </div>
+                <div class="col-md-2">
+                    <a href="{% url 'installment_list' %}" class="btn btn-outline-secondary btn-lg w-100 rounded-3">
+                        🔄 Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Premium Table Card -->
+    <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-dark text-white">
+                        <tr>
+                            <th class="ps-4 py-3">Bill No</th>
+                            <th class="py-3">Customer</th>
+                            <th class="py-3">Plan</th>
+                            <th class="py-3">Total Amount</th>
+                            <th class="py-3">EMI</th>
+                            <th class="py-3">Paid</th>
+                            <th class="py-3">Remaining</th>
+                            <th class="py-3">Progress</th>
+                            <th class="py-3">Status</th>
+                            <th class="py-3">Next Due</th>
+                            <th class="pe-4 py-3 text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for inst in page_obj %}
+                        <tr>
+                            <td class="ps-4">
+                                <span class="fw-semibold">{{ inst.sale.bill_no }}</span>
+                                <br>
+                                <small class="text-muted">{{ inst.sale.sale_date|date:"d-m-Y" }}</small>
+                            </td>
+                            <td>
+                                {{ inst.sale.customer.name }}
+                                <br>
+                                <small class="text-muted">{{ inst.sale.customer.customer_code }}</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark rounded-pill px-3 py-2">
+                                    {{ inst.plan.name|default:"-" }}
+                                </span>
+                            </td>
+                            <td class="fw-semibold">Rs. {{ inst.total_amount|floatformat:0|intcomma }}</td>
+                            <td>Rs. {{ inst.emi_amount|floatformat:0|intcomma }}</td>
+                            <td class="text-success fw-semibold">Rs. {{ inst.total_paid|floatformat:0|intcomma }}</td>
+                            <td class="{% if inst.remaining_amount > 0 %}text-danger fw-bold{% else %}text-success{% endif %}">
+                                Rs. {{ inst.remaining_amount|floatformat:0|intcomma }}
+                            </td>
+                            <td style="min-width: 120px;">
+                                {% with percent=inst.total_paid|div:inst.total_payable|multiply:100 %}
+                                <div class="progress rounded-3" style="height: 8px;">
+                                    <div class="progress-bar {% if percent >= 100 %}bg-success{% elif percent >= 50 %}bg-info{% else %}bg-warning{% endif %}" 
+                                         style="width: {{ percent|floatformat:0 }}%"></div>
+                                </div>
+                                <small class="text-muted">{{ percent|floatformat:0 }}%</small>
+                                {% endwith %}
+                            </td>
+                            <td>
+                                {% if inst.status == 'paid' %}
+                                <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3 py-2">✅ Paid</span>
+                                {% elif inst.status == 'partial' %}
+                                <span class="badge bg-warning bg-opacity-10 text-warning rounded-pill px-3 py-2">🟡 Partial</span>
+                                {% elif inst.status == 'defaulted' %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-3 py-2">⚠️ Defaulted</span>
+                                {% else %}
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary rounded-pill px-3 py-2">⏳ Pending</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if inst.next_due_date and inst.status != 'paid' %}
+                                    {% if inst.next_due_date < today %}
+                                    <span class="text-danger fw-semibold">
+                                        {{ inst.next_due_date|date:"d-m-Y" }}
+                                        <br><span class="badge bg-danger bg-opacity-10 text-danger">Overdue</span>
+                                    </span>
+                                    {% else %}
+                                    {{ inst.next_due_date|date:"d-m-Y" }}
+                                    {% endif %}
+                                {% else %}
+                                —
+                                {% endif %}
+                            </td>
+                            <td class="pe-4 text-end">
+                                <div class="btn-group" role="group">
+                                    <!-- View Details Button -->
+                                    <a href="{% url 'installment_detail' inst.id %}" 
+                                       class="btn btn-sm btn-outline-info rounded-pill px-3" 
+                                       title="View Details">
+                                        📋
+                                    </a>
+                                    
+                                    <!-- Edit Plan Button (only if plan exists) -->
+                                    {% if inst.plan %}
+                                    <a href="{% url 'installment_plan_edit' inst.plan.id %}" 
+                                       class="btn btn-sm btn-outline-warning rounded-pill px-3 mx-1" 
+                                       title="Edit Plan">
+                                        ✏️
+                                    </a>
+                                    
+                                    <!-- Delete Plan Button (only if plan exists) -->
+                                    <a href="{% url 'installment_plan_delete' inst.plan.id %}" 
+                                       class="btn btn-sm btn-outline-danger rounded-pill px-3" 
+                                       title="Delete Plan"
+                                       onclick="return confirm('⚠️ Are you sure you want to delete the plan &quot;{{ inst.plan.name }}&quot;? This action cannot be undone!');">
+                                        🗑️
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="11" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox display-1"></i>
+                                <p class="mt-3">No installment plans found.</p>
+                                <a href="{% url 'installment_create' %}" class="btn btn-primary rounded-pill">
+                                    <i class="bi bi-plus-lg"></i> Create First Plan
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Premium Pagination with all filters -->
+            {% if page_obj.has_other_pages %}
+            <div class="d-flex justify-content-between align-items-center p-4 border-top">
+                <div class="text-muted small">
+                    Showing <strong>{{ page_obj.start_index }}</strong> to <strong>{{ page_obj.end_index }}</strong> 
+                    of <strong>{{ page_obj.paginator.count }}</strong> entries
+                </div>
+                <nav>
+                    <ul class="pagination pagination-sm mb-0">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link rounded-3 mx-1" 
+                               href="?page=1{% if search %}&search={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_plan %}&plan={{ selected_plan }}{% endif %}">
+                                « First
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link rounded-3 mx-1" 
+                               href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_plan %}&plan={{ selected_plan }}{% endif %}">
+                                ‹ Prev
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        <li class="page-item active">
+                            <span class="page-link rounded-3 mx-1 bg-primary border-primary">{{ page_obj.number }}</span>
+                        </li>
+                        
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link rounded-3 mx-1" 
+                               href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_plan %}&plan={{ selected_plan }}{% endif %}">
+                                Next ›
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link rounded-3 mx-1" 
+                               href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_plan %}&plan={{ selected_plan }}{% endif %}">
+                                Last »
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
+    }
+    .bg-gradient-success {
+        background: linear-gradient(135deg, #1cc88a 0%, #13855c 100%);
+    }
+    .bg-gradient-warning {
+        background: linear-gradient(135deg, #f6c23e 0%, #dda20a 100%);
+    }
+    .bg-gradient-danger {
+        background: linear-gradient(135deg, #e74a3b 0%, #be2617 100%);
+    }
+    .table-hover tbody tr:hover {
+        background-color: #f8f9fc;
+        transition: 0.2s;
+    }
+    .rounded-4 {
+        border-radius: 1rem !important;
+    }
+    .bg-opacity-10 {
+        --bs-bg-opacity: 0.1;
+    }
+    .btn-primary {
+        background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
+        border: none;
+    }
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #224abe 0%, #1a1d2e 100%);
+        transform: translateY(-1px);
+    }
+    .btn-outline-info {
+        border: 1px solid #0dcaf0;
+        color: #0dcaf0;
+    }
+    .btn-outline-info:hover {
+        background: #0dcaf0;
+        color: white;
+        transform: translateY(-1px);
+    }
+    .btn-outline-warning:hover {
+        background: #ffc107;
+        color: #212529;
+        transform: translateY(-1px);
+    }
+    .btn-outline-danger:hover {
+        background: #dc3545;
+        color: white;
+        transform: translateY(-1px);
+    }
+    .btn-group .btn {
+        transition: all 0.2s ease;
+    }
+</style>
+{% endblock %}

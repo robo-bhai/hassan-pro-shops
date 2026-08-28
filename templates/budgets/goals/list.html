@@ -1,0 +1,430 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Budget Goals - {{ budget.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ========================================== */
+    /* PREMIUM GOALS STYLES                      */
+    /* ========================================== */
+    .goals-header {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        border-radius: 16px;
+        padding: 30px;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+    .goals-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -20%;
+        width: 400px;
+        height: 400px;
+        background: rgba(255,255,255,0.03);
+        border-radius: 50%;
+    }
+    .goals-header .header-content {
+        position: relative;
+        z-index: 1;
+    }
+    .goals-header .goals-title {
+        font-size: 28px;
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+    .goals-header .goals-subtitle {
+        font-size: 14px;
+        opacity: 0.7;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+    
+    /* Stat Cards */
+    .stat-card-goal {
+        border: none;
+        border-radius: 12px;
+        padding: 20px;
+        transition: all 0.3s ease;
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+    }
+    .stat-card-goal:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+    }
+    .stat-card-goal .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        margin-bottom: 10px;
+    }
+    .stat-card-goal .stat-value {
+        font-size: 26px;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    .stat-card-goal .stat-label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        opacity: 0.8;
+        margin-top: 4px;
+    }
+    .stat-card-goal .stat-change {
+        font-size: 12px;
+        margin-top: 6px;
+        display: inline-block;
+        padding: 2px 10px;
+        border-radius: 20px;
+        background: rgba(255,255,255,0.2);
+    }
+    
+    /* Goal Card */
+    .goal-card {
+        border: none;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        border-left: 4px solid #6c757d;
+    }
+    .goal-card:hover {
+        box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+    .goal-card.status-completed {
+        border-left-color: #28a745;
+        background: #f8fff9;
+    }
+    .goal-card.status-active {
+        border-left-color: #17a2b8;
+    }
+    .goal-card.status-behind {
+        border-left-color: #dc3545;
+        background: #fff8f8;
+    }
+    .goal-card.status-near {
+        border-left-color: #ffc107;
+        background: #fffcf0;
+    }
+    
+    .goal-card .goal-progress {
+        font-size: 32px;
+        font-weight: 700;
+    }
+    .goal-card .goal-progress-text {
+        font-size: 12px;
+        color: #6c757d;
+    }
+    
+    /* Progress Bar Animation */
+    .progress-goal {
+        height: 8px;
+        border-radius: 10px;
+        background: #e9ecef;
+        overflow: hidden;
+    }
+    .progress-goal .progress-bar {
+        border-radius: 10px;
+        transition: width 1.5s ease;
+    }
+    
+    /* Badge */
+    .badge-goal {
+        padding: 5px 14px;
+        border-radius: 20px;
+        font-weight: 500;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .badge-goal.saving { background: #d4edda; color: #155724; }
+    .badge-goal.spending { background: #cce5ff; color: #004085; }
+    .badge-goal.emergency { background: #fff3cd; color: #856404; }
+    .badge-goal.investment { background: #d1ecf1; color: #0c5460; }
+    .badge-goal.debt { background: #f8d7da; color: #721c24; }
+    .badge-goal.purchase { background: #e8d5b7; color: #5d4037; }
+    
+    /* Empty State */
+    .empty-state {
+        padding: 60px 20px;
+        text-align: center;
+    }
+    .empty-state .empty-icon {
+        font-size: 64px;
+        color: #dee2e6;
+        margin-bottom: 16px;
+    }
+    .empty-state h5 {
+        color: #495057;
+        margin-bottom: 8px;
+    }
+    .empty-state p {
+        color: #6c757d;
+        max-width: 400px;
+        margin: 0 auto 20px;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .goals-header .goals-title {
+            font-size: 22px;
+        }
+        .goals-header {
+            padding: 20px;
+        }
+        .stat-card-goal .stat-value {
+            font-size: 20px;
+        }
+        .goal-card .goal-progress {
+            font-size: 24px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <!-- ========================================== -->
+    <!-- HEADER                                     -->
+    <!-- ========================================== -->
+    <div class="goals-header mb-4">
+        <div class="header-content">
+            <div class="d-flex flex-wrap justify-content-between align-items-start">
+                <div>
+                    <div class="goals-title">
+                        <i class="bi bi-bullseye"></i> Budget Goals
+                    </div>
+                    <div class="goals-subtitle">
+                        <span><i class="bi bi-wallet2"></i> {{ budget.name }}</span>
+                        <span><i class="bi bi-calendar3"></i> {{ budget.period_start|date:"d M Y" }} - {{ budget.period_end|date:"d M Y" }}</span>
+                        <span><i class="bi bi-flag"></i> {{ goals|length }} goals</span>
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'budget_goal_create' budget.id %}" class="btn btn-light btn-sm">
+                        <i class="bi bi-plus-circle"></i> New Goal
+                    </a>
+                    <a href="{% url 'budget_detail' budget.id %}" class="btn btn-outline-light btn-sm">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Quick Stats -->
+            <div class="row g-2 mt-3">
+                <div class="col-auto">
+                    <span class="badge bg-success">{{ completed_goals }} Completed</span>
+                </div>
+                <div class="col-auto">
+                    <span class="badge bg-warning text-dark">{{ active_goals }} Active</span>
+                </div>
+                <div class="col-auto">
+                    <span class="badge bg-danger">{{ behind_goals|default:0 }} Behind</span>
+                </div>
+                <div class="col-auto">
+                    <span class="badge bg-light text-dark">
+                        Completion: 
+                        {% if total_goals > 0 %}
+                            {% widthratio completed_goals total_goals 100 %}%
+                        {% else %}
+                            0%
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- STATS CARDS                               -->
+    <!-- ========================================== -->
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-lg-6 col-md-6">
+            <div class="stat-card-goal" style="background: linear-gradient(135deg, #e3f2fd, #bbdefb);">
+                <div class="stat-icon" style="background: rgba(25,118,210,0.15); color: #1976d2;">
+                    <i class="bi bi-flag"></i>
+                </div>
+                <div class="stat-value" style="color: #1976d2;">{{ total_goals }}</div>
+                <div class="stat-label">Total Goals</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-lg-6 col-md-6">
+            <div class="stat-card-goal" style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9);">
+                <div class="stat-icon" style="background: rgba(46,125,50,0.15); color: #2e7d32;">
+                    <i class="bi bi-check-circle"></i>
+                </div>
+                <div class="stat-value" style="color: #2e7d32;">{{ completed_goals }}</div>
+                <div class="stat-label">Completed</div>
+                {% if completed_goals > 0 %}
+                <div class="stat-change">🎉 Done!</div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="col-xl-3 col-lg-6 col-md-6">
+            <div class="stat-card-goal" style="background: linear-gradient(135deg, #fff3e0, #ffe0b2);">
+                <div class="stat-icon" style="background: rgba(245,124,0,0.15); color: #f57c00;">
+                    <i class="bi bi-clock-history"></i>
+                </div>
+                <div class="stat-value" style="color: #f57c00;">{{ active_goals }}</div>
+                <div class="stat-label">Active</div>
+                <div class="stat-change">⏳ In Progress</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-lg-6 col-md-6">
+            <div class="stat-card-goal" style="background: linear-gradient(135deg, #fce4ec, #f8bbd0);">
+                <div class="stat-icon" style="background: rgba(198,40,40,0.15); color: #c62828;">
+                    <i class="bi bi-graph-up"></i>
+                </div>
+                <div class="stat-value" style="color: #c62828;">
+                    {% if total_goals > 0 %}
+                        {% widthratio completed_goals total_goals 100 %}%
+                    {% else %}
+                        0%
+                    {% endif %}
+                </div>
+                <div class="stat-label">Completion Rate</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- GOALS LIST                                -->
+    <!-- ========================================== -->
+    <div class="row g-3">
+        {% if goals %}
+            {% for goal in goals %}
+            <div class="col-xl-4 col-lg-6 col-md-6">
+                <div class="goal-card card h-100 
+                    {% if goal.status == 'completed' %}status-completed
+                    {% elif goal.progress >= 80 %}status-near
+                    {% elif goal.progress <= 40 %}status-behind
+                    {% else %}status-active{% endif %}">
+                    <div class="card-body">
+                        <!-- Header -->
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h6 class="fw-bold mb-0">
+                                    <a href="{% url 'budget_goal_detail' goal.id %}" class="text-decoration-none text-dark">
+                                        {{ goal.name }}
+                                    </a>
+                                </h6>
+                                <small class="text-muted">{{ goal.category.name|default:"Overall Budget" }}</small>
+                            </div>
+                            <span class="badge-goal {{ goal.goal_type }}">
+                                {{ goal.get_goal_type_display|truncatechars:12 }}
+                            </span>
+                        </div>
+                        
+                        <!-- Amounts -->
+                        <div class="row g-0 mt-2">
+                            <div class="col-6">
+                                <small class="text-muted d-block">Target</small>
+                                <span class="fw-bold">Rs. {{ goal.target_amount|floatformat:0|intcomma }}</span>
+                            </div>
+                            <div class="col-6 text-end">
+                                <small class="text-muted d-block">Current</small>
+                                <span class="fw-bold">Rs. {{ goal.current_amount|floatformat:0|intcomma }}</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Progress -->
+                        <div class="mt-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="goal-progress-text">Progress</span>
+                                <span class="fw-bold text-{{ goal.progress_color }}">
+                                    {{ goal.progress|floatformat:1 }}%
+                                </span>
+                            </div>
+                            <div class="progress-goal">
+                                <div class="progress-bar bg-{{ goal.progress_color }} progress-bar-striped 
+                                    {% if goal.progress < 100 %}progress-bar-animated{% endif %}" 
+                                    role="progressbar"
+                                    style="width: {{ goal.progress|floatformat:0 }}%;">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Status & Days -->
+                        <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                            <div>
+                                {{ goal.get_status_badge|safe }}
+                            </div>
+                            <div>
+                                {% if goal.days_remaining > 0 %}
+                                <small class="text-muted">
+                                    <i class="bi bi-calendar"></i>
+                                    {{ goal.days_remaining }} days left
+                                </small>
+                                {% else %}
+                                <small class="text-muted">No deadline</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Daily Required -->
+                        {% if goal.days_remaining > 0 and goal.daily_required > 0 %}
+                        <div class="mt-2 small text-muted">
+                            <i class="bi bi-clock"></i>
+                            Daily Required: <strong>Rs. {{ goal.daily_required|floatformat:0|intcomma }}</strong>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Actions -->
+                        <div class="mt-3 d-flex gap-1">
+                            <a href="{% url 'budget_goal_detail' goal.id %}" class="btn btn-sm btn-outline-info flex-fill">
+                                <i class="bi bi-eye"></i> View
+                            </a>
+                            <a href="{% url 'budget_goal_edit' goal.id %}" class="btn btn-sm btn-outline-warning">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <a href="{% url 'budget_goal_delete' goal.id %}" class="btn btn-sm btn-outline-danger"
+                               onclick="return confirm('Delete this goal?')">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <!-- Empty State -->
+            <div class="col-12">
+                <div class="card shadow-sm border-0">
+                    <div class="card-body">
+                        <div class="empty-state">
+                            <div class="empty-icon">
+                                <i class="bi bi-bullseye"></i>
+                            </div>
+                            <h5>No Goals Yet</h5>
+                            <p>Create your first budget goal to start tracking your financial targets.</p>
+                            <a href="{% url 'budget_goal_create' budget.id %}" class="btn btn-primary">
+                                <i class="bi bi-plus-circle"></i> Create Your First Goal
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- FOOTER                                     -->
+    <!-- ========================================== -->
+    <div class="text-muted small text-center py-3 mt-4">
+        <i class="bi bi-info-circle"></i>
+        Track your progress and achieve your financial goals
+    </div>
+    
+</div>
+{% endblock %}

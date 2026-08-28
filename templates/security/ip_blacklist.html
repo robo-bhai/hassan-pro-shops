@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}IP Blacklist{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-x-circle text-danger"></i> IP Blacklist</h2>
+            <p class="text-muted">Manage blocked IP addresses</p>
+        </div>
+        <div>
+            <a href="{% url 'security_dashboard' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    
+    <!-- Add IP -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <form method="POST" class="row g-3">
+                {% csrf_token %}
+                <div class="col-md-4">
+                    <input type="text" name="ip_address" class="form-control" placeholder="e.g., 192.168.1.100" required>
+                </div>
+                <div class="col-md-6">
+                    <input type="text" name="reason" class="form-control" placeholder="Reason for blocking" required>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-danger w-100">
+                        <i class="bi bi-plus-circle"></i> Block
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Blacklist Table -->
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>IP Address</th>
+                            <th>Reason</th>
+                            <th>Blocked By</th>
+                            <th>Blocked At</th>
+                            <th>Expires</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ip in blacklist %}
+                        <tr>
+                            <td><code>{{ ip.ip_address }}</code></td>
+                            <td>{{ ip.reason|truncatechars:50 }}</td>
+                            <td>{{ ip.blocked_by.username|default:"System" }}</td>
+                            <td>{{ ip.blocked_at|date:"d-m-Y H:i" }}</td>
+                            <td>{{ ip.expires_at|date:"d-m-Y H:i"|default:"Never" }}</td>
+                            <td>
+                                <span class="badge {% if ip.is_active %}bg-danger{% else %}bg-secondary{% endif %}">
+                                    {% if ip.is_active %}Active{% else %}Inactive{% endif %}
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">
+                                <i class="bi bi-check-circle fs-2 d-block text-success"></i>
+                                <p>No IPs blacklisted</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

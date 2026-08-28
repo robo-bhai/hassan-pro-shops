@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Shareholder Portal{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #f0f2f5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+        }
+        
+        /* Shareholder Navbar - No Sidebar */
+        .shareholder-navbar {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            padding: 12px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        
+        .shareholder-navbar .brand {
+            color: #fff;
+            font-size: 1.2rem;
+            font-weight: 700;
+            text-decoration: none;
+        }
+        
+        .shareholder-navbar .brand i {
+            color: #667eea;
+        }
+        
+        .shareholder-navbar .user-info {
+            color: #a0a5c0;
+            font-size: 0.85rem;
+        }
+        
+        .shareholder-navbar .user-info strong {
+            color: #fff;
+        }
+        
+        .shareholder-navbar .nav-links a {
+            color: #a0a5c0;
+            text-decoration: none;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            transition: all 0.3s;
+        }
+        
+        .shareholder-navbar .nav-links a:hover {
+            background: rgba(102, 126, 234, 0.2);
+            color: #fff;
+        }
+        
+        .shareholder-navbar .nav-links a.active {
+            background: #667eea;
+            color: #fff;
+        }
+        
+        .shareholder-navbar .nav-links a.text-danger:hover {
+            background: rgba(220, 53, 69, 0.2);
+            color: #dc3545;
+        }
+        
+        /* ============================================ */
+        /* NOTIFICATION BELL STYLES                    */
+        /* ============================================ */
+        .notification-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .notification-bell {
+            background: transparent;
+            border: none;
+            color: #a0a5c0;
+            padding: 6px 10px;
+            border-radius: 50%;
+            transition: all 0.3s;
+            position: relative;
+            cursor: pointer;
+        }
+        
+        .notification-bell:hover {
+            background: rgba(102, 126, 234, 0.2);
+            color: #fff;
+        }
+        
+        .notification-bell .bell-icon {
+            font-size: 1.3rem;
+        }
+        
+        .notification-bell .badge-dot {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: #dc3545;
+            color: white;
+            border-radius: 50%;
+            font-size: 0.55rem;
+            font-weight: 700;
+            min-width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #1a1a2e;
+            padding: 0 4px;
+        }
+        
+        /* Notification Dropdown */
+        .notification-dropdown {
+            position: absolute;
+            top: 45px;
+            right: 0;
+            width: 380px;
+            max-height: 450px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+            z-index: 1050;
+            display: none;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+        
+        .notification-dropdown.show {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .notification-dropdown .dropdown-header {
+            padding: 12px 18px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8f9fa;
+        }
+        
+        .notification-dropdown .dropdown-header h6 {
+            margin: 0;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        
+        .notification-dropdown .dropdown-header .mark-all {
+            font-size: 0.7rem;
+            color: #667eea;
+            cursor: pointer;
+            text-decoration: none;
+            background: none;
+            border: none;
+        }
+        
+        .notification-dropdown .dropdown-header .mark-all:hover {
+            text-decoration: underline;
+        }
+        
+        .notification-dropdown .notification-list {
+            max-height: 330px;
+            overflow-y: auto;
+            padding: 0;
+            margin: 0;
+            list-style: none;
+        }
+        
+        .notification-dropdown .notification-list::-webkit-scrollbar {
+            width: 4px;
+        }
+        
+        .notification-dropdown .notification-list::-webkit-scrollbar-thumb {
+            background: #ddd;
+            border-radius: 4px;
+        }
+        
+        .notification-dropdown .notification-list li {
+            padding: 10px 16px;
+            border-bottom: 1px solid #f1f3f5;
+            transition: background 0.2s;
+            cursor: pointer;
+        }
+        
+        .notification-dropdown .notification-list li:hover {
+            background: #f8f9fa;
+        }
+        
+        .notification-dropdown .notification-list li.unread {
+            background: #f0f4ff;
+            border-left: 3px solid #667eea;
+        }
+        
+        .notification-dropdown .notification-list li .notif-icon {
+            font-size: 1rem;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+        
+        .notification-dropdown .notification-list li .notif-title {
+            font-weight: 500;
+            font-size: 0.8rem;
+            margin: 0;
+            color: #1a1a2e;
+        }
+        
+        .notification-dropdown .notification-list li .notif-message {
+            font-size: 0.75rem;
+            color: #6c757d;
+            margin: 2px 0 0;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .notification-dropdown .notification-list li .notif-time {
+            font-size: 0.6rem;
+            color: #adb5bd;
+            display: block;
+            margin-top: 3px;
+        }
+        
+        .notification-dropdown .dropdown-footer {
+            padding: 8px 16px;
+            border-top: 1px solid #e9ecef;
+            text-align: center;
+            background: #f8f9fa;
+        }
+        
+        .notification-dropdown .dropdown-footer a {
+            font-size: 0.75rem;
+            color: #667eea;
+            text-decoration: none;
+        }
+        
+        .notification-dropdown .dropdown-footer a:hover {
+            text-decoration: underline;
+        }
+        
+        .notification-dropdown .empty-state {
+            padding: 30px 20px;
+            text-align: center;
+            color: #adb5bd;
+        }
+        
+        .notification-dropdown .empty-state i {
+            font-size: 2rem;
+            display: block;
+            margin-bottom: 8px;
+            color: #dee2e6;
+        }
+        
+        .notification-dropdown .empty-state p {
+            font-size: 0.85rem;
+            margin: 0;
+        }
+        
+        .shareholder-content {
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .shareholder-navbar {
+                padding: 10px 12px;
+            }
+            .shareholder-navbar .brand {
+                font-size: 1rem;
+            }
+            .shareholder-navbar .nav-links a {
+                font-size: 0.7rem;
+                padding: 4px 8px;
+            }
+            .shareholder-navbar .user-info {
+                font-size: 0.7rem;
+            }
+            .shareholder-content {
+                padding: 10px;
+            }
+            .notification-dropdown {
+                width: 320px;
+                right: -10px;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .shareholder-navbar .nav-links {
+                gap: 2px !important;
+            }
+            .shareholder-navbar .nav-links a {
+                font-size: 0.6rem;
+                padding: 3px 5px;
+            }
+            .shareholder-navbar .brand {
+                font-size: 0.8rem;
+            }
+            .notification-dropdown {
+                width: 290px;
+                right: -20px;
+            }
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    
+    <!-- Shareholder Navbar - No Sidebar -->
+    <nav class="shareholder-navbar">
+        <div class="d-flex flex-wrap justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-3">
+                <a href="{% url 'shareholder_portal_dashboard' %}" class="brand">
+                    <i class="bi bi-building"></i> {{ company_name|default:'ERP' }}
+                </a>
+                <span class="user-info d-none d-sm-inline">
+                    <i class="bi bi-person-circle"></i>
+                    <strong>{{ request.user.shareholder_profile.name }}</strong>
+                    <span class="text-muted ms-1">({{ request.user.shareholder_profile.shareholder_code }})</span>
+                </span>
+            </div>
+            <div class="d-flex align-items-center gap-1 gap-md-2">
+                
+                <!-- ============================================ -->
+                <!-- ✅ NOTIFICATION BELL                         -->
+                <!-- ============================================ -->
+                <div class="notification-wrapper">
+                    <button class="notification-bell" onclick="toggleNotifications()" id="bellButton" title="Notifications">
+                        <i class="bi bi-bell bell-icon"></i>
+                        <span class="badge-dot" id="notifBadge" style="display: none;">0</span>
+                    </button>
+                    
+                    <!-- Notification Dropdown -->
+                    <div class="notification-dropdown" id="notifDropdown">
+                        <div class="dropdown-header">
+                            <h6>🔔 Notifications</h6>
+                            <button class="mark-all" onclick="markAllRead(event)">Mark all read</button>
+                        </div>
+                        <ul class="notification-list" id="notifList">
+                            <li class="empty-state">
+                                <i class="bi bi-bell-slash"></i>
+                                <p>No notifications</p>
+                            </li>
+                        </ul>
+                        <div class="dropdown-footer">
+                            <a href="{% url 'notification_list' %}" target="_blank">View all notifications</a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Nav Links -->
+                <a href="{% url 'shareholder_portal_dashboard' %}" class="{% if request.resolver_match.url_name == 'shareholder_portal_dashboard' %}active{% endif %}">
+                    <i class="bi bi-house"></i> <span class="d-none d-sm-inline">Dashboard</span>
+                </a>
+                <a href="{% url 'shareholder_portal_certificates' %}" class="{% if request.resolver_match.url_name == 'shareholder_portal_certificates' %}active{% endif %}">
+                    <i class="bi bi-file-pdf"></i> <span class="d-none d-sm-inline">Certificates</span>
+                </a>
+                <a href="{% url 'shareholder_portal_transactions' %}" class="{% if request.resolver_match.url_name == 'shareholder_portal_transactions' %}active{% endif %}">
+                    <i class="bi bi-list"></i> <span class="d-none d-sm-inline">Transactions</span>
+                </a>
+                <a href="{% url 'shareholder_portal_profile' %}" class="{% if request.resolver_match.url_name == 'shareholder_portal_profile' %}active{% endif %}">
+                    <i class="bi bi-person-gear"></i> <span class="d-none d-sm-inline">Profile</span>
+                </a>
+                <a href="{% url 'shareholder_logout' %}" class="text-danger">
+                    <i class="bi bi-box-arrow-right"></i> <span class="d-none d-sm-inline">Logout</span>
+                </a>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Content -->
+    <div class="shareholder-content">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+        
+        {% block portal_content %}{% endblock %}
+    </div>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // ============================================
+        // NOTIFICATION BELL TOGGLE
+        // ============================================
+        function toggleNotifications() {
+            var dropdown = document.getElementById('notifDropdown');
+            dropdown.classList.toggle('show');
+            
+            if (dropdown.classList.contains('show')) {
+                loadNotifications();
+            }
+        }
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            var bell = document.getElementById('bellButton');
+            var dropdown = document.getElementById('notifDropdown');
+            
+            if (bell && dropdown) {
+                if (!bell.contains(event.target) && !dropdown.contains(event.target)) {
+                    dropdown.classList.remove('show');
+                }
+            }
+        });
+        
+        // ============================================
+        // LOAD NOTIFICATIONS - WITH ERROR HANDLING
+        // ============================================
+        function loadNotifications() {
+            var list = document.getElementById('notifList');
+            
+            // Show loading state
+            if (list) {
+                list.innerHTML = `
+                    <li class="text-center py-3 text-muted">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-1 small">Loading notifications...</p>
+                    </li>
+                `;
+            }
+            
+            fetch('/api/notifications/')
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (data.success) {
+                        renderNotifications(data.notifications);
+                        updateBadge(data.unread_count);
+                    } else {
+                        console.error('API returned error:', data);
+                        showEmptyState('Unable to load notifications');
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Error loading notifications:', error);
+                    showEmptyState('Click to retry');
+                });
+        }
+        
+        function showEmptyState(message) {
+            var list = document.getElementById('notifList');
+            if (list) {
+                list.innerHTML = `
+                    <li class="empty-state" onclick="loadNotifications()" style="cursor:pointer;">
+                        <i class="bi bi-bell-slash"></i>
+                        <p>${message || 'No notifications'}</p>
+                        <small class="text-muted">Click to refresh</small>
+                    </li>
+                `;
+            }
+        }
+        
+        function renderNotifications(notifications) {
+            var list = document.getElementById('notifList');
+            
+            if (!notifications || notifications.length === 0) {
+                showEmptyState('No notifications');
+                return;
+            }
+            
+            var html = '';
+            notifications.forEach(function(notif) {
+                var icon = getNotificationIcon(notif.notification_type);
+                var unreadClass = notif.is_read ? '' : 'unread';
+                
+                html += `
+                    <li class="${unreadClass}" onclick="markNotificationRead(${notif.id}, this)">
+                        <div class="d-flex align-items-start">
+                            <span class="notif-icon">${icon}</span>
+                            <div class="flex-grow-1">
+                                <p class="notif-title">${notif.title}</p>
+                                <p class="notif-message">${notif.message}</p>
+                                <small class="notif-time">${notif.time_ago}</small>
+                            </div>
+                            ${!notif.is_read ? '<span class="badge bg-primary rounded-pill" style="font-size:0.5rem;">NEW</span>' : ''}
+                        </div>
+                    </li>
+                `;
+            });
+            
+            list.innerHTML = html;
+        }
+        
+        function getNotificationIcon(type) {
+            var icons = {
+                'success': '✅',
+                'warning': '⚠️',
+                'danger': '❌',
+                'info': 'ℹ️',
+                'payment': '💰',
+                'deposit': '💰',
+                'withdrawal': '💸',
+                'sale': '🛒',
+                'installment': '📅',
+                'stock': '📦'
+            };
+            return icons[type] || '🔔';
+        }
+        
+        // ============================================
+        // UPDATE BADGE
+        // ============================================
+        function updateBadge(count) {
+            var badge = document.getElementById('notifBadge');
+            if (badge) {
+                if (count > 0) {
+                    badge.style.display = 'flex';
+                    badge.textContent = count > 99 ? '99+' : count;
+                } else {
+                    badge.style.display = 'none';
+                }
+            }
+        }
+        
+        // ============================================
+        // MARK NOTIFICATION AS READ
+        // ============================================
+        function markNotificationRead(id, element) {
+            fetch('/api/notifications/' + id + '/mark-read/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCSRFToken(),
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.success) {
+                    element.classList.remove('unread');
+                    var badge = element.querySelector('.badge');
+                    if (badge) badge.remove();
+                    updateUnreadCount();
+                }
+            })
+            .catch(function(error) {
+                console.error('Error:', error);
+            });
+        }
+        
+        // ============================================
+        // MARK ALL AS READ
+        // ============================================
+        function markAllRead(event) {
+            if (event) event.preventDefault();
+            
+            fetch('/api/notifications/mark-all-read/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCSRFToken(),
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.success) {
+                    document.querySelectorAll('#notifList li.unread').forEach(function(el) {
+                        el.classList.remove('unread');
+                        var badge = el.querySelector('.badge');
+                        if (badge) badge.remove();
+                    });
+                    updateBadge(0);
+                }
+            })
+            .catch(function(error) {
+                console.error('Error:', error);
+            });
+        }
+        
+        // ============================================
+        // UPDATE UNREAD COUNT
+        // ============================================
+        function updateUnreadCount() {
+            fetch('/api/notifications/unread-count/')
+                .then(function(response) {
+                    return response.json();
+                })
+                .then(function(data) {
+                    updateBadge(data.unread_count);
+                })
+                .catch(function(error) {
+                    console.error('Error:', error);
+                });
+        }
+        
+        // ============================================
+        // GET CSRF TOKEN
+        // ============================================
+        function getCSRFToken() {
+            var cookies = document.cookie.split(';');
+            for (var i = 0; i < cookies.length; i++) {
+                var cookie = cookies[i].trim();
+                if (cookie.startsWith('csrftoken=')) {
+                    return cookie.substring(10);
+                }
+            }
+            return '';
+        }
+        
+        // ============================================
+        // AUTO-REFRESH NOTIFICATIONS (Every 30 sec)
+        // ============================================
+        setInterval(function() {
+            fetch('/api/notifications/unread-count/')
+                .then(function(response) {
+                    return response.json();
+                })
+                .then(function(data) {
+                    updateBadge(data.unread_count);
+                })
+                .catch(function(error) {
+                    console.error('Error:', error);
+                });
+        }, 30000);
+        
+        // ============================================
+        // INIT - Load unread count on page load
+        // ============================================
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('/api/notifications/unread-count/')
+                .then(function(response) {
+                    return response.json();
+                })
+                .then(function(data) {
+                    updateBadge(data.unread_count);
+                })
+                .catch(function(error) {
+                    console.error('Error:', error);
+                });
+        });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

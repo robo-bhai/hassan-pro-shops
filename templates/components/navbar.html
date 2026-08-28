@@ -1,0 +1,305 @@
+<nav class="topbar">
+    <div class="d-flex align-items-center gap-3">
+        <button class="btn btn-light d-lg-none" onclick="toggleSidebar()">
+            <i class="bi bi-list"></i>
+        </button>
+        <span class="page-title">{% block page_title %}Dashboard{% endblock %}</span>
+    </div>
+    <div class="user-menu" style="display: flex; align-items: center; gap: 15px;">
+        
+        <!-- 🔔 NOTIFICATION BELL -->
+        <div style="position: relative;">
+            <div class="notification-bell" onclick="toggleNotifications()">
+                <i class="bi bi-bell-fill" style="font-size: 1.5rem; color: #6c757d;"></i>
+                <span id="notificationBadge" class="notification-badge" style="display: none;">0</span>
+            </div>
+            
+            <div id="notificationDropdown" class="notification-dropdown">
+                <div class="notification-header">
+                    <span><i class="bi bi-bell-fill"></i> Notifications</span>
+                    <a href="#" class="mark-all-read" onclick="markAllRead(); return false;">Mark all as read</a>
+                </div>
+                
+                <!-- Category Filters -->
+                <div class="notification-categories">
+                    <button class="category-btn active" data-category="all" onclick="filterNotifications('all')">
+                        <i class="bi bi-bell"></i> All
+                    </button>
+                    <button class="category-btn" data-category="sales" onclick="filterNotifications('sales')">
+                        <i class="bi bi-cart"></i> Sales
+                    </button>
+                    <button class="category-btn" data-category="payments" onclick="filterNotifications('payments')">
+                        <i class="bi bi-currency-rupee"></i> Payments
+                    </button>
+                    <button class="category-btn" data-category="installments" onclick="filterNotifications('installments')">
+                        <i class="bi bi-calendar"></i> Installments
+                    </button>
+                    <button class="category-btn" data-category="stock" onclick="filterNotifications('stock')">
+                        <i class="bi bi-box"></i> Stock
+                    </button>
+                    <button class="category-btn" data-category="system" onclick="filterNotifications('system')">
+                        <i class="bi bi-gear"></i> System
+                    </button>
+                </div>
+                
+                <div id="notificationList" style="max-height: 350px; overflow-y: auto;">
+                    <div class="text-center p-3">
+                        <div class="spinner-border spinner-border-sm text-primary"></div>
+                        Loading...
+                    </div>
+                </div>
+                <div class="notification-footer">
+                    <a href="/notifications/" style="color: #667eea; text-decoration: none; font-size: 12px;">
+                        View all notifications
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Dashboard Button -->
+        <a href="{% url 'dashboard' %}" class="btn-icon" title="Dashboard">
+            <i class="bi bi-speedometer2" style="font-size: 1.3rem; color: #6c757d;"></i>
+        </a>
+        
+        <!-- User Dropdown -->
+        <div class="dropdown">
+            <button class="btn btn-light dropdown-toggle d-flex align-items-center gap-2" data-bs-toggle="dropdown">
+                <i class="bi bi-person-circle"></i>
+                {{ request.user.username|title }}
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                    <a class="dropdown-item" href="{% url 'admin:password_change' %}">
+                        <i class="bi bi-key"></i> Change Password
+                    </a>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <form method="POST" action="{% url 'admin:logout' %}" style="margin:0; padding:0;">
+                        {% csrf_token %}
+                        <button type="submit" class="dropdown-item" style="border:none; background:none; width:100%; text-align:left; cursor:pointer;">
+                            <i class="bi bi-box-arrow-right"></i> Logout
+                        </button>
+                    </form>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<style>
+    .notification-categories {
+        padding: 8px 12px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+    
+    .category-btn {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 20px;
+        padding: 4px 10px;
+        font-size: 11px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        color: #495057;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .category-btn:hover {
+        background: #e9ecef;
+    }
+    
+    .category-btn.active {
+        background: #667eea;
+        border-color: #667eea;
+        color: white;
+    }
+    
+    .category-btn i {
+        font-size: 10px;
+    }
+    
+    @media (max-width: 576px) {
+        .notification-categories {
+            padding: 6px 10px;
+            gap: 4px;
+        }
+        .category-btn {
+            padding: 3px 8px;
+            font-size: 9px;
+        }
+        .category-btn i {
+            font-size: 9px;
+        }
+    }
+</style>
+
+<script>
+let currentCategory = 'all';
+let lastNotificationCount = 0;
+let lastNotificationIds = new Set();
+
+function filterNotifications(category) {
+    currentCategory = category;
+    
+    // Update active button
+    document.querySelectorAll('.category-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.getAttribute('data-category') === category) {
+            btn.classList.add('active');
+        }
+    });
+    
+    // Load filtered notifications
+    loadNotifications();
+}
+
+function loadNotifications() {
+    fetch(`/api/notifications/?category=${currentCategory}`)
+        .then(response => response.json())
+        .then(data => {
+            renderNotifications(data.notifications);
+            updateBadge(data.unread_count);
+            if (data.notifications) {
+                lastNotificationIds = new Set(data.notifications.map(n => n.id));
+            }
+        })
+        .catch(error => console.error('Error:', error));
+}
+
+function renderNotifications(notifications) {
+    const container = document.getElementById('notificationList');
+    if (!container) return;
+    
+    if (!notifications || notifications.length === 0) {
+        container.innerHTML = `<div class="no-notifications"><i class="bi bi-bell-slash"></i><p>No notifications in this category</p></div>`;
+        return;
+    }
+    
+    container.innerHTML = notifications.map(notif => `
+        <div class="notification-item ${notif.is_read ? '' : 'unread'}" onclick="handleNotificationClick(${notif.id}, '${notif.link}')">
+            <div class="notification-icon ${notif.notification_type}">
+                ${getIconForType(notif.notification_type)}
+            </div>
+            <div class="notification-content">
+                <div class="notification-title">${escapeHtml(notif.title)}</div>
+                <div class="notification-message">${escapeHtml(notif.message.substring(0, 100))}${notif.message.length > 100 ? '...' : ''}</div>
+                <div class="notification-time">${notif.time_ago}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function getIconForType(type) {
+    const icons = {
+        'info': 'ℹ️', 'success': '✅', 'warning': '⚠️', 'danger': '❌',
+        'sale': '🛒', 'installment': '📅', 'stock': '📦', 'payment': '💰'
+    };
+    return icons[type] || '🔔';
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function updateBadge(count) {
+    const badge = document.getElementById('notificationBadge');
+    if (badge) {
+        if (count > 0) {
+            badge.style.display = 'flex';
+            badge.textContent = count > 99 ? '99+' : count;
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+}
+
+function toggleNotifications() {
+    const dropdown = document.getElementById('notificationDropdown');
+    if (dropdown) {
+        const isVisible = dropdown.classList.contains('show');
+        if (!isVisible) {
+            dropdown.classList.add('show');
+            loadNotifications();
+        } else {
+            dropdown.classList.remove('show');
+        }
+    }
+}
+
+function closeNotificationDropdown() {
+    const dropdown = document.getElementById('notificationDropdown');
+    if (dropdown) dropdown.classList.remove('show');
+}
+
+function markAllRead() {
+    fetch('/api/notifications/mark-all-read/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadNotifications();
+        }
+    });
+}
+
+function handleNotificationClick(id, link) {
+    fetch(`/api/notifications/${id}/mark-read/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json'
+        }
+    });
+    closeNotificationDropdown();
+    if (link && link !== 'None' && link !== 'null' && link !== '') {
+        window.location.href = link;
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Load initial unread count
+fetch('/api/notifications/unread-count/')
+    .then(response => response.json())
+    .then(data => {
+        lastNotificationCount = data.unread_count || 0;
+        updateBadge(lastNotificationCount);
+    })
+    .catch(error => console.error('Error:', error));
+
+// Click outside to close
+document.addEventListener('click', function(event) {
+    const dropdown = document.getElementById('notificationDropdown');
+    const bell = document.querySelector('.notification-bell');
+    if (dropdown && bell && !bell.contains(event.target) && !dropdown.contains(event.target)) {
+        dropdown.classList.remove('show');
+    }
+});
+</script>

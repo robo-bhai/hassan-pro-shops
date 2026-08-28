@@ -1,0 +1,473 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .product-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .product-name {
+        font-size: 18px;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    .barcode-input-group {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+    .barcode-input {
+        flex: 1;
+        padding: 12px;
+        font-size: 16px;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+    }
+    .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+    }
+    .btn-success {
+        background: #28a745;
+        color: white;
+    }
+    .btn-primary {
+        background: #007bff;
+        color: white;
+    }
+    .btn-camera {
+        background: #6f42c1;
+        color: white;
+    }
+    .status-badge {
+        display: inline-block;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        margin-left: 10px;
+    }
+    .status-success {
+        background: #d4edda;
+        color: #155724;
+    }
+    .status-warning {
+        background: #fff3cd;
+        color: #856404;
+    }
+    #camera-view {
+        margin-top: 15px;
+        position: relative;
+    }
+    #scanner-container {
+        width: 100%;
+        max-width: 400px;
+        height: 250px;
+        border: 3px solid #6f42c1;
+        border-radius: 15px;
+        overflow: hidden;
+        margin: 0 auto;
+        background: #000;
+    }
+    #interactive {
+        width: 100%;
+        height: 100%;
+        position: relative;
+    }
+    #interactive video, #interactive canvas {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+</style>
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <h1>🏷️ Set Supplier Barcode</h1>
+    <p style="margin-bottom: 20px;">Scan ya manually enter karein supplier ka diya hua barcode.</p>
+    
+    <!-- Camera Scanner Section -->
+    <div style="margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; color: white;">
+        <h3 style="margin-top: 0; display: flex; align-items: center; gap: 10px;">
+            📷 Camera Scanner
+            <span style="font-size: 12px; background: rgba(255,255,255,0.2); padding: 3px 10px; border-radius: 20px;">
+                Scan any barcode
+            </span>
+        </h3>
+        
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <input type="text" id="global-barcode-input" placeholder="Scan barcode here - auto-fill hoga" 
+                   style="flex: 1; min-width: 250px; padding: 12px; font-size: 16px; border: 2px solid white; border-radius: 8px; outline: none;"
+                   autofocus>
+            <button type="button" id="start-camera-btn" class="btn" style="background: white; color: #667eea;">
+                📸 Open Camera
+            </button>
+            <button type="button" id="stop-camera-btn" class="btn" style="background: #dc3545; color: white; display: none;">
+                ⏹️ Stop Camera
+            </button>
+            <button type="button" id="clear-scanner" class="btn" style="background: #6c757d; color: white;">
+                Clear
+            </button>
+        </div>
+        
+        <!-- Camera Viewfinder -->
+        <div id="camera-view" style="display: none; margin-top: 15px;">
+            <div id="scanner-container">
+                <div id="interactive" class="viewport"></div>
+            </div>
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; height: 2px; background: #ff0000; opacity: 0.7;"></div>
+            <p style="text-align: center; margin-top: 10px; color: white; font-size: 13px;">
+                <span id="camera-status" style="background: rgba(0,0,0,0.3); padding: 5px 15px; border-radius: 20px;">
+                    📱 Barcode ko camera ke samne lao
+                </span>
+            </p>
+        </div>
+        
+        <p style="margin: 5px 0 0; font-size: 12px; opacity: 0.9;">
+            Scan karte hi matching product highlight hoga - Enter press karein save karne ke liye
+        </p>
+    </div>
+    
+    <!-- Products List -->
+    <div id="products-container">
+        {% for product in products %}
+        <div class="product-card" id="product-{{ product.id }}" data-product-id="{{ product.id }}" data-product-name="{{ product.name|lower }}">
+            <div class="product-name">
+                {{ product.name }}
+                <span class="status-badge {% if product.barcode %}status-success{% else %}status-warning{% endif %}" id="status-{{ product.id }}">
+                    {% if product.barcode %}
+                    ✅ Barcode: {{ product.barcode }}
+                    {% else %}
+                    ⚠️ No Barcode
+                    {% endif %}
+                </span>
+            </div>
+            <div class="barcode-input-group">
+                <input type="text" class="barcode-input" id="barcode-{{ product.id }}" 
+                       placeholder="Enter or scan supplier barcode" value="{{ product.barcode|default:'' }}">
+                <button type="button" class="btn btn-success save-barcode" data-product-id="{{ product.id }}">
+                    💾 Save
+                </button>
+                <button type="button" class="btn btn-camera scan-for-product" data-product-id="{{ product.id }}" data-product-name="{{ product.name }}">
+                    📷 Scan
+                </button>
+            </div>
+            <div id="message-{{ product.id }}" style="margin-top: 10px; min-height: 24px;"></div>
+        </div>
+        {% empty %}
+        <p>No products selected. Please select products from the product list first.</p>
+        {% endfor %}
+    </div>
+    
+    <div style="margin-top: 30px; text-align: right;">
+        <a href="{% url 'admin:app_product_changelist' %}" class="btn" style="background: #6c757d; color: white; text-decoration: none;">
+            ⬅ Back to Products
+        </a>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    var quaggaInitialized = false;
+    var currentProductId = null;
+    
+    // ============================================
+    // CAMERA SCANNER (Quagga2)
+    // ============================================
+    
+    $('#start-camera-btn').click(function() {
+        startQuaggaScanner();
+    });
+    
+    $('#stop-camera-btn').click(function() {
+        stopQuaggaScanner();
+    });
+    
+    function startQuaggaScanner() {
+        $('#camera-view').show();
+        $('#start-camera-btn').hide();
+        $('#stop-camera-btn').show();
+        $('#camera-status').text('📸 Camera starting...').css('color', 'white');
+        
+        Quagga.init({
+            inputStream: {
+                name: "Live",
+                type: "LiveStream",
+                target: document.querySelector('#interactive'),
+                constraints: {
+                    facingMode: "environment",
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
+            },
+            locator: {
+                patchSize: "medium",
+                halfSample: true
+            },
+            numOfWorkers: 2,
+            decoder: {
+                readers: ["ean_reader", "ean_8_reader", "upc_reader", "code_128_reader", "code_39_reader"],
+                multiple: false
+            },
+            locate: true,
+            frequency: 10
+        }, function(err) {
+            if (err) {
+                $('#camera-status').text('❌ Camera error: ' + (err.message || 'Permission denied')).css('color', '#ffcccc');
+                stopQuaggaScanner();
+                return;
+            }
+            quaggaInitialized = true;
+            Quagga.start();
+            $('#camera-status').text('✅ Camera ready - scanning...').css('color', '#ccffcc');
+        });
+        
+        Quagga.onDetected(function(result) {
+            if (result && result.codeResult && result.codeResult.code) {
+                var barcode = result.codeResult.code;
+                
+                console.log('Barcode detected:', barcode);
+                
+                // Global input mein set karein
+                $('#global-barcode-input').val(barcode);
+                $('#camera-status').text('✅ Scanned: ' + barcode).css('color', '#ccffcc');
+                
+                // Scanner stop karein
+                stopQuaggaScanner();
+                
+                // Barcode process karein
+                processScannedBarcode(barcode);
+            }
+        });
+    }
+    
+    function stopQuaggaScanner() {
+        if (quaggaInitialized) {
+            try {
+                Quagga.stop();
+                Quagga.offDetected();
+            } catch (e) {}
+            quaggaInitialized = false;
+        }
+        $('#camera-view').hide();
+        $('#start-camera-btn').show();
+        $('#stop-camera-btn').hide();
+        $('#camera-status').text('');
+        $('#interactive').empty();
+    }
+    
+    // ============================================
+    // PROCESS SCANNED BARCODE
+    // ============================================
+    
+    function processScannedBarcode(barcode) {
+        // Remove non-digit characters
+        barcode = barcode.replace(/[^0-9]/g, '');
+        
+        if (!barcode) return;
+        
+        // Agar specific product ke liye scan kar rahe hain
+        if (currentProductId) {
+            $('#barcode-' + currentProductId).val(barcode);
+            $('#product-' + currentProductId).css('border', '3px solid #28a745');
+            
+            // Auto-save
+            setTimeout(function() {
+                saveBarcode(currentProductId, barcode);
+            }, 300);
+            
+            currentProductId = null;
+        } else {
+            // Global scan - matching product dhundhein
+            var found = false;
+            
+            // Pehle check karein ke kisi product mein pehle se ye barcode hai
+            $('.product-card').each(function() {
+                var existingBarcode = $(this).find('.barcode-input').val();
+                if (existingBarcode === barcode) {
+                    $(this).css('border', '3px solid #ffc107');
+                    $(this)[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    found = true;
+                    return false;
+                }
+            });
+            
+            if (!found) {
+                // Pehla empty product dhundhein
+                var firstEmpty = null;
+                $('.product-card').each(function() {
+                    var barcodeField = $(this).find('.barcode-input');
+                    if (!barcodeField.val() && !firstEmpty) {
+                        firstEmpty = $(this);
+                        return false;
+                    }
+                });
+                
+                if (firstEmpty) {
+                    firstEmpty.css('border', '3px solid #007bff');
+                    firstEmpty[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    var productId = firstEmpty.data('product-id');
+                    $('#barcode-' + productId).val(barcode);
+                    
+                    // Auto-save after 1 second
+                    setTimeout(function() {
+                        saveBarcode(productId, barcode);
+                    }, 1000);
+                } else {
+                    alert('Sab products ke paas pehle se barcode hai!');
+                }
+            }
+        }
+        
+        // Clear global input
+        $('#global-barcode-input').val('').focus();
+    }
+    
+    // ============================================
+    // SCAN FOR SPECIFIC PRODUCT
+    // ============================================
+    
+    $('.scan-for-product').click(function() {
+        var btn = $(this);
+        var productId = btn.data('product-id');
+        var productName = btn.data('product-name');
+        
+        currentProductId = productId;
+        $('#camera-status').text('Scanning for: ' + productName).css('color', 'white');
+        
+        // Highlight current product
+        $('.product-card').css('border', 'none');
+        $('#product-' + productId).css('border', '3px solid #6f42c1');
+        
+        // Start camera
+        startQuaggaScanner();
+    });
+    
+    // ============================================
+    // GLOBAL SCANNER INPUT
+    // ============================================
+    
+    $('#global-barcode-input').on('input', function() {
+        var barcode = $(this).val().trim();
+        
+        if (barcode.length >= 8) {
+            processScannedBarcode(barcode);
+        }
+    });
+    
+    $('#global-barcode-input').keypress(function(e) {
+        if (e.which == 13) {
+            e.preventDefault();
+            var barcode = $(this).val().trim();
+            if (barcode) {
+                processScannedBarcode(barcode);
+            }
+        }
+    });
+    
+    $('#clear-scanner').click(function() {
+        $('#global-barcode-input').val('').focus();
+        $('.product-card').css('border', 'none');
+        currentProductId = null;
+        stopQuaggaScanner();
+    });
+    
+    // ============================================
+    // SAVE BARCODE
+    // ============================================
+    
+    function saveBarcode(productId, barcode) {
+        var btn = $('.save-barcode[data-product-id="' + productId + '"]');
+        var messageDiv = $('#message-' + productId);
+        var statusBadge = $('#status-' + productId);
+        
+        barcode = barcode.replace(/[^0-9]/g, '');
+        
+        if (!barcode) {
+            messageDiv.html('<span style="color: red;">❌ Please enter barcode</span>');
+            return;
+        }
+        
+        btn.prop('disabled', true).text('Saving...');
+        messageDiv.html('<span style="color: blue;">⏳ Saving...</span>');
+        
+        $.ajax({
+            url: '/admin/set-supplier-barcode/',
+            method: 'POST',
+            data: {
+                product_id: productId,
+                barcode: barcode,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            },
+            success: function(data) {
+                if (data.success) {
+                    messageDiv.html('<span style="color: green;">✅ ' + data.message + '</span>');
+                    statusBadge.removeClass('status-warning').addClass('status-success')
+                              .text('✅ Barcode: ' + barcode);
+                    $('#product-' + productId).css('border', 'none');
+                    $('#global-barcode-input').val('').focus();
+                } else {
+                    messageDiv.html('<span style="color: red;">❌ ' + data.message + '</span>');
+                }
+                btn.prop('disabled', false).text('💾 Save');
+            },
+            error: function() {
+                messageDiv.html('<span style="color: red;">❌ Error saving barcode</span>');
+                btn.prop('disabled', false).text('💾 Save');
+            }
+        });
+    }
+    
+    // ============================================
+    // SAVE BUTTON CLICK
+    // ============================================
+    
+    $('.save-barcode').click(function() {
+        var btn = $(this);
+        var productId = btn.data('product-id');
+        var barcode = $('#barcode-' + productId).val().trim();
+        saveBarcode(productId, barcode);
+    });
+    
+    // ============================================
+    // ENTER KEY IN BARCODE INPUTS
+    // ============================================
+    
+    $('.barcode-input').keypress(function(e) {
+        if (e.which == 13) {
+            e.preventDefault();
+            var productId = $(this).closest('.product-card').find('.save-barcode').data('product-id');
+            var barcode = $(this).val().trim();
+            saveBarcode(productId, barcode);
+        }
+    });
+    
+    // ============================================
+    // CLEANUP
+    // ============================================
+    
+    $(window).on('beforeunload', function() {
+        if (quaggaInitialized) {
+            stopQuaggaScanner();
+        }
+    });
+});
+</script>
+{% endblock %}

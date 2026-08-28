@@ -1,0 +1,398 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}New Journal Entry{% endblock %}
+{% block page_title %}📝 New Journal Entry{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-card {
+        background: white;
+        border-radius: 14px;
+        border: 1px solid #eef0f5;
+        padding: 20px 24px;
+        margin-bottom: 20px;
+    }
+    
+    .form-card .form-label {
+        font-weight: 600;
+        font-size: 0.8rem;
+        color: #5a6070;
+        margin-bottom: 4px;
+    }
+    
+    .form-card .form-control,
+    .form-card .form-select {
+        border-radius: 8px;
+        border: 2px solid #eef0f5;
+        padding: 8px 14px;
+        font-size: 0.9rem;
+    }
+    
+    .form-card .form-control:focus,
+    .form-card .form-select:focus {
+        border-color: #667eea;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+    }
+    
+    .line-item {
+        background: #f8f9fc;
+        border-radius: 10px;
+        padding: 12px 16px;
+        margin-bottom: 10px;
+        border: 1px solid #eef0f5;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+    }
+    
+    .line-item .select-account {
+        flex: 2;
+        min-width: 150px;
+    }
+    
+    .line-item .input-amount {
+        width: 150px;
+    }
+    
+    .line-item .select-direction {
+        width: 120px;
+    }
+    
+    .line-item .input-description {
+        flex: 1;
+        min-width: 120px;
+    }
+    
+    .line-item .btn-remove-line {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        border: none;
+        background: #fee2e2;
+        color: #dc3545;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        transition: all 0.2s;
+    }
+    
+    .line-item .btn-remove-line:hover {
+        background: #dc3545;
+        color: white;
+    }
+    
+    .btn-add-line {
+        border-radius: 8px;
+        padding: 8px 20px;
+        font-weight: 600;
+        border: 2px dashed #cbd5e1;
+        background: transparent;
+        color: #5a6070;
+        cursor: pointer;
+        transition: all 0.2s;
+        width: 100%;
+    }
+    
+    .btn-add-line:hover {
+        border-color: #667eea;
+        color: #667eea;
+        background: #f8f9ff;
+    }
+    
+    .summary-box {
+        background: #f8f9fc;
+        border-radius: 10px;
+        padding: 16px 20px;
+        border: 1px solid #eef0f5;
+        margin-top: 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .summary-box .total {
+        font-size: 1.2rem;
+        font-weight: 700;
+    }
+    
+    .summary-box .total.debit { color: #dc3545; }
+    .summary-box .total.credit { color: #11998e; }
+    .summary-box .balanced { color: #11998e; }
+    .summary-box .unbalanced { color: #dc3545; }
+    
+    .btn-submit {
+        padding: 12px 30px;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 0.95rem;
+        border: none;
+        cursor: pointer;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        transition: all 0.3s;
+    }
+    
+    .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(102,126,234,0.4);
+    }
+    
+    .btn-submit:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    @media (max-width: 768px) {
+        .line-item {
+            flex-direction: column;
+        }
+        .line-item .select-account,
+        .line-item .input-amount,
+        .line-item .select-direction,
+        .line-item .input-description {
+            width: 100%;
+        }
+        .form-card {
+            padding: 16px;
+        }
+        .summary-box {
+            flex-direction: column;
+            text-align: center;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<form method="POST" id="journalForm">
+    {% csrf_token %}
+    
+    <!-- Header Info -->
+    <div class="form-card">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Entry Date *</label>
+                <input type="date" name="entry_date" class="form-control" value="{{ today }}" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Entry Type</label>
+                <select name="entry_type" class="form-select">
+                    {% for code, label in entry_types %}
+                    <option value="{{ code }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Reference</label>
+                <input type="text" name="reference" class="form-control" placeholder="Invoice/PO/Receipt No...">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Description *</label>
+                <input type="text" name="description" class="form-control" placeholder="Entry description..." required>
+            </div>
+        </div>
+        <div class="row mt-2">
+            <div class="col-12">
+                <label class="form-label">Notes</label>
+                <input type="text" name="notes" class="form-control" placeholder="Additional notes...">
+            </div>
+        </div>
+    </div>
+    
+    <!-- Line Items -->
+    <div class="form-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h5 style="margin:0; font-weight:700; font-size:0.95rem;">📋 Line Items</h5>
+            <span id="lineCount" style="font-size:0.8rem; color:#6b7280;">0 lines</span>
+        </div>
+        
+        <div id="lineItemsContainer">
+            <div class="line-item" data-index="0">
+                <div class="select-account">
+                    <select name="account_id[]" class="form-select account-select" required>
+                        <option value="">-- Select Account --</option>
+                        {% for account in accounts %}
+                        <option value="{{ account.id }}">{{ account.code }} - {{ account.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="input-amount">
+                    <input type="number" name="amount[]" class="form-control amount-input" placeholder="Amount" step="0.01" min="0" required>
+                </div>
+                <div class="select-direction">
+                    <select name="is_debit[]" class="form-select direction-select">
+                        <option value="true">Dr (Debit)</option>
+                        <option value="false">Cr (Credit)</option>
+                    </select>
+                </div>
+                <div class="input-description">
+                    <input type="text" name="item_description[]" class="form-control" placeholder="Description (optional)">
+                </div>
+                <button type="button" class="btn-remove-line" onclick="removeLine(this)" title="Remove line">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+        </div>
+        
+        <button type="button" class="btn-add-line" onclick="addLine()">
+            <i class="bi bi-plus-lg"></i> Add Line Item
+        </button>
+        
+        <!-- Summary -->
+        <div class="summary-box">
+            <div>
+                <span style="font-weight:600;">Total Debit:</span>
+                <span class="total debit" id="totalDebit">Rs. 0.00</span>
+            </div>
+            <div>
+                <span style="font-weight:600;">Total Credit:</span>
+                <span class="total credit" id="totalCredit">Rs. 0.00</span>
+            </div>
+            <div>
+                <span style="font-weight:600;">Difference:</span>
+                <span id="difference" class="balanced">Rs. 0.00</span>
+            </div>
+            <div>
+                <span id="balanceStatus" class="balanced" style="font-weight:700;">✅ Balanced</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Submit -->
+    <div style="display:flex; gap:12px; justify-content:flex-end;">
+        <a href="{% url 'journal_entry_list' %}" class="btn btn-secondary" style="border-radius:10px; padding:12px 24px; font-weight:600;">Cancel</a>
+        <button type="submit" class="btn-submit" id="submitBtn">
+            <i class="bi bi-check-lg"></i> Create Entry
+        </button>
+    </div>
+</form>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let lineIndex = 1;
+
+function addLine() {
+    const container = document.getElementById('lineItemsContainer');
+    const lastLine = container.querySelector('.line-item:last-child');
+    const newLine = lastLine.cloneNode(true);
+    
+    // Clear values
+    newLine.querySelector('.account-select').value = '';
+    newLine.querySelector('.amount-input').value = '';
+    newLine.querySelector('.direction-select').value = 'true';
+    newLine.querySelector('.input-description input').value = '';
+    
+    // Set index
+    newLine.dataset.index = lineIndex;
+    lineIndex++;
+    
+    // Update remove button
+    const removeBtn = newLine.querySelector('.btn-remove-line');
+    removeBtn.onclick = function() { removeLine(this); };
+    
+    container.appendChild(newLine);
+    updateSummary();
+    updateLineCount();
+}
+
+function removeLine(btn) {
+    const container = document.getElementById('lineItemsContainer');
+    const lines = container.querySelectorAll('.line-item');
+    
+    if (lines.length <= 1) {
+        showToast('❌ At least one line item is required!', 'error');
+        return;
+    }
+    
+    btn.closest('.line-item').remove();
+    updateSummary();
+    updateLineCount();
+}
+
+function updateSummary() {
+    let totalDebit = 0;
+    let totalCredit = 0;
+    
+    document.querySelectorAll('.line-item').forEach(line => {
+        const amount = parseFloat(line.querySelector('.amount-input').value) || 0;
+        const isDebit = line.querySelector('.direction-select').value === 'true';
+        
+        if (isDebit) {
+            totalDebit += amount;
+        } else {
+            totalCredit += amount;
+        }
+    });
+    
+    document.getElementById('totalDebit').textContent = `Rs. ${totalDebit.toFixed(2)}`;
+    document.getElementById('totalCredit').textContent = `Rs. ${totalCredit.toFixed(2)}`;
+    
+    const diff = totalDebit - totalCredit;
+    const diffEl = document.getElementById('difference');
+    const statusEl = document.getElementById('balanceStatus');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    if (Math.abs(diff) < 0.001) {
+        diffEl.textContent = 'Rs. 0.00';
+        diffEl.className = 'balanced';
+        statusEl.textContent = '✅ Balanced';
+        statusEl.className = 'balanced';
+        submitBtn.disabled = false;
+    } else {
+        diffEl.textContent = `Rs. ${diff.toFixed(2)}`;
+        diffEl.className = 'unbalanced';
+        statusEl.textContent = '❌ Unbalanced';
+        statusEl.className = 'unbalanced';
+        submitBtn.disabled = true;
+    }
+}
+
+function updateLineCount() {
+    const count = document.querySelectorAll('.line-item').length;
+    document.getElementById('lineCount').textContent = `${count} lines`;
+}
+
+// Update summary on input change
+document.addEventListener('input', function(e) {
+    if (e.target.closest('.line-item')) {
+        updateSummary();
+    }
+});
+
+// Update summary on select change
+document.addEventListener('change', function(e) {
+    if (e.target.closest('.line-item')) {
+        updateSummary();
+    }
+});
+
+// Show toast function
+function showToast(message, type = 'info') {
+    const toast = document.getElementById('voiceToast');
+    if (toast) {
+        toast.textContent = message;
+        toast.className = `voice-toast ${type} show`;
+        setTimeout(() => { toast.classList.remove('show'); }, 3000);
+    } else {
+        alert(message);
+    }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    updateSummary();
+    updateLineCount();
+});
+</script>
+{% endblock %}

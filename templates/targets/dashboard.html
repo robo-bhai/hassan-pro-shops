@@ -1,0 +1,643 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Sales Target Dashboard | Premium Analytics{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ========== PROFESSIONAL CSS VARIABLES ========== */
+    :root {
+        --primary: #4361ee;
+        --primary-dark: #3a0ca3;
+        --primary-light: #4895ef;
+        --secondary: #7209b7;
+        --success: #4caf50;
+        --warning: #ff9800;
+        --danger: #f44336;
+        --info: #2196f3;
+        --dark: #1a1a2e;
+        --light: #f8f9fa;
+        --gray: #6c757d;
+        --gray-dark: #343a40;
+        --border-radius: 16px;
+        --box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    /* ========== PREMIUM ANIMATIONS ========== */
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(30px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    @keyframes slideInLeft {
+        from { opacity: 0; transform: translateX(-30px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+    
+    @keyframes slideInRight {
+        from { opacity: 0; transform: translateX(30px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+    
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.05); opacity: 0.9; }
+    }
+    
+    @keyframes shimmer {
+        0% { background-position: -1000px 0; }
+        100% { background-position: 1000px 0; }
+    }
+    
+    /* ========== PREMIUM COMPONENTS ========== */
+    .dashboard-container {
+        animation: fadeInUp 0.6s ease-out;
+    }
+    
+    /* Hero Banner */
+    .hero-banner {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        border-radius: var(--border-radius);
+        padding: 30px;
+        margin-bottom: 30px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .hero-banner::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -20%;
+        width: 300px;
+        height: 300px;
+        background: radial-gradient(circle, rgba(102,126,234,0.15) 0%, transparent 70%);
+        border-radius: 50%;
+    }
+    
+    .hero-banner::after {
+        content: '';
+        position: absolute;
+        bottom: -30%;
+        left: -10%;
+        width: 250px;
+        height: 250px;
+        background: radial-gradient(circle, rgba(114,9,183,0.12) 0%, transparent 70%);
+        border-radius: 50%;
+    }
+    
+    .hero-title {
+        font-size: 2rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #fff, #a0a5c0);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 8px;
+    }
+    
+    .hero-subtitle {
+        color: rgba(255,255,255,0.7);
+        font-size: 0.9rem;
+    }
+    
+    /* Premium Metric Cards */
+    .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .metric-card-premium {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 20px;
+        box-shadow: var(--box-shadow);
+        transition: var(--transition);
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(0,0,0,0.03);
+    }
+    
+    .metric-card-premium:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 50px rgba(0,0,0,0.12);
+    }
+    
+    .metric-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        margin-bottom: 15px;
+    }
+    
+    .metric-icon.sales { background: linear-gradient(135deg, #667eea20, #764ba220); color: #667eea; }
+    .metric-icon.target { background: linear-gradient(135deg, #ff980020, #ffc10720); color: #ff9800; }
+    .metric-icon.progress { background: linear-gradient(135deg, #4caf5020, #8bc34a20); color: #4caf50; }
+    .metric-icon.days { background: linear-gradient(135deg, #2196f320, #03a9f420); color: #2196f3; }
+    
+    .metric-value {
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: var(--dark);
+        margin-bottom: 5px;
+    }
+    
+    .metric-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--gray);
+        font-weight: 600;
+    }
+    
+    .metric-trend {
+        font-size: 0.7rem;
+        margin-top: 8px;
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 20px;
+    }
+    
+    .trend-up { background: #e8f5e9; color: #2e7d32; }
+    .trend-down { background: #ffebee; color: #c62828; }
+    
+    /* Premium Target Card */
+    .target-premium {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        border-radius: var(--border-radius);
+        padding: 30px;
+        margin-bottom: 30px;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .target-premium::before {
+        content: '';
+        position: absolute;
+        top: -30%;
+        right: -10%;
+        width: 200px;
+        height: 200px;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        border-radius: 50%;
+    }
+    
+    .target-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        margin: 20px 0;
+    }
+    
+    .target-stat {
+        text-align: center;
+        padding: 15px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 12px;
+        backdrop-filter: blur(10px);
+    }
+    
+    .target-stat-value {
+        font-size: 1.5rem;
+        font-weight: 800;
+    }
+    
+    .target-stat-label {
+        font-size: 0.7rem;
+        opacity: 0.8;
+        margin-top: 5px;
+    }
+    
+    .progress-ring {
+        width: 150px;
+        height: 150px;
+        margin: 0 auto;
+    }
+    
+    /* Leaderboard Premium */
+    .leaderboard-premium {
+        background: white;
+        border-radius: var(--border-radius);
+        overflow: hidden;
+        box-shadow: var(--box-shadow);
+        margin-bottom: 30px;
+    }
+    
+    .leaderboard-header {
+        background: linear-gradient(135deg, #1a1a2e, #16213e);
+        color: white;
+        padding: 20px 25px;
+    }
+    
+    .leaderboard-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 15px 25px;
+        border-bottom: 1px solid #eef0f5;
+        transition: var(--transition);
+    }
+    
+    .leaderboard-item:hover {
+        background: #f8f9ff;
+        transform: translateX(5px);
+    }
+    
+    .leaderboard-rank {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 1.1rem;
+    }
+    
+    .rank-1-premium { background: linear-gradient(135deg, #ffd700, #ffed4e); color: #856404; }
+    .rank-2-premium { background: linear-gradient(135deg, #c0c0c0, #e0e0e0); color: #5a6070; }
+    .rank-3-premium { background: linear-gradient(135deg, #cd7f32, #e0a878); color: #5a6070; }
+    .rank-other { background: #f0f2f7; color: #6c757d; }
+    
+    .progress-premium {
+        flex: 1;
+        margin: 0 20px;
+    }
+    
+    .progress-bar-premium {
+        height: 8px;
+        background: #e0e0e0;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    
+    .progress-fill-premium {
+        height: 100%;
+        border-radius: 10px;
+        transition: width 0.5s ease;
+    }
+    
+    /* History Table Premium */
+    .history-premium {
+        background: white;
+        border-radius: var(--border-radius);
+        overflow: hidden;
+        box-shadow: var(--box-shadow);
+    }
+    
+    .history-table-premium {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .history-table-premium th {
+        background: #f8f9fa;
+        padding: 15px 20px;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #6c757d;
+        font-weight: 700;
+    }
+    
+    .history-table-premium td {
+        padding: 15px 20px;
+        border-bottom: 1px solid #eef0f5;
+        vertical-align: middle;
+    }
+    
+    .history-table-premium tr:hover {
+        background: #f8f9ff;
+    }
+    
+    .badge-premium {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .badge-achieved { background: #e8f5e9; color: #2e7d32; }
+    .badge-partial { background: #fff3e0; color: #ef6c00; }
+    .badge-missed { background: #ffebee; color: #c62828; }
+    .badge-active { background: #e3f2fd; color: #1565c0; }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .target-stats {
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+        .leaderboard-item {
+            flex-direction: column;
+            text-align: center;
+            gap: 10px;
+        }
+        .progress-premium {
+            width: 100%;
+            margin: 10px 0;
+        }
+        .metric-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        .hero-title {
+            font-size: 1.5rem;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .metric-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    
+    <!-- ========== HERO BANNER ========== -->
+    <div class="hero-banner">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="hero-title">
+                    <i class="bi bi-bullseye me-2"></i> Sales Target Dashboard
+                </h1>
+                <p class="hero-subtitle">
+                    Real-time performance tracking • Team analytics
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                <a href="{% url 'add_target' %}" class="btn btn-light rounded-pill px-4 py-2 fw-bold">
+                    <i class="bi bi-plus-lg me-2"></i> New Target
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========== METRIC CARDS ========== -->
+    <div class="metric-grid">
+        <div class="metric-card-premium">
+            <div class="metric-icon sales">
+                <i class="bi bi-graph-up"></i>
+            </div>
+            <div class="metric-value">Rs. {{ today_sales|floatformat:0|intcomma }}</div>
+            <div class="metric-label">Today's Sales</div>
+        </div>
+        
+        <div class="metric-card-premium">
+            <div class="metric-icon target">
+                <i class="bi bi-bullseye"></i>
+            </div>
+            <div class="metric-value">Rs. {{ company_target.target_amount|floatformat:0|intcomma|default:'0' }}</div>
+            <div class="metric-label">Monthly Target</div>
+        </div>
+        
+        <div class="metric-card-premium">
+            <div class="metric-icon progress">
+                <i class="bi bi-pie-chart"></i>
+            </div>
+            <div class="metric-value">{{ month_progress|floatformat:0 }}%</div>
+            <div class="metric-label">Progress</div>
+        </div>
+        
+        <div class="metric-card-premium">
+            <div class="metric-icon days">
+                <i class="bi bi-calendar-week"></i>
+            </div>
+            <div class="metric-value">{{ company_target.days_remaining|default:'0' }}</div>
+            <div class="metric-label">Days Remaining</div>
+        </div>
+    </div>
+    
+    <!-- ========== MAIN TARGET CARD ========== -->
+    {% if company_target %}
+    <div class="target-premium">
+        <div class="row align-items-center">
+            <div class="col-lg-7">
+                <h3 class="mb-2 fw-bold">{{ company_target.get_target_type_display }} Target</h3>
+                <p class="mb-3 opacity-75">
+                    <i class="bi bi-calendar3 me-1"></i> 
+                    {{ company_target.start_date|date:"d M Y" }} - {{ company_target.end_date|date:"d M Y" }}
+                </p>
+                
+                <div class="target-stats">
+                    <div class="target-stat">
+                        <div class="target-stat-value">Rs. {{ company_target.target_amount|floatformat:0|intcomma }}</div>
+                        <div class="target-stat-label">Target</div>
+                    </div>
+                    <div class="target-stat">
+                        <div class="target-stat-value">Rs. {{ company_target.achieved_amount|floatformat:0|intcomma }}</div>
+                        <div class="target-stat-label">Achieved</div>
+                    </div>
+                    <div class="target-stat">
+                        <div class="target-stat-value">Rs. {{ company_target.remaining_amount|floatformat:0|intcomma }}</div>
+                        <div class="target-stat-label">Remaining</div>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <div class="progress-bar-premium" style="background: rgba(255,255,255,0.2);">
+                        <div class="progress-fill-premium" style="width: {{ month_progress }}%; background: #ffd700;"></div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-2 small">
+                        <span>{{ month_progress|floatformat:1 }}% Complete</span>
+                        <span>{{ company_target.days_remaining }} days left</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-5 text-center">
+                <div class="progress-ring">
+                    <svg width="140" height="140" viewBox="0 0 140 140">
+                        <circle cx="70" cy="70" r="60" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="8"/>
+                        <circle cx="70" cy="70" r="60" fill="none" stroke="#ffd700" stroke-width="8"
+                                stroke-dasharray="377" stroke-dashoffset="{{ 377|floatformat:0|add:'-377'|add:month_progress|floatformat:0|add:'*3.77' }}" 
+                                stroke-linecap="round" transform="rotate(-90 70 70)"/>
+                    </svg>
+                    <div style="position: relative; margin-top: -105px;">
+                        <h2 class="mb-0 fw-bold">{{ month_progress|floatformat:0 }}%</h2>
+                        <small class="opacity-75">Complete</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info border-0 rounded-4 p-4">
+        <i class="bi bi-info-circle-fill me-2"></i>
+        No active monthly target. 
+        <a href="{% url 'add_target' %}" class="alert-link">Create your first target now</a>
+    </div>
+    {% endif %}
+    
+    <!-- ========== LEADERBOARD PREMIUM ========== -->
+    <div class="leaderboard-premium">
+        <div class="leaderboard-header">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <i class="bi bi-trophy-fill me-2"></i>
+                    <strong>Team Leaderboard</strong>
+                    <small class="ms-2 opacity-75">Last 30 days performance</small>
+                </div>
+                <div>
+                    <span class="badge bg-light text-dark rounded-pill">
+                        <i class="bi bi-people"></i> {{ salesman_performance|length }} Active
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <div>
+            {% for salesman in salesman_performance %}
+            <div class="leaderboard-item">
+                <div class="d-flex align-items-center gap-3" style="min-width: 180px;">
+                    <div class="leaderboard-rank {% if forloop.counter == 1 %}rank-1-premium{% elif forloop.counter == 2 %}rank-2-premium{% elif forloop.counter == 3 %}rank-3-premium{% else %}rank-other{% endif %}">
+                        {% if forloop.counter == 1 %}🏆
+                        {% elif forloop.counter == 2 %}🥈
+                        {% elif forloop.counter == 3 %}🥉
+                        {% else %}{{ forloop.counter }}{% endif %}
+                    </div>
+                    <div>
+                        <div class="fw-bold">{{ salesman.name|title }}</div>
+                        <small class="text-muted">Target: Rs. {{ salesman.target|floatformat:0|intcomma }}</small>
+                    </div>
+                </div>
+                
+                <div class="progress-premium">
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span>Progress</span>
+                        <span class="fw-bold {% if salesman.percent >= 100 %}text-success{% elif salesman.percent >= 80 %}text-warning{% else %}text-danger{% endif %}">
+                            {{ salesman.percent|floatformat:0 }}%
+                        </span>
+                    </div>
+                    <div class="progress-bar-premium">
+                        <div class="progress-fill-premium" style="width: {{ salesman.percent }}%; 
+                             background: {% if salesman.percent >= 100 %}#4caf50{% elif salesman.percent >= 80 %}#ff9800{% else %}#f44336{% endif %};">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-end" style="min-width: 120px;">
+                    <div class="fw-bold text-primary">Rs. {{ salesman.sales|floatformat:0|intcomma }}</div>
+                    <small class="text-muted">achieved</small>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-5">
+                <i class="bi bi-people fs-1 text-muted"></i>
+                <p class="text-muted mt-2 mb-0">No sales data available</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- ========== HISTORY SECTION PREMIUM ========== -->
+    <div class="history-premium">
+        <div class="leaderboard-header">
+            <i class="bi bi-clock-history me-2"></i>
+            <strong>Target History</strong>
+            <small class="ms-2 opacity-75">Previous targets performance</small>
+        </div>
+        <div class="table-responsive">
+            <table class="history-table-premium">
+                <thead>
+                    <tr>
+                        <th>Period</th>
+                        <th>Target</th>
+                        <th>Achieved</th>
+                        <th>Progress</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for target in target_history %}
+                    <tr>
+                        <td>
+                            <div class="fw-bold">{{ target.start_date|date:"M Y" }}</div>
+                            <small class="text-muted">{{ target.start_date|date:"d M" }} - {{ target.end_date|date:"d M" }}</small>
+                        </td>
+                        <td class="fw-bold">Rs. {{ target.target_amount|floatformat:0|intcomma }}</td>
+                        <td>Rs. {{ target.achieved_amount|floatformat:0|intcomma }}</td>
+                        <td style="min-width: 150px;">
+                            <div class="progress-bar-premium" style="height: 6px;">
+                                <div class="progress-fill-premium" style="width: {{ target.current_progress }}%; 
+                                    background: {% if target.current_progress >= 100 %}#4caf50{% elif target.current_progress >= 80 %}#ff9800{% else %}#f44336{% endif %};">
+                                </div>
+                            </div>
+                            <small class="text-muted">{{ target.current_progress|floatformat:0 }}%</small>
+                        </td>
+                        <td>
+                            {% if target.current_progress >= 100 %}
+                            <span class="badge-premium badge-achieved">
+                                <i class="bi bi-check-circle"></i> Achieved
+                            </span>
+                            {% elif target.current_progress >= 80 %}
+                            <span class="badge-premium badge-partial">
+                                <i class="bi bi-exclamation-triangle"></i> Partial
+                            </span>
+                            {% else %}
+                            <span class="badge-premium badge-missed">
+                                <i class="bi bi-x-circle"></i> Missed
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5">
+                            <i class="bi bi-inbox fs-1 text-muted"></i>
+                            <p class="text-muted mt-2 mb-0">No target history available</p>
+                            <small class="text-muted">Create and complete targets to see history here</small>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- ========== ALERT BANNER ========== -->
+    {% if company_target and company_target.remaining_amount > 0 and company_target.daily_needed > today_sales %}
+    <div class="alert alert-warning border-0 rounded-4 mt-4" style="background: linear-gradient(135deg, #fff3cd, #ffe69b);">
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+            <i class="bi bi-exclamation-triangle-fill fs-1 text-warning"></i>
+            <div class="flex-grow-1">
+                <strong class="d-block">⚠️ Target Alert - Action Required!</strong>
+                <span>Daily target: Rs. {{ company_target.daily_needed|floatformat:0|intcomma }} | Today's pace: Rs. {{ today_sales|floatformat:0|intcomma }}</span>
+                <span class="d-block small text-muted mt-1">You need {{ company_target.daily_needed|floatformat:0|intcomma }} per day to meet monthly target</span>
+            </div>
+            <button class="btn btn-warning rounded-pill" onclick="shareAlert()">
+                <i class="bi bi-share"></i> Share with Team
+            </button>
+        </div>
+    </div>
+    {% endif %}
+    
+</div>
+
+<script>
+    // Share Alert Function
+    function shareAlert() {
+        const message = "⚠️ Target Alert!\nDaily target needed: Rs. {{ company_target.daily_needed|floatformat:0|intcomma }}\nToday's sales: Rs. {{ today_sales|floatformat:0|intcomma }}\nWe need to catch up!";
+        if (navigator.share) {
+            navigator.share({ title: 'Target Alert', text: message });
+        } else {
+            navigator.clipboard.writeText(message);
+            alert('Alert copied to clipboard!');
+        }
+    }
+</script>
+
+{% endblock %}

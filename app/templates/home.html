@@ -1,0 +1,452 @@
+<!-- templates/home.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard | Business Manager{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Welcome Section -->
+    <div class="welcome-section">
+        <h1>Welcome, {{ user.username }}! 👋</h1>
+        <p>Here's what's happening with your business today.</p>
+        <div class="date-time">{{ now|date:"l, d F Y" }}</div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="stats-container">
+        <div class="stat-card">
+            <div class="stat-icon">💰</div>
+            <div class="stat-info">
+                <h3>Total Sales</h3>
+                <p class="stat-number">{{ total_sales }}</p>
+                <small>₹{{ total_sales_amount|default:"0" }}</small>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">📦</div>
+            <div class="stat-info">
+                <h3>Total Purchases</h3>
+                <p class="stat-number">{{ total_purchases }}</p>
+                <small>₹{{ total_purchase_amount|default:"0" }}</small>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">🛍️</div>
+            <div class="stat-info">
+                <h3>Total Products</h3>
+                <p class="stat-number">{{ total_products }}</p>
+                <small>{{ low_stock_products }} low stock</small>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-info">
+                <h3>Customers</h3>
+                <p class="stat-number">{{ total_customers }}</p>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">🏭</div>
+            <div class="stat-info">
+                <h3>Vendors</h3>
+                <p class="stat-number">{{ total_vendors }}</p>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">🏠</div>
+            <div class="stat-info">
+                <h3>Warehouses</h3>
+                <p class="stat-number">{{ total_warehouses }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions - All Features -->
+    <div class="quick-actions">
+        <h2>⚡ Quick Actions</h2>
+        <div class="action-grid">
+            <!-- Sales Actions -->
+            <div class="action-group">
+                <h3>💰 Sales</h3>
+                <a href="/admin/app/sale/add/" class="action-btn sale-btn">➕ Add Sale</a>
+                <a href="/admin/app/sale/" class="action-btn view-btn">📋 View All Sales</a>
+                <a href="/admin/app/sale/" class="action-btn report-btn">📊 Sales Report</a>
+            </div>
+
+            <!-- Purchase Actions -->
+            <div class="action-group">
+                <h3>📦 Purchases</h3>
+                <a href="{% url 'add_purchase' %}" class="action-btn purchase-btn">➕ Add Purchase</a>
+                <a href="/admin/app/purchase/" class="action-btn view-btn">📋 View All Purchases</a>
+                <a href="/admin/app/purchase/" class="action-btn report-btn">📊 Purchase Report</a>
+            </div>
+
+            <!-- Product Actions -->
+            <div class="action-group">
+                <h3>🛍️ Products</h3>
+                <a href="/admin/app/product/add/" class="action-btn product-btn">➕ Add Product</a>
+                <a href="/admin/app/product/" class="action-btn view-btn">📋 View All Products</a>
+                <a href="/admin/app/product/" class="action-btn stock-btn">📦 Stock Alert</a>
+            </div>
+
+            <!-- Customer Actions -->
+            <div class="action-group">
+                <h3>👥 Customers</h3>
+                <a href="/admin/app/customer/add/" class="action-btn customer-btn">➕ Add Customer</a>
+                <a href="/admin/app/customer/" class="action-btn view-btn">📋 View All Customers</a>
+                <a href="/admin/app/customer/" class="action-btn report-btn">📊 Customer Report</a>
+            </div>
+
+            <!-- Vendor Actions -->
+            <div class="action-group">
+                <h3>🏭 Vendors</h3>
+                <a href="/admin/app/vendor/add/" class="action-btn vendor-btn">➕ Add Vendor</a>
+                <a href="/admin/app/vendor/" class="action-btn view-btn">📋 View All Vendors</a>
+                <a href="/admin/app/vendor/" class="action-btn report-btn">📊 Vendor Report</a>
+            </div>
+
+            <!-- Warehouse Actions -->
+            <div class="action-group">
+                <h3>🏠 Warehouses</h3>
+                <a href="/admin/app/warehouse/add/" class="action-btn warehouse-btn">➕ Add Warehouse</a>
+                <a href="/admin/app/warehouse/" class="action-btn view-btn">📋 View All Warehouses</a>
+                <a href="/admin/app/warehouse/" class="action-btn report-btn">📊 Stock by Warehouse</a>
+            </div>
+
+            <!-- Reports Actions -->
+            <div class="action-group">
+                <h3>📊 Reports</h3>
+                <a href="/admin/" class="action-btn admin-btn">⚙️ Admin Panel</a>
+                <a href="#" class="action-btn report-btn">📈 Profit/Loss Report</a>
+                <a href="#" class="action-btn report-btn">📅 Monthly Report</a>
+            </div>
+
+            <!-- Settings Actions -->
+            <div class="action-group">
+                <h3>⚙️ Settings</h3>
+                <a href="/admin/app/companyinfo/" class="action-btn settings-btn">🏢 Company Info</a>
+                <a href="/admin/auth/user/" class="action-btn settings-btn">👤 Manage Users</a>
+                <a href="/admin/auth/group/" class="action-btn settings-btn">🔐 User Roles</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Low Stock Alert -->
+    {% if low_stock_products > 0 %}
+    <div class="alert alert-warning">
+        <strong>⚠️ Low Stock Alert!</strong> {{ low_stock_products }} product(s) are running low on stock.
+        <a href="/admin/app/product/">Check now</a>
+    </div>
+    {% endif %}
+
+    <!-- Recent Activity -->
+    <div class="recent-activity">
+        <div class="row">
+            <div class="col-half">
+                <h2>Recent Sales 📋</h2>
+                <div class="activity-table">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Bill No</th>
+                                <th>Customer</th>
+                                <th>Date</th>
+                                <th>Amount</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sale in recent_sales %}
+                            <tr>
+                                <td>{{ sale.bill_no }}</a></td>
+                                <td>{{ sale.customer.name }}</a></td>
+                                <td>{{ sale.sale_date|date:"d-m-Y" }}</a></td>
+                                <td>₹{{ sale.paid }}</a></td>
+                                <td>
+                                    <a href="{% url 'generate_invoice_pdf' sale.id %}" class="btn-sm">📄 PDF</a>
+                                </a>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center">No sales yet</a>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="col-half">
+                <h2>Recent Purchases 📦</h2>
+                <div class="activity-table">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Bill No</th>
+                                <th>Vendor</th>
+                                <th>Date</th>
+                                <th>Amount</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for purchase in recent_purchases %}
+                            <tr>
+                                <td>{{ purchase.bill_no }}</a></td>
+                                <td>{{ purchase.vendor.name }}</a></td>
+                                <td>{{ purchase.pur_date|date:"d-m-Y" }}</a></td>
+                                <td>₹{{ purchase.paid }}</a></td>
+                                <td>
+                                    <a href="/admin/app/purchase/{{ purchase.id }}/change/" class="btn-sm">✏️ Edit</a>
+                                </a>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center">No purchases yet</a>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Products -->
+    <div class="top-products">
+        <h2>🏆 Top Selling Products</h2>
+        <div class="activity-table">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Product Name</th>
+                        <th>Quantity Sold</th>
+                        <th>Total Revenue</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in top_products %}
+                    <tr>
+                        <td>{{ product.name }}</td>
+                        <td>{{ product.total_sold|default:"0" }}</td>
+                        <td>₹{{ product.total_revenue|default:"0" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="text-center">No sales data yet</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    .welcome-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 10px;
+        margin-bottom: 30px;
+    }
+    
+    .date-time {
+        margin-top: 10px;
+        font-size: 14px;
+        opacity: 0.9;
+    }
+    
+    .stats-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        transition: transform 0.3s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .stat-icon {
+        font-size: 48px;
+    }
+    
+    .stat-info h3 {
+        margin: 0 0 5px 0;
+        color: #666;
+        font-size: 14px;
+    }
+    
+    .stat-number {
+        margin: 0;
+        font-size: 28px;
+        font-weight: bold;
+        color: #333;
+    }
+    
+    .stat-info small {
+        color: #888;
+        font-size: 12px;
+    }
+    
+    .quick-actions {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 30px;
+    }
+    
+    .action-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-top: 20px;
+    }
+    
+    .action-group {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .action-group h3 {
+        margin: 0 0 10px 0;
+        color: #333;
+        font-size: 16px;
+        border-bottom: 2px solid #f0f0f0;
+        padding-bottom: 5px;
+    }
+    
+    .action-group a {
+        display: block;
+        margin: 8px 0;
+        padding: 8px 12px;
+        border-radius: 5px;
+        text-decoration: none;
+        font-size: 14px;
+        transition: all 0.3s;
+    }
+    
+    .action-group a:hover {
+        transform: translateX(5px);
+    }
+    
+    .action-btn { color: white; }
+    .purchase-btn { background-color: #28a745; }
+    .sale-btn { background-color: #007bff; }
+    .product-btn { background-color: #ffc107; color: #333; }
+    .customer-btn { background-color: #17a2b8; }
+    .vendor-btn { background-color: #6c757d; }
+    .warehouse-btn { background-color: #fd7e14; }
+    .view-btn { background-color: #6c757d; color: white; }
+    .report-btn { background-color: #20c997; color: white; }
+    .stock-btn { background-color: #dc3545; color: white; }
+    .admin-btn { background-color: #343a40; color: white; }
+    .settings-btn { background-color: #6610f2; color: white; }
+    
+    .btn-sm {
+        display: inline-block;
+        padding: 5px 10px;
+        background-color: #007bff;
+        color: white;
+        text-decoration: none;
+        border-radius: 3px;
+        font-size: 12px;
+    }
+    
+    .alert-warning {
+        background-color: #fff3cd;
+        border: 1px solid #ffeeba;
+        color: #856404;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+    }
+    
+    .alert-warning a {
+        color: #856404;
+        font-weight: bold;
+    }
+    
+    .recent-activity, .top-products {
+        margin-top: 30px;
+    }
+    
+    .row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 20px;
+    }
+    
+    .activity-table {
+        background: white;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow-x: auto;
+    }
+    
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .table th {
+        text-align: left;
+        padding: 10px;
+        background: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+    }
+    
+    .table td {
+        padding: 10px;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .text-center {
+        text-align: center;
+    }
+    
+    @media (max-width: 768px) {
+        .stats-container {
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        }
+        
+        .action-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .row {
+            grid-template-columns: 1fr;
+        }
+        
+        .stat-icon {
+            font-size: 32px;
+        }
+        
+        .stat-number {
+            font-size: 20px;
+        }
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Cash Flow Statement{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">💵 Cash Flow Statement</h1>
+        <div>
+            <button onclick="window.print()" class="btn btn-primary">
+                <i class="bi bi-printer"></i> Print
+            </button>
+        </div>
+    </div>
+
+    <!-- Filter Form -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Period</h6>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">From Date</label>
+                    <input type="date" name="from_date" class="form-control" value="{{ from_date }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">To Date</label>
+                    <input type="date" name="to_date" class="form-control" value="{{ to_date }}">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search"></i> Generate
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Cash Inflows -->
+        <div class="col-md-6">
+            <div class="card shadow h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">📥 CASH INFLOWS</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tbody>
+                            <tr>
+                                <td>Cash Sales</td>
+                                <td class="text-end">Rs. {{ cash_sales|floatformat:2 }}</td>
+                            </tr>
+                            <tr>
+                                <td>Cash Received (Payments)</td>
+                                <td class="text-end">Rs. {{ cash_received|floatformat:2 }}</td>
+                            </tr>
+                            <tr class="table-active">
+                                <th>TOTAL INFLOW</th>
+                                <th class="text-end">Rs. {{ total_inflow|floatformat:2 }}</th>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cash Outflows -->
+        <div class="col-md-6">
+            <div class="card shadow h-100">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">📤 CASH OUTFLOWS</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tbody>
+                            <tr>
+                                <td>Cash Purchases</td>
+                                <td class="text-end">Rs. {{ cash_purchases|floatformat:2 }}</td>
+                            </tr>
+                            <tr>
+                                <td>Cash Expenses</td>
+                                <td class="text-end">Rs. {{ cash_expenses|floatformat:2 }}</td>
+                            </tr>
+                            <tr class="table-active">
+                                <th>TOTAL OUTFLOW</th>
+                                <th class="text-end">Rs. {{ total_outflow|floatformat:2 }}</th>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Net Cash Flow -->
+    <div class="card shadow mt-4">
+        <div class="card-header {% if is_positive %}bg-success{% else %}bg-danger{% endif %} text-white">
+            <h4 class="mb-0 text-center">
+                {% if is_positive %}
+                    ✅ NET CASH FLOW: Rs. {{ net_cash_flow|floatformat:2 }} (Positive)
+                {% else %}
+                    ❌ NET CASH FLOW: Rs. {{ net_cash_flow|floatformat:2 }} (Negative)
+                {% endif %}
+            </h4>
+        </div>
+        <div class="card-body">
+            <div class="row text-center">
+                <div class="col-md-4">
+                    <h6>Total Inflow</h6>
+                    <h3 class="text-success">Rs. {{ total_inflow|floatformat:2 }}</h3>
+                </div>
+                <div class="col-md-4">
+                    <h6>Total Outflow</h6>
+                    <h3 class="text-danger">Rs. {{ total_outflow|floatformat:2 }}</h3>
+                </div>
+                <div class="col-md-4">
+                    <h6>Net Cash Flow</h6>
+                    <h3 class="{% if is_positive %}text-success{% else %}text-danger{% endif %}">
+                        Rs. {{ net_cash_flow|floatformat:2 }}
+                    </h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary -->
+    <div class="card shadow mt-4">
+        <div class="card-header">
+            <h6 class="m-0 font-weight-bold text-primary">Period Summary</h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <p><strong>From:</strong> {{ from_date }}</p>
+                </div>
+                <div class="col-md-3">
+                    <p><strong>To:</strong> {{ to_date }}</p>
+                </div>
+                <div class="col-md-3">
+                    <p><strong>Total Days:</strong> 
+                        {% with diff=to_date|add:"-"|add:from_date %}
+                            {{ diff|floatformat:0 }}
+                        {% endwith %}
+                    </p>
+                </div>
+                <div class="col-md-3">
+                    <p>
+                        <strong>Status:</strong>
+                        {% if is_positive %}
+                            <span class="badge bg-success">Positive Cash Flow</span>
+                        {% else %}
+                            <span class="badge bg-danger">Negative Cash Flow</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

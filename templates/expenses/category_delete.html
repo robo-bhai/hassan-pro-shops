@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Delete Category - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>🗑️ Delete Category</h2>
+                <a href="{% url 'expense_category_list' %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+            </div>
+            
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="bi bi-exclamation-triangle" style="font-size:4rem; color:#dc3545;"></i>
+                    <h3 class="mt-3">Are you sure?</h3>
+                    <p class="text-muted">You are about to delete the following category:</p>
+                    
+                    <div class="alert alert-danger">
+                        <strong>{{ category.name }}</strong>
+                        <br>
+                        <span class="badge {% if category.category_type == 'operating' %}bg-primary{% elif category.category_type == 'administrative' %}bg-info{% elif category.category_type == 'selling' %}bg-warning{% elif category.category_type == 'capital' %}bg-danger{% else %}bg-secondary{% endif %}">
+                            {{ category.get_category_type_display }}
+                        </span>
+                        {% if category.parent %}
+                        <br><small>Parent: {{ category.parent.name }}</small>
+                        {% endif %}
+                        {% if category.description %}
+                        <br><small>{{ category.description }}</small>
+                        {% endif %}
+                    </div>
+                    
+                    {% if category.expenses.count > 0 %}
+                    <div class="alert alert-warning">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Warning:</strong> This category has <strong>{{ category.expenses.count }}</strong> expenses linked to it.
+                        Deleting this category will affect these expenses.
+                    </div>
+                    {% endif %}
+                    
+                    <form method="POST">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-center gap-2">
+                            <a href="{% url 'expense_category_list' %}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-trash"></i> Yes, Delete
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

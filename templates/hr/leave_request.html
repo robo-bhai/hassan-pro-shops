@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Request Leave{% endblock %}
+{% block page_title %}📝 Request Leave{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #f8961e, #f4a261);
+        border-radius: 20px;
+        padding: 25px 30px;
+        margin-bottom: 30px;
+        color: white;
+    }
+    .form-card {
+        background: white;
+        border-radius: 20px;
+        border: 1px solid #e9ecef;
+        overflow: hidden;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    .form-header {
+        padding: 18px 24px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+        font-weight: 700;
+    }
+    .form-body { padding: 30px; }
+    .form-group { margin-bottom: 24px; }
+    .form-label {
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: #6c757d;
+        margin-bottom: 8px;
+        display: block;
+    }
+    .form-control, .form-select {
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 12px 16px;
+    }
+    .btn-submit {
+        background: linear-gradient(135deg, #f8961e, #f4a261);
+        border: none;
+        padding: 14px 28px;
+        border-radius: 12px;
+        font-weight: 600;
+        color: white;
+        width: 100%;
+    }
+    .info-text {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 12px;
+        margin-top: 15px;
+        font-size: 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header">
+        <h1><i class="bi bi-calendar-plus"></i> Request Leave</h1>
+        <p>Submit a leave request for approval</p>
+    </div>
+    
+    <div class="form-card">
+        <div class="form-header"><i class="bi bi-pencil"></i> Leave Details</div>
+        <div class="form-body">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="form-group"><label class="form-label">Leave Type *</label><select name="leave_type" class="form-select" required>
+                    <option value="casual">Casual Leave</option><option value="sick">Sick Leave</option>
+                    <option value="annual">Annual Leave</option><option value="unpaid">Unpaid Leave</option>
+                </select></div>
+                <div class="row g-3"><div class="col-md-6"><div class="form-group"><label class="form-label">From Date *</label><input type="date" name="start_date" class="form-control" required id="startDate"></div></div>
+                <div class="col-md-6"><div class="form-group"><label class="form-label">To Date *</label><input type="date" name="end_date" class="form-control" required id="endDate"></div></div></div>
+                <div class="form-group"><label class="form-label">Reason *</label><textarea name="reason" class="form-control" rows="4" required placeholder="Please provide reason for leave..."></textarea></div>
+                <div class="info-text"><i class="bi bi-info-circle"></i> Total days: <strong id="totalDays">0</strong> day(s)</div>
+                <button type="submit" class="btn-submit mt-3"><i class="bi bi-send"></i> Submit Request</button>
+                <a href="{% url 'leave_list' %}" class="btn btn-secondary w-100 mt-2">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function calculateDays() {
+        const start = document.getElementById('startDate').value;
+        const end = document.getElementById('endDate').value;
+        if (start && end) {
+            const startDate = new Date(start);
+            const endDate = new Date(end);
+            const diffTime = Math.abs(endDate - startDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            document.getElementById('totalDays').innerText = diffDays;
+        }
+    }
+    document.getElementById('startDate').addEventListener('change', calculateDays);
+    document.getElementById('endDate').addEventListener('change', calculateDays);
+</script>
+{% endblock %}

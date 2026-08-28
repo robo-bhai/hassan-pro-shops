@@ -1,0 +1,250 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Update Order #{{ order.order_no }}{% endblock %}
+{% block page_title %}✏️ Update Order #{{ order.order_no }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root { --border: #eef0f5; --text: #1a1a2e; }
+    
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 380px;
+        gap: 20px;
+        align-items: start;
+    }
+    
+    @media (max-width: 992px) { .form-grid { grid-template-columns: 1fr; } }
+    
+    .form-card {
+        background: white;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        padding: 22px;
+        margin-bottom: 20px;
+    }
+    
+    .form-card h5 {
+        font-weight: 700; margin-bottom: 18px; font-size: 0.95rem;
+        display: flex; align-items: center; gap: 8px;
+    }
+    
+    .form-label-mini {
+        font-weight: 700; font-size: 0.68rem; text-transform: uppercase;
+        letter-spacing: 1px; color: #5a6070; margin-bottom: 4px; display: block;
+    }
+    
+    .form-control, .form-select {
+        border-radius: 10px; border: 2px solid #eef0f5;
+        padding: 10px 14px; font-size: 0.9rem; font-weight: 500;
+        background: #fafbfc; margin-bottom: 12px; width: 100%;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #0d6efd; box-shadow: 0 0 0 3px rgba(13,110,253,0.08);
+        background: white; outline: none;
+    }
+    
+    .summary-card {
+        background: white; border-radius: 16px; border: 1px solid var(--border);
+        padding: 22px; position: sticky; top: 85px;
+    }
+    
+    .btn-submit {
+        width: 100%; padding: 14px; border-radius: 12px; font-weight: 700;
+        font-size: 1rem; border: none; cursor: pointer;
+        background: linear-gradient(135deg, #667eea, #764ba2); color: white;
+        margin-top: 15px; display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    
+    .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(102,126,234,0.3); }
+    
+    .product-row {
+        display: flex; gap: 10px; align-items: center; margin-bottom: 10px;
+        padding: 12px; background: #fafbfc; border-radius: 12px;
+        border: 1px solid #eef0f5; flex-wrap: wrap;
+    }
+    
+    .product-row select { flex: 2; min-width: 150px; margin-bottom: 0 !important; }
+    .product-row input { flex: 1; min-width: 80px; margin-bottom: 0 !important; }
+    .product-row .row-total { font-weight: 700; min-width: 90px; text-align: right; }
+    .product-row input, .product-row select {
+        border-radius: 8px; border: 2px solid #e0e3eb;
+        padding: 9px 12px; font-size: 0.85rem; font-weight: 500; background: white;
+    }
+    
+    .btn-remove-row {
+        width: 34px; height: 34px; border-radius: 8px; border: none;
+        background: #fee2e2; color: #dc3545; cursor: pointer;
+        font-size: 0.9rem; display: flex; align-items: center; justify-content: center;
+    }
+    
+    .btn-remove-row:hover { background: #dc3545; color: white; }
+    
+    .btn-add-product {
+        border-radius: 10px; padding: 12px 20px; font-weight: 600; font-size: 0.85rem;
+        background: #f0fff4; color: #2e7d32; border: 2px dashed #4caf50;
+        cursor: pointer; display: flex; align-items: center; gap: 6px;
+        width: 100%; justify-content: center;
+    }
+    
+    .btn-add-product:hover { background: #e8f5e9; }
+    
+    @media (max-width: 768px) {
+        .form-card { padding: 16px; }
+        .product-row { padding: 10px; gap: 6px; }
+        .product-row select { min-width: 120px; flex: 1; }
+        .product-row input { min-width: 60px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="form-grid">
+    
+    <!-- LEFT: Products -->
+    <div>
+        <form method="POST" id="orderForm">
+            {% csrf_token %}
+            
+            <div class="form-card">
+                <h5>📦 Products</h5>
+                
+                <div id="productsContainer">
+                    {% for item in order.items.all %}
+                    <div class="product-row" id="row-{{ forloop.counter0 }}">
+                        <select name="product_id[]" onchange="updateRowTotal(this)" style="margin-bottom:0;">
+                            <option value="">-- Select Product --</option>
+                            {% for p in products %}
+                            <option value="{{ p.id }}" {% if item.product_id == p.id %}selected{% endif %}>{{ p.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <input type="number" name="qty[]" value="{{ item.qty }}" min="1" step="1" onchange="updateRowTotal(this)" style="margin-bottom:0;">
+                        <input type="number" name="price[]" value="{{ item.price }}" step="0.01" min="0" onchange="updateRowTotal(this)" style="margin-bottom:0;">
+                        <span class="row-total">Rs. {{ item.total_amt|floatformat:2 }}</span>
+                        <button type="button" class="btn-remove-row" onclick="removeProductRow(this)">✕</button>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <button type="button" class="btn-add-product mt-3" onclick="addProductRow()">
+                    <i class="bi bi-plus-lg"></i> Add Product
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- RIGHT: Order Details -->
+    <div>
+        <div class="summary-card">
+            <h5>📋 Order Details</h5>
+            
+            <label class="form-label-mini">Customer *</label>
+            <select name="customer" class="form-select" form="orderForm" required>
+                {% for c in customers %}
+                <option value="{{ c.id }}" {% if order.customer_id == c.id %}selected{% endif %}>{{ c.customer_code|default:'N/A' }} - {{ c.name }}</option>
+                {% endfor %}
+            </select>
+            
+            <label class="form-label-mini">Warehouse *</label>
+            <select name="warehouse" class="form-select" form="orderForm" required>
+                {% for wh in warehouses %}
+                <option value="{{ wh.id }}" {% if order.warehouse_id == wh.id %}selected{% endif %}>{{ wh.name }}</option>
+                {% endfor %}
+            </select>
+            
+            <div class="row g-2">
+                <div class="col-6">
+                    <label class="form-label-mini">Customer PO</label>
+                    <input type="text" name="customer_po" class="form-control" form="orderForm" value="{{ order.customer_po_number|default:'' }}">
+                </div>
+                <div class="col-6">
+                    <label class="form-label-mini">Delivery Date</label>
+                    <input type="date" name="delivery_date" class="form-control" form="orderForm" value="{{ order.delivery_date|date:'Y-m-d'|default:'' }}">
+                </div>
+            </div>
+            
+            <label class="form-label-mini">Status</label>
+            <select name="status" class="form-select" form="orderForm">
+                <option value="pending" {% if order.status == 'pending' %}selected{% endif %}>⏳ Pending</option>
+                <option value="confirmed" {% if order.status == 'confirmed' %}selected{% endif %}>✅ Confirmed</option>
+                <option value="processing" {% if order.status == 'processing' %}selected{% endif %}>🔄 Processing</option>
+                <option value="ready" {% if order.status == 'ready' %}selected{% endif %}>📦 Ready</option>
+                <option value="delivered" {% if order.status == 'delivered' %}selected{% endif %}>🚚 Delivered</option>
+                <option value="invoiced" {% if order.status == 'invoiced' %}selected{% endif %}>📋 Invoiced</option>
+                <option value="cancelled" {% if order.status == 'cancelled' %}selected{% endif %}>❌ Cancelled</option>
+            </select>
+            
+            <div class="row g-2">
+                <div class="col-6">
+                    <label class="form-label-mini">Advance (Rs.)</label>
+                    <input type="number" name="advance" class="form-control" form="orderForm" value="{{ order.advance_payment }}" step="0.01">
+                </div>
+                <div class="col-6">
+                    <label class="form-label-mini">Discount (Rs.)</label>
+                    <input type="number" name="discount" class="form-control" form="orderForm" value="{{ order.discount_value }}" step="0.01">
+                </div>
+            </div>
+            
+            <label class="form-label-mini">Notes</label>
+            <textarea name="notes" class="form-control" form="orderForm" rows="3">{{ order.notes|default:'' }}</textarea>
+            
+            <button type="submit" form="orderForm" class="btn-submit">
+                <i class="bi bi-check-circle"></i> Update Sale Order
+            </button>
+            
+            <a href="{% url 'sale_order_detail' order.pk %}" class="btn btn-outline-secondary w-100 mt-2" style="border-radius:10px; padding:10px;">
+                ← Cancel
+            </a>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let rowCount = document.querySelectorAll('#productsContainer .product-row').length;
+    
+    function addProductRow() {
+        const container = document.getElementById('productsContainer');
+        const row = document.createElement('div');
+        row.className = 'product-row';
+        row.id = `row-${rowCount}`;
+        
+        let options = '<option value="">-- Select Product --</option>';
+        {% for p in products %}
+        options += '<option value="{{ p.id }}">{{ p.name }}</option>';
+        {% endfor %}
+        
+        row.innerHTML = `
+            <select name="product_id[]" onchange="updateRowTotal(this)" style="margin-bottom:0;">${options}</select>
+            <input type="number" name="qty[]" value="1" min="1" step="1" onchange="updateRowTotal(this)" style="margin-bottom:0;">
+            <input type="number" name="price[]" value="0" step="0.01" min="0" onchange="updateRowTotal(this)" style="margin-bottom:0;">
+            <span class="row-total">Rs. 0</span>
+            <button type="button" class="btn-remove-row" onclick="removeProductRow(this)">✕</button>
+        `;
+        
+        container.appendChild(row);
+        rowCount++;
+    }
+    
+    function removeProductRow(btn) {
+        const rows = document.querySelectorAll('#productsContainer .product-row');
+        if (rows.length <= 1) {
+            alert('❌ At least one product required!');
+            return;
+        }
+        btn.closest('.product-row').remove();
+    }
+    
+    function updateRowTotal(input) {
+        const row = input.closest('.product-row');
+        const qty = parseFloat(row.querySelector('input[name="qty[]"]').value) || 0;
+        const price = parseFloat(row.querySelector('input[name="price[]"]').value) || 0;
+        row.querySelector('.row-total').textContent = 'Rs. ' + (qty * price).toFixed(2);
+    }
+</script>
+{% endblock %}

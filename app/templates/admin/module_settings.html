@@ -1,0 +1,206 @@
+{% extends 'admin/base_site.html' %}
+{% load static %}
+
+{% block title %}Module Settings{% endblock %}
+
+{% block extra_css %}
+<style>
+    .module-card {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 15px;
+        border: 1px solid #e0e3eb;
+        transition: all 0.3s;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .module-card:hover {
+        box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        transform: translateY(-2px);
+    }
+    .module-info {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    .module-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        background: #f0f2f5;
+    }
+    .module-name {
+        font-weight: 700;
+        font-size: 1.1rem;
+        margin: 0;
+    }
+    .module-desc {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin: 5px 0 0;
+    }
+    .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 60px;
+        height: 30px;
+    }
+    .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: 0.3s;
+        border-radius: 30px;
+    }
+    .toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 22px;
+        width: 22px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: 0.3s;
+        border-radius: 50%;
+    }
+    input:checked + .toggle-slider {
+        background-color: #28a745;
+    }
+    input:checked + .toggle-slider:before {
+        transform: translateX(30px);
+    }
+    .save-btn {
+        background: #4361ee;
+        color: white;
+        border: none;
+        padding: 10px 25px;
+        border-radius: 8px;
+        font-weight: 600;
+        margin-top: 20px;
+    }
+    .save-btn:hover {
+        background: #3a0ca3;
+    }
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    .status-active {
+        background: #d4edda;
+        color: #155724;
+    }
+    .status-inactive {
+        background: #f8d7da;
+        color: #721c24;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="padding: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+        <div>
+            <h1 style="font-size: 1.8rem; margin: 0;">⚙️ Module Settings</h1>
+            <p style="color: #6c757d; margin: 5px 0 0;">Show/Hide modules in the sidebar</p>
+        </div>
+        <div class="status-badge {% if request.user.is_superuser %}status-active{% else %}status-inactive{% endif %}">
+            {% if request.user.is_superuser %}✅ Admin Access{% else %}❌ Read Only{% endif %}
+        </div>
+    </div>
+
+    {% if not request.user.is_superuser %}
+    <div class="alert alert-warning">
+        ⚠️ Only superuser can change module settings. Please contact administrator.
+    </div>
+    {% endif %}
+
+    <form method="POST" id="moduleSettingsForm">
+        {% csrf_token %}
+        
+        {% for setting in module_settings %}
+        <div class="module-card">
+            <div class="module-info">
+                <div class="module-icon">
+                    <i class="{{ setting.icon }}"></i>
+                </div>
+                <div>
+                    <div class="module-name">{{ setting.name }}</div>
+                    <div class="module-desc">{{ setting.description }}</div>
+                </div>
+            </div>
+            <div>
+                <label class="toggle-switch">
+                    <input type="checkbox" 
+                           name="setting_{{ setting.key }}" 
+                           id="toggle_{{ setting.key }}"
+                           {% if setting.value %}checked{% endif %}
+                           {% if not request.user.is_superuser %}disabled{% endif %}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+        {% endfor %}
+        
+        {% if request.user.is_superuser %}
+        <div style="text-align: right;">
+            <button type="submit" class="save-btn">
+                💾 Save All Settings
+            </button>
+        </div>
+        {% endif %}
+    </form>
+
+    <div style="margin-top: 30px; padding: 15px; background: #f8f9fa; border-radius: 12px;">
+        <h5 style="margin: 0 0 10px;">ℹ️ How to Use</h5>
+        <ul style="margin: 0; padding-left: 20px;">
+            <li>Toggle the switch to <strong>ON</strong> = Module will appear in sidebar</li>
+            <li>Toggle the switch to <strong>OFF</strong> = Module will be hidden from sidebar</li>
+            <li>Settings are saved in database and persist after logout</li>
+            <li>Changes apply immediately to all users</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+// Optional: AJAX toggle for instant update without page reload
+document.querySelectorAll('.toggle-switch input').forEach(toggle => {
+    toggle.addEventListener('change', function() {
+        const settingKey = this.name.replace('setting_', '');
+        const isChecked = this.checked;
+        
+        // Optional: Send AJAX request to instantly save
+        fetch(`/settings/toggle/${settingKey}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({})
+        }).then(response => response.json())
+          .then(data => {
+              if (data.success) {
+                  console.log(`${settingKey} toggled to ${data.new_value}`);
+              }
+          }).catch(error => console.error('Error:', error));
+    });
+});
+</script>
+{% endblock %}

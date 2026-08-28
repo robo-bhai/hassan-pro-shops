@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Transfer Balance - {{ from_shareholder.name }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-info text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-arrow-left-right"></i> Transfer Balance
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Current Balance -->
+                    <div class="alert alert-info">
+                        <strong>From:</strong> {{ from_shareholder.name }} ({{ from_shareholder.shareholder_code }})
+                        <br>
+                        <strong>Current Balance:</strong> Rs. {{ current_balance|floatformat:2 }}
+                    </div>
+
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">To Shareholder</label>
+                            <select name="to_shareholder" class="form-select form-control-lg" required>
+                                <option value="">Select shareholder...</option>
+                                {% for shareholder in shareholders %}
+                                <option value="{{ shareholder.id }}">
+                                    {{ shareholder.shareholder_code }} - {{ shareholder.name }}
+                                    (Balance: Rs. {{ shareholder.cash_balance.balance|floatformat:2|default:"0.00" }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Amount (Rs.)</label>
+                            <input type="number" name="amount" class="form-control form-control-lg" 
+                                   step="0.01" min="0.01" max="{{ current_balance|floatformat:2 }}" required
+                                   placeholder="Enter amount to transfer">
+                            <div class="form-text">Maximum transfer: Rs. {{ current_balance|floatformat:2 }}</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <input type="text" name="description" class="form-control" 
+                                   value="Balance transfer" placeholder="e.g., Balance transfer, Payment etc.">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Reference No. (Optional)</label>
+                            <input type="text" name="reference_no" class="form-control" 
+                                   placeholder="e.g., Transaction reference">
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'shareholder_balance_detail' from_shareholder.id %}" class="btn btn-secondary">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-info">
+                                <i class="bi bi-check-circle"></i> Confirm Transfer
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,192 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Reports Dashboard{% endblock %}
+{% block page_title %}📊 Reports Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid #e9ecef;
+        transition: all 0.3s;
+    }
+    .stat-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+    .stat-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+    }
+    .stat-value {
+        font-size: 28px;
+        font-weight: 800;
+        color: #1a1a2e;
+    }
+    .growth-positive { color: #10b981; }
+    .growth-negative { color: #ef4444; }
+    .report-link {
+        display: block;
+        padding: 12px 16px;
+        background: #f8f9fc;
+        border-radius: 12px;
+        margin-bottom: 8px;
+        text-decoration: none;
+        color: #1a1a2e;
+        transition: all 0.2s;
+    }
+    .report-link:hover {
+        background: #e8ecf4;
+        transform: translateX(5px);
+    }
+    .table-responsive { overflow-x: auto; }
+    @media (max-width: 768px) {
+        .stat-value { font-size: 20px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="text-muted small">This Month Sales</div>
+                        <div class="stat-value">PKR {{ current_month_sales|floatformat:0 }}</div>
+                        {% if sales_growth > 0 %}
+                            <small class="growth-positive">↑ {{ sales_growth|floatformat:1 }}% from last month</small>
+                        {% elif sales_growth < 0 %}
+                            <small class="growth-negative">↓ {{ sales_growth|floatformat:1 }}% from last month</small>
+                        {% else %}
+                            <small>Same as last month</small>
+                        {% endif %}
+                    </div>
+                    <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                        <i class="bi bi-graph-up"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="text-muted small">This Month Profit</div>
+                        <div class="stat-value">PKR {{ current_month_profit|floatformat:0 }}</div>
+                        <small>Gross Profit</small>
+                    </div>
+                    <div class="stat-icon bg-success bg-opacity-10 text-success">
+                        <i class="bi bi-currency-rupee"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="text-muted small">Customer Outstanding</div>
+                        <div class="stat-value">PKR {{ total_customer_outstanding|floatformat:0 }}</div>
+                        <small>Pending Payments</small>
+                    </div>
+                    <div class="stat-icon bg-warning bg-opacity-10 text-warning">
+                        <i class="bi bi-clock-history"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="text-muted small">Low Stock Items</div>
+                        <div class="stat-value">{{ low_stock_count }}</div>
+                        <small>Products below threshold</small>
+                    </div>
+                    <div class="stat-icon bg-danger bg-opacity-10 text-danger">
+                        <i class="bi bi-exclamation-triangle"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <strong><i class="bi bi-grid-3x3"></i> Quick Reports</strong>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <a href="{% url 'profit_loss_report' %}" class="report-link"><i class="bi bi-pie-chart text-primary"></i> Profit & Loss</a>
+                            <a href="{% url 'sales_summary_report' %}" class="report-link"><i class="bi bi-table text-success"></i> Sales Summary</a>
+                            <a href="{% url 'top_products_report' %}" class="report-link"><i class="bi bi-trophy text-warning"></i> Top Products</a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'customer_wise_report' %}" class="report-link"><i class="bi bi-people text-info"></i> Customer Wise</a>
+                            <a href="{% url 'customer_outstanding_report' %}" class="report-link"><i class="bi bi-currency-rupee text-danger"></i> Customer Outstanding</a>
+                            <a href="{% url 'low_stock_report' %}" class="report-link"><i class="bi bi-box-seam text-warning"></i> Low Stock Alert</a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'business_health' %}" class="report-link"><i class="bi bi-heart-pulse text-success"></i> Business Health</a>
+                            <a href="{% url 'monthly_closing_report' %}" class="report-link"><i class="bi bi-calendar-check text-primary"></i> Monthly Closing</a>
+                            <a href="{% url 'vendor_wise_report' %}" class="report-link"><i class="bi bi-building text-secondary"></i> Vendor Wise</a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'cash_flow_report' %}" class="report-link"><i class="bi bi-cash-stack text-success"></i> Cash Flow</a>
+                            <a href="{% url 'inventory_status_report' %}" class="report-link"><i class="bi bi-boxes text-info"></i> Inventory Status</a>
+                            <a href="{% url 'sales_forecast_report' %}" class="report-link"><i class="bi bi-graph-up text-primary"></i> Sales Forecast</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-white"><strong><i class="bi bi-trophy"></i> Top 5 Products (This Month)</strong></div>
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light"><tr><th>Product</th><th>Qty</th><th>Sales</th></tr></thead>
+                        <tbody>
+                            {% for product in top_products %}
+                            <tr><td>{{ product.product__name|truncatechars:30 }}</td><td>{{ product.total_qty|floatformat:0 }}</td><td>PKR {{ product.total_sales|floatformat:0 }}</td></tr>
+                            {% empty %}<tr><td colspan="3" class="text-center text-muted">No data</td></tr>{% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-white"><strong><i class="bi bi-clock-history"></i> Recent Sales</strong></div>
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light"><tr><th>Bill No</th><th>Customer</th><th>Amount</th></tr></thead>
+                        <tbody>
+                            {% for sale in recent_sales %}
+                            <tr><td>{{ sale.bill_no }}</td><td>{{ sale.customer.name|truncatechars:20 }}</td><td>PKR {{ sale.total_amount|floatformat:0 }}</td></tr>
+                            {% empty %}<tr><td colspan="3" class="text-center text-muted">No sales</td></tr>{% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

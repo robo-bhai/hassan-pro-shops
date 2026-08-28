@@ -1,0 +1,75 @@
+name: Django CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    env:
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_NAME: ${{ secrets.DB_NAME }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASS: ${{ secrets.DB_PASS }}
+      DB_PORT: ${{ secrets.DB_PORT }}
+      DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+      DJANGO_SALT_KEY: ${{ secrets.DJANGO_SALT_KEY }}
+      CLOUDFLARE_TOKEN: ${{ secrets.CLOUDFLARE_TOKEN }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pymysql gunicorn "django-import-export>=3.3.0" django django-dbbackup django-axes reportlab openpyxl pillow python-barcode qrcode cryptography
+
+      - name: Run Database Migrations
+        run: |
+          python manage.py makemigrations
+          python manage.py migrate
+
+      - name: Create Default Superuser
+        run: |
+          python manage.py shell -c "from django.contrib.auth.models import User; User.objects.filter(username='admin').exists() or User.objects.create_superuser('admin', 'admin@example.com', 'admin123')"
+
+      - name: Collect Static Files
+        run: |
+          python manage.py collectstatic --noinput
+
+      - name: Install Cloudflare Tunnel (cloudflared)
+        run: |
+          curl -L --output cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+          chmod +x cloudflared
+          sudo mv cloudflared /usr/local/bin/cloudflared
+
+      - name: Start Django Server & Permanent Cloudflare Tunnel
+        run: |
+          # Background mein Django server run karein
+          python manage.py runserver 0.0.0.0:8000 > django.log 2>&1 &
+          
+          # Permanent tunnel with token run karein
+          cloudflared tunnel run --token ${{ secrets.CLOUDFLARE_TOKEN }} > tunnel.log 2>&1 &
+          
+          sleep 6
+          echo "=== PERMANENT TUNNEL ACTIVE ==="
+          cat tunnel.log
+
+      - name: Hold workflow for 3 hours & monitor
+        run: |
+          echo "Workflow is now running for 3 hours. Your app is live on hadi88.online."
+          
+          for i in {1..36}; do
+            sleep 300
+            echo "--- Django Server Recent Logs ---"
+            tail -n 20 django.log || true
+          done

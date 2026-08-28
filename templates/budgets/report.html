@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Budget Reports - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>📈 Budget Reports</h2>
+                <button onclick="window.print()" class="btn btn-primary">
+                    <i class="bi bi-printer"></i> Print
+                </button>
+            </div>
+
+            <!-- Filters -->
+            <div class="card mb-3">
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">From Date</label>
+                            <input type="date" name="from_date" class="form-control" value="{{ from_date }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">To Date</label>
+                            <input type="date" name="to_date" class="form-control" value="{{ to_date }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Report Type</label>
+                            <select name="report_type" class="form-select">
+                                <option value="summary" {% if report_type == 'summary' %}selected{% endif %}>Summary</option>
+                                <option value="department" {% if report_type == 'department' %}selected{% endif %}>Department Wise</option>
+                                <option value="category" {% if report_type == 'category' %}selected{% endif %}>Category Wise</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">Apply Filter</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Summary -->
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <div class="card text-white bg-primary">
+                        <div class="card-body">
+                            <h6>Total Budgets</h6>
+                            <h3>{{ count }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-success">
+                        <div class="card-body">
+                            <h6>Total Allocated</h6>
+                            <h3>Rs. {{ total_allocated|floatformat:0|intcomma }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-warning">
+                        <div class="card-body">
+                            <h6>Total Used</h6>
+                            <h3>Rs. {{ total_used|floatformat:0|intcomma }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-info">
+                        <div class="card-body">
+                            <h6>Utilization</h6>
+                            <h3>{{ total_utilization|floatformat:1 }}%</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% if report_type == 'summary' or report_type == 'department' %}
+            <!-- Department Wise -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0">🏢 Department Wise Budget</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Department</th>
+                                    <th>Allocated</th>
+                                    <th>Used</th>
+                                    <th>Remaining</th>
+                                    <th>Utilization</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for dept in department_data %}
+                                <tr>
+                                    <td>{{ dept.department__name|default:"Unassigned" }}</td>
+                                    <td>Rs. {{ dept.allocated|floatformat:0|intcomma }}</td>
+                                    <td>Rs. {{ dept.used|floatformat:0|intcomma }}</td>
+                                    <td>Rs. {{ dept.remaining|floatformat:0|intcomma }}</td>
+                                    <td>
+                                        <div class="progress">
+                                            <div class="progress-bar bg-{% if dept.utilization > 95 %}danger{% elif dept.utilization > 80 %}warning{% else %}success{% endif %}" 
+                                                 role="progressbar" 
+                                                 style="width: {{ dept.utilization|floatformat:0 }}%;">
+                                                {{ dept.utilization|floatformat:0 }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="5" class="text-center">No data</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if report_type == 'summary' or report_type == 'category' %}
+            <!-- Category Wise -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0">📂 Category Wise Budget</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th>Allocated</th>
+                                    <th>Used</th>
+                                    <th>Remaining</th>
+                                    <th>Utilization</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cat in category_data %}
+                                <tr>
+                                    <td>{{ cat.category__name|default:"Unassigned" }}</td>
+                                    <td>Rs. {{ cat.allocated|floatformat:0|intcomma }}</td>
+                                    <td>Rs. {{ cat.used|floatformat:0|intcomma }}</td>
+                                    <td>Rs. {{ cat.remaining|floatformat:0|intcomma }}</td>
+                                    <td>
+                                        <div class="progress">
+                                            <div class="progress-bar bg-{% if cat.utilization > 95 %}danger{% elif cat.utilization > 80 %}warning{% else %}success{% endif %}" 
+                                                 role="progressbar" 
+                                                 style="width: {{ cat.utilization|floatformat:0 }}%;">
+                                                {{ cat.utilization|floatformat:0 }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="5" class="text-center">No data</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Monthly Trend -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📈 Monthly Trend</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="trendChart" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('trendChart').getContext('2d');
+        const monthlyData = {{ monthly_data|safe }};
+        
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: monthlyData.map(d => d.month),
+                datasets: [
+                    {
+                        label: 'Allocated',
+                        data: monthlyData.map(d => d.allocated),
+                        backgroundColor: 'rgba(102, 126, 234, 0.7)',
+                        borderColor: '#667eea',
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'Used',
+                        data: monthlyData.map(d => d.used),
+                        backgroundColor: 'rgba(40, 167, 69, 0.7)',
+                        borderColor: '#28a745',
+                        borderWidth: 2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'Rs. ' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

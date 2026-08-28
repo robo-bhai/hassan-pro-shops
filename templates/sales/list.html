@@ -1,0 +1,952 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Sales List{% endblock %}
+{% block page_title %}🛒 Sales{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --card-bg: #ffffff;
+        --border: #eef0f5;
+        --text: #1a1a2e;
+        --text-light: #6b7280;
+        --accent: #0d6efd;
+        --success: #11998e;
+        --danger: #dc3545;
+        --warning: #f2994a;
+    }
+    
+    .stats-bar {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .stat-card-mini {
+        background: white;
+        border-radius: 14px;
+        padding: 18px 20px;
+        border: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        transition: all 0.3s;
+        cursor: default;
+    }
+    
+    .stat-card-mini:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+    }
+    
+    .stat-card-mini .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+        flex-shrink: 0;
+    }
+    
+    .stat-card-mini .stat-info { flex: 1; min-width: 0; }
+    
+    .stat-card-mini .stat-value {
+        font-size: 1.3rem;
+        font-weight: 800;
+        color: var(--text);
+        line-height: 1;
+    }
+    
+    .stat-card-mini .stat-label {
+        font-size: 0.75rem;
+        color: var(--text-light);
+        margin-top: 3px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .icon-sales { background: #eef2ff; color: #667eea; }
+    .icon-amount { background: #e0f7fa; color: #00bcd4; }
+    .icon-paid { background: #d4edda; color: #28a745; }
+    .icon-outstanding { background: #fff3cd; color: #f2994a; }
+    .icon-profit { background: #e8f5e9; color: #4caf50; }
+    
+    .filter-bar {
+        background: white;
+        border-radius: 14px;
+        padding: 18px 20px;
+        border: 1px solid var(--border);
+        margin-bottom: 20px;
+    }
+    
+    .filter-bar .form-control,
+    .filter-bar .form-select {
+        border-radius: 10px;
+        border: 2px solid #eef0f5;
+        padding: 10px 14px;
+        font-size: 0.9rem;
+        transition: all 0.2s;
+        background: #fafbfc;
+    }
+    
+    .filter-bar .form-control:focus,
+    .filter-bar .form-select:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(13,110,253,0.1);
+        background: white;
+    }
+    
+    .btn-filter {
+        border-radius: 10px;
+        padding: 10px 20px;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    
+    .table-card {
+        background: white;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        overflow: hidden;
+    }
+    
+    .table-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 18px 20px;
+        border-bottom: 1px solid var(--border);
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    
+    .table-header h5 { margin: 0; font-weight: 700; font-size: 1.1rem; }
+    .table-header .badge-count {
+        background: var(--accent);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    
+    .btn-new-sale {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s;
+    }
+    
+    .btn-new-sale:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(102,126,234,0.3);
+        color: white;
+    }
+    
+    .bulk-convert-bar {
+        background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+        border: 1px solid #f5c842;
+        border-radius: 12px;
+        padding: 12px 18px;
+        margin-bottom: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .bulk-convert-bar .bulk-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .bulk-convert-bar .bulk-info .selected-count {
+        background: #f5c842;
+        color: #333;
+        padding: 2px 12px;
+        border-radius: 20px;
+        font-weight: 700;
+        font-size: 0.85rem;
+    }
+    
+    .bulk-convert-bar .bulk-info .self-only-badge {
+        background: #f5576c;
+        color: white;
+        padding: 2px 12px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+    }
+    
+    .btn-bulk-convert {
+        background: linear-gradient(135deg, #f093fb, #f5576c);
+        color: white;
+        border: none;
+        padding: 8px 22px;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 0.85rem;
+        transition: all 0.3s;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .btn-bulk-convert:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(245, 87, 108, 0.4);
+        color: white;
+    }
+    
+    .btn-bulk-convert:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    .btn-clear-selection {
+        background: transparent;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 6px 14px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .btn-clear-selection:hover {
+        background: #f0f0f0;
+    }
+    
+    .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    
+    .sale-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 1000px;
+    }
+    
+    .sale-table thead th {
+        background: #f8f9fc;
+        padding: 14px 16px;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #5a6070;
+        font-weight: 700;
+        border-bottom: 2px solid #e0e3eb;
+        white-space: nowrap;
+    }
+    
+    .sale-table tbody td {
+        padding: 14px 16px;
+        border-bottom: 1px solid #f0f2f7;
+        font-size: 0.9rem;
+        color: #1a1a2e;
+        vertical-align: middle;
+    }
+    
+    .sale-table tbody tr { transition: all 0.2s; }
+    .sale-table tbody tr:hover { background: #f8f9ff; }
+    .sale-table tbody tr.clickable { cursor: pointer; }
+    
+    .sale-table .checkbox-col { width: 40px; text-align: center; }
+    .sale-table .checkbox-col input { 
+        width: 18px; 
+        height: 18px; 
+        cursor: pointer;
+        accent-color: #f5576c;
+    }
+    
+    .sale-table .checkbox-col input.self-customer {
+        accent-color: #28a745;
+        box-shadow: 0 0 0 2px rgba(40,167,69,0.3);
+    }
+    
+    .sale-table .checkbox-col input.non-self-customer {
+        opacity: 0.3;
+        cursor: not-allowed;
+        accent-color: #6c757d;
+    }
+    
+    .sale-table .checkbox-col input:disabled { 
+        opacity: 0.3; 
+        cursor: not-allowed;
+    }
+    
+    .self-badge {
+        background: #28a745;
+        color: white;
+        padding: 2px 10px;
+        border-radius: 12px;
+        font-size: 0.6rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        display: inline-block;
+        margin-left: 5px;
+    }
+    
+    .non-self-badge {
+        background: #6c757d;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.6rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        display: inline-block;
+        margin-left: 5px;
+    }
+    
+    .bill-link { color: var(--accent); font-weight: 700; text-decoration: none; font-size: 0.9rem; }
+    .bill-link:hover { text-decoration: underline; }
+    
+    .customer-name { font-weight: 600; color: #1a1a2e; }
+    .customer-code {
+        font-size: 0.72rem;
+        color: #8a8fa0;
+        background: #f0f2f7;
+        padding: 2px 8px;
+        border-radius: 10px;
+    }
+    
+    .amount-positive { color: #11998e; font-weight: 600; }
+    .amount-negative { color: #dc3545; font-weight: 600; }
+    .amount-neutral { color: #1a1a2e; font-weight: 600; }
+    
+    .status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+    
+    .status-paid {
+        background: #d4edda; color: #155724;
+        padding: 5px 14px; border-radius: 20px; font-size: 0.78rem; font-weight: 600;
+        display: inline-flex; align-items: center; gap: 5px;
+    }
+    
+    .status-pending {
+        background: #fff3cd; color: #856404;
+        padding: 5px 14px; border-radius: 20px; font-size: 0.78rem; font-weight: 600;
+        display: inline-flex; align-items: center; gap: 5px;
+    }
+    
+    .status-converted {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        padding: 5px 14px; border-radius: 20px; font-size: 0.78rem; font-weight: 600;
+        display: inline-flex; align-items: center; gap: 5px;
+    }
+    
+    .status-paid .status-dot { background: #28a745; }
+    .status-pending .status-dot { background: #f2994a; }
+    .status-converted .status-dot { background: white; }
+    
+    .btn-action {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        border: 1px solid #e0e3eb;
+        background: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: #5a6070;
+        transition: all 0.2s;
+    }
+    
+    .btn-action:hover { background: #f0f2f7; color: #1a1a2e; }
+    
+    .empty-state { text-align: center; padding: 60px 20px; color: #8a8fa0; }
+    .empty-state .empty-icon { font-size: 4rem; margin-bottom: 15px; opacity: 0.5; }
+    
+    @media (max-width: 768px) {
+        .stats-bar { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+        .stat-card-mini { padding: 14px 15px; gap: 10px; }
+        .stat-card-mini .stat-icon { width: 40px; height: 40px; font-size: 1.1rem; }
+        .stat-card-mini .stat-value { font-size: 1.1rem; }
+        .filter-bar .row > div { margin-bottom: 8px; }
+        .table-header { padding: 12px 15px; }
+        .sale-table { min-width: 800px; }
+        .sale-table thead th, .sale-table tbody td { padding: 10px 12px; font-size: 0.8rem; }
+        .bulk-convert-bar { flex-direction: column; align-items: stretch; }
+        .bulk-convert-bar .bulk-info { justify-content: center; flex-wrap: wrap; }
+        .bulk-convert-bar .bulk-actions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+    }
+    
+    @media (max-width: 480px) {
+        .stats-bar { grid-template-columns: repeat(2, 1fr); }
+        .stat-card-mini .stat-value { font-size: 1rem; }
+        .btn-new-sale { width: 100%; justify-content: center; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Stats Bar -->
+<div class="stats-bar">
+    <div class="stat-card-mini">
+        <div class="stat-icon icon-sales">🛒</div>
+        <div class="stat-info">
+            <div class="stat-value">{{ total_count|default:'0' }}</div>
+            <div class="stat-label">Total Sales</div>
+        </div>
+    </div>
+    <div class="stat-card-mini">
+        <div class="stat-icon icon-amount">💰</div>
+        <div class="stat-info">
+            <div class="stat-value">Rs. {{ total_amount|floatformat:0|default:'0' }}</div>
+            <div class="stat-label">Total Amount</div>
+        </div>
+    </div>
+    <div class="stat-card-mini">
+        <div class="stat-icon icon-paid">✅</div>
+        <div class="stat-info">
+            <div class="stat-value">Rs. {{ total_paid|floatformat:0|default:'0' }}</div>
+            <div class="stat-label">Total Paid</div>
+        </div>
+    </div>
+    <div class="stat-card-mini">
+        <div class="stat-icon icon-outstanding">⚠️</div>
+        <div class="stat-info">
+            <div class="stat-value">Rs. {{ total_outstanding|floatformat:0|default:'0' }}</div>
+            <div class="stat-label">Outstanding</div>
+        </div>
+    </div>
+    <div class="stat-card-mini">
+        <div class="stat-icon icon-profit">📈</div>
+        <div class="stat-info">
+            <div class="stat-value">Rs. {{ total_profit|floatformat:0|default:'0' }}</div>
+            <div class="stat-label">Total Profit</div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Convert Bar -->
+<div class="bulk-convert-bar" id="bulkConvertBar">
+    <div class="bulk-info">
+        <input type="checkbox" id="selectAllSales" onchange="toggleAllSales()" style="width:20px; height:20px; cursor:pointer; accent-color:#f5576c;">
+        <label for="selectAllSales" style="font-weight:600; font-size:0.9rem;">Select All (Self Only)</label>
+        <span class="selected-count" id="selectedCount">0</span>
+        <span style="font-size:0.8rem; color:#666;">sales selected</span>
+        <span class="self-only-badge">🔒 Self Only</span>
+    </div>
+    <div class="bulk-actions">
+        <button onclick="clearAllSelection()" class="btn-clear-selection">✕ Clear</button>
+        <button onclick="bulkConvertToExpense()" id="bulkConvertBtn" class="btn-bulk-convert" disabled>
+            <i class="bi bi-currency-exchange"></i> Convert to Self Expense
+        </button>
+    </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="filter-bar">
+    <form method="GET" class="row g-2 align-items-end">
+        <div class="col-md-3 col-sm-6">
+            <label class="form-label small fw-bold text-muted">🔍 Search</label>
+            <input type="text" name="search" class="form-control" placeholder="Bill No, Customer..." value="{{ search }}">
+        </div>
+        <div class="col-md-2 col-sm-6">
+            <label class="form-label small fw-bold text-muted">📅 From</label>
+            <input type="date" name="date_from" class="form-control" value="{{ date_from }}">
+        </div>
+        <div class="col-md-2 col-sm-6">
+            <label class="form-label small fw-bold text-muted">📅 To</label>
+            <input type="date" name="date_to" class="form-control" value="{{ date_to }}">
+        </div>
+        <div class="col-md-2 col-sm-6">
+            <label class="form-label small fw-bold text-muted">📊 Status</label>
+            <select name="status" class="form-select">
+                <option value="">All</option>
+                <option value="paid" {% if status == 'paid' %}selected{% endif %}>✅ Paid</option>
+                <option value="pending" {% if status == 'pending' %}selected{% endif %}>⚠️ Pending</option>
+            </select>
+        </div>
+        <div class="col-md-2 col-sm-6">
+            <label class="form-label small fw-bold text-muted">🏭 Warehouse</label>
+            <select name="warehouse" class="form-select">
+                <option value="">All</option>
+                {% for wh in warehouses %}
+                <option value="{{ wh.id }}" {% if selected_warehouse == wh.id|stringformat:"s" %}selected{% endif %}>{{ wh.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-1 col-sm-6">
+            <button type="submit" class="btn btn-primary btn-filter w-100">
+                <i class="bi bi-funnel"></i>
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Sales Table -->
+<div class="table-card">
+    <div class="table-header">
+        <h5>
+            📋 Sales List 
+            <span class="badge-count">{{ page_obj.paginator.count|default:'0' }}</span>
+            <span class="badge bg-success ms-2">🟢 Self: {{ self_sales_count|default:'0' }}</span>
+        </h5>
+        <div class="d-flex gap-2">
+            <a href="{% url 'sale_create' %}" class="btn-new-sale">
+                <i class="bi bi-plus-lg"></i> New Sale
+            </a>
+        </div>
+    </div>
+    
+    <div class="table-wrapper">
+        <table class="sale-table">
+            <thead>
+                <tr>
+                    <th class="checkbox-col">
+                        <input type="checkbox" id="selectAll" onchange="toggleAllSales()" style="width:18px; height:18px; accent-color:#f5576c;">
+                    </th>
+                    <th>Bill No</th>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th>Warehouse</th>
+                    <th class="text-center">Items</th>
+                    <th class="text-right">Total</th>
+                    <th class="text-right">Discount</th>
+                    <th class="text-right">Paid</th>
+                    <th class="text-right">Outstanding</th>
+                    <th class="text-right">Profit</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sale in page_obj %}
+                {% with customer_code=sale.customer.customer_code|default:''|lower %}
+                {% with customer_name=sale.customer.name|lower %}
+                
+                <!-- ✅ FIXED: if ke andar with properly close -->
+                {% if customer_code == 'cus-self' or customer_name == 'self' %}
+                    {% with is_self=True %}
+                        <tr class="clickable" onclick="window.location='{% url 'sale_detail' sale.pk %}'">
+                            <td class="checkbox-col" onclick="event.stopPropagation();">
+                                {% if not sale.is_converted_to_expense %}
+                                <input type="checkbox" 
+                                       class="sale-checkbox self-customer" 
+                                       value="{{ sale.id }}"
+                                       data-customer="{{ sale.customer.name }}"
+                                       data-code="{{ sale.customer.customer_code }}"
+                                       data-amount="{{ sale.total_amount }}"
+                                       data-converted="{{ sale.is_converted_to_expense|yesno:'true,false' }}"
+                                       onchange="updateSelectedCount()"
+                                       title="Self Customer - Select to convert to expense">
+                                {% else %}
+                                <input type="checkbox" 
+                                       class="sale-checkbox self-customer" 
+                                       value="{{ sale.id }}"
+                                       data-converted="true"
+                                       disabled
+                                       title="Already converted to expense">
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'sale_detail' sale.pk %}" class="bill-link" onclick="event.stopPropagation();">
+                                    {{ sale.bill_no }}
+                                </a>
+                                <span class="self-badge">🟢 Self</span>
+                            </td>
+                            <td>
+                                <div style="font-weight:600;">{{ sale.sale_date|date:"d M, Y" }}</div>
+                                <small style="color:#8a8fa0;">{{ sale.sale_date|date:"h:i A" }}</small>
+                            </td>
+                            <td>
+                                <div class="customer-name">{{ sale.customer.name|truncatechars:18 }}</div>
+                                {% if sale.customer.customer_code %}
+                                <span class="customer-code">{{ sale.customer.customer_code }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ sale.warehouse.name|default:'-' }}</td>
+                            <td class="text-center">
+                                <span class="badge bg-light text-dark fw-bold">{{ sale.saleitem_set.count }}</span>
+                            </td>
+                            <td class="text-right amount-neutral">Rs. {{ sale.total_without_discount|floatformat:0 }}</td>
+                            <td class="text-right">
+                                {% if sale.discount_value > 0 %}
+                                <span class="text-danger">Rs. {{ sale.discount_value|floatformat:0 }}</span>
+                                {% else %}<span style="color:#ccc;">-</span>{% endif %}
+                            </td>
+                            <td class="text-right amount-positive">Rs. {{ sale.paid|floatformat:0 }}</td>
+                            <td class="text-right">
+                                {% with out=sale.outstanding_balance %}
+                                {% if out <= 0 %}<span class="amount-positive">Rs. 0</span>
+                                {% else %}<span class="amount-negative">Rs. {{ out|floatformat:0 }}</span>{% endif %}
+                                {% endwith %}
+                            </td>
+                            <td class="text-right amount-positive">Rs. {{ sale.total_profit|floatformat:0 }}</td>
+                            <td>
+                                {% if sale.is_converted_to_expense %}
+                                <span class="status-converted"><span class="status-dot"></span> 💰 Expense</span>
+                                {% elif sale.outstanding_balance <= 0 %}
+                                <span class="status-paid"><span class="status-dot"></span> Paid</span>
+                                {% else %}
+                                <span class="status-pending"><span class="status-dot"></span> Pending</span>
+                                {% endif %}
+                            </td>
+                            <td onclick="event.stopPropagation();">
+                                <div class="dropdown action-dropdown">
+                                    <button class="btn-action" data-bs-toggle="dropdown">⋮</button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow">
+                                        <li><a class="dropdown-item" href="{% url 'sale_detail' sale.pk %}"><i class="bi bi-eye"></i> View</a></li>
+                                        <li><a class="dropdown-item" href="{% url 'admin:generate_invoice' sale.pk %}" target="_blank"><i class="bi bi-file-pdf"></i> PDF</a></li>
+                                        
+                                        {% if not sale.is_converted_to_expense %}
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <a class="dropdown-item" href="#" onclick="convertSingleSale({{ sale.id }})" style="color:#f5576c;">
+                                                <i class="bi bi-currency-exchange"></i> Convert to Self Expense
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                        
+                                        {% if sale.customer.contact_number %}
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <a class="dropdown-item" href="#" onclick="sendSaleWhatsApp('{{ sale.customer.contact_number }}', '{{ sale.customer.name|escapejs }}', '{{ sale.bill_no }}', '{{ sale.total_amount|floatformat:0 }}')">
+                                                <i class="bi bi-whatsapp" style="color:#25D366;"></i> WhatsApp Invoice
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                        
+                                        {% if sale.outstanding_balance > 0 and sale.customer.contact_number %}
+                                        <li>
+                                            <a class="dropdown-item" href="https://wa.me/92{{ sale.customer.contact_number|slice:'1:' }}?text=Payment%20Reminder%3A%20Outstanding%20Rs.%20{{ sale.outstanding_balance|floatformat:0 }}%20for%20Invoice%20%23{{ sale.bill_no }}" target="_blank">
+                                                <i class="bi bi-exclamation-triangle" style="color:#ff9800;"></i> Payment Reminder
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endwith %}
+                {% else %}
+                    {% with is_self=False %}
+                        <tr class="clickable" onclick="window.location='{% url 'sale_detail' sale.pk %}'">
+                            <td class="checkbox-col" onclick="event.stopPropagation();">
+                                <input type="checkbox" 
+                                       class="sale-checkbox non-self-customer" 
+                                       value="{{ sale.id }}"
+                                       disabled
+                                       title="Only 'Self' customer sales can be converted to expense">
+                            </td>
+                            <td>
+                                <a href="{% url 'sale_detail' sale.pk %}" class="bill-link" onclick="event.stopPropagation();">
+                                    {{ sale.bill_no }}
+                                </a>
+                                <span class="non-self-badge">⚪ Customer</span>
+                            </td>
+                            <td>
+                                <div style="font-weight:600;">{{ sale.sale_date|date:"d M, Y" }}</div>
+                                <small style="color:#8a8fa0;">{{ sale.sale_date|date:"h:i A" }}</small>
+                            </td>
+                            <td>
+                                <div class="customer-name">{{ sale.customer.name|truncatechars:18 }}</div>
+                                {% if sale.customer.customer_code %}
+                                <span class="customer-code">{{ sale.customer.customer_code }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ sale.warehouse.name|default:'-' }}</td>
+                            <td class="text-center">
+                                <span class="badge bg-light text-dark fw-bold">{{ sale.saleitem_set.count }}</span>
+                            </td>
+                            <td class="text-right amount-neutral">Rs. {{ sale.total_without_discount|floatformat:0 }}</td>
+                            <td class="text-right">
+                                {% if sale.discount_value > 0 %}
+                                <span class="text-danger">Rs. {{ sale.discount_value|floatformat:0 }}</span>
+                                {% else %}<span style="color:#ccc;">-</span>{% endif %}
+                            </td>
+                            <td class="text-right amount-positive">Rs. {{ sale.paid|floatformat:0 }}</td>
+                            <td class="text-right">
+                                {% with out=sale.outstanding_balance %}
+                                {% if out <= 0 %}<span class="amount-positive">Rs. 0</span>
+                                {% else %}<span class="amount-negative">Rs. {{ out|floatformat:0 }}</span>{% endif %}
+                                {% endwith %}
+                            </td>
+                            <td class="text-right amount-positive">Rs. {{ sale.total_profit|floatformat:0 }}</td>
+                            <td>
+                                {% if sale.is_converted_to_expense %}
+                                <span class="status-converted"><span class="status-dot"></span> 💰 Expense</span>
+                                {% elif sale.outstanding_balance <= 0 %}
+                                <span class="status-paid"><span class="status-dot"></span> Paid</span>
+                                {% else %}
+                                <span class="status-pending"><span class="status-dot"></span> Pending</span>
+                                {% endif %}
+                            </td>
+                            <td onclick="event.stopPropagation();">
+                                <div class="dropdown action-dropdown">
+                                    <button class="btn-action" data-bs-toggle="dropdown">⋮</button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow">
+                                        <li><a class="dropdown-item" href="{% url 'sale_detail' sale.pk %}"><i class="bi bi-eye"></i> View</a></li>
+                                        <li><a class="dropdown-item" href="{% url 'admin:generate_invoice' sale.pk %}" target="_blank"><i class="bi bi-file-pdf"></i> PDF</a></li>
+                                        
+                                        {% if sale.customer.contact_number %}
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <a class="dropdown-item" href="#" onclick="sendSaleWhatsApp('{{ sale.customer.contact_number }}', '{{ sale.customer.name|escapejs }}', '{{ sale.bill_no }}', '{{ sale.total_amount|floatformat:0 }}')">
+                                                <i class="bi bi-whatsapp" style="color:#25D366;"></i> WhatsApp Invoice
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                        
+                                        {% if sale.outstanding_balance > 0 and sale.customer.contact_number %}
+                                        <li>
+                                            <a class="dropdown-item" href="https://wa.me/92{{ sale.customer.contact_number|slice:'1:' }}?text=Payment%20Reminder%3A%20Outstanding%20Rs.%20{{ sale.outstanding_balance|floatformat:0 }}%20for%20Invoice%20%23{{ sale.bill_no }}" target="_blank">
+                                                <i class="bi bi-exclamation-triangle" style="color:#ff9800;"></i> Payment Reminder
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endwith %}
+                {% endif %}
+                
+                {% endwith %}  <!-- customer_name -->
+                {% endwith %}  <!-- customer_code -->
+                {% empty %}
+                <tr>
+                    <td colspan="13">
+                        <div class="empty-state">
+                            <div class="empty-icon">📭</div>
+                            <h5>No Sales Found</h5>
+                            <p>{% if search or date_from %}Try different filters{% else %}Create your first sale!{% endif %}</p>
+                            {% if not search and not date_from %}
+                            <a href="{% url 'sale_create' %}" class="btn-new-sale mt-2">+ Create First Sale</a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Pagination -->
+    {% include 'components/pagination.html' %}
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // ============================================
+    // BULK CONVERT TO SELF EXPENSE
+    // ============================================
+    
+    let selectedSaleIds = [];
+    
+    function toggleAllSales() {
+        // ✅ Dono selectAll checkboxes sync karo
+        const selectAll1 = document.getElementById('selectAll');
+        const selectAll2 = document.getElementById('selectAllSales');
+        const isChecked = selectAll1 ? selectAll1.checked : false;
+        
+        // ✅ Dono ko sync karo
+        if (selectAll2) selectAll2.checked = isChecked;
+        if (selectAll1) selectAll1.checked = isChecked;
+        
+        // ✅ Sirf enabled checkboxes ko select karo (not disabled)
+        const checkboxes = document.querySelectorAll('.sale-checkbox:not(:disabled)');
+        checkboxes.forEach(cb => {
+            cb.checked = isChecked;
+        });
+        
+        updateSelectedCount();
+    }
+    
+    function updateSelectedCount() {
+        const checkboxes = document.querySelectorAll('.sale-checkbox:checked');
+        const count = checkboxes.length;
+        document.getElementById('selectedCount').textContent = count;
+        
+        selectedSaleIds = Array.from(checkboxes).map(cb => cb.value);
+        
+        const btn = document.getElementById('bulkConvertBtn');
+        if (count > 0) {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="bi bi-currency-exchange"></i> Convert ${count} Sale${count > 1 ? 's' : ''} to Expense`;
+        } else {
+            btn.disabled = true;
+            btn.innerHTML = `<i class="bi bi-currency-exchange"></i> Convert to Self Expense`;
+        }
+    }
+    
+    function clearAllSelection() {
+        document.querySelectorAll('.sale-checkbox').forEach(cb => {
+            cb.checked = false;
+        });
+        const selectAll1 = document.getElementById('selectAll');
+        const selectAll2 = document.getElementById('selectAllSales');
+        if (selectAll1) selectAll1.checked = false;
+        if (selectAll2) selectAll2.checked = false;
+        updateSelectedCount();
+    }
+    
+    function bulkConvertToExpense() {
+        const count = selectedSaleIds.length;
+        
+        if (count === 0) {
+            alert('⚠️ Please select at least one "Self" customer sale!');
+            return;
+        }
+        
+        const checkboxes = document.querySelectorAll('.sale-checkbox:checked');
+        let details = '';
+        let totalAmount = 0;
+        checkboxes.forEach(cb => {
+            const name = cb.dataset.customer;
+            const amount = parseFloat(cb.dataset.amount);
+            details += `- ${name}: Rs. ${amount.toFixed(2)}\n`;
+            totalAmount += amount;
+        });
+        
+        if (!confirm(`⚠️ Convert ${count} sale${count > 1 ? 's' : ''} to SELF EXPENSE?\n\n${details}\nTotal Amount: Rs. ${totalAmount.toFixed(2)}\n\nThis will create expense entries for all selected sales.`)) {
+            return;
+        }
+        
+        const btn = document.getElementById('bulkConvertBtn');
+        btn.disabled = true;
+        btn.innerHTML = '⏳ Converting...';
+        
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                          document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+        
+        fetch('/sales/bulk-convert-to-expense/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ sale_ids: selectedSaleIds })
+        })
+        .then(response => {
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                return response.text().then(text => {
+                    console.error('Server returned HTML:', text.substring(0, 500));
+                    throw new Error('Server error - check console for details');
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                alert('✅ ' + data.message);
+                location.reload();
+            } else {
+                alert('❌ ' + data.message);
+                btn.disabled = false;
+                btn.innerHTML = `<i class="bi bi-currency-exchange"></i> Convert ${count} Sale${count > 1 ? 's' : ''} to Expense`;
+            }
+        })
+        .catch(error => {
+            console.error('Fetch Error:', error);
+            alert('❌ Error: ' + error.message);
+            btn.disabled = false;
+            btn.innerHTML = `<i class="bi bi-currency-exchange"></i> Convert ${count} Sale${count > 1 ? 's' : ''} to Expense`;
+        });
+    }
+    
+    // ============================================
+    // SINGLE SALE CONVERT
+    // ============================================
+    
+    function convertSingleSale(saleId) {
+        if (!confirm('⚠️ Convert this sale to SELF EXPENSE?')) {
+            return;
+        }
+        
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                          document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+        
+        fetch(`/sales/${saleId}/convert-to-expense/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('✅ ' + data.message);
+                location.reload();
+            } else {
+                alert('❌ ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('❌ Error: ' + error);
+        });
+    }
+    
+    // Row click navigation
+    document.querySelectorAll('.clickable').forEach(row => {
+        row.addEventListener('click', function(e) {
+            if (e.target.closest('a, button, .dropdown, input')) return;
+            window.location = this.getAttribute('onclick').replace("window.location='", "").replace("'", "");
+        });
+    });
+    
+    // Send WhatsApp from Sales List
+    function sendSaleWhatsApp(phone, name, billNo, amount) {
+        const message = `🧾 *INVOICE*\n━━━━━━━━━━━━━━━━\n📋 Bill No: *${billNo}*\n👤 Customer: *${name}*\n💰 Total: *Rs. ${amount}*\n━━━━━━━━━━━━━━━━\n\nThank you for your business! 🙏`;
+        const encodedMsg = encodeURIComponent(message);
+        const url = `https://wa.me/92${phone.replace(/^0+/, '')}?text=${encodedMsg}`;
+        window.open(url, '_blank');
+    }
+    
+    // ✅ DOM Ready
+    document.addEventListener('DOMContentLoaded', function() {
+        // Already converted checkboxes disable
+        document.querySelectorAll('.sale-checkbox').forEach(cb => {
+            if (cb.dataset.converted === 'true') {
+                cb.disabled = true;
+                cb.title = 'Already converted to expense';
+            }
+        });
+        
+        // Self customer check
+        const selfCheckboxes = document.querySelectorAll('.sale-checkbox.self-customer:not(:disabled)');
+        const selectAll = document.getElementById('selectAll');
+        if (selfCheckboxes.length === 0) {
+            if (selectAll) {
+                selectAll.disabled = true;
+                selectAll.title = 'No "Self" customer sales available to convert';
+            }
+        }
+        
+        // ✅ Dono selectAll sync
+        const selectAll2 = document.getElementById('selectAllSales');
+        if (selectAll && selectAll2) {
+            selectAll.checked = false;
+            selectAll2.checked = false;
+        }
+        
+        updateSelectedCount();
+    });
+</script>
+{% endblock %}

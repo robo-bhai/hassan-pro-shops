@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Inventory Status{% endblock %}
+{% block page_title %}📦 Inventory Status Report{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card { background: white; border-radius: 12px; padding: 20px; text-align: center; border: 1px solid #e9ecef; margin-bottom: 20px; }
+    .stock-level { font-size: 28px; font-weight: 700; }
+    .level-high { color: #10b981; }
+    .level-medium { color: #f59e0b; }
+    .level-low { color: #ef4444; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-3"><div class="stat-card"><div class="stock-level level-high">{{ total_products }}</div><div class="small text-muted">Total Products</div></div></div>
+        <div class="col-md-3"><div class="stat-card"><div class="stock-level level-high">{{ total_stock_value|floatformat:0 }}</div><div class="small text-muted">Stock Value (PKR)</div></div></div>
+        <div class="col-md-3"><div class="stat-card"><div class="stock-level level-low">{{ low_stock_count }}</div><div class="small text-muted">Low Stock Items</div></div></div>
+        <div class="col-md-3"><div class="stat-card"><div class="stock-level level-medium">{{ out_of_stock }}</div><div class="small text-muted">Out of Stock</div></div></div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-white"><strong><i class="bi bi-boxes"></i> Current Inventory</strong></div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light"><tr><th>Product Name</th><th>Serial No</th><th>Warehouse</th><th>Current Stock</th><th>Threshold</th><th>Status</th></tr></thead>
+                    <tbody>
+                        {% for item in inventory_items %}
+                        <tr>
+                            <td>{{ item.product.name|truncatechars:35 }}</td>
+                            <td>{{ item.product.serial_no|default:'—' }}</td>
+                            <td>{{ item.warehouse.name }}</td>
+                            <td>{{ item.stock|floatformat:0 }}</td>
+                            <td>{{ item.product.low_stock_threshold|floatformat:0 }}</td>
+                            <td>{% if item.stock <= 0 %}<span class="badge bg-danger">Out of Stock</span>{% elif item.stock < item.product.low_stock_threshold %}<span class="badge bg-warning">Low Stock</span>{% else %}<span class="badge bg-success">OK</span>{% endif %}</td>
+                        </tr>
+                        {% empty %}<tr><td colspan="6" class="text-center text-muted">No inventory data available</td></tr>{% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

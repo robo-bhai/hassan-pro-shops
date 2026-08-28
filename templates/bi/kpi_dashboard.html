@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}KPI Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .kpi-status {
+        padding: 2px 12px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    .kpi-status.on_track { background: #d4edda; color: #155724; }
+    .kpi-status.warning { background: #fff3cd; color: #856404; }
+    .kpi-status.critical { background: #f8d7da; color: #721c24; }
+    .kpi-status.achieved { background: #cce5ff; color: #004085; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-speedometer2 text-primary"></i> KPI Dashboard</h2>
+            <p class="text-muted">Track your key performance indicators</p>
+        </div>
+        <div>
+            <a href="{% url 'bi_kpi_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> New KPI
+            </a>
+            <a href="{% url 'bi_dashboard' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    
+    <div class="row g-3">
+        {% for kpi in kpis %}
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <span class="badge bg-secondary">{{ kpi.get_category_display }}</span>
+                        <span class="kpi-status {{ kpi.status }}">{{ kpi.get_status_display }}</span>
+                    </div>
+                    <h5 class="mt-2">{{ kpi.name }}</h5>
+                    <p class="text-muted small">{{ kpi.description|truncatechars:50 }}</p>
+                    
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted small">Target</span>
+                        <span class="fw-bold">{{ kpi.target|floatformat:0 }} {{ kpi.unit }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted small">Current</span>
+                        <span class="fw-bold">{{ kpi.current_value|floatformat:0 }} {{ kpi.unit }}</span>
+                    </div>
+                    
+                    <div class="mt-2">
+                        <div class="progress" style="height:8px;">
+                            <div class="progress-bar 
+                                {% if kpi.status == 'achieved' %}bg-success
+                                {% elif kpi.status == 'on_track' %}bg-primary
+                                {% elif kpi.status == 'warning' %}bg-warning
+                                {% else %}bg-danger{% endif %}" 
+                                style="width: {{ kpi.progress|floatformat:0 }}%;">
+                            </div>
+                        </div>
+                        <small class="text-muted">{{ kpi.progress|floatformat:1 }}% complete</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-speedometer2 fs-2 d-block"></i>
+                <p>No KPIs configured yet</p>
+                <a href="{% url 'bi_kpi_create' %}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus-circle"></i> Create KPI
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+</div>
+{% endblock %}

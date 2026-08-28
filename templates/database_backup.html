@@ -1,0 +1,1392 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Database Backup & Restore{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-lg">
+                <div class="card-header bg-gradient-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h3 class="mb-0">
+                            <i class="fas fa-database"></i> Database Backup & Restore
+                        </h3>
+                        <span id="backup-status-badge" class="badge badge-light">
+                            <i class="fas fa-circle text-success"></i> System Online
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- ========================================== -->
+                    <!-- CLOUD STATUS BAR -->
+                    <!-- ========================================== -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div id="cloud-status" class="alert alert-info shadow-sm">
+                                <div class="d-flex align-items-center">
+                                    <div class="spinner-border spinner-border-sm mr-2" role="status">
+                                        <span class="sr-only">Loading...</span>
+                                    </div>
+                                    <span>Checking cloud status...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ========================================== -->
+                    <!-- RESTORE WARNING -->
+                    <!-- ========================================== -->
+                    <div id="restore-warning" class="alert alert-danger shadow-sm" style="display: none;">
+                        <div class="d-flex align-items-start">
+                            <i class="fas fa-exclamation-triangle fa-2x mr-3 mt-1"></i>
+                            <div>
+                                <strong>⚠️ WARNING!</strong>
+                                <p class="mb-1">Restoring will <strong>REPLACE</strong> your current database. This action <strong>CANNOT BE UNDONE!</strong></p>
+                                <small>💡 Make sure you have a recent backup before restoring.</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ========================================== -->
+                    <!-- QUICK ACTION BUTTONS -->
+                    <!-- ========================================== -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <button class="btn btn-success btn-block btn-lg" onclick="startBackup()">
+                                <i class="fas fa-play"></i> Quick Backup
+                            </button>
+                            <small class="text-muted d-block text-center mt-1">~3-5 seconds</small>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-primary btn-block btn-lg" onclick="startBackgroundBackup()">
+                                <i class="fas fa-spinner"></i> Background Backup
+                            </button>
+                            <small class="text-muted d-block text-center mt-1">Runs in background</small>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-warning btn-block btn-lg" onclick="uploadAllBackups()">
+                                <i class="fas fa-cloud-upload-alt"></i> Upload All to Drive
+                            </button>
+                            <small class="text-muted d-block text-center mt-1">Sync to Google Drive</small>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-danger btn-block btn-lg" onclick="cleanBackups()">
+                                <i class="fas fa-broom"></i> Clean Old Backups
+                            </button>
+                            <small class="text-muted d-block text-center mt-1">Keep latest 5</small>
+                        </div>
+                    </div>
+
+                    <!-- ========================================== -->
+                    <!-- 🆕 UPLOAD FROM INTERNAL STORAGE -->
+                    <!-- ========================================== -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card border-success shadow-sm">
+                                <div class="card-header bg-success text-white">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-upload"></i> Upload Backup from Internal Storage
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <form method="POST" enctype="multipart/form-data" action="{% url 'upload_backup_file' %}" id="uploadForm">
+                                        {% csrf_token %}
+                                        <div class="row">
+                                            <div class="col-md-8">
+                                                <div class="custom-file">
+                                                    <input type="file" class="custom-file-input" id="backupFileInput" name="backup_file" 
+                                                           accept=".sqlite3,.sqlite3.gz,.gz,.json">
+                                                    <label class="custom-file-label" for="backupFileInput" id="fileLabel">
+                                                        <i class="fas fa-folder-open"></i> Choose backup file from internal storage...
+                                                    </label>
+                                                </div>
+                                                <small class="text-muted">
+                                                    Allowed: .sqlite3, .sqlite3.gz, .gz, .json | Max: 500MB
+                                                </small>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <button type="submit" class="btn btn-success btn-block btn-lg" id="uploadBtn" disabled>
+                                                    <i class="fas fa-cloud-upload-alt"></i> Upload to Backup List
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </form>
+                                    <div id="upload-progress" class="mt-3" style="display: none;">
+                                        <div class="progress" style="height: 25px;">
+                                            <div id="upload-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-success" 
+                                                 role="progressbar" style="width: 0%;">
+                                                <span id="upload-text">0%</span>
+                                            </div>
+                                        </div>
+                                        <div class="mt-2 text-center">
+                                            <span id="upload-message" class="text-muted">Uploading...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ========================================== -->
+                    <!-- RESTORE FROM CLOUD SECTION -->
+                    <!-- ========================================== -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card border-warning shadow-sm">
+                                <div class="card-header bg-warning text-dark">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-cloud-download-alt"></i> Restore from Google Drive
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-8">
+                                            <select id="cloud-restore-select" class="form-control form-control-lg">
+                                                <option value="">-- Select backup file from Drive --</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <button class="btn btn-danger btn-block btn-lg" onclick="restoreFromCloud()">
+                                                <i class="fas fa-download"></i> Restore from Drive
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div id="cloud-restore-progress" class="mt-3" style="display: none;">
+                                        <div class="progress" style="height: 30px;">
+                                            <div id="cloud-restore-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-info" 
+                                                 role="progressbar" style="width: 0%;">
+                                                <span id="cloud-restore-text">0%</span>
+                                            </div>
+                                        </div>
+                                        <div class="mt-2 text-center">
+                                            <span id="cloud-restore-message" class="text-muted">Initializing download...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ========================================== -->
+                    <!-- PROGRESS BAR -->
+                    <!-- ========================================== -->
+                    <div id="progress-container" class="mb-4" style="display: none;">
+                        <div class="card shadow-sm border-success">
+                            <div class="card-body">
+                                <h5 id="progress-title" class="card-title">
+                                    <i class="fas fa-sync fa-spin text-primary"></i> Backup in Progress...
+                                </h5>
+                                
+                                <div class="progress" style="height: 35px;">
+                                    <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                         role="progressbar" style="width: 0%;">
+                                        <span id="progress-text" class="font-weight-bold">0%</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="row mt-3">
+                                    <div class="col-md-8">
+                                        <div id="step-details">
+                                            <span id="step-message" class="text-muted">Initializing...</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 text-right">
+                                        <span id="step-status" class="badge badge-warning badge-lg">⏳ In Progress</span>
+                                        <span id="cloud-status-badge" class="badge badge-secondary badge-lg ml-2">☁️ Pending</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-2">
+                                    <small class="text-muted" id="progress-time">
+                                        <i class="far fa-clock"></i> Started: Just now
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ========================================== -->
+                    <!-- BACKUP FILES LIST -->
+                    <!-- ========================================== -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="card shadow-sm">
+                                <div class="card-header bg-light">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h5 class="mb-0">
+                                            <i class="fas fa-file-archive text-primary"></i> Local Backup Files
+                                        </h5>
+                                        <span id="file-count-badge" class="badge badge-primary">0 files</span>
+                                    </div>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover mb-0" id="backup-table">
+                                            <thead class="thead-dark">
+                                                <tr>
+                                                    <th>#</th>
+                                                    <th>File Name</th>
+                                                    <th>Size</th>
+                                                    <th>Modified</th>
+                                                    <th>Compressed</th>
+                                                    <th>Cloud</th>
+                                                    <th class="text-center" style="min-width: 280px;">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="backup-files-body">
+                                                <tr>
+                                                    <td colspan="7" class="text-center py-4">
+                                                        <div class="spinner-border text-primary" role="status">
+                                                            <span class="sr-only">Loading...</span>
+                                                        </div>
+                                                        <br>
+                                                        <span class="text-muted">Loading backup files...</span>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ========================================== -->
+                    <!-- STATS CARDS -->
+                    <!-- ========================================== -->
+                    <div class="row mt-4">
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white shadow-sm">
+                                <div class="card-body text-center">
+                                    <h2 id="total-files" class="mb-0">0</h2>
+                                    <small>Total Files</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white shadow-sm">
+                                <div class="card-body text-center">
+                                    <h2 id="total-size" class="mb-0">0 MB</h2>
+                                    <small>Total Size</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white shadow-sm">
+                                <div class="card-body text-center">
+                                    <h2 id="latest-backup" class="mb-0" style="font-size: 1.2rem;">None</h2>
+                                    <small>Latest Backup</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-secondary text-white shadow-sm">
+                                <div class="card-body text-center">
+                                    <h2 id="backup-status" class="mb-0">✅ Idle</h2>
+                                    <small>Status</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- RESTORE CONFIRMATION MODAL -->
+<!-- ========================================== -->
+<div class="modal fade" id="restoreConfirmModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-gradient-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle"></i> Confirm Restore
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger">
+                    <div class="d-flex align-items-start">
+                        <i class="fas fa-exclamation-circle fa-2x mr-3"></i>
+                        <div>
+                            <strong>WARNING!</strong>
+                            <p class="mt-2">
+                                You are about to restore <strong id="restore-filename" class="text-dark">backup_file.sqlite3.gz</strong>
+                            </p>
+                            <p>
+                                This will <strong>REPLACE</strong> your current database with the backup.
+                                All current data will be <strong>LOST</strong> if you haven't backed up recently.
+                            </p>
+                            <p class="mb-0">
+                                <small>✅ Make sure you have a recent backup before proceeding.</small>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="confirm-restore-check">
+                    <label class="form-check-label" for="confirm-restore-check">
+                        <strong>I understand this action cannot be undone</strong>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger btn-lg" id="confirm-restore-btn" disabled onclick="executeRestore()">
+                    <i class="fas fa-download"></i> Yes, Restore Now
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ==========================================
+// PROFESSIONAL BACKUP JAVASCRIPT
+// ==========================================
+
+let progressInterval = null;
+let restoreFile = null;
+
+// ==========================================
+// GET CSRF TOKEN - IMPORTANT!
+// ==========================================
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// ==========================================
+// FILE INPUT HANDLING (UPLOAD)
+// ==========================================
+document.getElementById('backupFileInput').addEventListener('change', function(e) {
+    const file = this.files[0];
+    const label = document.getElementById('fileLabel');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const form = document.getElementById('uploadForm');
+    
+    if (file) {
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+        label.innerHTML = `<i class="fas fa-file text-success"></i> ${file.name} (${sizeMB} MB)`;
+        uploadBtn.disabled = false;
+        uploadBtn.className = 'btn btn-success btn-block btn-lg';
+        
+        // ✅ Check file type
+        const allowedExtensions = ['.sqlite3', '.sqlite3.gz', '.gz', '.json'];
+        const isValid = allowedExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+        
+        if (!isValid) {
+            label.innerHTML = `<i class="fas fa-exclamation-circle text-danger"></i> Invalid file type! Allowed: ${allowedExtensions.join(', ')}`;
+            uploadBtn.disabled = true;
+            uploadBtn.className = 'btn btn-secondary btn-block btn-lg';
+            showToast('danger', 'Invalid file type!');
+        }
+        
+        // ✅ Check file size
+        if (file.size > 500 * 1024 * 1024) {
+            label.innerHTML = `<i class="fas fa-exclamation-circle text-danger"></i> File too large! Max: 500MB`;
+            uploadBtn.disabled = true;
+            uploadBtn.className = 'btn btn-secondary btn-block btn-lg';
+            showToast('danger', 'File too large! Max 500MB');
+        }
+    } else {
+        label.innerHTML = `<i class="fas fa-folder-open"></i> Choose backup file from internal storage...`;
+        uploadBtn.disabled = true;
+        uploadBtn.className = 'btn btn-secondary btn-block btn-lg';
+    }
+});
+
+// ==========================================
+// UPLOAD FORM SUBMIT WITH PROGRESS
+// ==========================================
+document.getElementById('uploadForm').addEventListener('submit', function(e) {
+    const fileInput = document.getElementById('backupFileInput');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        e.preventDefault();
+        showToast('warning', 'Please select a file!');
+        return;
+    }
+    
+    // ✅ Show progress
+    document.getElementById('upload-progress').style.display = 'block';
+    document.getElementById('upload-bar').style.width = '0%';
+    document.getElementById('upload-text').innerHTML = '0%';
+    document.getElementById('upload-message').innerHTML = '📤 Uploading file...';
+    document.getElementById('uploadBtn').disabled = true;
+    document.getElementById('uploadBtn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+});
+
+// ==========================================
+// CHECK CLOUD STATUS ON LOAD
+// ==========================================
+function checkCloudStatus() {
+    fetch('/backup/rclone-status/', {
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        const statusDiv = document.getElementById('cloud-status');
+        
+        if (data.success && data.rclone_installed && data.remote_configured) {
+            statusDiv.className = 'alert alert-success shadow-sm';
+            statusDiv.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-check-circle fa-2x text-success mr-3"></i>
+                    <div>
+                        <strong class="text-success">✅ Google Drive Ready!</strong>
+                        <div class="text-muted small">
+                            Remote: ${data.remote_name}:${data.remote_dir}
+                        </div>
+                    </div>
+                    <span class="badge badge-success badge-lg ml-auto">Connected</span>
+                </div>
+            `;
+            loadCloudFiles();
+        } else if (data.rclone_installed && !data.remote_configured) {
+            statusDiv.className = 'alert alert-warning shadow-sm';
+            statusDiv.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-exclamation-triangle fa-2x text-warning mr-3"></i>
+                    <div>
+                        <strong class="text-warning">⚠️ Rclone not configured!</strong>
+                        <div class="text-muted small">
+                            Run: <code>rclone config</code> to setup Google Drive
+                        </div>
+                    </div>
+                    <span class="badge badge-warning badge-lg ml-auto">Not Configured</span>
+                </div>
+            `;
+        } else {
+            statusDiv.className = 'alert alert-danger shadow-sm';
+            statusDiv.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-times-circle fa-2x text-danger mr-3"></i>
+                    <div>
+                        <strong class="text-danger">❌ Rclone not installed!</strong>
+                        <div class="text-muted small">
+                            Run: <code>pkg install rclone</code> to install
+                        </div>
+                    </div>
+                    <span class="badge badge-danger badge-lg ml-auto">Not Installed</span>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        document.getElementById('cloud-status').className = 'alert alert-warning shadow-sm';
+        document.getElementById('cloud-status').innerHTML = `
+            <div class="d-flex align-items-center">
+                <i class="fas fa-exclamation-circle fa-2x text-warning mr-3"></i>
+                <div>
+                    <strong class="text-warning">⚠️ Could not check cloud status</strong>
+                    <div class="text-muted small">${error.message}</div>
+                </div>
+            </div>
+        `;
+    });
+}
+
+// ==========================================
+// LOAD CLOUD FILES
+// ==========================================
+function loadCloudFiles() {
+    fetch('/backup/cloud-files/', {
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        const select = document.getElementById('cloud-restore-select');
+        select.innerHTML = '<option value="">-- Select backup file from Drive --</option>';
+        
+        if (data.success && data.files && data.files.length > 0) {
+            data.files.forEach(file => {
+                const option = document.createElement('option');
+                option.value = file.name;
+                option.textContent = `${file.name} (${file.size_display}) - ${file.modified}`;
+                select.appendChild(option);
+            });
+        } else {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = '📭 No files found on Google Drive';
+            select.appendChild(option);
+        }
+    })
+    .catch(error => {
+        console.error('Error loading cloud files:', error);
+    });
+}
+
+// ==========================================
+// RESTORE FROM CLOUD
+// ==========================================
+function restoreFromCloud() {
+    const select = document.getElementById('cloud-restore-select');
+    const filename = select.value;
+    
+    if (!filename) {
+        showToast('warning', 'Please select a backup file from Google Drive!');
+        return;
+    }
+    
+    const encodedFilename = encodeURIComponent(filename);
+    
+    document.getElementById('restore-warning').style.display = 'block';
+    document.getElementById('restore-filename').textContent = filename;
+    
+    $('#restoreConfirmModal').modal('show');
+    
+    restoreFile = encodedFilename;
+    
+    document.getElementById('confirm-restore-check').checked = false;
+    document.getElementById('confirm-restore-btn').disabled = true;
+}
+
+// ==========================================
+// CONFIRM RESTORE CHECKBOX
+// ==========================================
+document.getElementById('confirm-restore-check').addEventListener('change', function() {
+    document.getElementById('confirm-restore-btn').disabled = !this.checked;
+});
+
+// ==========================================
+// EXECUTE RESTORE
+// ==========================================
+function executeRestore() {
+    $('#restoreConfirmModal').modal('hide');
+    
+    document.getElementById('cloud-restore-progress').style.display = 'block';
+    document.getElementById('cloud-restore-bar').style.width = '10%';
+    document.getElementById('cloud-restore-text').innerHTML = '10%';
+    document.getElementById('cloud-restore-message').innerHTML = '📥 Downloading from Google Drive...';
+    
+    document.getElementById('progress-container').style.display = 'block';
+    updateProgress(10, '📥 Downloading backup from Google Drive...', 'in_progress');
+    
+    const url = `/backup/restore/${restoreFile}/`;
+    
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('cloud-restore-bar').style.width = '100%';
+            document.getElementById('cloud-restore-text').innerHTML = '100%';
+            document.getElementById('cloud-restore-message').innerHTML = '✅ ' + data.message;
+            
+            updateProgress(100, '✅ ' + data.message, 'completed');
+            
+            setTimeout(() => {
+                loadBackupFiles();
+                loadStats();
+                loadCloudFiles();
+                document.getElementById('cloud-restore-progress').style.display = 'none';
+                document.getElementById('progress-container').style.display = 'none';
+                document.getElementById('restore-warning').style.display = 'none';
+                
+                showToast('success', '✅ Restore successful! Database restored from: ' + restoreFile);
+            }, 2000);
+        } else {
+            document.getElementById('cloud-restore-message').innerHTML = '❌ ' + data.message;
+            updateProgress(0, '❌ ' + data.message, 'failed');
+            showToast('danger', 'Restore failed: ' + data.message);
+        }
+    })
+    .catch(error => {
+        document.getElementById('cloud-restore-message').innerHTML = '❌ Error: ' + error;
+        updateProgress(0, '❌ Error: ' + error, 'failed');
+        showToast('danger', 'Error: ' + error.message);
+    });
+}
+
+// ==========================================
+// START BACKUP - WITH CSRF TOKEN
+// ==========================================
+function startBackup() {
+    document.getElementById('progress-container').style.display = 'block';
+    updateProgress(0, '🔄 Starting backup...', 'starting');
+    document.getElementById('cloud-status-badge').innerHTML = '☁️ Checking...';
+    document.getElementById('cloud-status-badge').className = 'badge badge-secondary badge-lg ml-2';
+    
+    if (progressInterval) clearInterval(progressInterval);
+    progressInterval = setInterval(checkProgress, 1000);
+    
+    fetch('/backup/fast/', {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok: ' + response.status);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            let msg = data.message;
+            if (data.cloud_uploaded) {
+                document.getElementById('cloud-status-badge').innerHTML = '☁️ ✅ Uploaded';
+                document.getElementById('cloud-status-badge').className = 'badge badge-success badge-lg ml-2';
+            } else {
+                document.getElementById('cloud-status-badge').innerHTML = '☁️ ⚠️ Skipped';
+                document.getElementById('cloud-status-badge').className = 'badge badge-warning badge-lg ml-2';
+            }
+            updateProgress(100, msg, 'completed');
+            showToast('success', msg);
+            setTimeout(() => {
+                loadBackupFiles();
+                loadStats();
+                loadCloudFiles();
+            }, 1000);
+        } else {
+            updateProgress(0, '❌ ' + data.message, 'failed');
+            document.getElementById('cloud-status-badge').innerHTML = '☁️ ❌ Failed';
+            document.getElementById('cloud-status-badge').className = 'badge badge-danger badge-lg ml-2';
+            showToast('danger', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Backup error:', error);
+        updateProgress(0, '❌ Error: ' + error.message, 'failed');
+        showToast('danger', 'Error: ' + error.message);
+        document.getElementById('cloud-status-badge').innerHTML = '☁️ ❌ Error';
+        document.getElementById('cloud-status-badge').className = 'badge badge-danger badge-lg ml-2';
+    });
+}
+
+// ==========================================
+// START BACKGROUND BACKUP - WITH CSRF TOKEN
+// ==========================================
+function startBackgroundBackup() {
+    document.getElementById('progress-container').style.display = 'block';
+    updateProgress(0, '🔄 Starting background backup...', 'starting');
+    
+    if (progressInterval) clearInterval(progressInterval);
+    progressInterval = setInterval(checkProgress, 1000);
+    
+    fetch('/backup/background/', {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok: ' + response.status);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            document.getElementById('step-message').innerHTML = '✅ ' + data.message;
+            document.getElementById('step-status').innerHTML = '🔄 Running in background';
+            document.getElementById('step-status').className = 'badge badge-success badge-lg';
+            if (data.cloud_enabled) {
+                document.getElementById('cloud-status-badge').innerHTML = '☁️ ✅ Enabled';
+                document.getElementById('cloud-status-badge').className = 'badge badge-success badge-lg ml-2';
+            } else {
+                document.getElementById('cloud-status-badge').innerHTML = '☁️ ⚠️ Disabled';
+                document.getElementById('cloud-status-badge').className = 'badge badge-warning badge-lg ml-2';
+            }
+            showToast('success', data.message);
+        } else {
+            updateProgress(0, '❌ ' + data.message, 'failed');
+            showToast('danger', data.message);
+        }
+    })
+    .catch(error => {
+        updateProgress(0, '❌ Error: ' + error, 'failed');
+        showToast('danger', 'Error: ' + error.message);
+    });
+}
+
+// ==========================================
+// UPLOAD ALL BACKUPS TO DRIVE - WITH CSRF TOKEN
+// ==========================================
+function uploadAllBackups() {
+    if (!confirm('Upload all local backups to Google Drive?')) return;
+    
+    document.getElementById('progress-container').style.display = 'block';
+    updateProgress(30, '☁️ Uploading all backups to Drive...', 'in_progress');
+    
+    fetch('/backup/upload-all/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok: ' + response.status);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            updateProgress(100, '✅ ' + data.message, 'completed');
+            showToast('success', data.message);
+            setTimeout(() => {
+                loadBackupFiles();
+                loadStats();
+                loadCloudFiles();
+                document.getElementById('progress-container').style.display = 'none';
+            }, 2000);
+        } else {
+            updateProgress(0, '❌ ' + data.message, 'failed');
+            showToast('danger', data.message);
+        }
+    })
+    .catch(error => {
+        updateProgress(0, '❌ Error: ' + error, 'failed');
+        showToast('danger', 'Error: ' + error.message);
+    });
+}
+
+// ==========================================
+// CHECK PROGRESS
+// ==========================================
+function checkProgress() {
+    fetch('/backup/progress/', {
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.progress) {
+            const p = data.progress;
+            const percent = p.percentage || 0;
+            
+            document.getElementById('progress-bar').style.width = percent + '%';
+            document.getElementById('progress-text').innerHTML = Math.round(percent) + '%';
+            document.getElementById('step-message').innerHTML = p.message || 'Processing...';
+            
+            const statusBadge = document.getElementById('step-status');
+            if (p.status === 'completed' || p.status === 'failed') {
+                statusBadge.innerHTML = p.status === 'completed' ? '✅ Completed' : '❌ Failed';
+                statusBadge.className = p.status === 'completed' ? 'badge badge-success badge-lg' : 'badge badge-danger badge-lg';
+                clearInterval(progressInterval);
+                if (p.status === 'completed') {
+                    setTimeout(() => {
+                        loadBackupFiles();
+                        loadStats();
+                        loadCloudFiles();
+                    }, 500);
+                }
+            } else {
+                statusBadge.innerHTML = '⏳ In Progress';
+                statusBadge.className = 'badge badge-warning badge-lg';
+            }
+            
+            document.getElementById('progress-time').innerHTML = '🕐 Last updated: ' + new Date().toLocaleTimeString();
+            
+            if (p.message && p.message.includes('Uploading to Drive')) {
+                document.getElementById('cloud-status-badge').innerHTML = '☁️ ⏳ Uploading';
+                document.getElementById('cloud-status-badge').className = 'badge badge-primary badge-lg ml-2';
+            }
+            
+            if (p.status === 'completed' || p.status === 'failed') {
+                setTimeout(() => {
+                    document.getElementById('progress-container').style.display = 'none';
+                }, 3000);
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Progress check error:', error);
+    });
+}
+
+// ==========================================
+// UPDATE PROGRESS UI
+// ==========================================
+function updateProgress(percent, message, status) {
+    document.getElementById('progress-bar').style.width = percent + '%';
+    document.getElementById('progress-text').innerHTML = Math.round(percent) + '%';
+    document.getElementById('step-message').innerHTML = message;
+    
+    const statusBadge = document.getElementById('step-status');
+    if (status === 'completed') {
+        statusBadge.innerHTML = '✅ Completed';
+        statusBadge.className = 'badge badge-success badge-lg';
+    } else if (status === 'failed') {
+        statusBadge.innerHTML = '❌ Failed';
+        statusBadge.className = 'badge badge-danger badge-lg';
+    } else {
+        statusBadge.innerHTML = '⏳ In Progress';
+        statusBadge.className = 'badge badge-warning badge-lg';
+    }
+}
+
+// ==========================================
+// LOAD BACKUP FILES WITH ACTION BUTTON LABELS
+// ==========================================
+function loadBackupFiles() {
+    fetch('/backup/files/', {
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        const tbody = document.getElementById('backup-files-body');
+        const countBadge = document.getElementById('file-count-badge');
+        
+        if (data.success && data.files && data.files.length > 0) {
+            countBadge.textContent = data.files.length + ' files';
+            let html = '';
+            data.files.forEach((file, index) => {
+                const cloudStatus = file.is_compressed ? 
+                    '<span class="badge badge-success"><i class="fas fa-cloud"></i> ✅</span>' : 
+                    '<span class="badge badge-secondary"><i class="fas fa-folder"></i> Local</span>';
+                
+                const actions = `
+                    <div class="btn-group btn-group-sm" role="group" style="flex-wrap: wrap; gap: 3px;">
+                        <a href="/backup/download/${encodeURIComponent(file.name)}/" class="btn btn-success btn-sm" title="Download Backup">
+                            <i class="fas fa-download"></i> Download
+                        </a>
+                        <button onclick="restoreLocalBackup('${file.name}')" class="btn btn-warning btn-sm" title="Restore Database">
+                            <i class="fas fa-undo"></i> Restore
+                        </button>
+                        <button onclick="deleteBackup('${file.name}')" class="btn btn-danger btn-sm" title="Delete File">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                        <button onclick="uploadSingleBackup('${file.name}')" class="btn btn-info btn-sm" title="Upload to Google Drive">
+                            <i class="fas fa-cloud-upload-alt"></i> Upload
+                        </button>
+                    </div>
+                `;
+                
+                html += `
+                    <tr>
+                        <td class="text-center font-weight-bold">${index + 1}</td>
+                        <td>
+                            <i class="fas fa-${file.is_compressed ? 'file-archive text-primary' : 'file text-secondary'}"></i>
+                            <span class="ml-1">${file.name}</span>
+                        </td>
+                        <td class="text-center">${file.size_display}</td>
+                        <td>${file.modified}</td>
+                        <td class="text-center">${file.is_compressed ? '✅ Yes' : '❌ No'}</td>
+                        <td class="text-center">${cloudStatus}</td>
+                        <td class="text-center">${actions}</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        } else {
+            countBadge.textContent = '0 files';
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center py-4 text-muted">
+                        <i class="fas fa-folder-open fa-3x mb-2 d-block"></i>
+                        <span>No backup files found</span>
+                        <br>
+                        <small>Click "Quick Backup" to create your first backup!</small>
+                    </td>
+                </tr>
+            `;
+        }
+    })
+    .catch(error => {
+        console.error('Error loading files:', error);
+        document.getElementById('backup-files-body').innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center py-4 text-danger">
+                    <i class="fas fa-exclamation-circle fa-3x mb-2 d-block"></i>
+                    <span>Error loading backup files</span>
+                    <br>
+                    <small>${error.message}</small>
+                </td>
+            </tr>
+        `;
+    });
+}
+
+// ==========================================
+// UPLOAD SINGLE BACKUP TO DRIVE
+// ==========================================
+function uploadSingleBackup(filename) {
+    if (!confirm(`Upload ${filename} to Google Drive?`)) return;
+    
+    document.getElementById('progress-container').style.display = 'block';
+    updateProgress(30, `☁️ Uploading ${filename} to Drive...`, 'in_progress');
+    
+    fetch(`/backup/upload-single/${encodeURIComponent(filename)}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            updateProgress(100, '✅ ' + data.message, 'completed');
+            showToast('success', data.message);
+            setTimeout(() => {
+                loadBackupFiles();
+                loadStats();
+                loadCloudFiles();
+                document.getElementById('progress-container').style.display = 'none';
+            }, 2000);
+        } else {
+            updateProgress(0, '❌ ' + data.message, 'failed');
+            showToast('danger', data.message);
+        }
+    })
+    .catch(error => {
+        updateProgress(0, '❌ Error: ' + error, 'failed');
+        showToast('danger', 'Error: ' + error.message);
+    });
+}
+
+// ==========================================
+// LOAD STATS
+// ==========================================
+function loadStats() {
+    fetch('/backup/stats/', {
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('total-files').textContent = data.total_files || 0;
+            document.getElementById('total-size').textContent = (data.total_size_mb || 0) + ' MB';
+            document.getElementById('latest-backup').textContent = data.latest_backup || 'None';
+            
+            const statusEl = document.getElementById('backup-status');
+            if (data.current_progress && data.current_progress.status === 'in_progress') {
+                statusEl.innerHTML = '🔄 In Progress';
+                statusEl.className = 'text-warning';
+            } else {
+                statusEl.innerHTML = '✅ Idle';
+                statusEl.className = 'text-success';
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error loading stats:', error);
+    });
+}
+
+// ==========================================
+// DELETE BACKUP
+// ==========================================
+function deleteBackup(filename) {
+    if (!confirm(`⚠️ Delete backup: ${filename}?`)) return;
+    
+    const encodedFilename = encodeURIComponent(filename);
+    
+    fetch(`/backup/delete/${encodedFilename}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadBackupFiles();
+            loadStats();
+            loadCloudFiles();
+            showToast('success', data.message);
+        } else {
+            showToast('danger', data.message);
+        }
+    })
+    .catch(error => {
+        showToast('danger', 'Error deleting file');
+    });
+}
+
+// ==========================================
+// RESTORE LOCAL BACKUP
+// ==========================================
+function restoreLocalBackup(filename) {
+    if (!confirm(`⚠️ Restore local backup: ${filename}?\n\nThis will REPLACE your current database!`)) return;
+    if (!confirm('⚠️ Are you sure? This action CANNOT BE UNDONE!')) return;
+    
+    const encodedFilename = encodeURIComponent(filename);
+    
+    document.getElementById('progress-container').style.display = 'block';
+    updateProgress(30, '🔄 Restoring from local backup...', 'in_progress');
+    
+    fetch(`/backup/restore-local/${encodedFilename}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            updateProgress(100, '✅ ' + data.message, 'completed');
+            showToast('success', data.message);
+            setTimeout(() => {
+                loadBackupFiles();
+                loadStats();
+                document.getElementById('progress-container').style.display = 'none';
+            }, 2000);
+        } else {
+            updateProgress(0, '❌ ' + data.message, 'failed');
+            showToast('danger', data.message);
+        }
+    })
+    .catch(error => {
+        updateProgress(0, '❌ Error: ' + error, 'failed');
+        showToast('danger', 'Error: ' + error.message);
+    });
+}
+
+// ==========================================
+// CLEAN OLD BACKUPS
+// ==========================================
+function cleanBackups() {
+    if (!confirm('🗑️ Delete all old backups (keep latest 5)?')) return;
+    
+    document.getElementById('progress-container').style.display = 'block';
+    updateProgress(50, '🧹 Cleaning old backups...', 'in_progress');
+    
+    fetch('/backup/clean/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadBackupFiles();
+            loadStats();
+            loadCloudFiles();
+            updateProgress(100, '✅ ' + data.message, 'completed');
+            showToast('success', data.message);
+            setTimeout(() => {
+                document.getElementById('progress-container').style.display = 'none';
+            }, 2000);
+        } else {
+            updateProgress(0, '❌ ' + data.message, 'failed');
+            showToast('danger', data.message);
+        }
+    })
+    .catch(error => {
+        updateProgress(0, '❌ Error: ' + error, 'failed');
+        showToast('danger', 'Error: ' + error.message);
+    });
+}
+
+// ==========================================
+// TOAST NOTIFICATION
+// ==========================================
+function showToast(type, message) {
+    if (typeof $ !== 'undefined' && $.fn.toast) {
+        const toastHtml = `
+            <div class="toast" role="alert" aria-live="assertive" aria-atomic="true" 
+                 style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;">
+                <div class="toast-header bg-${type} text-white">
+                    <strong class="mr-auto">
+                        ${type === 'success' ? '✅ Success' : type === 'danger' ? '❌ Error' : '⚠️ Warning'}
+                    </strong>
+                    <button type="button" class="ml-2 mb-1 close text-white" data-dismiss="toast">
+                        <span>&times;</span>
+                    </button>
+                </div>
+                <div class="toast-body">${message}</div>
+            </div>
+        `;
+        $('body').append(toastHtml);
+        $('.toast').toast('show');
+        setTimeout(() => $('.toast').remove(), 5000);
+    } else {
+        alert(message);
+    }
+}
+
+// ==========================================
+// ON PAGE LOAD
+// ==========================================
+document.addEventListener('DOMContentLoaded', function() {
+    checkCloudStatus();
+    loadBackupFiles();
+    loadStats();
+    loadCloudFiles();
+    
+    // Auto-refresh every 15 seconds
+    setInterval(() => {
+        loadBackupFiles();
+        loadStats();
+    }, 15000);
+});
+
+// Check for active backup on load
+setTimeout(() => {
+    fetch('/backup/progress/', {
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.progress && data.progress.status === 'in_progress') {
+            document.getElementById('progress-container').style.display = 'block';
+            updateProgress(data.progress.percentage, data.progress.message, 'in_progress');
+            if (progressInterval) clearInterval(progressInterval);
+            progressInterval = setInterval(checkProgress, 1000);
+        }
+    })
+    .catch(error => console.error('Error checking active backup:', error));
+}, 3000);
+
+</script>
+
+<style>
+/* ========================================== */
+/* PROFESSIONAL STYLES */
+/* ========================================== */
+
+/* Gradient Headers */
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+}
+
+.bg-gradient-danger {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 50%, #bd2130 100%);
+}
+
+/* Cards */
+.card {
+    border-radius: 12px;
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.card-header {
+    border-radius: 12px 12px 0 0 !important;
+}
+
+/* Progress Bar */
+.progress {
+    border-radius: 10px;
+    overflow: hidden;
+    background-color: #e9ecef;
+}
+
+.progress-bar {
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: width 0.5s ease;
+}
+
+/* Buttons */
+.btn-block {
+    padding: 12px 0;
+    font-weight: 600;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.btn-block:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+
+.btn-block:active {
+    transform: translateY(0);
+}
+
+/* Action Buttons */
+.btn-group-sm .btn {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 4px;
+}
+
+.btn-group-sm .btn i {
+    margin-right: 3px;
+}
+
+/* Badges */
+.badge-lg {
+    font-size: 14px;
+    padding: 8px 16px;
+    border-radius: 20px;
+}
+
+/* Table */
+.table {
+    margin-bottom: 0;
+}
+
+.table thead th {
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+}
+
+.table tbody tr {
+    transition: all 0.2s ease;
+}
+
+.table tbody tr:hover {
+    background-color: rgba(0,123,255,0.05);
+}
+
+/* Custom File Input */
+.custom-file-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.custom-file-label i {
+    margin-right: 5px;
+}
+
+.custom-file-input:focus ~ .custom-file-label {
+    border-color: #28a745;
+    box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+}
+
+/* Animations */
+#progress-container {
+    animation: slideDown 0.5s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Restore Warning */
+#restore-warning {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.85; }
+}
+
+/* Toast Notification */
+.toast {
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+.toast-header {
+    border-radius: 12px 12px 0 0;
+    padding: 12px 20px;
+}
+
+.toast-body {
+    padding: 15px 20px;
+    font-size: 14px;
+}
+
+/* Upload Progress */
+#upload-progress {
+    animation: slideDown 0.5s ease;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .btn-block {
+        margin-bottom: 10px;
+    }
+    
+    .table {
+        font-size: 12px;
+    }
+    
+    .table td, .table th {
+        padding: 8px 10px;
+    }
+    
+    #total-files, #total-size {
+        font-size: 1.5rem;
+    }
+    
+    .btn-group-sm .btn {
+        font-size: 10px;
+        padding: 3px 7px;
+    }
+    
+    .custom-file-label {
+        font-size: 12px;
+    }
+}
+</style>
+
+{% endblock %}

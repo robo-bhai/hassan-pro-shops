@@ -1,0 +1,257 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Edit Expense{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-lg-10 offset-lg-1">
+            
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb" class="mt-3">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'expense_dashboard' %}">💰 Expenses</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'expense_list' %}">All Expenses</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'expense_detail' expense.id %}">{{ expense.expense_no }}</a></li>
+                    <li class="breadcrumb-item active">Edit</li>
+                </ol>
+            </nav>
+
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="bi bi-pencil"></i> Edit Expense #{{ expense.expense_no }}</h5>
+                </div>
+                <div class="card-body">
+                    
+                    <form method="POST" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="row g-3">
+                            
+                            <!-- Category -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Category <span class="text-danger">*</span></label>
+                                <select name="category" class="form-select" required>
+                                    <option value="">Select Category</option>
+                                    {% for cat in categories %}
+                                    <option value="{{ cat.id }}" {% if expense.category.id == cat.id %}selected{% endif %}>
+                                        {{ cat.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <!-- ✅ Budget Selection -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Budget</label>
+                                <select name="budget" class="form-select" id="budgetSelect">
+                                    <option value="">Select Budget (Optional)</option>
+                                    {% for budget in budgets %}
+                                    <option value="{{ budget.id }}" 
+                                            {% if expense.budget.id == budget.id %}selected{% endif %}
+                                            data-department="{{ budget.department.name|default:'N/A' }}"
+                                            data-project="{{ budget.project.name|default:'N/A' }}"
+                                            data-allocated="{{ budget.allocated_amount }}"
+                                            data-used="{{ budget.used_amount }}"
+                                            data-remaining="{{ budget.remaining_amount }}">
+                                        {{ budget.name }} 
+                                        (Rs. {{ budget.allocated_amount|floatformat:0 }})
+                                        {% if budget.department %} - {{ budget.department.name }}{% endif %}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <!-- Budget Details -->
+                            <div class="col-12" id="budgetDetails" {% if expense.budget %}style="display: block;"{% else %}style="display: none;"{% endif %}>
+                                <div class="alert alert-info border-0 shadow-sm">
+                                    <div class="row g-3">
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Department</small>
+                                            <p class="fw-bold mb-0" id="budgetDept">
+                                                {{ expense.budget.department.name|default:'-' }}
+                                            </p>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Project</small>
+                                            <p class="fw-bold mb-0" id="budgetProject">
+                                                {{ expense.budget.project.name|default:'-' }}
+                                            </p>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Remaining</small>
+                                            <p class="fw-bold mb-0 text-success" id="budgetRemaining">
+                                                Rs. {{ expense.budget.remaining_amount|floatformat:2 }}
+                                            </p>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Utilization</small>
+                                            <p class="fw-bold mb-0" id="budgetUtilization">
+                                                {{ expense.budget.utilization_percent|floatformat:1 }}%
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="progress mt-2" style="height:8px;">
+                                        <div class="progress-bar {% if expense.budget.utilization_percent >= 90 %}bg-danger{% elif expense.budget.utilization_percent >= 70 %}bg-warning{% else %}bg-success{% endif %}" 
+                                             id="budgetProgress" 
+                                             style="width: {{ expense.budget.utilization_percent|floatformat:1 }}%;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Description -->
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold">Description <span class="text-danger">*</span></label>
+                                <input type="text" name="description" class="form-control" required value="{{ expense.description }}">
+                            </div>
+                            
+                            <!-- Amount -->
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Amount (Rs.) <span class="text-danger">*</span></label>
+                                <input type="number" name="amount" class="form-control" step="0.01" min="0.01" required value="{{ expense.amount }}">
+                            </div>
+                            
+                            <!-- Expense Date -->
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Expense Date <span class="text-danger">*</span></label>
+                                <input type="date" name="expense_date" class="form-control" value="{{ expense.expense_date|date:'Y-m-d' }}" required>
+                            </div>
+                            
+                            <!-- Payment Method -->
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Payment Method <span class="text-danger">*</span></label>
+                                <select name="payment_method" class="form-select" required>
+                                    <option value="">Select Method</option>
+                                    {% for code, label in payment_methods %}
+                                    <option value="{{ code }}" {% if expense.payment_method == code %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <!-- Reference No -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Reference Number</label>
+                                <input type="text" name="reference_no" class="form-control" value="{{ expense.reference_no }}">
+                            </div>
+                            
+                            <!-- Vendor -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Vendor</label>
+                                <select name="vendor" class="form-select">
+                                    <option value="">Select Vendor</option>
+                                    {% for vendor in vendors %}
+                                    <option value="{{ vendor.id }}" {% if expense.vendor.id == vendor.id %}selected{% endif %}>
+                                        {{ vendor.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <!-- Vendor Invoice No -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Vendor Invoice No</label>
+                                <input type="text" name="vendor_invoice_no" class="form-control" value="{{ expense.vendor_invoice_no }}">
+                            </div>
+                            
+                            <!-- Tax Rate -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Tax Rate (%)</label>
+                                <input type="number" name="tax_rate" class="form-control" step="0.01" min="0" value="{{ expense.tax_rate }}">
+                            </div>
+                            
+                            <!-- Cost Center -->
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold">Cost Center</label>
+                                <input type="text" name="cost_center" class="form-control" value="{{ expense.cost_center }}">
+                            </div>
+                            
+                            <!-- Notes -->
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold">Notes</label>
+                                <textarea name="notes" class="form-control" rows="3">{{ expense.notes }}</textarea>
+                            </div>
+                            
+                            <!-- Receipt -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Receipt</label>
+                                <input type="file" name="receipt" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
+                                {% if expense.receipt %}
+                                <small class="text-muted">Current: <a href="{{ expense.receipt.url }}" target="_blank">View</a></small>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Attachment -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Attachment</label>
+                                <input type="file" name="attachment" class="form-control" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx">
+                                {% if expense.attachment %}
+                                <small class="text-muted">Current: <a href="{{ expense.attachment.url }}" target="_blank">View</a></small>
+                                {% endif %}
+                            </div>
+                            
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> Update Expense
+                            </button>
+                            <a href="{% url 'expense_detail' expense.id %}" class="btn btn-secondary">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </a>
+                        </div>
+                        
+                    </form>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+
+<script>
+    // Budget selection show details
+    document.getElementById('budgetSelect')?.addEventListener('change', function() {
+        var details = document.getElementById('budgetDetails');
+        var selected = this.options[this.selectedIndex];
+        
+        if (this.value) {
+            details.style.display = 'block';
+            
+            var dept = selected.getAttribute('data-department') || '-';
+            var project = selected.getAttribute('data-project') || '-';
+            var allocated = parseFloat(selected.getAttribute('data-allocated')) || 0;
+            var used = parseFloat(selected.getAttribute('data-used')) || 0;
+            var remaining = parseFloat(selected.getAttribute('data-remaining')) || 0;
+            
+            document.getElementById('budgetDept').textContent = dept;
+            document.getElementById('budgetProject').textContent = project;
+            document.getElementById('budgetRemaining').textContent = 'Rs. ' + remaining.toFixed(2);
+            
+            var percent = 0;
+            if (allocated > 0) {
+                percent = (used / allocated) * 100;
+            }
+            var progressBar = document.getElementById('budgetProgress');
+            progressBar.style.width = Math.min(percent, 100) + '%';
+            
+            if (percent >= 90) {
+                progressBar.className = 'progress-bar bg-danger';
+            } else if (percent >= 70) {
+                progressBar.className = 'progress-bar bg-warning';
+            } else {
+                progressBar.className = 'progress-bar bg-success';
+            }
+            
+            document.getElementById('budgetUtilization').textContent = percent.toFixed(1) + '%';
+            
+        } else {
+            details.style.display = 'none';
+        }
+    });
+</script>
+{% endblock %}

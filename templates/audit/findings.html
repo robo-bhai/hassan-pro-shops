@@ -1,0 +1,230 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Audit Findings - {{ plan.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .finding-card {
+        border-left: 4px solid #6c757d;
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin-bottom: 12px;
+        background: white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        transition: all 0.3s ease;
+    }
+    .finding-card:hover {
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    .finding-card.critical { border-left-color: #dc3545; background: #fff5f5; }
+    .finding-card.high { border-left-color: #fd7e14; background: #fff8f0; }
+    .finding-card.medium { border-left-color: #ffc107; background: #fffcf0; }
+    .finding-card.low { border-left-color: #28a745; background: #f5fff5; }
+    .finding-card.resolved { opacity: 0.7; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <!-- ========================================== -->
+    <!-- HEADER                                     -->
+    <!-- ========================================== -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-exclamation-triangle text-danger"></i> Audit Findings</h2>
+            <p class="text-muted">{{ plan.name }} ({{ plan.plan_no }})</p>
+        </div>
+        <div>
+            <a href="{% url 'audit_plan_detail' plan.id %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Plan
+            </a>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- STATS                                      -->
+    <!-- ========================================== -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h6>Total Findings</h6>
+                    <h3>{{ findings|length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <h6>Critical</h6>
+                    <h3>{{ findings|dictsort:"severity"|length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h6>Open</h6>
+                    <h3>{{ findings|length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h6>Resolved</h6>
+                    <h3>{{ findings|length }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- FINDINGS LIST                            -->
+    <!-- ========================================== -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h6 class="mb-0"><i class="bi bi-list"></i> All Findings</h6>
+            <a href="{% url 'audit_findings' plan.id %}" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-circle"></i> New Finding
+            </a>
+        </div>
+        <div class="card-body">
+            {% if findings %}
+                {% for finding in findings %}
+                <div class="finding-card {{ finding.severity }} {% if finding.status == 'resolved' %}resolved{% endif %}">
+                    <div class="d-flex flex-wrap justify-content-between align-items-start">
+                        <div style="flex:1;">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="fw-bold">{{ finding.title }}</span>
+                                <span class="badge 
+                                    {% if finding.severity == 'critical' %}bg-danger
+                                    {% elif finding.severity == 'high' %}bg-warning
+                                    {% elif finding.severity == 'medium' %}bg-info
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ finding.get_severity_display }}
+                                </span>
+                                <span class="badge 
+                                    {% if finding.status == 'resolved' %}bg-success
+                                    {% elif finding.status == 'open' %}bg-danger
+                                    {% else %}bg-warning{% endif %}">
+                                    {{ finding.get_status_display }}
+                                </span>
+                            </div>
+                            <p class="mt-2 mb-1">{{ finding.description }}</p>
+                            <div class="d-flex flex-wrap gap-3">
+                                <small class="text-muted">
+                                    <i class="bi bi-person"></i> {{ finding.assigned_to.name|default:"Not Assigned" }}
+                                </small>
+                                <small class="text-muted">
+                                    <i class="bi bi-calendar"></i> Found: {{ finding.found_date|date:"d-m-Y" }}
+                                </small>
+                                {% if finding.target_completion_date %}
+                                <small class="text-muted">
+                                    <i class="bi bi-clock"></i> Target: {{ finding.target_completion_date|date:"d-m-Y" }}
+                                </small>
+                                {% endif %}
+                            </div>
+                            {% if finding.recommendation %}
+                            <div class="mt-2">
+                                <small class="fw-bold">Recommendation:</small>
+                                <small>{{ finding.recommendation }}</small>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="ms-2">
+                            {% if finding.status != 'resolved' %}
+                            <a href="{% url 'audit_finding_resolve' finding.id %}" 
+                               class="btn btn-success btn-sm"
+                               onclick="return confirm('Mark this finding as resolved?')">
+                                <i class="bi bi-check-circle"></i> Resolve
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-check-circle fs-2 d-block text-success"></i>
+                <p>No findings found. Great job!</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- ADD FINDING FORM                          -->
+    <!-- ========================================== -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white">
+            <h6 class="mb-0"><i class="bi bi-plus-circle text-primary"></i> Add New Finding</h6>
+        </div>
+        <div class="card-body">
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Title</label>
+                        <input type="text" name="title" class="form-control" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Severity</label>
+                        <select name="severity" class="form-select" required>
+                            <option value="critical">🔴 Critical</option>
+                            <option value="high">🟠 High</option>
+                            <option value="medium">🟡 Medium</option>
+                            <option value="low">🟢 Low</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Description</label>
+                    <textarea name="description" class="form-control" rows="3" required></textarea>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Recommendation</label>
+                    <textarea name="recommendation" class="form-control" rows="2" required></textarea>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Assigned To</label>
+                        <select name="assigned_to" class="form-select">
+                            <option value="">Select Employee</option>
+                            {% for emp in employees %}
+                            <option value="{{ emp.id }}">{{ emp.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Target Completion Date</label>
+                        <input type="date" name="target_completion_date" class="form-control">
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Evidence</label>
+                    <textarea name="evidence" class="form-control" rows="2"></textarea>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Attachment</label>
+                    <input type="file" name="attachment" class="form-control">
+                </div>
+                
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-circle"></i> Add Finding
+                </button>
+            </form>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

@@ -1,0 +1,323 @@
+<!-- users/user_create.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}➕ Add New User - {{ company_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <div class="d-flex flex-wrap align-items-center justify-content-between mb-4">
+        <div>
+            <h1 class="h3 mb-1 text-gray-800">
+                <i class="bi bi-person-plus text-primary me-2"></i>Add New User
+            </h1>
+            <p class="text-muted small mb-0">Create a new system user with role-based permissions</p>
+        </div>
+        <a href="{% url 'user_list' %}" class="btn btn-outline-secondary rounded-pill px-4">
+            <i class="bi bi-arrow-left me-2"></i>Back to Users
+        </a>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-4">
+            <form method="POST" class="needs-validation" novalidate>
+                {% csrf_token %}
+                
+                <!-- Two Column Layout -->
+                <div class="row g-4">
+                    <!-- Left Column: User Details -->
+                    <div class="col-lg-7">
+                        <h6 class="fw-bold mb-3">
+                            <i class="bi bi-person-circle text-primary me-2"></i>User Details
+                        </h6>
+                        
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label fw-semibold small text-uppercase text-muted">
+                                    Full Name <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" name="full_name" class="form-control" 
+                                       placeholder="Enter full name" required>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold small text-uppercase text-muted">
+                                    Username <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-0">
+                                        <i class="bi bi-person text-muted"></i>
+                                    </span>
+                                    <input type="text" name="username" class="form-control" 
+                                           placeholder="Enter username" required>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold small text-uppercase text-muted">
+                                    Email
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-0">
+                                        <i class="bi bi-envelope text-muted"></i>
+                                    </span>
+                                    <input type="email" name="email" class="form-control" 
+                                           placeholder="Enter email">
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold small text-uppercase text-muted">
+                                    Password <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-0">
+                                        <i class="bi bi-lock text-muted"></i>
+                                    </span>
+                                    <input type="password" name="password" class="form-control" 
+                                           placeholder="Min 6 characters" required>
+                                    <button class="btn btn-outline-secondary" type="button" 
+                                            onclick="togglePassword(this, 'password')">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold small text-uppercase text-muted">
+                                    Confirm Password <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-0">
+                                        <i class="bi bi-lock text-muted"></i>
+                                    </span>
+                                    <input type="password" name="confirm_password" class="form-control" 
+                                           placeholder="Confirm password" required>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold small text-uppercase text-muted">
+                                    Phone
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-0">
+                                        <i class="bi bi-phone text-muted"></i>
+                                    </span>
+                                    <input type="text" name="phone" class="form-control" 
+                                           placeholder="Enter phone number">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right Column: Role & Status -->
+                    <div class="col-lg-5">
+                        <h6 class="fw-bold mb-3">
+                            <i class="bi bi-shield-lock text-primary me-2"></i>Role & Permissions
+                        </h6>
+                        
+                        <div class="card bg-light border-0 mb-3">
+                            <div class="card-body">
+                                <label class="form-label fw-semibold small text-uppercase text-muted">
+                                    Select Role <span class="text-danger">*</span>
+                                </label>
+                                
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <div class="role-option" onclick="selectRole('admin')">
+                                            <input type="radio" name="role" value="admin" id="role_admin" hidden>
+                                            <label for="role_admin" class="role-card">
+                                                <span class="role-icon bg-danger bg-opacity-10 text-danger">
+                                                    <i class="bi bi-shield-lock"></i>
+                                                </span>
+                                                <span class="role-name">Administrator</span>
+                                                <span class="role-desc">Full system access</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="role-option" onclick="selectRole('owner')">
+                                            <input type="radio" name="role" value="owner" id="role_owner" hidden>
+                                            <label for="role_owner" class="role-card">
+                                                <span class="role-icon bg-primary bg-opacity-10 text-primary">
+                                                    <i class="bi bi-building"></i>
+                                                </span>
+                                                <span class="role-name">Owner</span>
+                                                <span class="role-desc">All permissions</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="role-option" onclick="selectRole('manager')">
+                                            <input type="radio" name="role" value="manager" id="role_manager" hidden>
+                                            <label for="role_manager" class="role-card">
+                                                <span class="role-icon bg-info bg-opacity-10 text-info">
+                                                    <i class="bi bi-people"></i>
+                                                </span>
+                                                <span class="role-name">Store Manager</span>
+                                                <span class="role-desc">Manage operations</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="role-option" onclick="selectRole('salesman')">
+                                            <input type="radio" name="role" value="salesman" id="role_salesman" hidden>
+                                            <label for="role_salesman" class="role-card">
+                                                <span class="role-icon bg-success bg-opacity-10 text-success">
+                                                    <i class="bi bi-person-badge"></i>
+                                                </span>
+                                                <span class="role-name">Salesman</span>
+                                                <span class="role-desc">Sales only</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="role-option" onclick="selectRole('accountant')">
+                                            <input type="radio" name="role" value="accountant" id="role_accountant" hidden>
+                                            <label for="role_accountant" class="role-card">
+                                                <span class="role-icon bg-warning bg-opacity-10 text-warning">
+                                                    <i class="bi bi-calculator"></i>
+                                                </span>
+                                                <span class="role-name">Accountant</span>
+                                                <span class="role-desc">Financial access</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="role-option" onclick="selectRole('warehouse')">
+                                            <input type="radio" name="role" value="warehouse" id="role_warehouse" hidden>
+                                            <label for="role_warehouse" class="role-card">
+                                                <span class="role-icon bg-secondary bg-opacity-10 text-secondary">
+                                                    <i class="bi bi-box"></i>
+                                                </span>
+                                                <span class="role-name">Warehouse</span>
+                                                <span class="role-desc">Inventory access</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Status Toggle -->
+                        <div class="card bg-light border-0">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <span class="fw-semibold small text-uppercase text-muted">Account Status</span>
+                                        <div class="small text-muted">Allow this user to login</div>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" name="is_active" 
+                                               id="isActive" checked>
+                                        <label class="form-check-label fw-semibold" for="isActive">
+                                            <span class="badge bg-success" id="statusLabel">Active</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="border-top pt-4 mt-4 d-flex gap-3">
+                    <button type="submit" class="btn btn-primary px-5 py-2 rounded-pill">
+                        <i class="bi bi-check-lg me-2"></i>Create User
+                    </button>
+                    <a href="{% url 'user_list' %}" class="btn btn-outline-secondary px-4 py-2 rounded-pill">
+                        <i class="bi bi-x-lg me-2"></i>Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .role-option {
+        cursor: pointer;
+    }
+    
+    .role-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 12px 8px;
+        border-radius: 12px;
+        border: 2px solid transparent;
+        background: white;
+        transition: all 0.2s ease;
+        text-align: center;
+        height: 100%;
+    }
+    
+    .role-option input:checked + .role-card {
+        border-color: #667eea;
+        background: rgba(102, 126, 234, 0.05);
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+    }
+    
+    .role-card:hover {
+        border-color: #667eea;
+        transform: translateY(-2px);
+    }
+    
+    .role-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        margin-bottom: 6px;
+    }
+    
+    .role-name {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #1a1a2e;
+    }
+    
+    .role-desc {
+        font-size: 0.65rem;
+        color: #6b7094;
+    }
+    
+    .form-check-input:checked {
+        background-color: #28a745;
+        border-color: #28a745;
+    }
+</style>
+
+<script>
+    function selectRole(role) {
+        document.querySelector(`input[name="role"][value="${role}"]`).checked = true;
+    }
+    
+    function togglePassword(btn, inputId) {
+        var input = document.getElementById(inputId);
+        if (input.type === 'password') {
+            input.type = 'text';
+            btn.innerHTML = '<i class="bi bi-eye-slash"></i>';
+        } else {
+            input.type = 'password';
+            btn.innerHTML = '<i class="bi bi-eye"></i>';
+        }
+    }
+    
+    // Status toggle label
+    document.getElementById('isActive')?.addEventListener('change', function() {
+        var label = document.getElementById('statusLabel');
+        if (this.checked) {
+            label.textContent = 'Active';
+            label.className = 'badge bg-success';
+        } else {
+            label.textContent = 'Inactive';
+            label.className = 'badge bg-danger';
+        }
+    });
+</script>
+{% endblock %}

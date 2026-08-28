@@ -1,0 +1,288 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Cash Management{% endblock %}
+{% block page_title %}💰 Cash Management Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .balance-card {
+        background: linear-gradient(135deg, #059669, #10b981);
+        border-radius: 25px;
+        padding: 30px;
+        color: white;
+        margin-bottom: 25px;
+    }
+    
+    .balance-amount {
+        font-size: 2.5rem;
+        font-weight: 800;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 20px;
+        padding: 20px;
+        border: 1px solid #e9ecef;
+        text-align: center;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+    
+    .stat-label {
+        font-size: 0.7rem;
+        color: #6c757d;
+        text-transform: uppercase;
+    }
+    
+    .inflow { color: #059669; }
+    .outflow { color: #dc2626; }
+    .retained { color: #d97706; }
+    
+    /* Retained Card */
+    .retained-card {
+        background: linear-gradient(135deg, #d97706, #f59e0b);
+        border-radius: 20px;
+        padding: 20px;
+        color: white;
+        text-align: center;
+    }
+    
+    .retained-card .amount {
+        font-size: 1.8rem;
+        font-weight: 700;
+    }
+    
+    .transaction-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .transaction-table thead th {
+        background: #1a1a2e;
+        color: white;
+        padding: 10px 12px;
+        font-size: 0.7rem;
+    }
+    
+    .transaction-table tbody td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .badge-inflow { background: #d1fae5; color: #059669; }
+    .badge-outflow { background: #fee2e2; color: #dc2626; }
+    .badge-retained { background: #fef3c7; color: #d97706; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Current Balance Card -->
+    <div class="balance-card">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h5><i class="bi bi-wallet2"></i> Current Cash Balance</h5>
+                <div class="balance-amount">Rs. {{ current_balance|floatformat:2 }}</div>
+                <small>Last updated: {% now "d-m-Y H:i" %}</small>
+            </div>
+            <div class="col-md-4 text-end">
+                <a href="{% url 'cash_add' %}" class="btn btn-light btn-sm">
+                    <i class="bi bi-plus-circle"></i> Add Cash
+                </a>
+                <a href="{% url 'cash_withdraw' %}" class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-dash-circle"></i> Withdraw
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Stats Grid -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-value inflow">+ Rs. {{ today_inflow|floatformat:2 }}</div>
+                <div class="stat-label">Today's Inflow</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-value outflow">- Rs. {{ today_outflow|floatformat:2 }}</div>
+                <div class="stat-label">Today's Outflow</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-value">Rs. {{ today_net|floatformat:2 }}</div>
+                <div class="stat-label">Today's Net</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-value">Rs. {{ month_net|floatformat:2 }}</div>
+                <div class="stat-label">Month's Net</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Retained Earnings + Profit Distribution Row -->
+    <div class="row mb-4">
+        <!-- Retained Earnings Card -->
+        <div class="col-md-6">
+            <div class="retained-card">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6><i class="bi bi-piggy-bank"></i> Retained Earnings</h6>
+                        <div class="amount">Rs. {{ retained_earnings|floatformat:2 }}</div>
+                        <small>Profit kept in company</small>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-light text-dark">
+                            <i class="bi bi-arrow-up"></i> 
+                            {% if retained_earnings > 0 %}
+                                {{ retained_earnings|floatformat:0 }}
+                            {% else %}
+                                0
+                            {% endif %}
+                        </span>
+                        <br>
+                        <small class="text-white-50">{{ pending_dividends_count }} pending dividends</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profit Distribution Card -->
+        <div class="col-md-6">
+            <div class="stat-card" style="text-align: left;">
+                <h6><i class="bi bi-pie-chart"></i> Profit Distribution</h6>
+                <div class="row mt-2">
+                    <div class="col-4 text-center">
+                        <div class="stat-value text-primary" style="font-size: 1.2rem;">Rs. {{ total_profit|floatformat:2 }}</div>
+                        <div class="stat-label">Total Profit</div>
+                    </div>
+                    <div class="col-4 text-center">
+                        <div class="stat-value text-success" style="font-size: 1.2rem;">Rs. {{ total_distributed|floatformat:2 }}</div>
+                        <div class="stat-label">Distributed</div>
+                    </div>
+                    <div class="col-4 text-center">
+                        <div class="stat-value retained" style="font-size: 1.2rem;">Rs. {{ retained_earnings|floatformat:2 }}</div>
+                        <div class="stat-label">Retained</div>
+                    </div>
+                </div>
+                <!-- Progress Bar -->
+                {% if total_profit > 0 %}
+                <div class="progress mt-2" style="height: 8px; border-radius: 10px;">
+                    <div class="progress-bar bg-success" role="progressbar" 
+                         style="width: {{ distributed_percent }}%; border-radius: 10px 0 0 10px;">
+                    </div>
+                    <div class="progress-bar bg-warning" role="progressbar" 
+                         style="width: {{ retained_percent }}%; border-radius: 0 10px 10px 0;">
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between mt-1">
+                    <small class="text-success">
+                        <i class="bi bi-circle-fill" style="font-size: 8px;"></i> 
+                        Distributed ({{ distributed_percent }}%)
+                    </small>
+                    <small class="text-warning">
+                        <i class="bi bi-circle-fill" style="font-size: 8px;"></i> 
+                        Retained ({{ retained_percent }}%)
+                    </small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Chart -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white">
+            <h6><i class="bi bi-graph-up"></i> Last 7 Days Cash Flow</h6>
+        </div>
+        <div class="card-body">
+            <canvas id="cashChart" height="100"></canvas>
+        </div>
+    </div>
+    
+    <!-- Recent Transactions -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h6><i class="bi bi-clock-history"></i> Recent Transactions</h6>
+            <a href="{% url 'cash_transactions' %}" class="btn btn-sm btn-outline-primary">View All</a>
+        </div>
+        <div class="card-body p-0">
+            <div style="overflow-x: auto;">
+                <table class="transaction-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Description</th>
+                            <th>Amount</th>
+                            <th>By</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for trans in recent_transactions %}
+                        <tr>
+                            <td>{{ trans.date|date:"d-m-Y H:i" }}</td>
+                            <td>
+                                <span class="badge {% if trans.is_inflow %}badge-inflow{% else %}badge-outflow{% endif %}">
+                                    {{ trans.get_transaction_type_display }}
+                                </span>
+                            </td>
+                            <td>{{ trans.description|truncatechars:40 }}</td>
+                            <td class="{% if trans.is_inflow %}inflow{% else %}outflow{% endif %}">
+                                {% if trans.is_inflow %}+{% else %}-{% endif %} Rs. {{ trans.amount|floatformat:2 }}
+                            </td>
+                            <td>{{ trans.created_by.username|default:'System' }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-3">No transactions yet</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('cashChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ chart_labels|safe }},
+            datasets: [
+                {
+                    label: 'Inflow (Rs.)',
+                    data: {{ chart_inflow|safe }},
+                    borderColor: '#059669',
+                    backgroundColor: 'rgba(5, 150, 105, 0.1)',
+                    fill: true
+                },
+                {
+                    label: 'Outflow (Rs.)',
+                    data: {{ chart_outflow|safe }},
+                    borderColor: '#dc2626',
+                    backgroundColor: 'rgba(220, 38, 38, 0.1)',
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true
+        }
+    });
+</script>
+{% endblock %}

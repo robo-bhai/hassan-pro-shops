@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Add Service - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>🛠️ Add New Service</h2>
+                <a href="{% url 'service_list' %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Back to Services
+                </a>
+            </div>
+            
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <!-- Basic Information -->
+                        <h5 class="mb-3">📋 Basic Information</h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Service Name <span class="text-danger">*</span></label>
+                                <input type="text" name="name" class="form-control" required placeholder="e.g., AC Repair Service">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Service Type <span class="text-danger">*</span></label>
+                                <select name="service_type" class="form-select" required>
+                                    <option value="">Select Type</option>
+                                    {% for key, value in service_types %}
+                                    <option value="{{ key }}">{{ value }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Category</label>
+                                <select name="category" class="form-select">
+                                    <option value="">Select Category</option>
+                                    {% for cat in categories %}
+                                    <option value="{{ cat.id }}">{{ cat.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Description</label>
+                                <textarea name="description" class="form-control" rows="3" placeholder="Service description..."></textarea>
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <!-- Pricing -->
+                        <h5 class="mb-3">💰 Pricing</h5>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Pricing Type <span class="text-danger">*</span></label>
+                                <select name="pricing_type" class="form-select" required>
+                                    {% for key, value in pricing_types %}
+                                    <option value="{{ key }}">{{ value }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Price (Rs.) <span class="text-danger">*</span></label>
+                                <input type="number" name="price" class="form-control" step="0.01" required placeholder="0.00">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Estimated Hours</label>
+                                <input type="number" name="estimated_hours" class="form-control" step="0.5" placeholder="1.0">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Min Charge (Rs.)</label>
+                                <input type="number" name="min_charge" class="form-control" step="0.01" placeholder="0.00">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Max Charge (Rs.)</label>
+                                <input type="number" name="max_charge" class="form-control" step="0.01" placeholder="0.00">
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <!-- Staff & Settings -->
+                        <h5 class="mb-3">👤 Staff & Settings</h5>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="form-check mt-2">
+                                    <input type="checkbox" name="requires_technician" class="form-check-input" id="requiresTechnician" checked>
+                                    <label class="form-check-label" for="requiresTechnician">Requires Technician</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check mt-2">
+                                    <input type="checkbox" name="needs_appointment" class="form-check-input" id="needsAppointment" checked>
+                                    <label class="form-check-label" for="needsAppointment">Needs Appointment</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check mt-2">
+                                    <input type="checkbox" name="is_active" class="form-check-input" id="isActive" checked>
+                                    <label class="form-check-label" for="isActive">Active</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Default Technician</label>
+                                <select name="default_technician" class="form-select">
+                                    <option value="">Select Technician</option>
+                                    {% for emp in employees %}
+                                    <option value="{{ emp.id }}">{{ emp.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Warranty (Months)</label>
+                                <input type="number" name="warranty_months" class="form-control" min="0" placeholder="0">
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <!-- Product Requirements -->
+                        <h5 class="mb-3">📦 Required Products</h5>
+                        <div id="productRequirements">
+                            <div class="row g-2 mb-2 product-row">
+                                <div class="col-md-5">
+                                    <select name="product_ids[]" class="form-select product-select">
+                                        <option value="">Select Product</option>
+                                        {% for product in products %}
+                                        <option value="{{ product.id }}">{{ product.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="number" name="quantities[]" class="form-control" step="0.01" placeholder="Qty" value="1">
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="form-check mt-2">
+                                        <input type="checkbox" name="is_optional[]" class="form-check-input">
+                                        <label class="form-check-label" style="font-size:0.85rem;">Optional</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <button type="button" class="btn btn-danger btn-sm remove-product-row">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="addProductRow">
+                            <i class="bi bi-plus-circle"></i> Add Product
+                        </button>
+                        
+                        <hr class="my-4">
+                        
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="{% url 'service_list' %}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> Create Service
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add product row
+        document.getElementById('addProductRow').addEventListener('click', function() {
+            const container = document.getElementById('productRequirements');
+            const firstRow = container.querySelector('.product-row');
+            const newRow = firstRow.cloneNode(true);
+            
+            // Clear input values
+            newRow.querySelectorAll('input').forEach(function(input) {
+                if (input.type === 'checkbox') {
+                    input.checked = false;
+                } else {
+                    input.value = '';
+                }
+            });
+            newRow.querySelector('select').selectedIndex = 0;
+            
+            container.appendChild(newRow);
+        });
+        
+        // Remove product row
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.remove-product-row')) {
+                const row = e.target.closest('.product-row');
+                const container = document.getElementById('productRequirements');
+                if (container.querySelectorAll('.product-row').length > 1) {
+                    row.remove();
+                } else {
+                    alert('At least one product row is required!');
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

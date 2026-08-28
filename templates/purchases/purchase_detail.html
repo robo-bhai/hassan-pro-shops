@@ -1,0 +1,675 @@
+<!-- purchases/purchase_detail.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Purchase Detail - {{ company_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary: #667eea;
+        --primary-dark: #5a67d8;
+        --success: #28a745;
+        --danger: #dc3545;
+        --warning: #f2994a;
+        --text: #1a1a2e;
+        --text-light: #6b7280;
+        --border: #eef0f5;
+        --shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+
+    /* Header */
+    .page-header {
+        background: white;
+        border-radius: 16px;
+        padding: 20px 24px;
+        border: 1px solid var(--border);
+        margin-bottom: 24px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+    }
+    .page-header .title-section h1 {
+        font-size: 1.4rem;
+        font-weight: 800;
+        margin: 0;
+        color: var(--text);
+    }
+    .page-header .title-section .subtitle {
+        font-size: 0.85rem;
+        color: var(--text-light);
+        margin-top: 2px;
+    }
+    .page-header .title-section .subtitle strong {
+        color: var(--text);
+    }
+    .header-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .header-actions .btn {
+        border-radius: 10px;
+        padding: 8px 18px;
+        font-weight: 600;
+        font-size: 0.82rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.3s;
+        border: none;
+        text-decoration: none;
+    }
+    .header-actions .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+    }
+    .btn-back {
+        background: #f0f2f7;
+        color: var(--text);
+    }
+    .btn-back:hover {
+        background: #e5e7ee;
+        color: var(--text);
+    }
+    .btn-pdf {
+        background: linear-gradient(135deg, #dc3545, #c82333);
+        color: white;
+    }
+    .btn-pdf:hover {
+        background: linear-gradient(135deg, #c82333, #a71d2a);
+        color: white;
+    }
+
+    /* Status Badge */
+    .status-badge-lg {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-size: 0.82rem;
+        font-weight: 700;
+    }
+    .status-badge-lg.paid {
+        background: #d4edda;
+        color: #155724;
+    }
+    .status-badge-lg.pending {
+        background: #fff3cd;
+        color: #856404;
+    }
+    .status-badge-lg .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    .status-badge-lg.paid .dot { background: var(--success); }
+    .status-badge-lg.pending .dot { background: var(--warning); }
+
+    /* Info Cards */
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+    }
+    .info-item {
+        background: #f8f9fc;
+        border-radius: 12px;
+        padding: 14px 18px;
+        border: 1px solid var(--border);
+        transition: all 0.2s;
+    }
+    .info-item:hover {
+        background: #f0f4ff;
+        border-color: var(--primary);
+    }
+    .info-item .label {
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: var(--text-light);
+        font-weight: 600;
+    }
+    .info-item .value {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text);
+        margin-top: 4px;
+    }
+    .info-item .value .code {
+        font-size: 0.8rem;
+        font-weight: 400;
+        color: var(--text-light);
+    }
+
+    /* Section Cards */
+    .section-card {
+        background: white;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        overflow: hidden;
+        margin-bottom: 24px;
+        box-shadow: var(--shadow);
+    }
+    .section-header {
+        padding: 16px 22px;
+        border-bottom: 1px solid var(--border);
+        background: #fafbfc;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .section-header h6 {
+        margin: 0;
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: var(--text);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .section-header h6 .icon {
+        font-size: 1.1rem;
+    }
+    .section-header .badge-count {
+        background: var(--primary);
+        color: white;
+        padding: 3px 12px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    .section-body {
+        padding: 0;
+        overflow-x: auto;
+    }
+
+    /* Tables */
+    .table-pro {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.88rem;
+        min-width: 700px;
+    }
+    .table-pro thead th {
+        background: #1a1d2e;
+        color: white;
+        padding: 12px 16px;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 1.2px;
+        font-weight: 700;
+        white-space: nowrap;
+        border: none;
+    }
+    .table-pro tbody td {
+        padding: 12px 16px;
+        border-bottom: 1px solid #f0f2f7;
+        color: var(--text);
+        vertical-align: middle;
+    }
+    .table-pro tbody tr {
+        transition: background 0.2s;
+    }
+    .table-pro tbody tr:hover {
+        background: #f8f9ff;
+    }
+    .table-pro tbody tr:nth-child(even) {
+        background: #fafbfd;
+    }
+    .table-pro tbody tr:nth-child(even):hover {
+        background: #f0f4ff;
+    }
+    .table-pro .text-end { text-align: right; }
+    .table-pro .text-center { text-align: center; }
+
+    .table-pro tfoot td {
+        padding: 12px 16px;
+        border-top: 2px solid var(--border);
+        font-weight: 700;
+    }
+    .table-pro tfoot .total-row {
+        background: #f8f9fc;
+    }
+    .table-pro tfoot .grand-total {
+        background: #1a1d2e;
+        color: white;
+        font-size: 1rem;
+    }
+    .table-pro tfoot .grand-total td {
+        padding: 14px 16px;
+    }
+
+    /* Product cell */
+    .product-cell .name {
+        font-weight: 600;
+        color: var(--text);
+    }
+    .product-cell .meta {
+        font-size: 0.75rem;
+        color: var(--text-light);
+        margin-top: 2px;
+    }
+
+    /* Return reason badge */
+    .reason-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.72rem;
+        font-weight: 600;
+    }
+    .reason-badge.damaged { background: #f8d7da; color: #721c24; }
+    .reason-badge.incorrect { background: #fff3cd; color: #856404; }
+    .reason-badge.expired { background: #d1ecf1; color: #0c5460; }
+    .reason-badge.other { background: #e2e3e5; color: #383d41; }
+
+    /* Amount colors */
+    .amount-positive { color: var(--success); }
+    .amount-negative { color: var(--danger); }
+    .amount-neutral { color: var(--text-light); }
+
+    /* Empty state */
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--text-light);
+    }
+    .empty-state .icon {
+        font-size: 3rem;
+        opacity: 0.3;
+        margin-bottom: 12px;
+    }
+    .empty-state h6 {
+        font-weight: 600;
+        color: var(--text);
+    }
+
+    /* Payment Type Badge */
+    .payment-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.72rem;
+        font-weight: 600;
+    }
+    .payment-badge.cash { background: #d4edda; color: #155724; }
+    .payment-badge.credit { background: #eef2ff; color: #4338ca; }
+    .payment-badge.mixed { background: #fff3cd; color: #856404; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .page-header {
+            padding: 16px;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .header-actions {
+            width: 100%;
+            justify-content: flex-start;
+        }
+        .header-actions .btn {
+            flex: 1;
+            justify-content: center;
+            padding: 8px 12px;
+            font-size: 0.75rem;
+        }
+        .info-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        .info-item {
+            padding: 10px 14px;
+        }
+        .info-item .value {
+            font-size: 0.85rem;
+        }
+        .section-header {
+            padding: 12px 16px;
+        }
+        .section-header h6 {
+            font-size: 0.82rem;
+        }
+        .table-pro {
+            font-size: 0.78rem;
+            min-width: 600px;
+        }
+        .table-pro thead th,
+        .table-pro tbody td,
+        .table-pro tfoot td {
+            padding: 8px 12px;
+        }
+        .product-cell .name {
+            font-size: 0.8rem;
+        }
+        .status-badge-lg {
+            font-size: 0.72rem;
+            padding: 4px 12px;
+        }
+        .payment-badge {
+            font-size: 0.65rem;
+            padding: 3px 10px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .info-grid {
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .info-item {
+            padding: 8px 12px;
+        }
+        .info-item .label {
+            font-size: 0.6rem;
+        }
+        .info-item .value {
+            font-size: 0.78rem;
+        }
+        .header-actions .btn {
+            font-size: 0.7rem;
+            padding: 6px 10px;
+        }
+        .header-actions .btn span {
+            display: none;
+        }
+        .status-badge-lg .text {
+            display: none;
+        }
+        .section-header h6 span {
+            display: none;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-4 py-3 py-md-4">
+
+    <!-- ========== HEADER ========== -->
+    <div class="page-header">
+        <div class="title-section">
+            <h1>
+                <i class="bi bi-receipt-cutoff text-primary me-2"></i>Purchase Detail
+            </h1>
+            <div class="subtitle">
+                <i class="bi bi-hash me-1"></i>
+                <strong>{{ purchase.bill_no|default:'Pending' }}</strong>
+                <span class="mx-2">•</span>
+                <i class="bi bi-building me-1"></i>
+                {{ purchase.vendor.name }}
+                <span class="mx-2">•</span>
+                <span class="status-badge-lg {% if purchase.outstanding_balance <= 0 %}paid{% else %}pending{% endif %}">
+                    <span class="dot"></span>
+                    <span class="text">{% if purchase.outstanding_balance <= 0 %}Paid{% else %}Pending{% endif %}</span>
+                </span>
+            </div>
+        </div>
+        <div class="header-actions">
+            <a href="{% url 'purchase_list' %}" class="btn btn-back">
+                <i class="bi bi-arrow-left"></i> <span>Back</span>
+            </a>
+            <a href="{% url 'purchase_pdf' purchase.pk %}" target="_blank" class="btn btn-pdf">
+                <i class="bi bi-file-pdf"></i> <span>PDF</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- ========== INFO CARDS ========== -->
+    <div class="info-grid mb-4">
+        <div class="info-item">
+            <div class="label"><i class="bi bi-building me-1"></i>Vendor</div>
+            <div class="value">{{ purchase.vendor.name }}</div>
+            <div class="value" style="font-size:0.75rem;font-weight:400;color:var(--text-light);">
+                Code: {{ purchase.vendor.vendor_code|default:'N/A' }}
+            </div>
+        </div>
+        <div class="info-item">
+            <div class="label"><i class="bi bi-calendar3 me-1"></i>Purchase Date</div>
+            <div class="value">{{ purchase.pur_date|date:"d M, Y" }}</div>
+            <div class="value" style="font-size:0.75rem;font-weight:400;color:var(--text-light);">
+                {{ purchase.pur_date|date:"h:i A" }}
+            </div>
+        </div>
+        <div class="info-item">
+            <div class="label"><i class="bi bi-warehouse me-1"></i>Warehouse</div>
+            <div class="value">{{ purchase.warehouse.name|default:'-' }}</div>
+            <div class="value" style="font-size:0.75rem;font-weight:400;color:var(--text-light);">
+                {{ purchase.warehouse.location.name|default:'No location' }}
+            </div>
+        </div>
+        <div class="info-item">
+            <div class="label"><i class="bi bi-credit-card me-1"></i>Payment</div>
+            <div class="value">
+                <span class="payment-badge {{ purchase.payment_type }}">
+                    <i class="bi {% if purchase.payment_type == 'cash' %}bi-cash{% elif purchase.payment_type == 'credit' %}bi-card-list{% else %}bi-arrow-left-right{% endif %}"></i>
+                    {{ purchase.get_payment_type_display|default:purchase.payment_type|title }}
+                </span>
+            </div>
+            {% if purchase.cash_used > 0 %}
+            <div class="value" style="font-size:0.75rem;font-weight:400;color:var(--text-light);">
+                Cash: Rs. {{ purchase.cash_used|floatformat:0 }}
+            </div>
+            {% endif %}
+        </div>
+        <div class="info-item" style="grid-column: span 1;">
+            <div class="label"><i class="bi bi-person me-1"></i>Created By</div>
+            <div class="value">{{ purchase.created_by.get_full_name|default:purchase.created_by.username|default:'System' }}</div>
+        </div>
+        <div class="info-item" style="grid-column: span 1;">
+            <div class="label"><i class="bi bi-clock me-1"></i>Created At</div>
+            <div class="value">{{ purchase.created_at|date:"d M, Y"|default:'-' }}</div>
+            <div class="value" style="font-size:0.75rem;font-weight:400;color:var(--text-light);">
+                {{ purchase.created_at|date:"h:i A"|default:'' }}
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== ITEMS TABLE ========== -->
+    <div class="section-card">
+        <div class="section-header">
+            <h6>
+                <span class="icon">📦</span> Purchase Items
+                <span class="badge-count">{{ items.count }}</span>
+            </h6>
+            <div style="font-size:0.78rem;color:var(--text-light);">
+                <i class="bi bi-box me-1"></i>Total Qty: {{ total_qty|floatformat:0|default:0 }}
+            </div>
+        </div>
+        <div class="section-body">
+            <table class="table-pro">
+                <thead>
+                    <tr>
+                        <th style="width:50px;">#</th>
+                        <th>Product</th>
+                        <th class="text-center">Qty</th>
+                        <th class="text-end">Unit Price</th>
+                        <th class="text-end">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td class="text-center">{{ forloop.counter }}</td>
+                        <td>
+                            <div class="product-cell">
+                                <div class="name">{{ item.product.name }}</div>
+                                <div class="meta">
+                                    {% if item.product.serial_no %}
+                                    <i class="bi bi-hash"></i> {{ item.product.serial_no }}
+                                    {% endif %}
+                                    {% if item.product.barcode %}
+                                    <span class="mx-1">•</span>
+                                    <i class="bi bi-upc-scan"></i> {{ item.product.barcode }}
+                                    {% endif %}
+                                    {% if item.product.unit %}
+                                    <span class="mx-1">•</span>
+                                    {{ item.product.unit.name }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td class="text-center fw-semibold">{{ item.qty|floatformat:0 }}</td>
+                        <td class="text-end">Rs. {{ item.price|floatformat:2 }}</td>
+                        <td class="text-end fw-semibold">Rs. {{ item.total_amt|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5">
+                            <div class="empty-state">
+                                <div class="icon">📭</div>
+                                <h6>No Items Found</h6>
+                                <p style="font-size:0.85rem;">This purchase has no items.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="3"></td>
+                        <td class="text-end fw-semibold">Subtotal</td>
+                        <td class="text-end">Rs. {{ total_amount|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="3"></td>
+                        <td class="text-end fw-semibold">Amount Paid</td>
+                        <td class="text-end amount-positive">Rs. {{ purchase.paid|floatformat:2 }}</td>
+                    </tr>
+                    <tr class="grand-total">
+                        <td colspan="3"></td>
+                        <td class="text-end" style="font-size:0.9rem;">
+                            <i class="bi bi-wallet2 me-1"></i> Outstanding
+                        </td>
+                        <td class="text-end" style="font-size:1.1rem;font-weight:800;">
+                            Rs. {{ outstanding_balance|floatformat:2 }}
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <!-- ========== RETURNS ========== -->
+    {% if returns %}
+    <div class="section-card">
+        <div class="section-header">
+            <h6>
+                <span class="icon">🔄</span> Purchase Returns
+                <span class="badge-count">{{ returns.count }}</span>
+            </h6>
+            <div style="font-size:0.78rem;color:var(--text-light);">
+                <i class="bi bi-arrow-return-left me-1 text-danger"></i>
+                Total Returns: <span class="text-danger fw-bold">-Rs. {{ total_return_amount|floatformat:2 }}</span>
+            </div>
+        </div>
+        <div class="section-body">
+            <table class="table-pro">
+                <thead>
+                    <tr>
+                        <th>Bill No</th>
+                        <th>Date</th>
+                        <th>Reason</th>
+                        <th class="text-end">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ret in returns %}
+                    <tr>
+                        <td>
+                            <strong>{{ ret.bill_no }}</strong>
+                            <div style="font-size:0.7rem;color:var(--text-light);">
+                                ID: #{{ ret.id }}
+                            </div>
+                        </td>
+                        <td>
+                            {{ ret.purchase_return_date|date:"d M, Y" }}
+                            <div style="font-size:0.7rem;color:var(--text-light);">
+                                {{ ret.purchase_return_date|date:"h:i A" }}
+                            </div>
+                        </td>
+                        <td>
+                            <span class="reason-badge {{ ret.return_reason }}">
+                                <i class="bi 
+                                    {% if ret.return_reason == 'damaged' %}bi-exclamation-triangle{% elif ret.return_reason == 'incorrect' %}bi-x-circle{% elif ret.return_reason == 'expired' %}bi-clock{% else %}bi-info-circle{% endif %}">
+                                </i>
+                                {{ ret.get_return_reason_display }}
+                            </span>
+                        </td>
+                        <td class="text-end amount-negative fw-semibold">
+                            -Rs. {{ ret.total_return_amount|floatformat:2 }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="3" class="text-end fw-bold">Total Returns</td>
+                        <td class="text-end amount-negative fw-bold">-Rs. {{ total_return_amount|floatformat:2 }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ========== RELATED GRNs ========== -->
+    {% if related_grns %}
+    <div class="section-card">
+        <div class="section-header">
+            <h6>
+                <span class="icon">📋</span> Related GRNs
+                <span class="badge-count">{{ related_grns.count }}</span>
+            </h6>
+        </div>
+        <div class="section-body">
+            <table class="table-pro">
+                <thead>
+                    <tr>
+                        <th>GRN No</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th class="text-end">Items</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for grn in related_grns %}
+                    <tr>
+                        <td>
+                            <strong>{{ grn.grn_no }}</strong>
+                            <div style="font-size:0.7rem;color:var(--text-light);">
+                                {{ grn.get_reason_display }}
+                            </div>
+                        </td>
+                        <td>
+                            {{ grn.grn_date|date:"d M, Y" }}
+                            <div style="font-size:0.7rem;color:var(--text-light);">
+                                {{ grn.grn_date|date:"h:i A" }}
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge bg-success bg-opacity-10 text-success">
+                                <i class="bi bi-check-circle me-1"></i>Received
+                            </span>
+                        </td>
+                        <td class="text-end fw-semibold">{{ grn.items.count }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

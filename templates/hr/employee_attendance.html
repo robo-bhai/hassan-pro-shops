@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Employee Attendance{% endblock %}
+{% block page_title %}📅 Attendance: {{ employee.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #4361ee, #3a0ca3);
+        border-radius: 20px;
+        padding: 25px 30px;
+        margin-bottom: 30px;
+        color: white;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 15px;
+        margin-bottom: 30px;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 16px;
+        padding: 15px;
+        text-align: center;
+        border: 1px solid #e9ecef;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: 800;
+    }
+    
+    .calendar-card {
+        background: white;
+        border-radius: 20px;
+        border: 1px solid #e9ecef;
+        overflow: hidden;
+    }
+    
+    .calendar-header {
+        padding: 18px 24px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 1px;
+        background: #e9ecef;
+    }
+    
+    .calendar-day {
+        background: white;
+        padding: 12px;
+        text-align: center;
+        min-height: 80px;
+    }
+    
+    .calendar-day.weekend {
+        background: #fef3c7;
+    }
+    
+    .day-number {
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+    
+    .attendance-dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-top: 5px;
+    }
+    
+    .attendance-dot.present { background: #059669; }
+    .attendance-dot.absent { background: #dc2626; }
+    .attendance-dot.late { background: #f8961e; }
+    .attendance-dot.halfday { background: #4361ee; }
+    
+    .btn-month {
+        background: white;
+        border: 1px solid #e9ecef;
+        padding: 5px 12px;
+        border-radius: 8px;
+        text-decoration: none;
+        color: #4361ee;
+        margin: 0 2px;
+    }
+    
+    .btn-month:hover {
+        background: #4361ee;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header">
+        <h1><i class="bi bi-person-badge"></i> {{ employee.name }}</h1>
+        <p>{{ employee.employee_id }} · {{ employee.get_department_display }}</p>
+    </div>
+    
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value text-success">{{ present|default:0 }}</div>
+            <div class="small">Present</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value text-danger">{{ absent|default:0 }}</div>
+            <div class="small">Absent</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value text-warning">{{ late|default:0 }}</div>
+            <div class="small">Late</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value text-primary">{{ halfday|default:0 }}</div>
+            <div class="small">Half Day</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ total_days|default:0 }}</div>
+            <div class="small">Total Days</div>
+        </div>
+    </div>
+    
+    <div class="calendar-card">
+        <div class="calendar-header">
+            <h5><i class="bi bi-calendar"></i> {{ month_name }}</h5>
+            <div>
+                <a href="?month={{ previous_month }}" class="btn-month">← Prev</a>
+                <a href="?month={% now "Y-m" %}" class="btn-month">Current</a>
+                <a href="?month={{ next_month }}" class="btn-month">Next →</a>
+            </div>
+        </div>
+        
+        <div class="calendar-grid">
+            <div class="calendar-day bg-light fw-bold text-center py-2">Sun</div>
+            <div class="calendar-day bg-light fw-bold text-center py-2">Mon</div>
+            <div class="calendar-day bg-light fw-bold text-center py-2">Tue</div>
+            <div class="calendar-day bg-light fw-bold text-center py-2">Wed</div>
+            <div class="calendar-day bg-light fw-bold text-center py-2">Thu</div>
+            <div class="calendar-day bg-light fw-bold text-center py-2">Fri</div>
+            <div class="calendar-day bg-light fw-bold text-center py-2">Sat</div>
+            
+            {% for day in calendar_data %}
+            <div class="calendar-day {% if day.is_weekend %}weekend{% endif %}">
+                <div class="day-number">{{ day.day }}</div>
+                {% if day.status == 'present' %}
+                    <div class="attendance-dot present"></div>
+                    <small class="text-success">Present</small>
+                {% elif day.status == 'absent' %}
+                    <div class="attendance-dot absent"></div>
+                    <small class="text-danger">Absent</small>
+                {% elif day.status == 'late' %}
+                    <div class="attendance-dot late"></div>
+                    <small class="text-warning">Late</small>
+                {% elif day.status == 'halfday' %}
+                    <div class="attendance-dot halfday"></div>
+                    <small class="text-primary">Half Day</small>
+                {% else %}
+                    <small class="text-muted">—</small>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

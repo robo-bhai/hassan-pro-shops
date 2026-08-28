@@ -1,0 +1,152 @@
+{% extends 'shareholders/portal/base.html' %}
+{% load static %}
+
+{% block title %}Deposit Request{% endblock %}
+
+{% block portal_content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-8 offset-lg-2">
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb" class="mt-2">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'shareholder_portal_dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Deposit Request</li>
+                </ol>
+            </nav>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="bi bi-plus-circle"></i> Deposit Request</h4>
+                </div>
+                <div class="card-body">
+                    <!-- Info Alert -->
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        Your deposit request will be sent to admin for approval.
+                        You will be notified once approved.
+                    </div>
+
+                    <!-- Current Balance -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h6 class="text-muted">Current Balance</h6>
+                                    <h3 class="text-success">Rs. {{ current_balance|floatformat:2 }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card bg-warning">
+                                <div class="card-body text-center">
+                                    <h6 class="text-dark">Pending Requests</h6>
+                                    <h3 class="text-dark">{{ pending_requests }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form method="POST" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <!-- Amount -->
+                        <div class="mb-3">
+                            <label class="form-label">Amount (Rs.) <span class="text-danger">*</span></label>
+                            <input type="number" name="amount" class="form-control form-control-lg" 
+                                   step="0.01" min="100" required
+                                   placeholder="Enter amount to deposit"
+                                   id="depositAmount">
+                            <small class="text-muted">Minimum: Rs. 100 | Maximum: Rs. 10,000,000</small>
+                        </div>
+
+                        <!-- Payment Method -->
+                        <div class="mb-3">
+                            <label class="form-label">Payment Method <span class="text-danger">*</span></label>
+                            <select name="payment_method" class="form-select" required>
+                                <option value="">Select Payment Method</option>
+                                {% for code, label in payment_methods %}
+                                <option value="{{ code }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Reference Number -->
+                        <div class="mb-3">
+                            <label class="form-label">Reference Number</label>
+                            <input type="text" name="reference_no" class="form-control" 
+                                   placeholder="Transaction ID, Cheque Number, etc.">
+                            <small class="text-muted">Optional but recommended</small>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="mb-3">
+                            <label class="form-label">Description / Notes</label>
+                            <textarea name="description" class="form-control" rows="3"
+                                      placeholder="Any additional information..."></textarea>
+                        </div>
+
+                        <!-- Attachment -->
+                        <div class="mb-3">
+                            <label class="form-label">Attachment (Optional)</label>
+                            <input type="file" name="attachment" class="form-control" 
+                                   accept=".jpg,.jpeg,.png,.pdf,.doc,.docx">
+                            <small class="text-muted">Upload payment proof (screenshot, receipt, etc.)</small>
+                        </div>
+
+                        <!-- Note -->
+                        <div class="alert alert-warning">
+                            <i class="bi bi-shield-check"></i>
+                            <strong>Note:</strong> Your request will be reviewed by admin. 
+                            Balance will be updated after approval.
+                            <br>
+                            <small>Estimated approval time: 24-48 hours</small>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'shareholder_portal_dashboard' %}" class="btn btn-secondary me-md-2">
+                                <i class="bi bi-arrow-left"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-send"></i> Submit Request
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Quick Links -->
+            <div class="row mt-3">
+                <div class="col-6">
+                    <a href="{% url 'shareholder_portal_deposit_history' %}" class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-clock-history"></i> View History
+                    </a>
+                </div>
+                <div class="col-6">
+                    <a href="{% url 'shareholder_portal_dashboard' %}" class="btn btn-outline-primary w-100">
+                        <i class="bi bi-house"></i> Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Live amount formatting
+    document.getElementById('depositAmount')?.addEventListener('input', function() {
+        const val = this.value;
+        if (val) {
+            const num = parseFloat(val);
+            if (num > 10000000) {
+                this.classList.add('is-invalid');
+                this.setCustomValidity('Amount exceeds maximum limit!');
+            } else {
+                this.classList.remove('is-invalid');
+                this.setCustomValidity('');
+            }
+        }
+    });
+</script>
+{% endblock %}

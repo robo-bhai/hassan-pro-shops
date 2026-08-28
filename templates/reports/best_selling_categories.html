@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Best Selling Categories{% endblock %}
+{% block page_title %}📁 Best Selling Categories{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filter-bar { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e9ecef; }
+    .category-card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 12px; border: 1px solid #e9ecef; transition: all 0.2s; }
+    .category-card:hover { transform: translateX(5px); background: #f8f9fc; }
+    .progress-bar-custom { height: 6px; background: #e9ecef; border-radius: 10px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #4361ee, #3a0ca3); border-radius: 10px; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="filter-bar">
+        <form method="post">{% csrf_token %} method="GET" class="row g-3 align-items-end">
+            <div class="col-md-4"><label class="form-label small">From Date</label><input type="date" name="from_date" class="form-control" value="{{ from_date }}"></div>
+            <div class="col-md-4"><label class="form-label small">To Date</label><input type="date" name="to_date" class="form-control" value="{{ to_date }}"></div>
+            <div class="col-md-4"><button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> Show Report</button></div>
+        </form>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-white"><strong><i class="bi bi-pie-chart"></i> Category Distribution</strong></div>
+                <div class="card-body"><canvas id="categoryChart" height="250"></canvas></div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-white"><strong><i class="bi bi-list-ul"></i> Category Performance</strong></div>
+                <div class="card-body">
+                    {% for cat in category_sales %}
+                    <div class="category-card">
+                        <div class="d-flex justify-content-between">
+                            <div><strong>{{ cat.product__category__name }}</strong><div class="small text-muted">{{ cat.total_qty|floatformat:0 }} units sold</div></div>
+                            <div class="text-end"><span class="fw-bold">PKR {{ cat.total_sales|floatformat:0 }}</span><br><small class="text-muted">Profit: PKR {{ cat.total_profit|floatformat:0 }}</small></div>
+                        </div>
+                        <div class="mt-2"><div class="progress-bar-custom"><div class="progress-fill" style="width: {{ cat.percentage }}%"></div></div></div>
+                    </div>
+                    {% empty %}<div class="text-center text-muted">No category data available</div>{% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const categoryData = {{ category_sales|safe }};
+    new Chart(document.getElementById('categoryChart'), {
+        type: 'pie',
+        data: { labels: categoryData.map(c => c.product__category__name), datasets: [{ data: categoryData.map(c => c.total_sales), backgroundColor: ['#4361ee', '#3a0ca3', '#7209b7', '#f72585', '#4cc9f0'] }] },
+        options: { responsive: true, maintainAspectRatio: true }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,874 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Vendor Pricing Report{% endblock %}
+{% block page_title %}📊 Vendor Pricing Report{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary: #4361ee;
+        --primary-dark: #3a0ca3;
+        --success: #10b981;
+        --success-light: #d1fae5;
+        --danger: #ef4444;
+        --danger-light: #fee2e2;
+        --warning: #f59e0b;
+        --warning-light: #fef3c7;
+        --dark: #111827;
+        --gray: #6b7280;
+        --gray-light: #f3f4f6;
+        --border: #e5e7eb;
+        --white: #ffffff;
+        --shadow: 0 1px 3px rgba(0,0,0,0.1);
+        --shadow-lg: 0 10px 40px rgba(0,0,0,0.12);
+        --radius: 16px;
+        --radius-sm: 8px;
+    }
+    
+    /* ========== PAGE HEADER ========== */
+    .page-header-modern {
+        background: linear-gradient(135deg, var(--dark) 0%, #1f2937 100%);
+        border-radius: var(--radius);
+        padding: 24px 32px;
+        margin-bottom: 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+        border: 1px solid rgba(255,255,255,0.06);
+    }
+    
+    .page-header-modern h1 {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: white;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .page-header-modern h1 i {
+        color: #8b5cf6;
+    }
+    
+    .page-header-modern .subtitle {
+        color: #9ca3af;
+        font-size: 0.85rem;
+        margin: 4px 0 0 0;
+    }
+    
+    .header-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    
+    .btn-modern {
+        padding: 9px 20px;
+        border-radius: var(--radius-sm);
+        font-weight: 600;
+        font-size: 0.8rem;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+    }
+    
+    .btn-modern:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    
+    .btn-modern.primary {
+        background: var(--primary);
+        color: white;
+    }
+    
+    .btn-modern.primary:hover {
+        background: var(--primary-dark);
+    }
+    
+    .btn-modern.success {
+        background: var(--success);
+        color: white;
+    }
+    
+    .btn-modern.success:hover {
+        background: #059669;
+    }
+    
+    .btn-modern.secondary {
+        background: rgba(255,255,255,0.1);
+        color: white;
+        border: 1px solid rgba(255,255,255,0.15);
+    }
+    
+    .btn-modern.secondary:hover {
+        background: rgba(255,255,255,0.2);
+    }
+    
+    /* ========== STATS CARDS ========== */
+    .stats-grid-modern {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    
+    .stat-card-modern {
+        background: var(--white);
+        border-radius: var(--radius);
+        padding: 20px 24px;
+        border: 1px solid var(--border);
+        transition: all 0.2s;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stat-card-modern::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+    }
+    
+    .stat-card-modern.purple::before { background: linear-gradient(90deg, #8b5cf6, #6d28d9); }
+    .stat-card-modern.green::before { background: linear-gradient(90deg, #10b981, #059669); }
+    .stat-card-modern.blue::before { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+    .stat-card-modern.orange::before { background: linear-gradient(90deg, #f59e0b, #d97706); }
+    
+    .stat-card-modern:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+    }
+    
+    .stat-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .stat-icon-modern {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+    }
+    
+    .stat-icon-modern.purple { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
+    .stat-icon-modern.green { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+    .stat-icon-modern.blue { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+    .stat-icon-modern.orange { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+    
+    .stat-number-modern {
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: var(--dark);
+        line-height: 1.2;
+    }
+    
+    .stat-label-modern {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: var(--gray);
+        margin-top: 4px;
+    }
+    
+    /* ========== REPORT CONTAINER ========== */
+    .report-container-modern {
+        background: var(--white);
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        overflow: hidden;
+        box-shadow: var(--shadow);
+    }
+    
+    .report-header-modern {
+        padding: 18px 24px;
+        background: var(--gray-light);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    
+    .report-header-modern h5 {
+        margin: 0;
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: var(--dark);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .report-header-modern .badge-modern {
+        background: var(--primary);
+        color: white;
+        padding: 3px 12px;
+        border-radius: 30px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .table-scroll-modern {
+        overflow-x: auto;
+        padding: 0 12px 12px 12px;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* ========== TABLE ========== */
+    .pricing-table-modern {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 0.78rem;
+        min-width: 700px;
+    }
+    
+    .pricing-table-modern thead th {
+        background: var(--dark);
+        color: white;
+        padding: 12px 14px;
+        font-weight: 600;
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        text-align: center;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        white-space: nowrap;
+    }
+    
+    .pricing-table-modern thead th:first-child {
+        border-radius: 8px 0 0 0;
+    }
+    
+    .pricing-table-modern thead th:last-child {
+        border-radius: 0 8px 0 0;
+    }
+    
+    .pricing-table-modern thead th.vendor-header {
+        background: #1f2937;
+        font-size: 0.65rem;
+        min-width: 80px;
+    }
+    
+    .pricing-table-modern thead th.vendor-header a {
+        color: white;
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+    
+    .pricing-table-modern thead th.vendor-header a:hover {
+        color: #8b5cf6;
+    }
+    
+    .pricing-table-modern tbody td {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+        text-align: center;
+        vertical-align: middle;
+        background: white;
+        transition: background 0.15s;
+    }
+    
+    .pricing-table-modern tbody tr:hover td {
+        background: #f8fafc;
+    }
+    
+    .pricing-table-modern .product-cell {
+        text-align: left;
+        font-weight: 600;
+        color: var(--dark);
+        min-width: 160px;
+    }
+    
+    .pricing-table-modern .product-cell .product-code {
+        display: block;
+        font-size: 0.6rem;
+        font-weight: 400;
+        color: var(--gray);
+        margin-top: 2px;
+    }
+    
+    .pricing-table-modern .unit-cell {
+        font-size: 0.65rem;
+        color: var(--gray);
+        min-width: 45px;
+    }
+    
+    /* Price Cell */
+    .price-cell-modern {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-weight: 600;
+        font-family: monospace;
+        font-size: 0.78rem;
+        min-width: 60px;
+        transition: all 0.2s;
+    }
+    
+    .price-cell-modern.has-price {
+        background: #f8fafc;
+        color: var(--dark);
+        border: 1px solid transparent;
+    }
+    
+    .price-cell-modern.has-price:hover {
+        border-color: var(--primary);
+        background: #eef2ff;
+        transform: scale(1.02);
+    }
+    
+    .price-cell-modern.no-price {
+        color: #d1d5db;
+        font-size: 0.7rem;
+    }
+    
+    .price-cell-modern.best-price {
+        background: var(--success-light) !important;
+        color: #065f46 !important;
+        border-color: #10b981 !important;
+        font-weight: 700;
+        position: relative;
+    }
+    
+    .price-cell-modern.best-price::after {
+        content: '⭐';
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        font-size: 0.6rem;
+    }
+    
+    .price-cell-modern.worst-price {
+        background: var(--danger-light) !important;
+        color: #991b1b !important;
+        border-color: #ef4444 !important;
+    }
+    
+    .price-cell-modern .qty-badge {
+        display: block;
+        font-size: 0.5rem;
+        color: var(--gray);
+        font-weight: 400;
+        margin-top: 1px;
+    }
+    
+    .price-cell-modern .date-badge {
+        display: block;
+        font-size: 0.5rem;
+        color: #9ca3af;
+        font-weight: 400;
+    }
+    
+    /* Stats Cells */
+    .stats-cell-modern {
+        font-weight: 700;
+        font-size: 0.75rem;
+        padding: 4px 8px;
+        border-radius: 4px;
+        display: inline-block;
+        min-width: 60px;
+    }
+    
+    .stats-cell-modern.min {
+        color: #065f46;
+        background: var(--success-light);
+    }
+    
+    .stats-cell-modern.max {
+        color: #991b1b;
+        background: var(--danger-light);
+    }
+    
+    .stats-cell-modern.avg {
+        color: #1e40af;
+        background: #dbeafe;
+    }
+    
+    /* Row Number */
+    .row-number {
+        font-weight: 600;
+        color: var(--gray);
+        font-size: 0.7rem;
+    }
+    
+    /* ========== LEGEND ========== */
+    .legend-modern {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        padding: 12px 20px;
+        background: var(--gray-light);
+        border-top: 1px solid var(--border);
+        font-size: 0.7rem;
+    }
+    
+    .legend-item-modern {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .legend-color-modern {
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        border: 1px solid var(--border);
+    }
+    
+    .legend-color-modern.best { background: var(--success-light); border-color: #10b981; }
+    .legend-color-modern.worst { background: var(--danger-light); border-color: #ef4444; }
+    .legend-color-modern.no-data { background: #f3f4f6; border-color: #d1d5db; }
+    
+    /* ========== QUICK NAV ========== */
+    .quick-nav-modern {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        padding: 10px 16px;
+        background: var(--gray-light);
+        border-bottom: 1px solid var(--border);
+    }
+    
+    .quick-nav-modern a {
+        padding: 4px 14px;
+        border-radius: 20px;
+        background: white;
+        border: 1px solid var(--border);
+        font-size: 0.7rem;
+        color: var(--gray);
+        text-decoration: none;
+        transition: all 0.2s;
+        font-weight: 500;
+    }
+    
+    .quick-nav-modern a:hover {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+        transform: translateY(-1px);
+    }
+    
+    /* ========== NO DATA ========== */
+    .no-data-modern {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--gray);
+    }
+    
+    .no-data-modern .icon {
+        font-size: 4rem;
+        opacity: 0.2;
+        margin-bottom: 16px;
+    }
+    
+    .no-data-modern h4 {
+        font-size: 1.1rem;
+        color: var(--dark);
+        margin-bottom: 8px;
+    }
+    
+    /* ========== TOOLTIP ========== */
+    .tooltip-trigger {
+        cursor: help;
+        border-bottom: 1px dashed var(--gray);
+    }
+    
+    /* ========== RESPONSIVE ========== */
+    @media (max-width: 768px) {
+        .page-header-modern {
+            padding: 16px 20px;
+            flex-direction: column;
+            align-items: stretch;
+            text-align: center;
+        }
+        
+        .page-header-modern h1 {
+            font-size: 1.1rem;
+            justify-content: center;
+        }
+        
+        .header-actions {
+            justify-content: center;
+        }
+        
+        .stats-grid-modern {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        
+        .stat-number-modern {
+            font-size: 1.3rem;
+        }
+        
+        .pricing-table-modern {
+            min-width: 600px;
+            font-size: 0.7rem;
+        }
+        
+        .pricing-table-modern thead th,
+        .pricing-table-modern tbody td {
+            padding: 8px 10px;
+        }
+        
+        .price-cell-modern {
+            padding: 3px 6px;
+            font-size: 0.7rem;
+            min-width: 45px;
+        }
+        
+        .legend-modern {
+            gap: 12px;
+            font-size: 0.65rem;
+        }
+        
+        .report-header-modern {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .quick-nav-modern a {
+            font-size: 0.6rem;
+            padding: 3px 10px;
+        }
+    }
+    
+    @media print {
+        .page-header-modern { background: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .btn-modern { display: none; }
+        .quick-nav-modern { display: none; }
+        .report-header-modern { background: #f3f4f6 !important; }
+        .pricing-table-modern thead th { background: #000 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .pricing-table-modern thead th.vendor-header { background: #1f2937 !important; }
+        .price-cell-modern.best-price { background: #d1fae5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .price-cell-modern.worst-price { background: #fee2e2 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .stats-cell-modern.min { background: #d1fae5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .stats-cell-modern.max { background: #fee2e2 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .stats-cell-modern.avg { background: #dbeafe !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .no-data-modern { padding: 30px 20px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ========== PAGE HEADER ========== -->
+<div class="page-header-modern">
+    <div>
+        <h1>
+            <i class="bi bi-table"></i> Vendor Pricing Matrix
+            <span style="font-size:0.7rem;font-weight:400;opacity:0.6;margin-left:12px;">
+                {{ total_products }} products · {{ total_vendors }} vendors
+            </span>
+        </h1>
+        <p class="subtitle">
+            <i class="bi bi-clock-history"></i> 
+            Latest prices from all vendors · Updated in real-time
+        </p>
+    </div>
+    <div class="header-actions">
+        <button class="btn-modern primary" onclick="window.print()">
+            <i class="bi bi-printer"></i> Print
+        </button>
+        <a href="{% url 'vendor_pricing_report_export' %}" class="btn-modern success">
+            <i class="bi bi-file-earmark-excel"></i> Export Excel
+        </a>
+        <a href="{% url 'vendor_list' %}" class="btn-modern secondary">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
+    </div>
+</div>
+
+<!-- ========== STATS CARDS ========== -->
+<div class="stats-grid-modern">
+    <div class="stat-card-modern purple">
+        <div class="stat-top">
+            <div>
+                <div class="stat-number-modern">{{ total_products }}</div>
+                <div class="stat-label-modern">Total Products</div>
+            </div>
+            <div class="stat-icon-modern purple"><i class="bi bi-box"></i></div>
+        </div>
+    </div>
+    
+    <div class="stat-card-modern blue">
+        <div class="stat-top">
+            <div>
+                <div class="stat-number-modern">{{ total_vendors }}</div>
+                <div class="stat-label-modern">Total Vendors</div>
+            </div>
+            <div class="stat-icon-modern blue"><i class="bi bi-building"></i></div>
+        </div>
+    </div>
+    
+    <div class="stat-card-modern green">
+        <div class="stat-top">
+            <div>
+                <div class="stat-number-modern">
+                    {% if has_data %}
+                        <span style="color:#10b981;">✓</span>
+                    {% else %}
+                        <span style="color:#ef4444;">✗</span>
+                    {% endif %}
+                </div>
+                <div class="stat-label-modern">Data Available</div>
+            </div>
+            <div class="stat-icon-modern green">
+                <i class="bi {% if has_data %}bi-check-circle-fill{% else %}bi-x-circle-fill{% endif %}"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="stat-card-modern orange">
+        <div class="stat-top">
+            <div>
+                <div class="stat-number-modern">
+                    {% with total_cells=0 %}
+                        {% for row in pricing_matrix %}
+                            {% for vendor in vendors %}
+                                {% if row.prices|get_item:vendor.id %}
+                                    {% with total_cells=total_cells|add:1 %}{% endwith %}
+                                {% endif %}
+                            {% endfor %}
+                        {% endfor %}
+                    {% endwith %}
+                    {{ total_products|add:total_vendors }}
+                </div>
+                <div class="stat-label-modern">Price Points</div>
+            </div>
+            <div class="stat-icon-modern orange"><i class="bi bi-grid-3x3-gap-fill"></i></div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== REPORT ========== -->
+<div class="report-container-modern">
+    
+    <!-- Header -->
+    <div class="report-header-modern">
+        <h5>
+            <i class="bi bi-grid-3x3-gap-fill" style="color:#8b5cf6;"></i>
+            Pricing Matrix
+            <span class="badge-modern">{{ total_vendors }} Vendors</span>
+        </h5>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <span style="font-size:0.65rem;color:var(--gray);">
+                <span style="display:inline-block;width:10px;height:10px;background:#d1fae5;border-radius:2px;border:1px solid #10b981;vertical-align:middle;"></span>
+                Best Price
+            </span>
+            <span style="font-size:0.65rem;color:var(--gray);">
+                <span style="display:inline-block;width:10px;height:10px;background:#fee2e2;border-radius:2px;border:1px solid #ef4444;vertical-align:middle;"></span>
+                Highest Price
+            </span>
+            <span style="font-size:0.65rem;color:var(--gray);">
+                <span style="display:inline-block;width:10px;height:10px;background:#f3f4f6;border-radius:2px;border:1px solid #d1d5db;vertical-align:middle;"></span>
+                No Data
+            </span>
+        </div>
+    </div>
+    
+    <!-- Quick Navigation -->
+    <div class="quick-nav-modern">
+        <span style="font-weight:600;font-size:0.7rem;color:var(--gray);">Jump to:</span>
+        {% for vendor in vendors %}
+        <a href="#vendor-{{ vendor.id }}">{{ vendor.name|truncatechars:8 }}</a>
+        {% endfor %}
+    </div>
+    
+    <!-- Table -->
+    {% if has_data %}
+    <div class="table-scroll-modern">
+        <table class="pricing-table-modern">
+            <thead>
+                <tr>
+                    <th style="min-width:35px;">#</th>
+                    <th style="min-width:160px;text-align:left;">Product</th>
+                    <th style="min-width:45px;">Unit</th>
+                    {% for vendor in vendors %}
+                    <th class="vendor-header" style="min-width:85px;" id="vendor-{{ vendor.id }}">
+                        <a href="{% url 'vendor_ledger' vendor.id %}" title="View Ledger">
+                            {{ vendor.name|truncatechars:10 }}
+                        </a>
+                        <br>
+                        <span style="font-weight:400;font-size:0.55rem;color:#9ca3af;">
+                            {{ vendor_stats|get_item:vendor.id|get_item:'product_count'|default:0 }} products
+                        </span>
+                    </th>
+                    {% endfor %}
+                    <th style="min-width:70px;">Min</th>
+                    <th style="min-width:70px;">Max</th>
+                    <th style="min-width:70px;">Avg</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in pricing_matrix %}
+                <tr>
+                    <td><span class="row-number">{{ forloop.counter }}</span></td>
+                    <td class="product-cell">
+                        {{ row.product_name }}
+                        <span class="product-code">
+                            {% if row.product.serial_no %}S/N: {{ row.product.serial_no }}{% endif %}
+                            {% if row.product.barcode %} · BC: {{ row.product.barcode }}{% endif %}
+                        </span>
+                    </td>
+                    <td class="unit-cell">{{ row.unit|default:'—' }}</td>
+                    
+                    {% for vendor in vendors %}
+                    <td>
+                        {% with price_data=row.prices|get_item:vendor.id %}
+                            {% if price_data %}
+                                <span class="price-cell-modern has-price" title="Qty: {{ price_data.qty }} · Date: {{ price_data.date|date:'d-m-Y' }}">
+                                    Rs. {{ price_data.price|floatformat:2 }}
+                                    <span class="qty-badge">{{ price_data.qty }} units</span>
+                                    <span class="date-badge">{{ price_data.date|date:'d-m-Y' }}</span>
+                                </span>
+                            {% else %}
+                                <span class="price-cell-modern no-price">—</span>
+                            {% endif %}
+                        {% endwith %}
+                    </td>
+                    {% endfor %}
+                    
+                    <!-- Min, Max, Avg -->
+                    <td>
+                        {% with price_values=row.prices|list_values %}
+                            {% if price_values|length > 0 %}
+                                <span class="stats-cell-modern min">Rs. {{ price_values|min|floatformat:2 }}</span>
+                            {% else %}
+                                <span style="color:#d1d5db;font-size:0.7rem;">—</span>
+                            {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td>
+                        {% with price_values=row.prices|list_values %}
+                            {% if price_values|length > 0 %}
+                                <span class="stats-cell-modern max">Rs. {{ price_values|max|floatformat:2 }}</span>
+                            {% else %}
+                                <span style="color:#d1d5db;font-size:0.7rem;">—</span>
+                            {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td>
+                        {% with price_values=row.prices|list_values %}
+                            {% if price_values|length > 0 %}
+                                <span class="stats-cell-modern avg">Rs. {{ price_values|avg|floatformat:2 }}</span>
+                            {% else %}
+                                <span style="color:#d1d5db;font-size:0.7rem;">—</span>
+                            {% endif %}
+                        {% endwith %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Legend -->
+    <div class="legend-modern">
+        <span class="legend-item-modern">
+            <span class="legend-color-modern best"></span>
+            Best Price — Lowest price among all vendors
+        </span>
+        <span class="legend-item-modern">
+            <span class="legend-color-modern worst"></span>
+            Highest Price — Highest price among all vendors
+        </span>
+        <span class="legend-item-modern">
+            <span class="legend-color-modern no-data"></span>
+            No Data — Not purchased from this vendor
+        </span>
+        <span class="legend-item-modern" style="margin-left:auto;font-weight:500;color:var(--gray);">
+            <i class="bi bi-info-circle"></i>
+            Hover on price to see details
+        </span>
+    </div>
+    
+    {% else %}
+    <!-- No Data -->
+    <div class="no-data-modern">
+        <div class="icon">📊</div>
+        <h4>No Pricing Data Available</h4>
+        <p>Start by adding purchases with products to see the vendor pricing matrix.</p>
+        <br>
+        <a href="{% url 'purchase_create' %}" class="btn-modern primary" style="display:inline-flex;">
+            <i class="bi bi-plus-lg"></i> Add First Purchase
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Highlight best and worst prices in each row
+        const rows = document.querySelectorAll('.pricing-table-modern tbody tr');
+        
+        rows.forEach(row => {
+            const priceCells = row.querySelectorAll('.price-cell-modern.has-price');
+            let prices = [];
+            
+            priceCells.forEach(cell => {
+                const text = cell.textContent.trim();
+                const match = text.match(/Rs\.\s*([\d.]+)/);
+                if (match) {
+                    prices.push({
+                        element: cell,
+                        value: parseFloat(match[1])
+                    });
+                }
+            });
+            
+            if (prices.length > 1) {
+                const minPrice = Math.min(...prices.map(p => p.value));
+                const maxPrice = Math.max(...prices.map(p => p.value));
+                
+                prices.forEach(p => {
+                    // Remove existing classes first
+                    p.element.classList.remove('best-price', 'worst-price');
+                    
+                    if (p.value === minPrice) {
+                        p.element.classList.add('best-price');
+                    }
+                    if (p.value === maxPrice && minPrice !== maxPrice) {
+                        p.element.classList.add('worst-price');
+                    }
+                });
+            }
+        });
+        
+        // Smooth scroll for quick nav
+        document.querySelectorAll('.quick-nav-modern a').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href');
+                const target = document.querySelector(targetId);
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

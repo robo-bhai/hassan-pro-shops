@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Supplier Analytics{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-graph-up text-primary"></i> Supplier Analytics</h2>
+            <p class="text-muted">Supplier performance metrics</p>
+        </div>
+        <div>
+            <a href="{% url 'supplier_list' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- STATS                                      -->
+    <!-- ========================================== -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h6>Total Suppliers</h6>
+                    <h3>{{ total_suppliers }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h6>Active</h6>
+                    <h3>{{ active_suppliers }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h6>Avg Rating</h6>
+                    <h3>{{ avg_rating|floatformat:1 }} ★</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h6>Avg Lead Time</h6>
+                    <h3>{{ avg_lead_time|floatformat:1 }} days</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- TOP SUPPLIERS                             -->
+    <!-- ========================================== -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white">
+            <h6 class="mb-0"><i class="bi bi-star text-warning"></i> Top Rated Suppliers</h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>Supplier</th>
+                            <th>Rating</th>
+                            <th>On-Time %</th>
+                            <th>Quality %</th>
+                            <th>Lead Time</th>
+                            <th>Total Orders</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for supplier in top_suppliers %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>
+                                <a href="{% url 'supplier_detail' supplier.id %}" class="text-decoration-none fw-bold">
+                                    {{ supplier.name }}
+                                </a>
+                            </td>
+                            <td>
+                                <span class="badge 
+                                    {% if supplier.rating >= 4.5 %}bg-success
+                                    {% elif supplier.rating >= 4.0 %}bg-primary
+                                    {% elif supplier.rating >= 3.0 %}bg-warning
+                                    {% else %}bg-danger{% endif %}">
+                                    {{ supplier.rating|floatformat:1 }} ★
+                                </span>
+                            </td>
+                            <td>{{ supplier.on_time_delivery_rate|floatformat:1 }}%</td>
+                            <td>{{ supplier.quality_score|floatformat:1 }}%</td>
+                            <td>{{ supplier.lead_time }} days</td>
+                            <td>{{ supplier.total_orders }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">
+                                <i class="bi bi-inbox fs-2 d-block"></i>
+                                <p>No suppliers found</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

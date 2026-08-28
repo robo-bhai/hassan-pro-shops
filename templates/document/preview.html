@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Preview - {{ document.title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-eye text-primary"></i> Document Preview</h2>
+            <p class="text-muted">{{ document.title }}</p>
+        </div>
+        <div>
+            <a href="{% url 'document_download' document.id %}" class="btn btn-success">
+                <i class="bi bi-download"></i> Download
+            </a>
+            <a href="{% url 'document_detail' document.id %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    
+    <div class="card shadow-sm border-0">
+        <div class="card-body text-center">
+            {% if document.file.name|lower|slice:"-3:" == "pdf" %}
+            <iframe src="{{ document.file.url }}" style="width:100%; height:600px; border:none;"></iframe>
+            {% elif document.file.name|lower|slice:"-3:" in "jpg png gif" %}
+            <img src="{{ document.file.url }}" class="img-fluid" style="max-height:600px;" alt="{{ document.title }}">
+            {% else %}
+            <div class="py-5">
+                <i class="bi bi-file-earmark display-1 text-muted"></i>
+                <h5 class="mt-3">Preview not available for this file type</h5>
+                <p class="text-muted">Please download the file to view it.</p>
+                <a href="{% url 'document_download' document.id %}" class="btn btn-primary">
+                    <i class="bi bi-download"></i> Download File
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

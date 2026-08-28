@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Service Inventory Dashboard - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>📦 Service Inventory Dashboard</h2>
+                <div>
+                    <a href="{% url 'service_inventory_list' %}" class="btn btn-primary">
+                        <i class="bi bi-list"></i> View All Items
+                    </a>
+                    <a href="{% url 'service_inventory_create' %}" class="btn btn-success">
+                        <i class="bi bi-plus-circle"></i> Add Item
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Stats Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card text-white bg-primary">
+                        <div class="card-body">
+                            <h6 class="card-title"><i class="bi bi-box"></i> Total Items</h6>
+                            <h2 class="mb-0">{{ total_items|default:0 }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-warning">
+                        <div class="card-body">
+                            <h6 class="card-title"><i class="bi bi-exclamation-triangle"></i> Low Stock</h6>
+                            <h2 class="mb-0">{{ low_stock_items|default:0 }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-danger">
+                        <div class="card-body">
+                            <h6 class="card-title"><i class="bi bi-exclamation-circle"></i> Critical Stock</h6>
+                            <h2 class="mb-0">{{ critical_stock|default:0 }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-success">
+                        <div class="card-body">
+                            <h6 class="card-title"><i class="bi bi-currency-rupee"></i> Total Value</h6>
+                            <h2 class="mb-0">Rs. {{ total_value|floatformat:0|intcomma }}</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <!-- Recent Transactions -->
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">📋 Recent Transactions</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Item</th>
+                                            <th>Type</th>
+                                            <th>Qty</th>
+                                            <th>Balance</th>
+                                            <th>Time</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for trans in recent_transactions %}
+                                        <tr>
+                                            <td>{{ trans.inventory_item.name }}</td>
+                                            <td>
+                                                <span class="badge bg-{% if trans.transaction_type == 'received' %}success{% elif trans.transaction_type == 'consumed' %}warning{% elif trans.transaction_type == 'adjusted' %}info{% else %}secondary{% endif %}">
+                                                    {{ trans.get_transaction_type_display }}
+                                                </span>
+                                            </td>
+                                            <td>{{ trans.quantity }}</td>
+                                            <td>{{ trans.balance_after }}</td>
+                                            <td>{{ trans.created_at|date:"d-m-Y H:i" }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="5" class="text-center">No transactions yet.</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Top Used Items -->
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">🏆 Top Used Items</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if top_used %}
+                            <div class="list-group">
+                                {% for item in top_used %}
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>{{ item.inventory_item__name }}</strong>
+                                        <br>
+                                        <small class="text-muted">{{ item.inventory_item__item_code }}</small>
+                                    </div>
+                                    <span class="badge bg-primary rounded-pill">{{ item.total_used|floatformat:0 }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <p class="text-muted text-center">No usage data available.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

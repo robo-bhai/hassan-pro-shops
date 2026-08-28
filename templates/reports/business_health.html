@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Business Health{% endblock %}
+{% block page_title %}💚 Business Health Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .health-card {
+        background: white;
+        border-radius: 20px;
+        padding: 25px;
+        margin-bottom: 20px;
+        text-align: center;
+        border: 1px solid #e9ecef;
+    }
+    .health-status-excellent { background: #d1fae5; color: #059669; }
+    .health-status-good { background: #fed7aa; color: #ea580c; }
+    .health-status-poor { background: #fee2e2; color: #dc2626; }
+    .metric-value { font-size: 36px; font-weight: 800; }
+    .metric-label { font-size: 12px; color: #6c757d; text-transform: uppercase; letter-spacing: 1px; }
+    .indicator {
+        padding: 15px;
+        border-radius: 12px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #f8f9fc;
+    }
+    .badge-status { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    @media (max-width: 768px) { .metric-value { font-size: 24px; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-3"><div class="health-card"><div class="metric-value">PKR {{ total_sales|floatformat:0 }}</div><div class="metric-label">Total Sales (This Month)</div></div></div>
+        <div class="col-md-3"><div class="health-card"><div class="metric-value">PKR {{ net_profit|floatformat:0 }}</div><div class="metric-label">Net Profit</div></div></div>
+        <div class="col-md-3"><div class="health-card"><div class="metric-value">PKR {{ total_customer_outstanding|floatformat:0 }}</div><div class="metric-label">Outstanding Payments</div></div></div>
+        <div class="col-md-3"><div class="health-card"><div class="metric-value">PKR {{ inventory_value|floatformat:0 }}</div><div class="metric-label">Inventory Value</div></div></div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-white"><strong><i class="bi bi-heart-pulse"></i> Business Health Indicators</strong></div>
+                <div class="card-body">
+                    {% for item in health_status %}
+                    <div class="indicator">
+                        <div><strong>{{ item.indicator }}</strong><div class="small text-muted">{{ item.value }}</div></div>
+                        <span class="badge-status health-status-{{ item.status|lower }}">{{ item.status }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h6><i class="bi bi-info-circle"></i> How to Read This?</h6>
+                    <div class="row mt-2">
+                        <div class="col-md-3"><span class="badge bg-success">Excellent</span> = Very Good</div>
+                        <div class="col-md-3"><span class="badge bg-warning">Good</span> = Average</div>
+                        <div class="col-md-3"><span class="badge bg-danger">Poor</span> = Needs Improvement</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

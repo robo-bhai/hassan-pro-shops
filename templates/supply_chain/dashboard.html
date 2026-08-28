@@ -1,0 +1,278 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Supply Chain Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .supply-header {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        border-radius: 16px;
+        padding: 30px;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+    .supply-header::before {
+        content: '🏭';
+        position: absolute;
+        font-size: 150px;
+        right: -30px;
+        bottom: -60px;
+        opacity: 0.1;
+    }
+    .stat-card-supply {
+        border: none;
+        border-radius: 12px;
+        padding: 20px;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    .stat-card-supply:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    .stat-card-supply .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        margin-bottom: 10px;
+    }
+    .stat-card-supply .stat-value {
+        font-size: 24px;
+        font-weight: 700;
+    }
+    .stat-card-supply .stat-label {
+        font-size: 12px;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .rating-badge {
+        display: inline-block;
+        padding: 2px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <!-- ========================================== -->
+    <!-- HEADER                                     -->
+    <!-- ========================================== -->
+    <div class="supply-header mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2><i class="bi bi-box-seam text-primary me-2"></i> Supply Chain Dashboard</h2>
+                <p style="opacity:0.8;">Monitor your entire supply chain operations</p>
+            </div>
+            <div>
+                <a href="{% url 'supplier_create' %}" class="btn btn-light btn-sm">
+                    <i class="bi bi-plus-circle"></i> Add Supplier
+                </a>
+                <a href="{% url 'delivery_schedule_create' %}" class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-truck"></i> New Delivery
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- STATS CARDS                               -->
+    <!-- ========================================== -->
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card-supply" style="background: linear-gradient(135deg, #e3f2fd, #bbdefb);">
+                <div class="stat-icon" style="background: rgba(25,118,210,0.15); color: #1976d2;">
+                    <i class="bi bi-building"></i>
+                </div>
+                <div class="stat-value" style="color: #1976d2;">{{ total_suppliers }}</div>
+                <div class="stat-label">Total Suppliers</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card-supply" style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9);">
+                <div class="stat-icon" style="background: rgba(46,125,50,0.15); color: #2e7d32;">
+                    <i class="bi bi-graph-up"></i>
+                </div>
+                <div class="stat-value" style="color: #2e7d32;">{{ total_forecasts }}</div>
+                <div class="stat-label">Total Forecasts</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card-supply" style="background: linear-gradient(135deg, #fff3e0, #ffe0b2);">
+                <div class="stat-icon" style="background: rgba(245,124,0,0.15); color: #f57c00;">
+                    <i class="bi bi-truck"></i>
+                </div>
+                <div class="stat-value" style="color: #f57c00;">{{ total_deliveries }}</div>
+                <div class="stat-label">Total Deliveries</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card-supply" style="background: linear-gradient(135deg, #fce4ec, #f8bbd0);">
+                <div class="stat-icon" style="background: rgba(198,40,40,0.15); color: #c62828;">
+                    <i class="bi bi-clock"></i>
+                </div>
+                <div class="stat-value" style="color: #c62828;">{{ pending_deliveries }}</div>
+                <div class="stat-label">Pending Deliveries</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- SUPPLIER RATING DISTRIBUTION              -->
+    <!-- ========================================== -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-star text-warning"></i> Supplier Rating Distribution</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <div class="d-flex justify-content-between">
+                                <span>⭐ Excellent</span>
+                                <span class="badge bg-success">{{ rating_distribution.excellent }}</span>
+                            </div>
+                            <div class="progress" style="height:6px;">
+                                <div class="progress-bar bg-success" style="width: {% widthratio rating_distribution.excellent total_suppliers 100 %}%;"></div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="d-flex justify-content-between">
+                                <span>⭐⭐⭐⭐ Good</span>
+                                <span class="badge bg-primary">{{ rating_distribution.good }}</span>
+                            </div>
+                            <div class="progress" style="height:6px;">
+                                <div class="progress-bar bg-primary" style="width: {% widthratio rating_distribution.good total_suppliers 100 %}%;"></div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="d-flex justify-content-between">
+                                <span>⭐⭐⭐ Average</span>
+                                <span class="badge bg-warning">{{ rating_distribution.average }}</span>
+                            </div>
+                            <div class="progress" style="height:6px;">
+                                <div class="progress-bar bg-warning" style="width: {% widthratio rating_distribution.average total_suppliers 100 %}%;"></div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="d-flex justify-content-between">
+                                <span>⭐⭐ Poor</span>
+                                <span class="badge bg-danger">{{ rating_distribution.poor }}</span>
+                            </div>
+                            <div class="progress" style="height:6px;">
+                                <div class="progress-bar bg-danger" style="width: {% widthratio rating_distribution.poor total_suppliers 100 %}%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-graph-up text-primary"></i> Latest Analytics</h6>
+                </div>
+                <div class="card-body">
+                    {% if latest_analytics %}
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <small class="text-muted">On-Time Delivery</small>
+                            <h5 class="text-success">{{ latest_analytics.on_time_delivery_rate|floatformat:1 }}%</h5>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Inventory Turnover</small>
+                            <h5>{{ latest_analytics.inventory_turnover|floatformat:1 }}x</h5>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Total Orders</small>
+                            <h5>{{ latest_analytics.total_orders }}</h5>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Total Inventory Value</small>
+                            <h5>Rs. {{ latest_analytics.total_inventory_value|floatformat:0|intcomma }}</h5>
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-3">No analytics data available</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- RECENT DELIVERIES                         -->
+    <!-- ========================================== -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h6 class="mb-0"><i class="bi bi-clock-history text-primary"></i> Recent Deliveries</h6>
+            <a href="{% url 'delivery_schedule_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Schedule #</th>
+                            <th>Product</th>
+                            <th>Type</th>
+                            <th>From → To</th>
+                            <th>Scheduled Date</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for delivery in recent_deliveries %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'delivery_schedule_detail' delivery.id %}" class="text-decoration-none fw-bold">
+                                    {{ delivery.schedule_no }}
+                                </a>
+                            </td>
+                            <td>{{ delivery.product.name }}</td>
+                            <td>
+                                <span class="badge bg-secondary">{{ delivery.get_delivery_type_display }}</span>
+                            </td>
+                            <td>
+                                <small>{{ delivery.from_location }} → {{ delivery.to_location }}</small>
+                            </td>
+                            <td>{{ delivery.scheduled_date|date:"d-m-Y" }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if delivery.status == 'delivered' %}bg-success
+                                    {% elif delivery.status == 'in_transit' %}bg-warning
+                                    {% elif delivery.status == 'delayed' %}bg-danger
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ delivery.get_status_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">
+                                <i class="bi bi-inbox fs-2 d-block"></i>
+                                <p>No deliveries scheduled</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

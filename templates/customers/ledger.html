@@ -1,0 +1,406 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Customer Ledger{% endblock %}
+{% block page_title %}📒 Customer Ledger{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary: #4361ee;
+        --primary-dark: #3a0ca3;
+        --success: #4cc9f0;
+        --danger: #f72585;
+        --warning: #f8961e;
+        --dark: #1a1a2e;
+        --gray: #6c757d;
+        --border: #e9ecef;
+        --light-gray: #f8f9fa;
+    }
+    
+    .page-header {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        border-radius: 20px;
+        padding: 25px 30px;
+        margin-bottom: 30px;
+        color: white;
+    }
+    
+    /* Profile Card */
+    .profile-card {
+        background: white;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        overflow: hidden;
+        margin-bottom: 25px;
+    }
+    
+    .profile-header {
+        background: linear-gradient(135deg, var(--dark) 0%, #2d2d44 100%);
+        padding: 25px 30px;
+        color: white;
+        position: relative;
+    }
+    
+    .profile-header h2 {
+        font-size: 1.3rem;
+        margin: 0 0 5px 0;
+        font-weight: 600;
+    }
+    
+    .profile-header p {
+        opacity: 0.7;
+        margin: 0;
+        font-size: 0.8rem;
+    }
+    
+    .outstanding-badge {
+        position: absolute;
+        top: 25px;
+        right: 30px;
+        background: rgba(247, 37, 133, 0.2);
+        backdrop-filter: blur(10px);
+        padding: 8px 20px;
+        border-radius: 40px;
+        text-align: center;
+    }
+    
+    .outstanding-badge .label {
+        font-size: 0.7rem;
+        opacity: 0.8;
+    }
+    
+    .outstanding-badge .amount {
+        font-size: 1.2rem;
+        font-weight: 700;
+    }
+    
+    .profile-details {
+        padding: 20px 30px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+    }
+    
+    .detail-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .detail-icon {
+        width: 36px;
+        height: 36px;
+        background: var(--light-gray);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--primary);
+        font-size: 1rem;
+    }
+    
+    .detail-info .label {
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--gray);
+    }
+    
+    .detail-info .value {
+        font-weight: 600;
+        color: var(--dark);
+        font-size: 0.9rem;
+    }
+    
+    /* Summary Cards */
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+    
+    .summary-card {
+        background: white;
+        border-radius: 16px;
+        padding: 18px;
+        border: 1px solid var(--border);
+        text-align: center;
+        transition: all 0.2s;
+    }
+    
+    .summary-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+    }
+    
+    .summary-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 12px;
+    }
+    
+    .summary-icon.purple { background: rgba(67, 97, 238, 0.1); color: var(--primary); }
+    .summary-icon.green { background: rgba(76, 201, 240, 0.1); color: var(--success); }
+    .summary-icon.red { background: rgba(247, 37, 133, 0.1); color: var(--danger); }
+    
+    .summary-value {
+        font-size: 1.3rem;
+        font-weight: 800;
+        color: var(--dark);
+    }
+    
+    .summary-label {
+        font-size: 0.7rem;
+        color: var(--gray);
+        margin-top: 5px;
+    }
+    
+    /* Table */
+    .table-card {
+        background: white;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        overflow: hidden;
+    }
+    
+    .table-header {
+        padding: 18px 24px;
+        background: var(--light-gray);
+        border-bottom: 1px solid var(--border);
+    }
+    
+    .table-header h5 {
+        margin: 0;
+        font-weight: 700;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .transaction-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .transaction-table thead th {
+        background: var(--dark);
+        color: white;
+        padding: 12px 16px;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 600;
+    }
+    
+    .transaction-table tbody td {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.85rem;
+    }
+    
+    .transaction-table tbody tr:hover {
+        background: var(--light-gray);
+    }
+    
+    .bill-link {
+        color: var(--primary);
+        font-weight: 600;
+        text-decoration: none;
+    }
+    
+    .bill-link:hover {
+        text-decoration: underline;
+    }
+    
+    .amount-positive {
+        color: var(--danger);
+        font-weight: 600;
+    }
+    
+    .amount-negative {
+        color: var(--success);
+        font-weight: 600;
+    }
+    
+    .badge-status {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .badge-status.paid { background: rgba(76, 201, 240, 0.1); color: var(--success); }
+    .badge-status.pending { background: rgba(248, 150, 30, 0.1); color: var(--warning); }
+    
+    .empty-state {
+        text-align: center;
+        padding: 50px;
+        color: var(--gray);
+    }
+    
+    .btn-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: white;
+        border: 2px solid var(--border);
+        padding: 10px 20px;
+        border-radius: 12px;
+        text-decoration: none;
+        color: var(--gray);
+        font-weight: 600;
+        margin-top: 20px;
+        transition: all 0.2s;
+    }
+    
+    .btn-back:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+    }
+    
+    @media (max-width: 768px) {
+        .profile-header { padding: 20px; }
+        .outstanding-badge { position: static; margin-top: 15px; display: inline-block; }
+        .profile-details { grid-template-columns: 1fr; }
+        .transaction-table { min-width: 600px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header">
+        <h1><i class="bi bi-journal-bookmark-fill"></i> Customer Ledger</h1>
+        <p>Complete transaction history and outstanding balance</p>
+    </div>
+    
+    <!-- Profile Card -->
+    <div class="profile-card">
+        <div class="profile-header">
+            <h2>{{ customer.name }}</h2>
+            <p>{{ customer.group.name|default:'No Group' }}</p>
+            <div class="outstanding-badge">
+                <div class="label">Total Outstanding</div>
+                <div class="amount">Rs.{{ total_outstanding|floatformat:0 }}</div>
+            </div>
+        </div>
+        <div class="profile-details">
+            <div class="detail-item">
+                <div class="detail-icon"><i class="bi bi-upc-scan"></i></div>
+                <div class="detail-info">
+                    <div class="label">Customer Code</div>
+                    <div class="value">{{ customer.customer_code|default:'N/A' }}</div>
+                </div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-icon"><i class="bi bi-telephone"></i></div>
+                <div class="detail-info">
+                    <div class="label">Contact</div>
+                    <div class="value">{{ customer.contact_number|default:'Not provided' }}</div>
+                </div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-icon"><i class="bi bi-geo-alt"></i></div>
+                <div class="detail-info">
+                    <div class="label">Address</div>
+                    <div class="value">{{ customer.address|default:'Not provided'|truncatechars:40 }}</div>
+                </div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-icon"><i class="bi bi-percent"></i></div>
+                <div class="detail-info">
+                    <div class="label">Profit Margin</div>
+                    <div class="value">{{ customer.profit_margin|default:0 }}%</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Summary Cards -->
+    <div class="summary-grid">
+        <div class="summary-card">
+            <div class="summary-icon purple"><i class="bi bi-receipt"></i></div>
+            <div class="summary-value">{{ sales|length }}</div>
+            <div class="summary-label">Total Invoices</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-icon green"><i class="bi bi-currency-rupee"></i></div>
+            <div class="summary-value">Rs.{{ total_sales_amount|default:0|floatformat:0 }}</div>
+            <div class="summary-label">Total Sales Value</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-icon red"><i class="bi bi-wallet2"></i></div>
+            <div class="summary-value">Rs.{{ total_paid_amount|default:0|floatformat:0 }}</div>
+            <div class="summary-label">Total Paid</div>
+        </div>
+    </div>
+    
+    <!-- Transactions Table -->
+    <div class="table-card">
+        <div class="table-header">
+            <h5><i class="bi bi-clock-history"></i> Invoice History</h5>
+        </div>
+        <div style="overflow-x: auto;">
+            <table class="transaction-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Bill No</th>
+                        <th>Items</th>
+                        <th>Total Amount</th>
+                        <th>Paid</th>
+                        <th>Outstanding</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sale in sales %}
+                    <tr>
+                        <td>{{ sale.sale_date|date:"d M, Y" }}</td>
+                        <td>
+                            <a href="{% url 'sale_detail' sale.pk %}" class="bill-link">
+                                {{ sale.bill_no }}
+                            </a>
+                        </td>
+                        <td>{{ sale.saleitem_set.count }}</td>
+                        <td class="amount-positive">Rs.{{ sale.total_amount|floatformat:0 }}</td>
+                        <td>Rs.{{ sale.paid|floatformat:0 }}</td>
+                        <td class="{% if sale.outstanding_balance > 0 %}amount-positive{% else %}amount-negative{% endif %}">
+                            Rs.{{ sale.outstanding_balance|floatformat:0 }}
+                        </td>
+                        <td>
+                            {% if sale.outstanding_balance <= 0 %}
+                            <span class="badge-status paid"><i class="bi bi-check-circle"></i> Paid</span>
+                            {% else %}
+                            <span class="badge-status pending"><i class="bi bi-clock"></i> Pending</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <i class="bi bi-inbox" style="font-size: 3rem; opacity: 0.3;"></i>
+                                <p style="margin-top: 15px;">No sales transactions found for this customer</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <a href="{% url 'customer_list' %}" class="btn-back">
+        <i class="bi bi-arrow-left"></i> Back to Customers
+    </a>
+</div>
+{% endblock %}

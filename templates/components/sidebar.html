@@ -1,0 +1,1000 @@
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <div class="brand-icon-wrap">
+            <span class="brand-icon">🏢</span>
+        </div>
+        <h4>{{ company_name|default:'ERP System' }}</h4>
+        <small>Management Solution</small>
+    </div>
+    
+    <div class="sidebar-user">
+        <div class="user-avatar">
+            {% if request.user.is_authenticated %}
+                {{ request.user.get_full_name|first|upper }}
+            {% else %}
+                G
+            {% endif %}
+        </div>
+        <div class="user-info">
+    <strong>
+        {% if request.user.is_authenticated %}
+            {% if request.user.get_full_name %}
+                {{ request.user.get_full_name|title }}
+            {% else %}
+                {{ request.user.username|title }}
+            {% endif %}
+        {% else %}
+            Guest
+        {% endif %}
+    </strong>
+    <!-- ✅ ROLE BADGE (Username wali line hata di) -->
+    <div class="user-role-badge">
+        {% if request.user.is_superuser %}
+            <span class="role-badge ceo">👑 CEO</span>
+        {% elif request.user.groups.filter.name == 'CEO' %}
+            <span class="role-badge ceo">👑 CEO</span>
+        {% elif request.user.groups.filter.name == 'Owner' %}
+            <span class="role-badge owner">🏢 Owner</span>
+        {% elif request.user.groups.filter.name == 'Store Manager' %}
+            <span class="role-badge manager">👔 Manager</span>
+        {% elif request.user.groups.filter.name == 'Accountant' %}
+            <span class="role-badge accountant">💰 Accountant</span>
+        {% elif request.user.groups.filter.name == 'Salesman' %}
+            <span class="role-badge salesman">🛒 Salesman</span>
+        {% elif request.user.groups.filter.name == 'Warehouse Staff' %}
+            <span class="role-badge warehouse">📦 Warehouse</span>
+        {% else %}
+            <span class="role-badge staff">👤 Staff</span>
+        {% endif %}
+    </div>
+</div>
+    </div>
+    
+    <ul class="sidebar-menu">
+    
+        <!-- ========== DASHBOARD ========== -->
+        <li>
+            <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                <span class="menu-icon">📊</span> Dashboard
+            </a>
+        </li>
+        
+        <!-- ========== SELF EXPENSE REPORT ========== -->
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'self_expense_report' %}">
+                <i class="bi bi-currency-exchange"></i> <span>Self Expense Report</span>
+                <span class="badge bg-warning text-dark ms-2">New</span>
+            </a>
+        </li>
+        
+        <!-- ========== PERMISSION MATRIX ========== -->
+        <li><a href="{% url 'permission_matrix' %}" class="sub-link"><span>🔐</span> Permission Matrix</a></li>
+     
+        <!-- ========== 📊 BUSINESS INTELLIGENCE SECTION ========== -->
+        <li class="has-submenu">
+            <a href="#biSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'bi' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">📊</span> Business Intelligence
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if 'bi' in request.path %}show{% endif %}" id="biSubmenu">
+                <li><a href="{% url 'bi_dashboard' %}" class="sub-link"><span>📊</span> BI Dashboard</a></li>
+                <li><a href="{% url 'bi_dashboards_list' %}" class="sub-link"><span>📋</span> Dashboards</a></li>
+                <li><a href="{% url 'bi_kpi_dashboard' %}" class="sub-link"><span>🎯</span> KPIs</a></li>
+                <li><a href="{% url 'bi_reports' %}" class="sub-link"><span>📄</span> Reports</a></li>
+                <li><a href="{% url 'bi_insights' %}" class="sub-link"><span>💡</span> Insights</a></li>
+                <li><a href="{% url 'bi_forecast' %}" class="sub-link"><span>🔮</span> Forecast</a></li>
+                {% if request.user.is_superuser %}
+                <li><a href="{% url 'bi_dashboard_create' %}" class="sub-link"><span>➕</span> Create Dashboard</a></li>
+                <li><a href="{% url 'bi_kpi_create' %}" class="sub-link"><span>➕</span> Create KPI</a></li>
+                {% endif %}
+            </ul>
+        </li>
+
+        <!-- ========== 📊 ACCOUNTS SECTION ========== -->
+        <li class="has-submenu">
+            <a href="#accountsSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'accounts' in request.path or 'account' in request.path or 'journal' in request.path or 'ledger' in request.path or 'trial' in request.path or 'balance-sheet' in request.path or 'profit-loss' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">📊</span> Accounts
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if 'accounts' in request.path or 'account' in request.path or 'journal' in request.path or 'ledger' in request.path or 'trial' in request.path or 'balance-sheet' in request.path or 'profit-loss' in request.path %}show{% endif %}" id="accountsSubmenu">
+                <li><a href="{% url 'accounts_dashboard' %}" class="sub-link"><span>📊</span> Dashboard</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📋 CHART OF ACCOUNTS</li>
+                <li><a href="{% url 'chart_of_accounts' %}" class="sub-link"><span>📋</span> All Accounts</a></li>
+                <li><a href="{% url 'account_create' %}" class="sub-link"><span>➕</span> Add Account</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📝 JOURNAL ENTRIES</li>
+                <li><a href="{% url 'journal_entry_list' %}" class="sub-link"><span>📋</span> All Entries</a></li>
+                <li><a href="{% url 'journal_entry_create' %}" class="sub-link"><span>➕</span> New Entry</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📒 LEDGER</li>
+                <li><a href="{% url 'general_ledger' %}" class="sub-link"><span>📒</span> General Ledger</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">⚖️ TRIAL BALANCE</li>
+                <li><a href="{% url 'trial_balance' %}" class="sub-link"><span>⚖️</span> Trial Balance</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📊 FINANCIAL STATEMENTS</li>
+                <li><a href="{% url 'balance_sheet' %}" class="sub-link"><span>📊</span> Balance Sheet</a></li>
+                <li><a href="{% url 'profit_loss_statement' %}" class="sub-link"><span>💰</span> Profit & Loss</a></li>
+                <li><a href="{% url 'cash_flow_statement' %}" class="sub-link"><span>💵</span> Cash Flow</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📅 FINANCIAL PERIODS</li>
+                <li><a href="{% url 'financial_periods' %}" class="sub-link"><span>📅</span> All Periods</a></li>
+                <li><a href="{% url 'financial_period_create' %}" class="sub-link"><span>➕</span> New Period</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📄 REPORTS</li>
+                <li><a href="{% url 'accounts_reports' %}" class="sub-link"><span>📄</span> Reports</a></li>
+                <li><a href="{% url 'export_accounts_report' %}" class="sub-link"><span>📥</span> Export Reports</a></li>
+            </ul>
+        </li>
+        
+        <!-- ========== 📋 DOCUMENT MANAGEMENT SECTION ========== -->
+        <li class="has-submenu">
+            <a href="#docSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'document' in request.path or 'documents' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">📋</span> Document Management
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if 'document' in request.path or 'documents' in request.path %}show{% endif %}" id="docSubmenu">
+                <li><a href="{% url 'document_dashboard' %}" class="sub-link"><span>📊</span> Document Dashboard</a></li>
+                <li><a href="{% url 'document_list' %}" class="sub-link"><span>📋</span> All Documents</a></li>
+                <li><a href="{% url 'document_upload' %}" class="sub-link"><span>📤</span> Upload Document</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📂 CATEGORIES</li>
+                <li><a href="#" class="sub-link"><span>📁</span> Financial</a></li>
+                <li><a href="#" class="sub-link"><span>👤</span> Customer</a></li>
+                <li><a href="#" class="sub-link"><span>👥</span> Employee</a></li>
+                <li><a href="#" class="sub-link"><span>🏢</span> Company</a></li>
+                <li><a href="#" class="sub-link"><span>⚖️</span> Legal</a></li>
+                {% if request.user.is_superuser %}
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">⚙️ SETTINGS</li>
+                <li><a href="#" class="sub-link"><span>🏷️</span> Categories</a></li>
+                <li><a href="#" class="sub-link"><span>📁</span> Folders</a></li>
+                <li><a href="#" class="sub-link"><span>📄</span> Templates</a></li>
+                {% endif %}
+            </ul>
+        </li>
+        
+        <!-- ========== SECURITY SECTION ========== -->
+        <li class="has-submenu">
+            <a href="#securitySubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'security' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">🔒</span> Security
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if 'security' in request.path %}show{% endif %}" id="securitySubmenu">
+                <li><a href="{% url 'security_dashboard' %}" class="sub-link"><span>📊</span> Security Dashboard</a></li>
+                <li><a href="{% url 'security_settings' %}" class="sub-link"><span>⚙️</span> Security Settings</a></li>
+                <li><a href="{% url 'two_factor_setup' %}" class="sub-link"><span>🔐</span> Two-Factor Auth</a></li>
+                <li><a href="{% url 'ip_whitelist' %}" class="sub-link"><span>✅</span> IP Whitelist</a></li>
+                <li><a href="{% url 'ip_blacklist' %}" class="sub-link"><span>🚫</span> IP Blacklist</a></li>
+                <li><a href="{% url 'security_logs' %}" class="sub-link"><span>📜</span> Security Logs</a></li>
+                <li><a href="{% url 'security_alerts' %}" class="sub-link"><span>🚨</span> Security Alerts</a></li>
+                <li><a href="{% url 'api_key_management' %}" class="sub-link"><span>🔑</span> API Keys</a></li>
+                <li><a href="{% url 'change_password_security' %}" class="sub-link"><span>🔑</span> Change Password</a></li>
+            </ul>
+        </li>
+        
+        <!-- ========== SUPPLY CHAIN SECTION ========== -->
+        <li class="has-submenu">
+            <a href="#supplySubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'supply-chain' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">🏭</span> Supply Chain
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if 'supply-chain' in request.path %}show{% endif %}" id="supplySubmenu">
+                <li><a href="{% url 'supply_chain_dashboard' %}" class="sub-link"><span>📊</span> Dashboard</a></li>
+                <li><a href="{% url 'supplier_list' %}" class="sub-link"><span>🏢</span> Suppliers</a></li>
+                <li><a href="{% url 'supplier_create' %}" class="sub-link"><span>➕</span> Add Supplier</a></li>
+                <li><a href="{% url 'supply_forecast' %}" class="sub-link"><span>📈</span> Forecast</a></li>
+                <li><a href="{% url 'delivery_schedule_list' %}" class="sub-link"><span>🚚</span> Deliveries</a></li>
+                <li><a href="{% url 'delivery_schedule_create' %}" class="sub-link"><span>➕</span> New Delivery</a></li>
+                <li><a href="{% url 'supply_chain_analytics' %}" class="sub-link"><span>📊</span> Analytics</a></li>
+            </ul>
+        </li>
+        
+        <!-- ========== PURCHASE SECTION ========== -->
+        {% if SHOW_PURCHASE_MODULE %}
+        <li class="has-submenu">
+            <a href="#purchaseSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'purchase' in request.path or 'grn' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">📥</span> Purchase
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if 'purchase' in request.path or 'grn' in request.path %}show{% endif %}" id="purchaseSubmenu">
+                <li><a href="{% url 'purchase_create' %}" class="sub-link"><span>➕</span> New Purchase</a></li>
+                <li><a href="{% url 'purchase_list' %}" class="sub-link"><span>📋</span> Purchases</a></li>
+                <li><a href="{% url 'purchase_order_create' %}" class="sub-link"><span>📝</span> New PO</a></li>
+                <li><a href="{% url 'purchase_order_list' %}" class="sub-link"><span>📑</span> Purchase Orders</a></li>
+                <li><a href="{% url 'grn_list' %}" class="sub-link"><span>📦</span> GRN (Receiving)</a></li>
+            </ul>
+        </li>
+        {% endif %}
+        
+        <!-- ========== SALES SECTION ========== -->
+        {% if SHOW_SALES_MODULE %}
+        <li class="has-submenu">
+            <a href="#salesSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'sale' in request.path or 'challan' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">🛒</span> Sales
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if 'sale' in request.path or 'challan' in request.path %}show{% endif %}" id="salesSubmenu">
+                <li><a href="{% url 'sale_create' %}" class="sub-link"><span>➕</span> New Sale</a></li>
+                <li><a href="{% url 'sale_list' %}" class="sub-link"><span>📋</span> Sales List</a></li>
+                <li><a href="{% url 'sale_order_create' %}" class="sub-link"><span>📝</span> New Sale Order</a></li>
+                <li><a href="{% url 'sale_order_list' %}" class="sub-link"><span>📑</span> Sale Orders</a></li>
+                <li><a href="{% url 'challan_list' %}" class="sub-link"><span>🚚</span> Challans</a></li>
+            </ul>
+        </li>
+        {% endif %}
+        
+        <!-- ========== INSTALLMENT SECTION ========== -->
+        {% if SHOW_INSTALLMENT_MODULE %}
+        <li class="has-submenu">
+            <a href="#installmentSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'installment' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">📋</span> Installments
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if 'installment' in request.path %}show{% endif %}" id="installmentSubmenu">
+                <li><a href="{% url 'installment_create' %}" class="sub-link"><span>➕</span> New Installment Plan</a></li>
+                <li><a href="{% url 'installment_list' %}" class="sub-link"><span>📋</span> Installment Plans</a></li>
+                <li><a href="{% url 'installment_plan_list' %}" class="sub-link"><span>⚙️</span> Manage Plans</a></li>
+            </ul>
+        </li>
+        {% endif %}
+        
+        <!-- ========== PEOPLE SECTION ========== -->
+        <li class="has-submenu">
+            <a href="#peopleSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'customer' in request.path or 'vendor' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">👥</span> People
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if 'customer' in request.path or 'vendor' in request.path %}show{% endif %}" id="peopleSubmenu">
+                <li><a href="{% url 'customer_list' %}" class="sub-link"><span>👤</span> Customers</a></li>
+                <li><a href="{% url 'customer_create' %}" class="sub-link"><span>➕</span> Add Customer</a></li>
+                <li><a href="{% url 'vendor_list' %}" class="sub-link"><span>🏢</span> Vendors</a></li>
+                <li><a href="{% url 'vendor_create' %}" class="sub-link"><span>➕</span> Add Vendor</a></li>
+            </ul>
+        </li>
+        
+        <!-- ========== SHAREHOLDER SECTION ========== -->
+        <li class="has-submenu">
+            <a href="#shareholderSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'shareholder' in request.path or 'share' in request.path or 'transfer' in request.path or 'dividend' in request.path or 'meeting' in request.path or 'certificate' in request.path or 'balance' in request.path or 'drip' in request.path or 'buyback' in request.path or 'discount' in request.path or 'deposit' in request.path or 'withdrawal' in request.path or 'deduction' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">👥</span> Shareholders
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if 'shareholder' in request.path or 'share' in request.path or 'transfer' in request.path or 'dividend' in request.path or 'meeting' in request.path or 'certificate' in request.path or 'balance' in request.path or 'drip' in request.path or 'buyback' in request.path or 'discount' in request.path or 'deposit' in request.path or 'withdrawal' in request.path or 'deduction' in request.path %}show{% endif %}" id="shareholderSubmenu">
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📊 DASHBOARD</li>
+                <li><a href="{% url 'shareholder_dashboard' %}" class="sub-link"><span>📊</span> Dashboard</a></li>
+                <li><a href="{% url 'shareholder_list' %}" class="sub-link"><span>👥</span> All Shareholders</a></li>
+                <li><a href="{% url 'shareholder_create' %}" class="sub-link"><span>➕</span> Add Shareholder</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">💰 SHAREHOLDER DEDUCTION</li>
+                <li><a href="{% url 'shareholder_deduction_report' %}" class="sub-link"><span>📊</span> Deduction Report</a></li>
+                <li><a href="{% url 'shareholder_balance_summary' %}" class="sub-link"><span>📋</span> Balance Summary</a></li>
+                <li><a href="{% url 'bulk_process_deductions' %}" class="sub-link"><span>⚡</span> Bulk Process</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">💰 DEPOSIT REQUESTS</li>
+                <li><a href="{% url 'shareholder_deposit_requests' %}" class="sub-link"><span>💳</span> Deposit Requests</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">💸 WITHDRAWAL REQUESTS</li>
+                <li><a href="{% url 'shareholder_withdrawal_requests' %}" class="sub-link"><span>💳</span> Withdrawal Requests</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">🔐 SHAREHOLDER PORTAL</li>
+                <li><a href="{% url 'shareholder_login' %}" class="sub-link" target="_blank"><span>🔑</span> Login Page</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">💰 CASH BALANCE</li>
+                <li><a href="{% url 'shareholder_balance_dashboard' %}" class="sub-link"><span>📊</span> Balance Dashboard</a></li>
+                <li><a href="{% url 'shareholder_balance_summary' %}" class="sub-link"><span>📋</span> Balance Summary</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📈 SHARE HOLDINGS</li>
+                <li><a href="{% url 'share_list' %}" class="sub-link"><span>📈</span> All Shares</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">🔄 SHARE TRANSFERS</li>
+                <li><a href="{% url 'share_transfer_list' %}" class="sub-link"><span>📋</span> All Transfers</a></li>
+                <li><a href="{% url 'share_transfer_create' %}" class="sub-link"><span>➕</span> New Transfer</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">🔄 SHARE BUYBACK</li>
+                <li><a href="{% url 'buyback_list' %}" class="sub-link"><span>📋</span> Buyback Programs</a></li>
+                {% if request.user.is_superuser or request.user.is_staff %}
+                <li><a href="{% url 'buyback_create' %}" class="sub-link"><span>➕</span> New Buyback</a></li>
+                {% endif %}
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">🏷️ DISCOUNTS</li>
+                <li><a href="{% url 'discount_list' %}" class="sub-link"><span>📋</span> All Discounts</a></li>
+                <li><a href="{% url 'my_discounts' %}" class="sub-link"><span>🎁</span> My Discounts</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">💳 SHAREHOLDER LOANS</li>
+                <li><a href="{% url 'loan_list' %}" class="sub-link"><span>📋</span> All Loans</a></li>
+                <li><a href="{% url 'loan_create' %}" class="sub-link"><span>➕</span> Apply Loan</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">💰 DIVIDENDS</li>
+                <li><a href="{% url 'dividend_list' %}" class="sub-link"><span>📋</span> Share Dividends</a></li>
+                <li><a href="{% url 'balance_dividend_list' %}" class="sub-link"><span>⚖️</span> Balance Dividends</a></li>
+                <li><a href="{% url 'balance_dividend_report' %}" class="sub-link"><span>📊</span> Dividend Report</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">🔄 DRIP REINVESTMENT</li>
+                <li><a href="{% url 'drip_dashboard' %}" class="sub-link"><span>📊</span> DRIP Dashboard</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📄 CERTIFICATES</li>
+                <li><a href="{% url 'share_certificate_list' %}" class="sub-link"><span>📄</span> Certificate List</a></li>
+                <li><a href="{% url 'share_certificate_bulk' %}" class="sub-link"><span>📦</span> Bulk Certificates</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">💹 SHARE PRICES</li>
+                <li><a href="{% url 'share_price_list' %}" class="sub-link"><span>📋</span> All Prices</a></li>
+                {% if request.user.is_superuser or request.user.is_staff %}
+                <li><a href="{% url 'share_price_create' %}" class="sub-link"><span>➕</span> Add Price</a></li>
+                {% endif %}
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📋 MEETINGS</li>
+                <li><a href="{% url 'meeting_list' %}" class="sub-link"><span>📋</span> All Meetings</a></li>
+                <li><a href="{% url 'meeting_create' %}" class="sub-link"><span>➕</span> Schedule Meeting</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📄 REPORTS</li>
+                <li><a href="{% url 'shareholder_report' %}" class="sub-link"><span>📄</span> Reports</a></li>
+                <li><a href="{% url 'shareholder_report_pdf' %}" class="sub-link"><span>📄</span> PDF Report</a></li>
+            </ul>
+        </li>
+        
+        <!-- ========== WAREHOUSE SECTION ========== -->
+        <li class="has-submenu">
+            <a href="#warehouseSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'warehouse' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">🏭</span> Warehouse
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if 'warehouse' in request.path %}show{% endif %}" id="warehouseSubmenu">
+                <li><a href="{% url 'warehouse_list' %}" class="sub-link"><span>📋</span> All Warehouses</a></li>
+                <li><a href="{% url 'warehouse_create' %}" class="sub-link"><span>➕</span> Add Warehouse</a></li>
+            </ul>
+        </li>
+        
+        <!-- ========== INVENTORY SECTION ========== -->
+        {% if SHOW_INVENTORY_MODULE %}
+        <li class="has-submenu">
+            <a href="#inventorySubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'inventory' in request.path or 'product' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">📦</span> Inventory
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if 'inventory' in request.path or 'product' in request.path %}show{% endif %}" id="inventorySubmenu">
+                <li><a href="{% url 'inventory_list' %}" class="sub-link"><span>📊</span> Stock</a></li>
+                <li><a href="{% url 'batch_list' %}" class="sub-link"><span>📦</span> Stock Batches</a></li>
+                <li><a href="{% url 'product_list' %}" class="sub-link"><span>🏷️</span> Products</a></li>
+                <li><a href="{% url 'product_create' %}" class="sub-link"><span>➕</span> Add Product</a></li>
+            </ul>
+        </li>
+        {% endif %}
+        
+        <!-- ========== RETURNS SECTION ========== -->
+        <li class="has-submenu">
+            <a href="#returnsSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'return' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">🔄</span> Returns
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if 'return' in request.path %}show{% endif %}" id="returnsSubmenu">
+                <li><a href="{% url 'purchase_return_list' %}" class="sub-link"><span>📥</span> Purchase Returns</a></li>
+                <li><a href="{% url 'purchase_return_create' %}" class="sub-link"><span>➕</span> New Purchase Return</a></li>
+                <li><a href="{% url 'sale_return_list' %}" class="sub-link"><span>📤</span> Sale Returns</a></li>
+                <li><a href="{% url 'sale_return_create' %}" class="sub-link"><span>➕</span> New Sale Return</a></li>
+            </ul>
+        </li>
+        
+        <!-- ========== SERVICES SECTION ========== -->
+        <li class="has-submenu">
+            <a href="#serviceSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'service' in request.path or 'appointment' in request.path or 'inventory' in request.path and 'service' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">🛠️</span> Services
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if 'service' in request.path or 'appointment' in request.path or 'inventory' in request.path and 'service' in request.path %}show{% endif %}" id="serviceSubmenu">
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📋 SERVICE MASTER</li>
+                <li><a href="{% url 'service_list' %}" class="sub-link"><span>📋</span> All Services</a></li>
+                <li><a href="{% url 'service_create' %}" class="sub-link"><span>➕</span> Add Service</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📋 SERVICE REQUESTS</li>
+                <li><a href="{% url 'service_request_list' %}" class="sub-link"><span>📋</span> All Requests</a></li>
+                <li><a href="{% url 'service_request_create' %}" class="sub-link"><span>➕</span> New Request</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📅 APPOINTMENTS</li>
+                <li><a href="{% url 'service_appointment_list' %}" class="sub-link"><span>📋</span> All Appointments</a></li>
+                <li><a href="{% url 'service_appointment_calendar' %}" class="sub-link"><span>📅</span> Calendar View</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📦 SERVICE INVENTORY</li>
+                <li><a href="{% url 'service_inventory_dashboard' %}" class="sub-link"><span>📊</span> Inventory Dashboard</a></li>
+                <li><a href="{% url 'service_inventory_list' %}" class="sub-link"><span>📋</span> All Items</a></li>
+                <li><a href="{% url 'service_inventory_create' %}" class="sub-link"><span>➕</span> Add Item</a></li>
+                <li><a href="{% url 'service_inventory_po_list' %}" class="sub-link"><span>📦</span> Purchase Orders</a></li>
+                <li><a href="{% url 'service_inventory_po_create' %}" class="sub-link"><span>➕</span> New PO</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📊 REPORTS</li>
+                <li><a href="{% url 'service_report' %}" class="sub-link"><span>📊</span> Service Report</a></li>
+                <li><a href="{% url 'technician_performance_report' %}" class="sub-link"><span>👤</span> Technician Performance</a></li>
+            </ul>
+        </li>
+        
+        <!-- ========== PRODUCTION SECTION ========== -->
+        {% if SHOW_PRODUCTION_MODULE %}
+        <li class="has-submenu">
+            <a href="#productionSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'production' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">🏭</span> Production
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if 'production' in request.path %}show{% endif %}" id="productionSubmenu">
+                <li><a href="{% url 'production_order_list' %}" class="sub-link"><span>📋</span> Production Orders</a></li>
+                <li><a href="{% url 'production_order_create' %}" class="sub-link"><span>➕</span> New Production Order</a></li>
+                <li><a href="{% url 'transfer_order_list' %}" class="sub-link"><span>🚚</span> Transfer Orders</a></li>
+                <li><a href="{% url 'transfer_order_create' %}" class="sub-link"><span>➕</span> New Transfer</a></li>
+                <li><a href="{% url 'production_report' %}" class="sub-link"><span>📊</span> Production Report</a></li>
+            </ul>
+        </li>
+        {% endif %}
+        
+        <!-- ========== HR & STAFF SECTION ========== -->
+        {% if SHOW_HR_MODULE %}
+        <li class="has-submenu">
+            <a href="#hrSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'hr' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">👥</span> HR Management
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if 'hr' in request.path %}show{% endif %}" id="hrSubmenu">
+                <li><a href="{% url 'employee_list' %}" class="sub-link"><span>👤</span> Employees</a></li>
+                <li><a href="{% url 'employee_create' %}" class="sub-link"><span>➕</span> Add Employee</a></li>
+                <li><a href="{% url 'attendance_mark' %}" class="sub-link"><span>📅</span> Mark Attendance</a></li>
+                <li><a href="{% url 'attendance_today' %}" class="sub-link"><span>📊</span> Today's Attendance</a></li>
+                <li><a href="{% url 'attendance_report' %}" class="sub-link"><span>📈</span> Attendance Report</a></li>
+                <li><a href="{% url 'leave_list' %}" class="sub-link"><span>🏖️</span> Leave Requests</a></li>
+                <li><a href="{% url 'leave_request' %}" class="sub-link"><span>📝</span> Request Leave</a></li>
+                <li><a href="{% url 'payroll_list' %}" class="sub-link"><span>💰</span> Payroll</a></li>
+            </ul>
+        </li>
+        {% endif %}
+        
+        <!-- ========== REPORTS SECTION ========== -->
+        {% if SHOW_REPORTS_MODULE %}
+        <li class="has-submenu">
+            <a href="#reportsSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'report' in request.path or 'profit' in request.path or 'closing' in request.path or 'targets' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">📈</span> Reports
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if 'report' in request.path or 'profit' in request.path or 'closing' in request.path or 'targets' in request.path %}show{% endif %}" id="reportsSubmenu">
+                <li><a href="{% url 'reports_dashboard' %}" class="sub-link"><span>📊</span> Reports Dashboard</a></li>
+                <li><a href="{% url 'business_health' %}" class="sub-link"><span>💚</span> Business Health</a></li>
+                <li><a href="{% url 'profit_loss_report' %}" class="sub-link"><span>💰</span> Profit & Loss</a></li>
+                <li><a href="{% url 'cash_flow_report' %}" class="sub-link"><span>💵</span> Cash Flow</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📋 SALES REPORTS</li>
+                <li><a href="{% url 'sales_summary_report' %}" class="sub-link"><span>📊</span> Sales Summary</a></li>
+                <li><a href="{% url 'sales_forecast_report' %}" class="sub-link"><span>🔮</span> Sales Forecast</a></li>
+                <li><a href="{% url 'profit_trend_report' %}" class="sub-link"><span>📈</span> Profit Trend</a></li>
+                <li><a href="{% url 'top_products_report' %}" class="sub-link"><span>🏆</span> Top Products</a></li>
+                <li><a href="{% url 'sales_by_hour_report' %}" class="sub-link"><span>⏰</span> Sales by Hour</a></li>
+                <li><a href="{% url 'sales_by_day_report' %}" class="sub-link"><span>📅</span> Sales by Day</a></li>
+                <li><a href="{% url 'sales_by_week_report' %}" class="sub-link"><span>📆</span> Sales by Week</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">👥 CUSTOMER REPORTS</li>
+                <li><a href="{% url 'customer_wise_report' %}" class="sub-link"><span>👥</span> Customer Wise</a></li>
+                <li><a href="{% url 'customer_outstanding_report' %}" class="sub-link"><span>💰</span> Customer Outstanding</a></li>
+                <li><a href="{% url 'accounts_receivable_aging' %}" class="sub-link"><span>📋</span> Receivable Aging</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📦 INVENTORY REPORTS</li>
+                <li><a href="{% url 'inventory_status_report' %}" class="sub-link"><span>📊</span> Inventory Status</a></li>
+                <li><a href="{% url 'low_stock_report' %}" class="sub-link"><span>⚠️</span> Low Stock Alert</a></li>
+                <li><a href="{% url 'inventory_aging_report' %}" class="sub-link"><span>📅</span> Inventory Aging</a></li>
+                <li><a href="{% url 'stock_aging_report' %}" class="sub-link"><span>📦</span> Stock Aging</a></li>
+                <li><a href="{% url 'best_selling_categories_report' %}" class="sub-link"><span>📁</span> Best Categories</a></li>
+                <li><a href="{% url 'best_selling_brands_report' %}" class="sub-link"><span>🏷️</span> Best Brands</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📊 COMPARATIVE REPORTS</li>
+                <li><a href="{% url 'yearly_comparison_report' %}" class="sub-link"><span>📅</span> Yearly Comparison</a></li>
+                <li><a href="{% url 'monthly_comparison_report' %}" class="sub-link"><span>📆</span> Monthly Comparison</a></li>
+                <li><a href="{% url 'monthly_closing_report' %}" class="sub-link"><span>🔒</span> Monthly Closing</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">👔 PERFORMANCE REPORTS</li>
+                <li><a href="{% url 'employee_performance_report' %}" class="sub-link"><span>👔</span> Employee Performance</a></li>
+                <li><a href="{% url 'salesman_performance_report' %}" class="sub-link"><span>🎯</span> Salesman Performance</a></li>
+                <li><a href="{% url 'warehouse_performance_report' %}" class="sub-link"><span>🏪</span> Warehouse Performance</a></li>
+                <li><a href="{% url 'vendor_wise_report' %}" class="sub-link"><span>🏢</span> Vendor Wise</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📋 TAX & RETURN REPORTS</li>
+                <li><a href="{% url 'sales_tax_summary' %}" class="sub-link"><span>📊</span> Sales Tax Summary</a></li>
+                <li><a href="{% url 'purchase_tax_summary' %}" class="sub-link"><span>📥</span> Purchase Tax Summary</a></li>
+                <li><a href="{% url 'sales_return_analysis' %}" class="sub-link"><span>🔄</span> Sales Return Analysis</a></li>
+                <li><a href="{% url 'purchase_return_analysis' %}" class="sub-link"><span>🔄</span> Purchase Return Analysis</a></li>
+                <li><a href="{% url 'accounts_payable_aging' %}" class="sub-link"><span>📋</span> Payable Aging</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📅 SUMMARY REPORTS</li>
+                <li><a href="{% url 'daily_summary_report' %}" class="sub-link"><span>📅</span> Daily Summary</a></li>
+                <li><a href="{% url 'weekly_summary_report' %}" class="sub-link"><span>📆</span> Weekly Summary</a></li>
+                <li><a href="{% url 'monthly_summary_report' %}" class="sub-link"><span>📊</span> Monthly Summary</a></li>
+                <li><a href="{% url 'quarterly_summary_report' %}" class="sub-link"><span>📈</span> Quarterly Summary</a></li>
+                <li><a href="{% url 'yearly_summary_report' %}" class="sub-link"><span>📅</span> Yearly Summary</a></li>
+            </ul>
+        </li>
+        {% endif %}
+        
+        <!-- ========== MAIN CASH SECTION ========== -->
+        <li class="has-submenu">
+            <a href="#cashSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'cash' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">💰</span> Main Cash
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if 'cash' in request.path %}show{% endif %}" id="cashSubmenu">
+                <li><a href="{% url 'cash_dashboard' %}" class="sub-link"><span>📊</span> Main Cash Dashboard</a></li>
+                <li><a href="{% url 'cash_transactions' %}" class="sub-link"><span>📋</span> Transactions</a></li>
+                <li><a href="{% url 'cash_report' %}" class="sub-link"><span>📈</span> Cash Report</a></li>
+                <li><a href="{% url 'cash_set_opening' %}" class="sub-link"><span>🏁</span> Opening Balance</a></li>
+            </ul>
+        </li>
+        
+        <!-- ========== 🏦 LOAN MANAGEMENT SECTION ========== -->
+<li class="has-submenu">
+    <a href="#loanSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'loan' in request.path or 'loan-return' in request.path %}true{% else %}false{% endif %}">
+        <span class="menu-icon">🏦</span> Loan Management
+        <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+    </a>
+    <ul class="collapse list-unstyled {% if 'loan' in request.path or 'loan-return' in request.path %}show{% endif %}" id="loanSubmenu">
+        <li><a href="{% url 'loan_dashboard' %}" class="sub-link"><span>📊</span> Dashboard</a></li>
+        <li><a href="{% url 'loan_list' %}" class="sub-link"><span>📋</span> All Loans</a></li>
+        <li><a href="{% url 'loan_create' %}" class="sub-link"><span>➕</span> New Loan</a></li>
+        <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">💳 LOAN RETURNS</li>
+        <li><a href="{% url 'loan_return_list' %}" class="sub-link"><span>📋</span> All Returns</a></li>
+        <li><a href="{% url 'loan_return_create' %}" class="sub-link"><span>➕</span> New Return</a></li>
+        <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📊 REPORTS</li>
+        <li><a href="{% url 'loan_export_report' %}" class="sub-link"><span>📊</span> Export Excel</a></li>
+        <li><a href="{% url 'loan_export_pdf' %}" class="sub-link"><span>📄</span> Export PDF</a></li>
+    </ul>
+</li>
+
+<!-- ========================================== -->
+<!-- LOAN GIVEN SECTION                        -->
+<!-- ========================================== -->
+<li class="nav-item">
+    <a class="nav-link collapsed" data-bs-toggle="collapse" href="#loanGivenMenu" 
+       role="button" aria-expanded="false" aria-controls="loanGivenMenu">
+        <i class="fas fa-hand-holding-heart nav-icon"></i>
+        <span>Loan Given</span>
+        <i class="fas fa-chevron-down ms-auto"></i>
+    </a>
+    <div class="collapse" id="loanGivenMenu">
+        <ul class="nav nav-sm flex-column ms-3">
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'loan_given_dashboard' %}">
+                    <i class="fas fa-chart-pie"></i> Dashboard
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'loan_given_list' %}">
+                    <i class="fas fa-list"></i> All Loans Given
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'loan_given_create' %}">
+                    <i class="fas fa-plus-circle text-success"></i> New Loan Given
+                </a>
+            </li>
+        </ul>
+    </div>
+</li>
+        
+        <!-- ========== WHATSAPP SECTION ========== -->
+        {% if SHOW_WHATSAPP_MODULE %}
+        <li class="has-submenu">
+            <a href="#whatsappSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'whatsapp' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">📱</span> WhatsApp
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if 'whatsapp' in request.path %}show{% endif %}" id="whatsappSubmenu">
+                <li><a href="{% url 'whatsapp_reminders' %}" class="sub-link"><span>🔔</span> Payment Reminders</a></li>
+                <li><a href="{% url 'whatsapp_reminders' %}" class="sub-link"><span>📅</span> Installment Reminders</a></li>
+            </ul>
+        </li>
+        {% endif %}
+        
+        <!-- ========== 🔍 AUDIT SECTION ========== -->
+        <li class="has-submenu">
+            <a href="#auditSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'audit' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">🔍</span> Audit
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if 'audit' in request.path %}show{% endif %}" id="auditSubmenu">
+                <li><a href="{% url 'audit_dashboard' %}" class="sub-link"><span>📊</span> Dashboard</a></li>
+                <li><a href="{% url 'audit_plan_list' %}" class="sub-link"><span>📋</span> Audit Plans</a></li>
+                <li><a href="{% url 'audit_plan_create' %}" class="sub-link"><span>➕</span> New Plan</a></li>
+                <li><a href="{% url 'internal_controls' %}" class="sub-link"><span>🛡️</span> Internal Controls</a></li>
+                <li><a href="{% url 'audit_trails' %}" class="sub-link"><span>📜</span> Audit Trails</a></li>
+            </ul>
+        </li>
+        
+        <!-- ========== EXPENSES SECTION ========== -->
+        <li class="has-submenu">
+            <a href="#expensesSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'expenses' in request.path or 'categories' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">💰</span> Expenses
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if 'expenses' in request.path or 'categories' in request.path %}show{% endif %}" id="expensesSubmenu">
+                <li><a href="{% url 'expense_dashboard' %}" class="sub-link"><span>📊</span> Dashboard</a></li>
+                <li><a href="{% url 'expense_list' %}" class="sub-link"><span>📋</span> All Expenses</a></li>
+                <li><a href="{% url 'expense_create' %}" class="sub-link"><span>➕</span> Add Expense</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📂 EXPENSE CATEGORIES</li>
+                <li><a href="{% url 'expense_category_list' %}" class="sub-link"><span>📋</span> All Categories</a></li>
+                <li><a href="{% url 'expense_category_create' %}" class="sub-link"><span>➕</span> Add Category</a></li>
+                <li><a href="{% url 'expense_claim_list' %}" class="sub-link"><span>📋</span> Claims</a></li>
+                <li><a href="{% url 'expense_report' %}" class="sub-link"><span>📈</span> Reports</a></li>
+            </ul>
+        </li>
+        
+        <!-- ========== BUDGET SECTION ========== -->
+        <li class="has-submenu">
+            <a href="#budgetSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'budgets' in request.path or 'budget' in request.path or 'department' in request.path or 'project' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">📊</span> Budget
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if 'budgets' in request.path or 'budget' in request.path or 'department' in request.path or 'project' in request.path %}show{% endif %}" id="budgetSubmenu">
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📊 BUDGET MANAGEMENT</li>
+                <li><a href="{% url 'budget_dashboard' %}" class="sub-link"><span>📊</span> Dashboard</a></li>
+                <li><a href="{% url 'budget_list' %}" class="sub-link"><span>📋</span> All Budgets</a></li>
+                <li><a href="{% url 'budget_create' %}" class="sub-link"><span>➕</span> Add Budget</a></li>
+                <li><a href="{% url 'budget_report' %}" class="sub-link"><span>📈</span> Reports</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">🏢 DEPARTMENTS</li>
+                <li><a href="{% url 'department_list' %}" class="sub-link"><span>📋</span> All Departments</a></li>
+                <li><a href="{% url 'department_create' %}" class="sub-link"><span>➕</span> Add Department</a></li>
+                <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📋 PROJECTS</li>
+                <li><a href="{% url 'project_list' %}" class="sub-link"><span>📋</span> All Projects</a></li>
+                <li><a href="{% url 'project_create' %}" class="sub-link"><span>➕</span> Add Project</a></li>
+            </ul>
+        </li>
+        
+        <!-- ========== 🧪 TESTING SECTION ========== -->
+        <li class="has-submenu">
+            <a href="#testingSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'testing' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">🧪</span> Testing
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if 'testing' in request.path %}show{% endif %}" id="testingSubmenu">
+                <li><a href="{% url 'test_dashboard' %}" class="sub-link"><span>📊</span> Testing Dashboard</a></li>
+                <li><a href="{% url 'test_project_list' %}" class="sub-link"><span>📁</span> Test Projects</a></li>
+                <li><a href="{% url 'test_project_create' %}" class="sub-link"><span>➕</span> New Project</a></li>
+                <li><a href="{% url 'test_case_list' %}" class="sub-link"><span>📋</span> Test Cases</a></li>
+                <li><a href="{% url 'bug_list' %}" class="sub-link"><span>🐛</span> Bugs</a></li>
+                <li><a href="{% url 'bug_create' %}" class="sub-link"><span>➕</span> Report Bug</a></li>
+                <li><a href="{% url 'test_report_generate' %}" class="sub-link"><span>📄</span> Generate Report</a></li>
+                {% if request.user.is_superuser %}
+                <li><a href="{% url 'test_plan_list' %}" class="sub-link"><span>📋</span> Test Plans</a></li>
+                {% endif %}
+            </ul>
+        </li>
+        
+        <!-- ========== SYSTEM SECTION ========== -->
+        <li class="has-submenu">
+            <a href="#systemSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'settings' in request.path or 'backup' in request.path or 'users' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">⚙️</span> System
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if 'settings' in request.path or 'backup' in request.path or 'users' in request.path %}show{% endif %}" id="systemSubmenu">
+                <li><a href="{% url 'user_list' %}" class="sub-link"><span>👥</span> User Management</a></li>
+                <li><a href="{% url 'module_settings' %}" class="sub-link"><span>⚙️</span> Module Settings</a></li>
+                <li><a href="{% url 'company_settings' %}" class="sub-link"><span>🏢</span> Company Settings</a></li>
+                {% if SHOW_BACKUP_MODULE %}
+                <li><a href="{% url 'database_backup' %}" class="sub-link"><span>💾</span> Database Backup</a></li>
+                {% endif %}
+                <li><a href="{% url 'admin:index' %}" target="_blank" class="sub-link"><span>🔒</span> Admin Panel <i class="bi bi-box-arrow-up-right ms-auto" style="font-size:0.6rem;opacity:0.5;"></i></a></li>
+                <li><a href="{% url 'logout' %}" class="sub-link"><span>🚪</span> Logout</a></li>
+            </ul>
+        </li>
+        
+    </ul>
+    
+    <div class="sidebar-footer">
+        <small>© {% now "Y" %} {{ company_name|default:'ERP' }}</small>
+    </div>
+</aside>
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<style>
+    :root {
+        --sidebar-bg: #0f1123;
+        --sidebar-hover: #1a1d3a;
+        --sidebar-active: #252860;
+        --sidebar-text: #a0a5c0;
+        --sidebar-text-light: #6b7094;
+        --sidebar-accent: #667eea;
+        --sidebar-width: 280px;
+    }
+    
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: var(--sidebar-width);
+        height: 100vh;
+        background: var(--sidebar-bg);
+        z-index: 1040;
+        overflow-y: auto;
+        overflow-x: hidden;
+        transition: transform 0.3s ease;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .sidebar::-webkit-scrollbar { width: 3px; }
+    .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+    
+    .sidebar-brand {
+        padding: 25px 20px 15px;
+        text-align: center;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    
+    .brand-icon-wrap {
+        width: 50px;
+        height: 50px;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 10px;
+        box-shadow: 0 8px 20px rgba(102,126,234,0.3);
+    }
+    
+    .brand-icon { font-size: 1.5rem; }
+    .sidebar-brand h4 { color: #fff; font-weight: 700; font-size: 1.1rem; margin: 0; letter-spacing: 0.5px; }
+    .sidebar-brand small { color: var(--sidebar-text-light); font-size: 0.7rem; }
+    
+    .sidebar-user {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 15px 20px;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+        margin-bottom: 5px;
+    }
+    
+    .user-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #f0a500, #f2c94c);
+        color: #1a1a2e;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 1rem;
+        flex-shrink: 0;
+    }
+    
+    .user-info strong { display: block; color: #fff; font-size: 0.85rem; font-weight: 600; }
+    .user-info small { color: var(--sidebar-text-light); font-size: 0.68rem; }
+    
+    /* ========== ✅ USER ROLE BADGE ========== */
+    .user-role-badge {
+        margin-top: 4px;
+    }
+    
+    .role-badge {
+        display: inline-block;
+        padding: 2px 12px;
+        border-radius: 12px;
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .role-badge.ceo {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+    }
+    
+    .role-badge.owner {
+        background: linear-gradient(135deg, #11998e, #38ef7d);
+        color: white;
+    }
+    
+    .role-badge.manager {
+        background: linear-gradient(135deg, #f2994a, #f2c94c);
+        color: #1a1a2e;
+    }
+    
+    .role-badge.accountant {
+        background: linear-gradient(135deg, #36d1dc, #5b86e5);
+        color: white;
+    }
+    
+    .role-badge.salesman {
+        background: linear-gradient(135deg, #f093fb, #f5576c);
+        color: white;
+    }
+    
+    .role-badge.warehouse {
+        background: linear-gradient(135deg, #4facfe, #00f2fe);
+        color: #1a1a2e;
+    }
+    
+    .role-badge.staff {
+        background: #6b7280;
+        color: white;
+    }
+    
+    /* ========== SIDEBAR MENU ========== */
+    .sidebar-menu { list-style: none; padding: 0; margin: 0; flex: 1; }
+    
+    .menu-section {
+        color: var(--sidebar-text-light);
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        padding: 15px 20px 6px;
+        font-weight: 700;
+    }
+    
+    .sidebar-menu li a {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 20px;
+        color: var(--sidebar-text);
+        text-decoration: none;
+        transition: all 0.2s;
+        font-size: 0.88rem;
+        font-weight: 500;
+        border-left: 3px solid transparent;
+        position: relative;
+        cursor: pointer;
+    }
+    
+    .sidebar-menu li a:hover {
+        background: var(--sidebar-hover);
+        color: #fff;
+        border-left-color: var(--sidebar-accent);
+    }
+    
+    .sidebar-menu li a.active {
+        background: var(--sidebar-active);
+        color: #fff;
+        border-left-color: var(--sidebar-accent);
+        font-weight: 600;
+    }
+    
+    .menu-icon { font-size: 1.1rem; width: 24px; text-align: center; flex-shrink: 0; }
+    
+    .arrow-icon { 
+        transition: transform 0.3s; 
+        font-size: 0.7rem; 
+        opacity: 0.5;
+        margin-left: auto;
+    }
+    
+    .has-submenu a[aria-expanded="true"] .arrow-icon { transform: rotate(180deg); }
+    
+    .sidebar-menu .collapse {
+        background: rgba(0,0,0,0.2);
+        margin: 2px 10px;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .sub-link {
+        padding: 8px 15px 8px 35px !important;
+        font-size: 0.82rem !important;
+        border-left: none !important;
+        color: var(--sidebar-text) !important;
+    }
+    
+    .sub-link:hover {
+        background: rgba(255,255,255,0.04) !important;
+        color: #fff !important;
+        border-left: 3px solid var(--sidebar-accent) !important;
+        padding-left: 32px !important;
+    }
+    
+    .sub-link.active {
+        background: rgba(102,126,234,0.15) !important;
+        color: #fff !important;
+        border-left: 3px solid var(--sidebar-accent) !important;
+        font-weight: 600 !important;
+        padding-left: 32px !important;
+    }
+    
+    .sub-link span { font-size: 0.85rem; width: 20px; text-align: center; display: inline-block; }
+    
+    .badge-alert {
+        background: #dc3545;
+        color: white;
+        font-size: 0.6rem;
+        padding: 2px 7px;
+        border-radius: 10px;
+        font-weight: 700;
+        margin-left: auto;
+    }
+    
+    .sidebar-footer {
+        padding: 15px 20px;
+        text-align: center;
+        border-top: 1px solid rgba(255,255,255,0.04);
+        margin-top: auto;
+    }
+    
+    .sidebar-footer small { color: var(--sidebar-text-light); font-size: 0.7rem; }
+    
+    .sidebar-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 1035;
+    }
+    
+    .sidebar-overlay.show { display: block; }
+    
+    @media (max-width: 991px) {
+        .sidebar { transform: translateX(-100%); }
+        .sidebar.mobile-show { transform: translateX(0); }
+    }
+</style>
+
+<script>
+    (function() {
+        window.toggleSidebar = function() {
+            var sidebar = document.getElementById('sidebar');
+            var overlay = document.getElementById('sidebarOverlay');
+            if (sidebar) sidebar.classList.toggle('mobile-show');
+            if (overlay) overlay.classList.toggle('show');
+        };
+        
+        window.closeSidebar = function() {
+            var sidebar = document.getElementById('sidebar');
+            var overlay = document.getElementById('sidebarOverlay');
+            if (sidebar) sidebar.classList.remove('mobile-show');
+            if (overlay) overlay.classList.remove('show');
+        };
+        
+        function setParentActiveClass() {
+            document.querySelectorAll('.has-submenu > a').forEach(function(link) {
+                if (!link.getAttribute('data-bs-toggle')) return;
+                var targetId = link.getAttribute('href');
+                if (targetId && targetId.startsWith('#')) {
+                    var collapseEl = document.querySelector(targetId);
+                    if (collapseEl && !collapseEl.classList.contains('show')) {
+                        if (!link.classList.contains('keep-active')) {
+                            link.classList.remove('active');
+                        }
+                    }
+                }
+            });
+            
+            document.querySelectorAll('.sub-link.active').forEach(function(activeSub) {
+                var parentSubmenu = activeSub.closest('.collapse');
+                if (parentSubmenu) {
+                    if (!parentSubmenu.classList.contains('show')) {
+                        parentSubmenu.classList.add('show');
+                    }
+                    var parentLink = parentSubmenu.closest('.has-submenu');
+                    if (parentLink) {
+                        var parentAnchor = parentLink.querySelector('a');
+                        if (parentAnchor) {
+                            parentAnchor.classList.add('active');
+                            parentAnchor.setAttribute('aria-expanded', 'true');
+                            parentAnchor.classList.add('keep-active');
+                        }
+                    }
+                }
+            });
+        }
+        
+        function setupSubmenuHandlers() {
+            document.querySelectorAll('.has-submenu > a[data-bs-toggle="collapse"]').forEach(function(link) {
+                link.addEventListener('click', function(e) {
+                    var targetId = this.getAttribute('href');
+                    if (targetId && targetId.startsWith('#')) {
+                        var collapseEl = document.querySelector(targetId);
+                        if (collapseEl) {
+                            var isExpanded = this.getAttribute('aria-expanded') === 'true';
+                            if (isExpanded) {
+                                this.setAttribute('aria-expanded', 'false');
+                                if (window.innerWidth < 992) {
+                                    document.querySelectorAll('.has-submenu .collapse.show').forEach(function(el) {
+                                        if (el !== collapseEl) {
+                                            var otherLink = el.closest('.has-submenu');
+                                            if (otherLink) {
+                                                var otherAnchor = otherLink.querySelector('a');
+                                                if (otherAnchor) otherAnchor.setAttribute('aria-expanded', 'false');
+                                            }
+                                            if (typeof bootstrap !== 'undefined' && bootstrap.Collapse) {
+                                                bootstrap.Collapse.getOrCreateInstance(el).hide();
+                                            }
+                                        }
+                                    });
+                                }
+                            } else {
+                                this.setAttribute('aria-expanded', 'true');
+                            }
+                        }
+                    }
+                });
+            });
+        }
+        
+        function handleResize() {
+            if (window.innerWidth >= 992) {
+                var sidebar = document.getElementById('sidebar');
+                var overlay = document.getElementById('sidebarOverlay');
+                if (sidebar) sidebar.classList.remove('mobile-show');
+                if (overlay) overlay.classList.remove('show');
+            }
+        }
+        
+        function initSidebar() {
+            setParentActiveClass();
+            setupSubmenuHandlers();
+            window.addEventListener('resize', handleResize);
+        }
+        
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initSidebar);
+        } else {
+            initSidebar();
+        }
+    })();
+</script>

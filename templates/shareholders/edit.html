@@ -1,0 +1,557 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Edit Shareholder{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3 px-lg-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 mb-md-4">
+        <h1 class="h3 mb-0">✏️ Edit Shareholder</h1>
+        <div>
+            <a href="{% url 'shareholder_balance_detail' shareholder.pk %}" class="btn btn-info btn-sm me-1 me-md-2">
+                <i class="bi bi-wallet2"></i> <span class="d-none d-sm-inline">Balance Detail</span>
+                <span class="d-inline d-sm-none">Balance</span>
+            </a>
+            <a href="{% url 'shareholder_detail' shareholder.pk %}" class="btn btn-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> <span class="d-none d-sm-inline">Back to Detail</span>
+                <span class="d-inline d-sm-none">Back</span>
+            </a>
+        </div>
+    </div>
+    
+    <!-- Cash Balance Alert -->
+    <div class="alert alert-info py-2">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <strong>💰 Current Cash Balance:</strong> 
+                <span class="fw-bold fs-5 text-success">Rs. {{ shareholder_balance|floatformat:2 }}</span>
+            </div>
+            <div class="col-md-6 text-md-end mt-2 mt-md-0">
+                <a href="{% url 'shareholder_deposit' shareholder.pk %}" class="btn btn-success btn-sm">
+                    <i class="bi bi-plus-circle"></i> Deposit
+                </a>
+                <a href="{% url 'shareholder_withdraw' shareholder.pk %}" class="btn btn-warning btn-sm">
+                    <i class="bi bi-dash-circle"></i> Withdraw
+                </a>
+                <a href="{% url 'shareholder_transfer_balance' shareholder.pk %}" class="btn btn-info btn-sm">
+                    <i class="bi bi-arrow-left-right"></i> Transfer
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card shadow-sm">
+        <div class="card-body p-2 p-md-4">
+            <form method="POST" id="shareholderForm">
+                {% csrf_token %}
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5 class="border-bottom pb-2">Personal Information</h5>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Name *</label>
+                            <input type="text" name="name" class="form-control" value="{{ shareholder.name }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Shareholder Type</label>
+                            <select name="shareholder_type" class="form-select">
+                                {% for value, label in shareholder_types %}
+                                <option value="{{ value }}" {% if shareholder.shareholder_type == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" name="email" class="form-control" value="{{ shareholder.email|default:'' }}">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Phone</label>
+                            <input type="text" name="phone" class="form-control" value="{{ shareholder.phone|default:'' }}">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Address</label>
+                            <textarea name="address" class="form-control" rows="2">{{ shareholder.address|default:'' }}</textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h5 class="border-bottom pb-2">Additional Details</h5>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">CNIC/NTN</label>
+                            <input type="text" name="cnic" class="form-control" value="{{ shareholder.cnic|default:'' }}">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Passport No</label>
+                            <input type="text" name="passport_no" class="form-control" value="{{ shareholder.passport_no|default:'' }}">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Company Name (if company)</label>
+                            <input type="text" name="company_name" class="form-control" value="{{ shareholder.company_name|default:'' }}">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Registration No</label>
+                            <input type="text" name="registration_no" class="form-control" value="{{ shareholder.registration_no|default:'' }}">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="active" {% if shareholder.status == 'active' %}selected{% endif %}>Active</option>
+                                <option value="inactive" {% if shareholder.status == 'inactive' %}selected{% endif %}>Inactive</option>
+                                <option value="suspended" {% if shareholder.status == 'suspended' %}selected{% endif %}>Suspended</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-check mb-2">
+                            <input type="checkbox" name="is_founder" class="form-check-input" id="is_founder" {% if shareholder.is_founder %}checked{% endif %}>
+                            <label class="form-check-label" for="is_founder">Founder Shareholder</label>
+                        </div>
+                        
+                        <div class="form-check mb-2">
+                            <input type="checkbox" name="is_board_member" class="form-check-input" id="is_board_member" {% if shareholder.is_board_member %}checked{% endif %}>
+                            <label class="form-check-label" for="is_board_member">Board Member</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <!-- ============================================ -->
+                <!-- 🔐 LOGIN ACCESS - NEW SECTION -->
+                <!-- ============================================ -->
+                <div class="row">
+                    <div class="col-12">
+                        <h5 class="border-bottom pb-2">🔐 Login Access</h5>
+                        
+                        <div class="alert alert-info py-2">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Username:</strong> 
+                            {% if shareholder.user %}
+                                <span class="fw-bold text-success">{{ shareholder.user.username }}</span>
+                                <span class="badge bg-success ms-2">✅ User Exists</span>
+                            {% else %}
+                                <span class="fw-bold text-warning">No user created yet</span>
+                            {% endif %}
+                            <br>
+                            <small>Username is auto-generated from shareholder name (spaces removed)</small>
+                        </div>
+                        
+                        <div class="form-check mb-3">
+                            <input type="checkbox" 
+                                   name="allow_login" 
+                                   class="form-check-input" 
+                                   id="allowLogin"
+                                   {% if shareholder.allow_login %}checked{% endif %}>
+                            <label class="form-check-label" for="allowLogin">
+                                <strong>Allow Shareholder Login</strong>
+                            </label>
+                            <br>
+                            <small class="text-muted">Enable this to allow shareholder to login to portal</small>
+                        </div>
+                        
+                        <div id="loginFields" style="{% if shareholder.allow_login %}display: block;{% else %}display: none;{% endif %}">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Password</label>
+                                        <input type="text" name="password" class="form-control" value="password123" id="loginPassword">
+                                        <small class="text-muted">Default password: password123</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">&nbsp;</label>
+                                        <div>
+                                            <button type="button" class="btn btn-outline-danger btn-sm" onclick="resetPassword()">
+                                                <i class="bi bi-key"></i> Reset Password
+                                            </button>
+                                            <small class="text-muted ms-2">Reset to: password123</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {% if shareholder.user %}
+                            <div class="alert alert-success py-2">
+                                <i class="bi bi-check-circle"></i>
+                                <strong>User Status:</strong> 
+                                <span class="badge bg-success">Active</span>
+                                <span class="ms-2">Username: <strong>{{ shareholder.user.username }}</strong></span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <!-- ============================================ -->
+                <!-- SHARE DETAILS SECTION -->
+                <!-- ============================================ -->
+                <div class="row">
+                    <div class="col-12">
+                        <h5 class="border-bottom pb-2 text-primary">
+                            <i class="bi bi-graph-up-arrow"></i> Share Details
+                        </h5>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Number of Shares</label>
+                            <input type="number" 
+                                   name="initial_shares" 
+                                   id="shareQty"
+                                   class="form-control" 
+                                   value="{{ share.quantity|default:0 }}" 
+                                   min="0"
+                                   step="1">
+                            <small class="text-muted">Current: <strong id="currentQty">{{ share.quantity|default:0 }}</strong> shares</small>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Purchase Price per Share (Rs.)</label>
+                            <input type="number" 
+                                   name="purchase_price" 
+                                   id="sharePrice"
+                                   class="form-control" 
+                                   value="{{ share.purchase_price|default:0 }}" 
+                                   min="0"
+                                   step="0.01">
+                            <small class="text-muted">Current: Rs. <strong id="currentPrice">{{ share.purchase_price|default:0|floatformat:2 }}</strong></small>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">&nbsp;</label>
+                            <div class="form-check mt-1">
+                                <input type="checkbox" 
+                                       name="paid_from_shareholder_balance" 
+                                       class="form-check-input" 
+                                       id="paidFromBalance"
+                                       {% if share.paid_from_shareholder_balance %}checked{% endif %}>
+                                <label class="form-check-label" for="paidFromBalance">
+                                    Deduct from cash balance
+                                </label>
+                            </div>
+                            <small class="text-muted">If unchecked, uses main cash</small>
+                        </div>
+                    </div>
+                    
+                    <div class="col-12">
+                        <div class="alert alert-info" id="investmentSummary">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <strong>📊 Current Investment:</strong> 
+                                    <span id="currentInvestment">Rs. {{ share.total_investment|default:0|floatformat:2 }}</span>
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>🔄 New Investment:</strong> 
+                                    <span id="newInvestment">Rs. 0.00</span>
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>📈 Difference:</strong> 
+                                    <span id="differenceBadge" class="badge bg-secondary ms-2">No Change</span>
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>💰 Balance After:</strong> 
+                                    <span id="balanceAfter">Rs. {{ shareholder_balance|floatformat:2 }}</span>
+                                </div>
+                            </div>
+                            {% if share %}
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    <i class="bi bi-info-circle"></i> 
+                                    Total Shares: {{ share.quantity|default:0 }} × Rs. {{ share.purchase_price|default:0|floatformat:2 }} = 
+                                    <strong>Rs. {{ share.total_investment|default:0|floatformat:2 }}</strong>
+                                </small>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <!-- ============================================ -->
+                <!-- BANKING DETAILS -->
+                <!-- ============================================ -->
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5 class="border-bottom pb-2">Banking Details</h5>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Bank Name</label>
+                            <input type="text" name="bank_name" class="form-control" value="{{ shareholder.bank_name|default:'' }}">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Account Number</label>
+                            <input type="text" name="account_number" class="form-control" value="{{ shareholder.account_number|default:'' }}">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Account Title</label>
+                            <input type="text" name="account_title" class="form-control" value="{{ shareholder.account_title|default:'' }}">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">IBAN</label>
+                            <input type="text" name="iban" class="form-control" value="{{ shareholder.iban|default:'' }}">
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h5 class="border-bottom pb-2">Notes & Statistics</h5>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Notes</label>
+                            <textarea name="notes" class="form-control" rows="3">{{ shareholder.notes|default:'' }}</textarea>
+                        </div>
+                        
+                        <div class="alert alert-secondary">
+                            <strong>📊 Statistics:</strong><br>
+                            Total Shares: <strong id="statShares">{{ share.quantity|default:0|floatformat:0 }}</strong><br>
+                            Total Investment: <strong id="statInvestment">Rs. {{ share.total_investment|default:0|floatformat:2 }}</strong><br>
+                            Cash Balance: <strong>Rs. {{ shareholder_balance|floatformat:2 }}</strong>
+                            {% if shareholder.user %}
+                            <br>Username: <strong>{{ shareholder.user.username }}</strong>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-end mt-3">
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="bi bi-check-circle"></i> Update Shareholder
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- JAVASCRIPT -->
+<!-- ============================================ -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const qtyInput = document.getElementById('shareQty');
+    const priceInput = document.getElementById('sharePrice');
+    const allowLoginCheck = document.getElementById('allowLogin');
+    const loginFields = document.getElementById('loginFields');
+    const loginPassword = document.getElementById('loginPassword');
+    
+    const currentQty = parseInt(document.getElementById('currentQty')?.textContent || 0);
+    const currentPrice = parseFloat(document.getElementById('currentPrice')?.textContent || 0);
+    const currentInvestment = currentQty * currentPrice;
+    const currentBalance = {{ shareholder_balance|floatformat:2 }};
+    
+    // ✅ Show/hide login fields
+    if (allowLoginCheck) {
+        allowLoginCheck.addEventListener('change', function() {
+            loginFields.style.display = this.checked ? 'block' : 'none';
+            if (this.checked) {
+                loginPassword.value = 'password123';
+            }
+        });
+    }
+    
+    // ✅ Reset Password Function
+    window.resetPassword = function() {
+        if (confirm('⚠️ Are you sure you want to reset password to "password123"?')) {
+            document.getElementById('loginPassword').value = 'password123';
+            alert('✅ Password reset to: password123');
+        }
+    };
+    
+    // ✅ Investment Summary
+    function updateInvestmentSummary() {
+        const qty = parseInt(qtyInput?.value) || 0;
+        const price = parseFloat(priceInput?.value) || 0;
+        const newInvestment = qty * price;
+        const difference = newInvestment - currentInvestment;
+        const balanceAfter = currentBalance - difference;
+        
+        const newInvestmentSpan = document.getElementById('newInvestment');
+        const diffBadge = document.getElementById('differenceBadge');
+        const balanceAfterSpan = document.getElementById('balanceAfter');
+        const statShares = document.getElementById('statShares');
+        const statInvestment = document.getElementById('statInvestment');
+        const currentInvestmentSpan = document.getElementById('currentInvestment');
+        
+        if (newInvestmentSpan) {
+            newInvestmentSpan.textContent = `Rs. ${newInvestment.toFixed(2)}`;
+        }
+        
+        if (currentInvestmentSpan) {
+            currentInvestmentSpan.textContent = `Rs. ${currentInvestment.toFixed(2)}`;
+        }
+        
+        if (balanceAfterSpan) {
+            const balanceColor = balanceAfter >= 0 ? 'text-success' : 'text-danger';
+            balanceAfterSpan.innerHTML = `<span class="${balanceColor}">Rs. ${balanceAfter.toFixed(2)}</span>`;
+        }
+        
+        if (statShares) {
+            statShares.textContent = qty;
+        }
+        
+        if (statInvestment) {
+            statInvestment.textContent = `Rs. ${newInvestment.toFixed(2)}`;
+        }
+        
+        if (diffBadge) {
+            if (difference > 0) {
+                diffBadge.className = 'badge bg-success ms-2';
+                diffBadge.innerHTML = `⬆️ +Rs. ${difference.toFixed(2)}`;
+            } else if (difference < 0) {
+                diffBadge.className = 'badge bg-danger ms-2';
+                diffBadge.innerHTML = `⬇️ -Rs. ${Math.abs(difference).toFixed(2)}`;
+            } else {
+                diffBadge.className = 'badge bg-secondary ms-2';
+                diffBadge.textContent = 'No Change';
+            }
+        }
+        
+        const alertDiv = document.getElementById('investmentSummary');
+        if (alertDiv) {
+            if (difference > 0) {
+                alertDiv.className = 'alert alert-success';
+            } else if (difference < 0) {
+                alertDiv.className = 'alert alert-warning';
+            } else {
+                alertDiv.className = 'alert alert-info';
+            }
+        }
+        
+        const paidCheck = document.getElementById('paidFromBalance');
+        if (paidCheck) {
+            const label = paidCheck.nextElementSibling;
+            if (label && qty > 0 && price > 0) {
+                label.textContent = `Deduct Rs. ${newInvestment.toFixed(2)} from cash balance`;
+            } else if (label) {
+                label.textContent = 'Deduct from cash balance';
+            }
+        }
+    }
+    
+    if (qtyInput) qtyInput.addEventListener('input', updateInvestmentSummary);
+    if (priceInput) priceInput.addEventListener('input', updateInvestmentSummary);
+    
+    updateInvestmentSummary();
+});
+
+// ============================================
+// FORM VALIDATION
+// ============================================
+document.getElementById('shareholderForm')?.addEventListener('submit', function(e) {
+    const name = document.querySelector('input[name="name"]');
+    if (!name || !name.value.trim()) {
+        e.preventDefault();
+        alert('❌ Please enter shareholder name!');
+        name?.focus();
+        return false;
+    }
+    
+    const shares = parseInt(document.querySelector('input[name="initial_shares"]')?.value || 0);
+    const price = parseFloat(document.querySelector('input[name="purchase_price"]')?.value || 0);
+    const currentBalance = {{ shareholder_balance|floatformat:2 }};
+    const currentQty = parseInt(document.getElementById('currentQty')?.textContent || 0);
+    const currentPrice = parseFloat(document.getElementById('currentPrice')?.textContent || 0);
+    const paidFromBalance = document.getElementById('paidFromBalance')?.checked;
+    
+    if (paidFromBalance) {
+        const currentInvestment = currentQty * currentPrice;
+        const newInvestment = shares * price;
+        const difference = newInvestment - currentInvestment;
+        
+        if (difference > 0 && currentBalance < difference) {
+            const confirmMsg = `⚠️ Insufficient cash balance!\n\nCurrent Balance: Rs. ${currentBalance.toFixed(2)}\nRequired Increase: Rs. ${difference.toFixed(2)}\n\nThis will result in a negative balance!\n\nAre you sure you want to continue?`;
+            if (!confirm(confirmMsg)) {
+                e.preventDefault();
+                return false;
+            }
+        }
+    }
+    
+    if (shares !== currentQty || price !== currentPrice) {
+        const oldInvestment = currentQty * currentPrice;
+        const newInvestment = shares * price;
+        const diff = newInvestment - oldInvestment;
+        
+        if (diff !== 0) {
+            const confirmMsg = `⚠️ You are changing share investment by Rs. ${Math.abs(diff).toFixed(2)} (${diff > 0 ? 'Increase' : 'Decrease'}).\n\n${paidFromBalance ? 'This will affect shareholder\'s cash balance.' : 'This will affect main cash balance.'}\n\nAre you sure you want to continue?`;
+            if (!confirm(confirmMsg)) {
+                e.preventDefault();
+                return false;
+            }
+        }
+    }
+    
+    // ✅ Check password if login enabled
+    const allowLogin = document.getElementById('allowLogin')?.checked;
+    if (allowLogin) {
+        const password = document.querySelector('input[name="password"]');
+        if (!password || password.value.length < 6) {
+            e.preventDefault();
+            alert('❌ Password must be at least 6 characters!');
+            password?.focus();
+            return false;
+        }
+    }
+    
+    return true;
+});
+</script>
+
+{% block extra_css %}
+<style>
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+        }
+        .card-body {
+            padding: 0.5rem !important;
+        }
+        .btn-lg {
+            font-size: 0.8rem !important;
+            padding: 0.4rem 0.8rem !important;
+        }
+        .form-control, .form-select {
+            font-size: 0.8rem !important;
+        }
+        h1 {
+            font-size: 1.1rem !important;
+        }
+        h5 {
+            font-size: 0.9rem !important;
+        }
+        label {
+            font-size: 0.8rem !important;
+        }
+        .alert {
+            font-size: 0.8rem !important;
+            padding: 0.4rem 0.6rem !important;
+        }
+        .btn-sm {
+            font-size: 0.65rem !important;
+            padding: 0.2rem 0.4rem !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% endblock %}

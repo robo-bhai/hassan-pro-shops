@@ -1,0 +1,186 @@
+{% extends 'ceo/base_executive.html' %}
+{% load humanize %}
+
+{% block page_title %}Risk Management{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5><i class="bi bi-shield-exclamation"></i> Enterprise Risk Assessment</h5>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createRiskModal">
+                    <i class="bi bi-plus-circle"></i> Add Risk
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="stat-card text-center">
+            <h3>{{ risks|length }}</h3>
+            <small class="text-muted">Total Risks</small>
+            <div class="mt-2">
+                <span class="badge bg-danger">Critical: {{ risks|length }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card text-center">
+            <h3>Rs. {{ total_risk_value|floatformat:0|intcomma }}</h3>
+            <small class="text-muted">Potential Financial Loss</small>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card text-center">
+            <h3>Rs. {{ total_mitigation_cost|floatformat:0|intcomma }}</h3>
+            <small class="text-muted">Mitigation Cost</small>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="stat-card">
+            <h6>Risk Heatmap</h6>
+            <div class="table-responsive">
+                <table class="table table-bordered text-center">
+                    <thead>
+                        <tr><th>Impact →</th><th>1 (Low)</th><th>2</th><th>3</th><th>4</th><th>5 (High)</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for likelihood in "12345"|make_list %}
+                        <tr>
+                            <th>Likelihood {{ likelihood }}</th>
+                            {% for impact in "12345"|make_list %}
+                            {% with score=likelihood|add:impact %}
+                            <td class="{% if score|add:0 >= 20 %}bg-danger text-white{% elif score|add:0 >= 15 %}bg-warning{% elif score|add:0 >= 8 %}bg-info{% else %}bg-success text-white{% endif %}">
+                                {{ score|add:0 }}
+                            </td>
+                            {% endwith %}
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="stat-card">
+            <h6>Risk Register</h6>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Risk</th>
+                            <th>Category</th>
+                            <th>Likelihood</th>
+                            <th>Impact</th>
+                            <th>Score</th>
+                            <th>Level</th>
+                            <th>Status</th>
+                            <th>Mitigation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for risk in risks %}
+                        <tr>
+                            <td><strong>{{ risk.title }}</strong><br><small>{{ risk.description|truncatechars:50 }}</small></td>
+                            <td>{{ risk.get_category_display }}</td>
+                            <td>{{ risk.likelihood }}/5</td>
+                            <td>{{ risk.impact }}/5</td>
+                            <td><strong>{{ risk.risk_score }}</strong></td>
+                            <td><span class="badge badge-{{ risk.risk_level }}">{{ risk.get_risk_level_display }}</span></td>
+                            <td>{{ risk.get_status_display }}</td>
+                            <td>{{ risk.mitigation_strategy|truncatechars:60 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="8" class="text-center">No risks recorded. Click "Add Risk" to get started.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Risk Modal -->
+<div class="modal fade" id="createRiskModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Risk Assessment</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <label>Risk Title</label>
+                            <input type="text" name="title" class="form-control" required>
+                        </div>
+                        <div class="col-md-12 mt-2">
+                            <label>Description</label>
+                            <textarea name="description" class="form-control" rows="2" required></textarea>
+                        </div>
+                        <div class="col-md-6 mt-2">
+                            <label>Category</label>
+                            <select name="category" class="form-control">
+                                {% for cat in categories %}
+                                <option value="{{ cat.0 }}">{{ cat.1 }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3 mt-2">
+                            <label>Likelihood (1-5)</label>
+                            <select name="likelihood" class="form-control">
+                                {% for i in "12345"|make_list %}
+                                <option value="{{ i }}">{{ i }} - {% if i == "1" %}Very Low{% elif i == "5" %}Very High{% endif %}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3 mt-2">
+                            <label>Impact (1-5)</label>
+                            <select name="impact" class="form-control">
+                                {% for i in "12345"|make_list %}
+                                <option value="{{ i }}">{{ i }} - {% if i == "1" %}Very Low{% elif i == "5" %}Very High{% endif %}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-12 mt-2">
+                            <label>Mitigation Strategy</label>
+                            <textarea name="mitigation_strategy" class="form-control" rows="2" required></textarea>
+                        </div>
+                        <div class="col-md-6 mt-2">
+                            <label>Mitigation Deadline</label>
+                            <input type="date" name="mitigation_deadline" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 mt-2">
+                            <label>Next Review Date</label>
+                            <input type="date" name="next_review" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 mt-2">
+                            <label>Potential Financial Loss (Rs.)</label>
+                            <input type="number" name="potential_financial_loss" class="form-control" value="0">
+                        </div>
+                        <div class="col-md-6 mt-2">
+                            <label>Mitigation Cost (Rs.)</label>
+                            <input type="number" name="mitigation_cost" class="form-control" value="0">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Add Risk</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

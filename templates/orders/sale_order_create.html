@@ -1,0 +1,569 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Create Sale Order{% endblock %}
+{% block page_title %}📝 New Sale Order{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --border: #eef0f5;
+        --text: #1a1a2e;
+        --text-light: #6b7280;
+        --accent: #0d6efd;
+    }
+    
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 380px;
+        gap: 20px;
+        align-items: start;
+    }
+    
+    @media (max-width: 992px) { .form-grid { grid-template-columns: 1fr; } }
+    
+    /* ========== CARDS ========== */
+    .form-card {
+        background: white;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        padding: 22px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+    
+    .form-card h5 {
+        font-weight: 700;
+        margin-bottom: 18px;
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .summary-card {
+        background: white;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        padding: 22px;
+        position: sticky;
+        top: 85px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+    
+    .summary-card h5 {
+        font-weight: 700;
+        margin-bottom: 18px;
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    /* ========== FORM ELEMENTS ========== */
+    .form-label-mini {
+        font-weight: 700;
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #5a6070;
+        margin-bottom: 4px;
+        display: block;
+    }
+    
+    .form-control, .form-select {
+        border-radius: 10px;
+        border: 2px solid #eef0f5;
+        padding: 10px 14px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        background: #fafbfc;
+        margin-bottom: 12px;
+        transition: all 0.2s;
+        width: 100%;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(13,110,253,0.08);
+        background: white;
+        outline: none;
+    }
+    
+    textarea.form-control {
+        resize: vertical;
+        min-height: 60px;
+    }
+    
+    /* ========== PRODUCT ROWS ========== */
+    .product-rows-container {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .product-row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        padding: 14px;
+        background: #fafbfc;
+        border-radius: 12px;
+        border: 2px solid #eef0f5;
+        transition: all 0.2s;
+        flex-wrap: wrap;
+    }
+    
+    .product-row:hover {
+        border-color: #d0d5e0;
+        background: #f8f9fc;
+    }
+    
+    .product-row select {
+        flex: 2;
+        min-width: 150px;
+        margin-bottom: 0 !important;
+    }
+    
+    .product-row input {
+        flex: 1;
+        min-width: 80px;
+        margin-bottom: 0 !important;
+    }
+    
+    .product-row .row-total {
+        font-weight: 700;
+        min-width: 100px;
+        text-align: right;
+        color: var(--text);
+        font-size: 0.95rem;
+    }
+    
+    .product-row input, .product-row select {
+        border-radius: 8px;
+        border: 2px solid #e0e3eb;
+        padding: 9px 12px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        background: white;
+    }
+    
+    .product-row input:focus, .product-row select:focus {
+        border-color: var(--accent);
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(13,110,253,0.06);
+    }
+    
+    .btn-remove-row {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        border: none;
+        background: #fee2e2;
+        color: #dc3545;
+        cursor: pointer;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: all 0.2s;
+    }
+    
+    .btn-remove-row:hover {
+        background: #dc3545;
+        color: white;
+        transform: scale(1.05);
+    }
+    
+    /* ========== ADD BUTTON ========== */
+    .btn-add-product {
+        border-radius: 10px;
+        padding: 12px 20px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        background: #f0fff4;
+        color: #2e7d32;
+        border: 2px dashed #4caf50;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s;
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .btn-add-product:hover {
+        background: #e8f5e9;
+        border-color: #388e3c;
+    }
+    
+    /* ========== QUICK PRODUCTS ========== */
+    .quick-products {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 15px;
+    }
+    
+    .quick-product-tag {
+        padding: 6px 14px;
+        border-radius: 20px;
+        background: #eef2ff;
+        color: #667eea;
+        font-size: 0.75rem;
+        font-weight: 600;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition: all 0.2s;
+        white-space: nowrap;
+    }
+    
+    .quick-product-tag:hover {
+        border-color: #667eea;
+        background: white;
+        transform: translateY(-1px);
+        box-shadow: 0 3px 10px rgba(102,126,234,0.15);
+    }
+    
+    /* ========== SUBMIT BUTTON ========== */
+    .btn-submit {
+        width: 100%;
+        padding: 14px;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 1rem;
+        border: none;
+        cursor: pointer;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        margin-top: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: all 0.3s;
+        box-shadow: 0 4px 15px rgba(102,126,234,0.2);
+    }
+    
+    .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(102,126,234,0.35);
+    }
+    
+    .btn-submit:active {
+        transform: translateY(0);
+    }
+    
+    /* ========== TOTAL DISPLAY ========== */
+    .order-total-display {
+        background: linear-gradient(135deg, #e8f0fe, #f0f4ff);
+        border-radius: 10px;
+        padding: 12px 16px;
+        margin: 12px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .order-total-display .total-label {
+        font-weight: 600;
+        color: #5a6070;
+        font-size: 0.85rem;
+    }
+    
+    .order-total-display .total-value {
+        font-weight: 800;
+        font-size: 1.2rem;
+        color: var(--accent);
+    }
+    
+    /* ========== RESPONSIVE ========== */
+    @media (max-width: 768px) {
+        .form-card { padding: 16px; }
+        .summary-card { padding: 16px; position: static; }
+        .product-row { padding: 10px; gap: 6px; }
+        .product-row select { min-width: 130px; flex: 1; }
+        .product-row input { min-width: 60px; }
+        .product-row .row-total { min-width: 80px; font-size: 0.85rem; }
+        .quick-product-tag { font-size: 0.7rem; padding: 5px 10px; }
+    }
+    
+    @media (max-width: 400px) {
+        .product-row { flex-direction: column; gap: 8px; }
+        .product-row select { width: 100%; }
+        .product-row input { width: 100%; }
+        .product-row .row-total { text-align: left; width: 100%; }
+        .btn-remove-row { align-self: flex-end; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="form-grid">
+    
+    <!-- LEFT: Products -->
+    <div>
+        <form method="POST" id="orderForm">
+            {% csrf_token %}
+            
+            <div class="form-card">
+                <h5>📦 Products</h5>
+                
+                <!-- Quick Products -->
+                <div class="quick-products">
+                    <span style="font-size:0.7rem;color:#8a8fa0;font-weight:600;margin-right:5px;">Quick:</span>
+                    {% for p in products|slice:":12" %}
+                    <span class="quick-product-tag" onclick="addProductRow('{{ p.id }}', '{{ p.name|escapejs }}', '{{ p.price }}')">
+                        + {{ p.name|truncatechars:15 }}
+                    </span>
+                    {% endfor %}
+                </div>
+                
+                <!-- Product Rows -->
+                <div class="product-rows-container" id="productsContainer">
+                    <div class="product-row" id="row-0">
+                        <select name="product_id[]" onchange="updateRowTotal(this)" style="margin-bottom:0;">
+                            <option value="">-- Select Product --</option>
+                            {% for p in products %}
+                            <option value="{{ p.id }}" data-price="{{ p.price }}">{{ p.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <input type="number" name="qty[]" value="1" min="1" step="1" placeholder="Qty" onchange="updateRowTotal(this)" style="margin-bottom:0;">
+                        <input type="number" name="price[]" value="0" step="0.01" min="0" placeholder="Price" onchange="updateRowTotal(this)" style="margin-bottom:0;">
+                        <span class="row-total">Rs. 0</span>
+                        <button type="button" class="btn-remove-row" onclick="removeProductRow(this)" title="Remove">✕</button>
+                    </div>
+                </div>
+                
+                <!-- Add Button -->
+                <button type="button" class="btn-add-product mt-3" onclick="addProductRow('', '', '0')">
+                    <i class="bi bi-plus-lg"></i> Add Product
+                </button>
+                
+                <!-- Order Total -->
+                <div class="order-total-display" id="orderTotalDisplay" style="display:none;">
+                    <span class="total-label">📊 Order Total:</span>
+                    <span class="total-value" id="orderTotalValue">Rs. 0.00</span>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- RIGHT: Order Details -->
+    <div>
+        <div class="summary-card">
+            <h5>📋 Order Details</h5>
+            
+            <label class="form-label-mini">Customer *</label>
+            <select name="customer" class="form-select" form="orderForm" required>
+                <option value="">Select Customer</option>
+                {% for c in customers %}
+                <option value="{{ c.id }}" {% if forloop.first %}selected{% endif %}>{{ c.customer_code|default:'N/A' }} - {{ c.name }}</option>
+                {% endfor %}
+            </select>
+            
+            <label class="form-label-mini">Warehouse *</label>
+            <select name="warehouse" class="form-select" form="orderForm" required>
+                <option value="">Select Warehouse</option>
+                {% for wh in warehouses %}
+                <option value="{{ wh.id }}" {% if forloop.first %}selected{% endif %}>{{ wh.name }}</option>
+                {% endfor %}
+            </select>
+            
+            <div class="row g-2">
+                <div class="col-6">
+                    <label class="form-label-mini">PO Number</label>
+                    <input type="text" name="customer_po" class="form-control" form="orderForm" placeholder="Customer PO">
+                </div>
+                <div class="col-6">
+                    <label class="form-label-mini">Delivery Date</label>
+                    <input type="date" name="delivery_date" class="form-control" form="orderForm">
+                </div>
+            </div>
+            
+            <label class="form-label-mini">Status</label>
+            <select name="status" class="form-select" form="orderForm">
+                <option value="pending">⏳ Pending</option>
+                <option value="confirmed">✅ Confirmed</option>
+                <option value="processing">🔄 Processing</option>
+            </select>
+            
+            <div class="row g-2">
+                <div class="col-6">
+                    <label class="form-label-mini">Advance (Rs.)</label>
+                    <input type="number" name="advance" class="form-control" form="orderForm" value="0" step="0.01">
+                </div>
+                <div class="col-6">
+                    <label class="form-label-mini">Discount (Rs.)</label>
+                    <input type="number" name="discount" class="form-control" form="orderForm" value="0" step="0.01">
+                </div>
+            </div>
+            
+            <label class="form-label-mini">Notes</label>
+            <textarea name="notes" class="form-control" form="orderForm" rows="2" placeholder="Special instructions..."></textarea>
+            
+            <button type="submit" form="orderForm" class="btn-submit">
+                <i class="bi bi-check-circle"></i> Create Sale Order
+            </button>
+            
+            <a href="{% url 'sale_order_list' %}" class="btn btn-outline-secondary w-100 mt-2" style="border-radius:10px; padding:10px; font-weight:600;">
+                ← Back to Orders
+            </a>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let rowCount = 1;
+    
+    // Add new product row
+    function addProductRow(productId, productName, productPrice) {
+        const container = document.getElementById('productsContainer');
+        const row = document.createElement('div');
+        row.className = 'product-row';
+        row.id = `row-${rowCount}`;
+        
+        let options = '<option value="">-- Select Product --</option>';
+        {% for p in products %}
+        options += `<option value="{{ p.id }}" data-price="{{ p.price }}">${'{{ p.name }}' === productName ? 'selected' : ''}{{ p.name }}</option>`;
+        {% endfor %}
+        
+        // Fix for the selected attribute
+        options = options.replace('selected', '');
+        if (productId) {
+            options = options.replace(`value="${productId}"`, `value="${productId}" selected`);
+        }
+        
+        row.innerHTML = `
+            <select name="product_id[]" onchange="updateRowTotal(this)" style="margin-bottom:0;">${options}</select>
+            <input type="number" name="qty[]" value="1" min="1" step="1" placeholder="Qty" onchange="updateRowTotal(this)" style="margin-bottom:0;">
+            <input type="number" name="price[]" value="${productPrice || '0'}" step="0.01" min="0" placeholder="Price" onchange="updateRowTotal(this)" style="margin-bottom:0;">
+            <span class="row-total">Rs. ${productPrice ? (1 * parseFloat(productPrice)).toFixed(2) : '0'}</span>
+            <button type="button" class="btn-remove-row" onclick="removeProductRow(this)" title="Remove">✕</button>
+        `;
+        
+        container.appendChild(row);
+        rowCount++;
+        
+        // Scroll to new row
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        // Update total
+        updateOrderTotal();
+    }
+    
+    // Remove product row
+    function removeProductRow(btn) {
+        const rows = document.querySelectorAll('#productsContainer .product-row');
+        if (rows.length <= 1) {
+            alert('❌ At least one product is required!');
+            return;
+        }
+        
+        const row = btn.closest('.product-row');
+        row.style.opacity = '0';
+        row.style.transform = 'scale(0.95)';
+        row.style.transition = 'all 0.2s';
+        
+        setTimeout(() => {
+            row.remove();
+            updateOrderTotal();
+            updateRowNumbers();
+        }, 200);
+    }
+    
+    // Update row total
+    function updateRowTotal(input) {
+        const row = input.closest('.product-row');
+        const qty = parseFloat(row.querySelector('input[name="qty[]"]').value) || 0;
+        const price = parseFloat(row.querySelector('input[name="price[]"]').value) || 0;
+        const total = qty * price;
+        row.querySelector('.row-total').textContent = 'Rs. ' + total.toFixed(2);
+        updateOrderTotal();
+    }
+    
+    // Update order total display
+    function updateOrderTotal() {
+        const rows = document.querySelectorAll('#productsContainer .product-row');
+        let grandTotal = 0;
+        let hasProducts = false;
+        
+        rows.forEach(row => {
+            const qty = parseFloat(row.querySelector('input[name="qty[]"]').value) || 0;
+            const price = parseFloat(row.querySelector('input[name="price[]"]').value) || 0;
+            grandTotal += qty * price;
+            if (row.querySelector('select').value) hasProducts = true;
+        });
+        
+        const display = document.getElementById('orderTotalDisplay');
+        const value = document.getElementById('orderTotalValue');
+        
+        if (hasProducts) {
+            display.style.display = 'flex';
+            value.textContent = 'Rs. ' + grandTotal.toFixed(2);
+        } else {
+            display.style.display = 'none';
+        }
+    }
+    
+    // Update row numbers
+    function updateRowNumbers() {
+        const rows = document.querySelectorAll('#productsContainer .product-row');
+        rows.forEach((row, i) => {
+            row.id = `row-${i}`;
+        });
+        rowCount = rows.length;
+    }
+    
+    // Auto-fill price when product selected
+    document.addEventListener('change', function(e) {
+        if (e.target.name === 'product_id[]') {
+            const selectedOption = e.target.options[e.target.selectedIndex];
+            const price = selectedOption.getAttribute('data-price');
+            if (price && price !== '0.0' && price !== '0') {
+                const row = e.target.closest('.product-row');
+                const priceInput = row.querySelector('input[name="price[]"]');
+                if (!priceInput.value || priceInput.value === '0') {
+                    priceInput.value = parseFloat(price).toFixed(2);
+                    updateRowTotal(priceInput);
+                }
+            }
+        }
+    });
+    
+    // Form validation
+    document.getElementById('orderForm').addEventListener('submit', function(e) {
+        const customer = this.querySelector('select[name="customer"]').value;
+        const warehouse = this.querySelector('select[name="warehouse"]').value;
+        const productSelects = this.querySelectorAll('select[name="product_id[]"]');
+        
+        let hasProduct = false;
+        productSelects.forEach(s => { if (s.value) hasProduct = true; });
+        
+        if (!customer) {
+            e.preventDefault();
+            alert('❌ Please select a customer!');
+            return;
+        }
+        if (!warehouse) {
+            e.preventDefault();
+            alert('❌ Please select a warehouse!');
+            return;
+        }
+        if (!hasProduct) {
+            e.preventDefault();
+            alert('❌ Please add at least one product!');
+            return;
+        }
+    });
+    
+    // Initial total update
+    updateOrderTotal();
+</script>
+{% endblock %}

@@ -1,0 +1,300 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrahead %}
+{{ block.super }}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    
+    <h1>🗄️ Database Backup & Restore</h1>
+    
+    <!-- ============================================ -->
+    <!-- FOLDER SELECTION -->
+    <!-- ============================================ -->
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px; border-radius: 10px; color: white; margin-bottom: 20px;">
+        <h3 style="margin-top: 0; margin-bottom: 12px;">📁 Backup Folder Select Karein</h3>
+        
+        <!-- Current Folder -->
+        <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 6px; margin-bottom: 12px;">
+            <strong>📌 Abhi Ka Folder:</strong>
+            <div id="current-folder" style="word-break: break-all; margin-top: 3px; font-size: 12px;">{{ backup_dir }}</div>
+        </div>
+        
+        <!-- Folder Options - Simple Buttons -->
+        <div style="margin-bottom: 12px;">
+            <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: bold;">📂 Folder Select Karein:</p>
+            
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                
+                <button type="button" class="folder-btn" data-path="/storage/emulated/0/Download/Backups/"
+                        style="width: 100%; padding: 12px; background: rgba(255,255,255,0.15); color: white; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px; cursor: pointer; text-align: left; font-size: 13px;">
+                    📥 <b>Download Folder</b><br>
+                    <small style="opacity:0.8;">/storage/emulated/0/Download/Backups/</small>
+                </button>
+                
+                <button type="button" class="folder-btn" data-path="/storage/emulated/0/Documents/Backups/"
+                        style="width: 100%; padding: 12px; background: rgba(255,255,255,0.15); color: white; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px; cursor: pointer; text-align: left; font-size: 13px;">
+                    📄 <b>Documents Folder</b><br>
+                    <small style="opacity:0.8;">/storage/emulated/0/Documents/Backups/</small>
+                </button>
+                
+                <button type="button" class="folder-btn" data-path="/storage/emulated/0/MyBackups/"
+                        style="width: 100%; padding: 12px; background: rgba(255,255,255,0.15); color: white; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px; cursor: pointer; text-align: left; font-size: 13px;">
+                    📱 <b>Internal Storage</b><br>
+                    <small style="opacity:0.8;">/storage/emulated/0/MyBackups/</small>
+                </button>
+                
+                <button type="button" class="folder-btn" data-path="/data/data/com.termux/files/home/storage/shared/Backups/"
+                        style="width: 100%; padding: 12px; background: rgba(255,255,255,0.15); color: white; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px; cursor: pointer; text-align: left; font-size: 13px;">
+                    🗂️ <b>Termux Shared Storage</b><br>
+                    <small style="opacity:0.8;">.../home/storage/shared/Backups/</small>
+                </button>
+                
+                <button type="button" class="folder-btn" data-path="/data/data/com.termux/files/home/backups/"
+                        style="width: 100%; padding: 12px; background: rgba(255,255,255,0.15); color: white; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px; cursor: pointer; text-align: left; font-size: 13px;">
+                    🏠 <b>Termux Home</b><br>
+                    <small style="opacity:0.8;">.../home/backups/</small>
+                </button>
+                
+            </div>
+        </div>
+        
+        <!-- Custom Path -->
+        <div style="background: rgba(255,255,255,0.1); padding: 10px; border-radius: 6px;">
+            <p style="margin: 0 0 5px 0; font-size: 12px; font-weight: bold;">✏️ Ya Khud Likhein:</p>
+            <div style="display: flex; gap: 6px;">
+                <input type="text" id="custom-path" 
+                       placeholder="Folder path yahan likhein..."
+                       style="flex: 1; padding: 10px; font-size: 13px; border: 2px solid white; border-radius: 6px; outline: none; background: rgba(255,255,255,0.9); color: #333;">
+                <button type="button" id="set-custom-btn" 
+                        style="padding: 10px 16px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; white-space: nowrap;">
+                    ✅ Set Karein
+                </button>
+            </div>
+        </div>
+        
+        <!-- Status -->
+        <div id="status-msg" style="margin-top: 10px; font-weight: bold; min-height: 20px; font-size: 13px;"></div>
+    </div>
+    
+    <!-- ============================================ -->
+    <!-- ACTION BUTTONS -->
+    <!-- ============================================ -->
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
+        <a href="{% url 'admin:backup-db' %}" 
+           style="padding: 14px 28px; background: #28a745; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 15px;">
+            💾 Backup Abhi Banayein
+        </a>
+        <button type="button" onclick="location.reload()"
+                style="padding: 14px 20px; background: #17a2b8; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 15px;">
+            🔄 Refresh Karein
+        </button>
+    </div>
+    
+    <!-- ============================================ -->
+    <!-- BACKUP FILES LIST -->
+    <!-- ============================================ -->
+    <div style="background: white; border: 1px solid #dee2e6; border-radius: 10px; overflow: hidden;">
+        <div style="background: #f8f9fa; padding: 12px 15px; border-bottom: 2px solid #dee2e6;">
+            <h3 style="margin: 0;">📋 Backup Files ({{ backup_files|length }})</h3>
+        </div>
+        
+        {% if backup_files %}
+        <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background: #f1f3f5;">
+                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #dee2e6;">📦 Filename</th>
+                    <th style="padding: 10px; text-align: center; border-bottom: 2px solid #dee2e6;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for file in backup_files %}
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 10px;"><span style="font-weight: bold;">📦 {{ file }}</span></td>
+                    <td style="padding: 10px; text-align: center; white-space: nowrap;">
+                        <form method="POST" action="{% url 'admin:restore-db' %}" style="display: inline;">
+                            {% csrf_token %}
+                            <input type="hidden" name="backup_file" value="{{ file }}">
+                            <button type="submit" 
+                                    onclick="return confirm('⚠ Database restore hoga! Current data overwrite ho jayega. Sure?')"
+                                    style="padding: 7px 14px; background: #ffc107; color: #333; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 12px;">
+                                🔄 Restore
+                            </button>
+                        </form>
+                        <a href="{% url 'admin:delete-backup' filename=file %}"
+                           onclick="return confirm('⚠ Delete karna hai? Ye permanent hoga!')"
+                           style="padding: 7px 14px; background: #dc3545; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 12px; margin-left: 5px;">
+                            🗑️ Delete
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% else %}
+        <div style="padding: 40px; text-align: center; color: #999;">
+            <div style="font-size: 50px;">📭</div>
+            <p style="font-size: 15px; font-weight: bold;">Koi backup file nahi mili</p>
+            <p style="font-size: 12px;">"Backup Abhi Banayein" pe click karein</p>
+        </div>
+        {% endif %}
+    </div>
+    
+</div>
+
+<script type="text/javascript">
+// ============================================
+// ✅ SIMPLE CLICK HANDLER - NO COMPLEX CODE
+// ============================================
+
+// CSRF token get karo
+function getCSRF() {
+    var cookies = document.cookie.split(';');
+    for (var i = 0; i < cookies.length; i++) {
+        var cookie = cookies[i].trim();
+        if (cookie.startsWith('csrftoken=')) {
+            return cookie.substring('csrftoken='.length);
+        }
+    }
+    return '';
+}
+
+// Folder set karne ka function
+function setFolder(path) {
+    console.log('Setting folder:', path);
+    
+    var statusEl = document.getElementById('status-msg');
+    statusEl.textContent = '⏳ Folder set ho raha hai...';
+    statusEl.style.color = 'white';
+    
+    // AJAX request
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '{% url "admin:set-backup-dir" %}', true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('X-CSRFToken', getCSRF());
+    
+    xhr.onload = function() {
+        console.log('Response:', xhr.status, xhr.responseText);
+        
+        if (xhr.status === 200) {
+            try {
+                var data = JSON.parse(xhr.responseText);
+                if (data.success) {
+                    statusEl.textContent = '✅ ' + data.message;
+                    statusEl.style.color = '#ccffcc';
+                    
+                    // Current folder update karo
+                    document.getElementById('current-folder').textContent = path;
+                    
+                    // 1 second baad reload
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    statusEl.textContent = '❌ ' + (data.message || 'Error');
+                    statusEl.style.color = '#ff9999';
+                }
+            } catch(e) {
+                statusEl.textContent = '❌ Response parse error';
+                statusEl.style.color = '#ff9999';
+            }
+        } else {
+            statusEl.textContent = '❌ Server error: ' + xhr.status;
+            statusEl.style.color = '#ff9999';
+        }
+    };
+    
+    xhr.onerror = function() {
+        statusEl.textContent = '❌ Network error. Server chal raha hai?';
+        statusEl.style.color = '#ff9999';
+    };
+    
+    xhr.send(JSON.stringify({ path: path }));
+}
+
+// ============================================
+// ✅ BUTTON CLICK EVENTS
+// ============================================
+
+// Sab folder buttons pe click handler attach karo
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // Folder buttons
+    var folderButtons = document.querySelectorAll('.folder-btn');
+    console.log('Found folder buttons:', folderButtons.length);
+    
+    folderButtons.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var path = this.getAttribute('data-path');
+            console.log('Folder button clicked:', path);
+            setFolder(path);
+        });
+        
+        // Active folder highlight karo
+        var btnPath = btn.getAttribute('data-path');
+        var currentPath = '{{ backup_dir|escapejs }}';
+        if (btnPath === currentPath) {
+            btn.style.background = 'rgba(40,167,69,0.4)';
+            btn.style.borderColor = '#28a745';
+        }
+    });
+    
+    // Custom path button
+    var customBtn = document.getElementById('set-custom-btn');
+    if (customBtn) {
+        customBtn.addEventListener('click', function() {
+            var pathInput = document.getElementById('custom-path');
+            var path = pathInput.value.trim();
+            if (path) {
+                setFolder(path);
+            } else {
+                document.getElementById('status-msg').textContent = '❌ Pehle path likhein';
+                document.getElementById('status-msg').style.color = '#ff9999';
+            }
+        });
+    }
+    
+    // Enter key on custom input
+    var customInput = document.getElementById('custom-path');
+    if (customInput) {
+        customInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                var path = this.value.trim();
+                if (path) setFolder(path);
+            }
+        });
+    }
+    
+    console.log('All events attached successfully');
+});
+</script>
+
+<style>
+    .folder-btn:hover {
+        background: rgba(255,255,255,0.3) !important;
+        border-color: #ffc107 !important;
+        transform: translateX(3px);
+        transition: all 0.2s;
+    }
+    .folder-btn:active {
+        transform: scale(0.97);
+        background: rgba(40,167,69,0.4) !important;
+    }
+    #custom-path:focus {
+        border-color: #ffc107 !important;
+        box-shadow: 0 0 0 3px rgba(255,193,7,0.3) !important;
+    }
+    #set-custom-btn:hover {
+        background: #218838 !important;
+    }
+    #set-custom-btn:active {
+        transform: scale(0.95);
+    }
+</style>
+
+{% endblock %}

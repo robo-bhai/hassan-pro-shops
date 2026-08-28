@@ -1,0 +1,281 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Chart of Accounts{% endblock %}
+{% block page_title %}📋 Chart of Accounts{% endblock %}
+
+{% block extra_css %}
+<style>
+    .accounts-container {
+        display: grid;
+        gap: 20px;
+    }
+    
+    .account-group {
+        background: white;
+        border-radius: 14px;
+        border: 1px solid #eef0f5;
+        overflow: hidden;
+    }
+    
+    .group-header {
+        padding: 14px 20px;
+        border-bottom: 1px solid #eef0f5;
+        background: #f8f9fc;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .group-header h5 {
+        margin: 0;
+        font-weight: 700;
+        font-size: 0.95rem;
+    }
+    
+    .group-header .badge {
+        font-size: 0.7rem;
+        padding: 4px 12px;
+        border-radius: 15px;
+    }
+    
+    .account-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .account-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 20px;
+        border-bottom: 1px solid #f0f2f7;
+        transition: all 0.2s;
+    }
+    
+    .account-item:hover {
+        background: #f8f9ff;
+    }
+    
+    .account-item:last-child {
+        border-bottom: none;
+    }
+    
+    .account-item .code {
+        font-weight: 600;
+        color: #667eea;
+        font-size: 0.8rem;
+        min-width: 80px;
+    }
+    
+    .account-item .name {
+        font-weight: 600;
+        color: #1a1a2e;
+        flex: 1;
+    }
+    
+    .account-item .balance {
+        font-weight: 700;
+        font-size: 0.9rem;
+    }
+    
+    .account-item .balance.asset { color: #11998e; }
+    .account-item .balance.liability { color: #dc3545; }
+    .account-item .balance.equity { color: #667eea; }
+    .account-item .balance.income { color: #3b82f6; }
+    .account-item .balance.expense { color: #f2994a; }
+    
+    .account-item .actions {
+        display: flex;
+        gap: 6px;
+    }
+    
+    .btn-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 6px;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: #f0f2f7;
+        color: #5a6070;
+        font-size: 0.8rem;
+    }
+    
+    .btn-icon:hover {
+        background: #667eea;
+        color: white;
+        transform: scale(1.05);
+    }
+    
+    .btn-icon.danger:hover {
+        background: #dc3545;
+    }
+    
+    .filter-bar {
+        background: white;
+        border-radius: 14px;
+        padding: 14px 20px;
+        border: 1px solid #eef0f5;
+        margin-bottom: 20px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+    }
+    
+    .filter-bar .form-control,
+    .filter-bar .form-select {
+        border-radius: 8px;
+        border: 2px solid #eef0f5;
+        padding: 8px 14px;
+        font-size: 0.85rem;
+    }
+    
+    .filter-bar .form-control:focus,
+    .filter-bar .form-select:focus {
+        border-color: #667eea;
+        outline: none;
+    }
+    
+    .account-child {
+        padding-left: 30px;
+    }
+    
+    .account-child .code {
+        min-width: 60px;
+        font-size: 0.75rem;
+    }
+    
+    @media (max-width: 768px) {
+        .account-item {
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .account-item .actions {
+            margin-left: auto;
+        }
+        .filter-bar {
+            flex-direction: column;
+        }
+        .filter-bar .form-control,
+        .filter-bar .form-select {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Filter Bar -->
+<div class="filter-bar">
+    <form method="GET" class="d-flex flex-wrap gap-2 w-100 align-items-center">
+        <div style="flex:1; min-width:150px;">
+            <input type="text" name="search" class="form-control" placeholder="🔍 Search accounts..." value="{{ search }}">
+        </div>
+        <div style="min-width:150px;">
+            <select name="type" class="form-select">
+                <option value="">All Types</option>
+                {% for type in account_types %}
+                <option value="{{ type.id }}" {% if selected_type == type.id|stringformat:"s" %}selected{% endif %}>
+                    {{ type.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <button type="submit" class="btn btn-primary" style="border-radius:8px; padding:8px 20px; font-weight:600; background:linear-gradient(135deg,#667eea,#764ba2); border:none;">
+                <i class="bi bi-funnel"></i> Filter
+            </button>
+        </div>
+        <div class="ms-auto">
+            <a href="{% url 'account_create' %}" class="btn btn-success" style="border-radius:8px; padding:8px 20px; font-weight:600;">
+                <i class="bi bi-plus-lg"></i> New Account
+            </a>
+        </div>
+    </form>
+</div>
+
+<!-- Stats -->
+<div style="display:flex; gap:16px; margin-bottom:16px; flex-wrap:wrap;">
+    <span style="background:#f8f9fc; padding:6px 16px; border-radius:8px; font-size:0.85rem;">
+        <strong>{{ total_accounts }}</strong> Total Accounts
+    </span>
+    <span style="background:#d4edda; padding:6px 16px; border-radius:8px; font-size:0.85rem;">
+        <strong>{{ active_accounts }}</strong> Active
+    </span>
+</div>
+
+<!-- Accounts -->
+<div class="accounts-container">
+    {% for account_type, accounts in grouped_accounts.items %}
+    {% if accounts %}
+    <div class="account-group">
+        <div class="group-header">
+            <h5>
+                {{ account_type.name }}
+                <span class="badge bg-secondary">{{ accounts|length }}</span>
+            </h5>
+        </div>
+        <ul class="account-list">
+            {% for account in accounts %}
+            <li class="account-item {% if account.parent %}account-child{% endif %}">
+                <span class="code">{{ account.code }}</span>
+                <span class="name">
+                    {{ account.name }}
+                    {% if account.is_bank %}
+                    <span class="badge bg-info" style="font-size:0.6rem;">🏦 Bank</span>
+                    {% endif %}
+                    {% if account.is_cash %}
+                    <span class="badge bg-success" style="font-size:0.6rem;">💵 Cash</span>
+                    {% endif %}
+                    {% if account.is_payable %}
+                    <span class="badge bg-danger" style="font-size:0.6rem;">Payable</span>
+                    {% endif %}
+                    {% if account.is_receivable %}
+                    <span class="badge bg-primary" style="font-size:0.6rem;">Receivable</span>
+                    {% endif %}
+                </span>
+                <span class="balance {{ account.account_type.account_class }}">
+                    Rs. {{ account.current_balance|floatformat:2 }}
+                </span>
+                <div class="actions">
+                    <a href="{% url 'account_ledger' account.id %}" class="btn-icon" title="Ledger">
+                        <i class="bi bi-book"></i>
+                    </a>
+                    <a href="{% url 'account_edit' account.id %}" class="btn-icon" title="Edit">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                    <button class="btn-icon danger" onclick="confirmDelete('{{ account.id }}', '{{ account.name }}')" title="Delete">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+    {% empty %}
+    <div class="text-center py-5" style="color:#94a3b8;">
+        <i class="bi bi-diagram-3" style="font-size:3rem; display:block; margin-bottom:12px; opacity:0.3;"></i>
+        <p>No accounts found. <a href="{% url 'account_create' %}">Create your first account</a></p>
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function confirmDelete(id, name) {
+    if (confirm(`Are you sure you want to delete account "${name}"?`)) {
+        window.location.href = `/accounts/chart/${id}/delete/`;
+    }
+}
+</script>
+{% endblock %}

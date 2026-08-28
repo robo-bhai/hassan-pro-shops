@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Transfer #{{ transfer.transfer_no }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>🔄 Transfer #{{ transfer.transfer_no }}</h1>
+        <div>
+            <a href="{% url 'share_transfer_list' %}" class="btn btn-secondary">← Back</a>
+            {% if transfer.status == 'pending' %}
+                <a href="{% url 'share_transfer_approve' transfer.pk %}" class="btn btn-success">
+                    ✅ Approve Transfer
+                </a>
+                <a href="{% url 'share_transfer_reject' transfer.pk %}" class="btn btn-danger">
+                    ❌ Reject Transfer
+                </a>
+            {% endif %}
+            {% if transfer.status == 'approved' %}
+                <a href="{% url 'share_transfer_complete' transfer.pk %}" class="btn btn-primary">
+                    ✅ Complete Transfer
+                </a>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">📋 Transfer Details</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered">
+                        <tr>
+                            <th>Transfer #</th>
+                            <td><strong>{{ transfer.transfer_no }}</strong></td>
+                        </tr>
+                        <tr>
+                            <th>From</th>
+                            <td><strong>{{ transfer.from_shareholder.name }}</strong></td>
+                        </tr>
+                        <tr>
+                            <th>To</th>
+                            <td><strong>{{ transfer.to_shareholder.name }}</strong></td>
+                        </tr>
+                        <tr>
+                            <th>Quantity</th>
+                            <td><strong>{{ transfer.quantity|floatformat:0 }}</strong></td>
+                        </tr>
+                        <tr>
+                            <th>Price/Share</th>
+                            <td>Rs. {{ transfer.transfer_price|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <th>Total Value</th>
+                            <td><strong>Rs. {{ transfer.total_value|floatformat:2 }}</strong></td>
+                        </tr>
+                        <tr>
+                            <th>Date</th>
+                            <td>{{ transfer.transfer_date|date:"d-m-Y" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Status</th>
+                            <td>{{ transfer.status_badge|safe }}</td>
+                        </tr>
+                        <tr>
+                            <th>Reason</th>
+                            <td>{{ transfer.reason|default:"-" }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">📊 Summary</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="text-muted">From Shareholder</label>
+                        <h5>{{ transfer.from_shareholder.name }}</h5>
+                        <small>Shares after transfer: {{ transfer.from_shareholder.total_shares|floatformat:0 }}</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-muted">To Shareholder</label>
+                        <h5>{{ transfer.to_shareholder.name }}</h5>
+                        <small>Shares after transfer: {{ transfer.to_shareholder.total_shares|floatformat:0 }}</small>
+                    </div>
+                    <div class="alert {% if transfer.status == 'completed' %}alert-success{% elif transfer.status == 'approved' %}alert-info{% elif transfer.status == 'pending' %}alert-warning{% else %}alert-danger{% endif %}">
+                        <strong>Status:</strong> {{ transfer.get_status_display }}
+                        {% if transfer.status == 'pending' %}
+                            <br><small>⏳ Waiting for approval</small>
+                        {% elif transfer.status == 'approved' %}
+                            <br><small>✅ Approved, waiting to complete</small>
+                        {% elif transfer.status == 'completed' %}
+                            <br><small>✅ Transfer completed successfully!</small>
+                        {% else %}
+                            <br><small>❌ Transfer rejected</small>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Shares being transferred -->
+    <div class="card mt-4">
+        <div class="card-header bg-light">
+            <h6 class="mb-0">📦 Shares Being Transferred</h6>
+        </div>
+        <div class="card-body">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Share Type</th>
+                        <th>Quantity</th>
+                        <th>Purchase Price</th>
+                        <th>Issue Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for share in transfer.shares.all %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ share.get_share_type_display }}</td>
+                        <td>{{ share.quantity|floatformat:0 }}</td>
+                        <td>Rs. {{ share.purchase_price|floatformat:2 }}</td>
+                        <td>{{ share.issue_date|date:"d-m-Y" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center">No shares selected</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

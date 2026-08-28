@@ -1,0 +1,819 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Import/Export Products{% endblock %}
+{% block page_title %}📦 Import/Export Products{% endblock %}
+
+{% block extra_css %}
+<style>
+    .import-export-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-top: 20px;
+    }
+    
+    @media (max-width: 768px) {
+        .import-export-container {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .card-import, .card-export {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        border: 1px solid #eef0f5;
+    }
+    
+    .card-import {
+        border-left: 4px solid #0d6efd;
+    }
+    
+    .card-export {
+        border-left: 4px solid #28a745;
+    }
+    
+    .card-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .drop-zone {
+        border: 2px dashed #cbd5e1;
+        border-radius: 12px;
+        padding: 40px 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: #f8fafc;
+    }
+    
+    .drop-zone:hover {
+        border-color: #0d6efd;
+        background: #f0f4ff;
+    }
+    
+    .drop-zone.dragover {
+        border-color: #0d6efd;
+        background: #e8f0fe;
+    }
+    
+    .drop-zone i {
+        font-size: 3rem;
+        color: #94a3b8;
+        margin-bottom: 10px;
+    }
+    
+    .drop-zone p {
+        color: #64748b;
+        margin: 0;
+    }
+    
+    .drop-zone .file-name {
+        font-weight: 600;
+        color: #0d6efd;
+    }
+    
+    .btn-download-template {
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-size: 0.85rem;
+        color: #1a1a2e;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s;
+    }
+    
+    .btn-download-template:hover {
+        background: #e2e8f0;
+        color: #0d6efd;
+    }
+    
+    .preview-table {
+        max-height: 400px;
+        overflow-y: auto;
+        margin-top: 16px;
+        border: 1px solid #eef0f5;
+        border-radius: 8px;
+    }
+    
+    .preview-table table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8rem;
+    }
+    
+    .preview-table th {
+        background: #f8f9fc;
+        padding: 8px 10px;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        border-bottom: 2px solid #e0e3eb;
+        font-weight: 700;
+        color: #5a6070;
+        text-transform: uppercase;
+        font-size: 0.65rem;
+        letter-spacing: 0.5px;
+    }
+    
+    .preview-table td {
+        padding: 6px 10px;
+        border-bottom: 1px solid #f0f2f7;
+    }
+    
+    .preview-table tr:hover {
+        background: #f8fafc;
+    }
+    
+    .btn-import {
+        width: 100%;
+        padding: 12px;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        border: none;
+        cursor: pointer;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        margin-top: 16px;
+    }
+    
+    .btn-import:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    .btn-import:hover:not(:disabled) {
+        opacity: 0.9;
+    }
+    
+    .btn-export {
+        width: 100%;
+        padding: 12px;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        border: none;
+        cursor: pointer;
+        color: white;
+        margin-top: 8px;
+        transition: opacity 0.2s;
+    }
+    
+    .btn-export:hover {
+        opacity: 0.85;
+    }
+    
+    .btn-export-csv {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+    }
+    
+    .btn-export-excel {
+        background: linear-gradient(135deg, #11998e, #38ef7d);
+    }
+    
+    .btn-export-all {
+        background: linear-gradient(135deg, #f2994a, #f2c94a);
+    }
+    
+    .btn-export-template {
+        background: #f1f5f9;
+        color: #1a1a2e;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .btn-export-template:hover {
+        background: #e2e8f0;
+    }
+    
+    .progress-bar-container {
+        margin-top: 12px;
+        display: none;
+    }
+    
+    .progress-bar-container.show {
+        display: block;
+    }
+    
+    .progress-bar {
+        height: 8px;
+        background: #e2e8f0;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    
+    .progress-bar .fill {
+        height: 100%;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        width: 0%;
+        transition: width 0.3s ease;
+        border-radius: 4px;
+    }
+    
+    .progress-text {
+        font-size: 0.8rem;
+        color: #64748b;
+        margin-top: 4px;
+        text-align: center;
+    }
+    
+    .import-log {
+        max-height: 200px;
+        overflow-y: auto;
+        margin-top: 12px;
+        padding: 12px;
+        background: #f8fafc;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-family: monospace;
+        display: none;
+    }
+    
+    .import-log.show {
+        display: block;
+    }
+    
+    .log-success { color: #059669; }
+    .log-error { color: #dc2626; }
+    .log-warning { color: #d97706; }
+    .log-info { color: #3b82f6; }
+    
+    .export-options {
+        margin-top: 16px;
+        padding: 16px;
+        background: #f8fafc;
+        border-radius: 8px;
+    }
+    
+    .export-options .form-check {
+        padding: 4px 0;
+    }
+    
+    .export-options .form-check-input {
+        margin-top: 0.25rem;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 16px;
+        text-align: center;
+        border: 1px solid #eef0f5;
+    }
+    
+    .stat-card .number {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: #1a1a2e;
+    }
+    
+    .stat-card .label {
+        font-size: 0.7rem;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+    }
+    
+    .badge-import-status {
+        display: inline-block;
+        padding: 2px 10px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .badge-import-status.success {
+        background: #d1fae5;
+        color: #059669;
+    }
+    
+    .badge-import-status.error {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+    
+    .badge-import-status.warning {
+        background: #fef3c7;
+        color: #d97706;
+    }
+    
+    @media (max-width: 768px) {
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="import-export-container">
+    
+    <!-- ========================================== -->
+    <!-- IMPORT SECTION                             -->
+    <!-- ========================================== -->
+    <div class="card-import">
+        <div class="card-title">
+            <i class="bi bi-upload" style="color: #0d6efd;"></i>
+            Import Products
+            <span class="badge-import-status" id="importStatus" style="margin-left:auto; display:none;"></span>
+        </div>
+        
+        <!-- Drop Zone -->
+        <div class="drop-zone" id="dropZone">
+            <i class="bi bi-cloud-upload"></i>
+            <p><strong>Drag & drop</strong> your CSV/Excel file here</p>
+            <p style="font-size: 0.8rem; color: #94a3b8;">
+                or <span style="color: #0d6efd; cursor: pointer;" onclick="document.getElementById('fileInput').click()">browse files</span>
+            </p>
+            <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" style="display:none;">
+            <div id="fileName" style="font-size: 0.85rem; color: #0d6efd; font-weight: 600; margin-top: 8px;"></div>
+        </div>
+        
+        <!-- Template Download -->
+        <div style="margin: 12px 0; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+            <a href="{% url 'product_export_template' %}" class="btn-download-template">
+                <i class="bi bi-download"></i> Download Template
+            </a>
+        </div>
+        
+        <!-- Preview -->
+        <div id="previewContainer" style="display:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <span style="font-weight:600; font-size:0.85rem;">📋 Preview</span>
+                <span id="rowCount" style="font-size:0.75rem; color:#94a3b8;"></span>
+            </div>
+            <div class="preview-table" id="previewTable">
+                <table>
+                    <thead id="previewHead"></thead>
+                    <tbody id="previewBody"></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Progress Bar -->
+        <div class="progress-bar-container" id="progressContainer">
+            <div class="progress-bar">
+                <div class="fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text" id="progressText">Processing...</div>
+        </div>
+        
+        <!-- Import Log -->
+        <div class="import-log" id="importLog"></div>
+        
+        <!-- Import Button -->
+        <button class="btn-import" id="importBtn" disabled onclick="importProducts()">
+            <i class="bi bi-upload"></i> Import Products
+        </button>
+        
+        <small class="text-muted d-block mt-2 text-center" style="font-size:0.7rem;">
+            <i class="bi bi-info-circle"></i> 
+            Supported formats: .csv, .xlsx, .xls | Max size: 5MB
+        </small>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- EXPORT SECTION                             -->
+    <!-- ========================================== -->
+    <div class="card-export">
+        <div class="card-title">
+            <i class="bi bi-download" style="color: #28a745;"></i>
+            Export Products
+        </div>
+        
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="number">{{ total_products|default:0 }}</div>
+                <div class="label">Total Products</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">{{ active_products|default:0 }}</div>
+                <div class="label">Active</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">{{ categories_count|default:0 }}</div>
+                <div class="label">Categories</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">{{ brands_count|default:0 }}</div>
+                <div class="label">Brands</div>
+            </div>
+        </div>
+        
+        <!-- Export Options -->
+        <div class="export-options">
+            <label style="font-weight:600; font-size:0.85rem; display:block; margin-bottom:8px;">
+                <i class="bi bi-sliders2"></i> Export Options
+            </label>
+            
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="exportWithStock" checked>
+                <label class="form-check-label" for="exportWithStock">
+                    Include Stock Information
+                </label>
+            </div>
+            
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="exportWithPrice" checked>
+                <label class="form-check-label" for="exportWithPrice">
+                    Include Price Information
+                </label>
+            </div>
+            
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="exportWithCategories" checked>
+                <label class="form-check-label" for="exportWithCategories">
+                    Include Categories & Brands
+                </label>
+            </div>
+            
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="exportOnlyActive">
+                <label class="form-check-label" for="exportOnlyActive">
+                    Only Active Products
+                </label>
+            </div>
+        </div>
+        
+        <!-- Export Buttons -->
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:16px;">
+            <button class="btn-export btn-export-csv" onclick="exportProducts('csv')">
+                <i class="bi bi-filetype-csv"></i> CSV
+            </button>
+            <button class="btn-export btn-export-excel" onclick="exportProducts('excel')">
+                <i class="bi bi-file-earmark-excel"></i> Excel
+            </button>
+        </div>
+        
+        <!-- Export All Button -->
+        <button class="btn-export btn-export-all" onclick="exportProducts('all')" style="margin-top:8px;">
+            <i class="bi bi-download"></i> Export All (Full)
+        </button>
+        
+        <small class="text-muted d-block mt-2 text-center" style="font-size:0.7rem;">
+            <i class="bi bi-info-circle"></i> 
+            Export all products with all fields
+        </small>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // ========================================== //
+    // FILE UPLOAD HANDLING                       //
+    // ========================================== //
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const fileName = document.getElementById('fileName');
+    const previewContainer = document.getElementById('previewContainer');
+    const importBtn = document.getElementById('importBtn');
+    const importStatus = document.getElementById('importStatus');
+    let selectedFile = null;
+    
+    // Click to upload
+    dropZone.addEventListener('click', () => fileInput.click());
+    
+    // File selected
+    fileInput.addEventListener('change', function(e) {
+        if (this.files && this.files[0]) {
+            handleFile(this.files[0]);
+        }
+    });
+    
+    // Drag and drop
+    dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        this.classList.add('dragover');
+    });
+    
+    dropZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        this.classList.remove('dragover');
+    });
+    
+    dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        this.classList.remove('dragover');
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            handleFile(e.dataTransfer.files[0]);
+        }
+    });
+    
+    // Handle file
+    function handleFile(file) {
+        const validExtensions = ['.csv', '.xlsx', '.xls'];
+        const ext = '.' + file.name.split('.').pop().toLowerCase();
+        
+        if (!validExtensions.includes(ext)) {
+            showToast('❌ Please upload CSV or Excel file!', 'error');
+            return;
+        }
+        
+        if (file.size > 5 * 1024 * 1024) {
+            showToast('❌ File too large! Maximum size: 5MB', 'error');
+            return;
+        }
+        
+        selectedFile = file;
+        fileName.textContent = `📄 ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+        importBtn.disabled = false;
+        importStatus.style.display = 'none';
+        
+        // Preview file
+        previewFile(file);
+    }
+    
+    // Preview file
+    function previewFile(file) {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            try {
+                const data = e.target.result;
+                let rows = [];
+                
+                if (file.name.endsWith('.csv')) {
+                    rows = parseCSV(data);
+                } else {
+                    // For Excel, show message
+                    previewContainer.style.display = 'none';
+                    showToast('📊 Excel file selected. Click Import to process.', 'info');
+                    return;
+                }
+                
+                if (rows.length < 2) {
+                    showToast('❌ File is empty or invalid!', 'error');
+                    return;
+                }
+                
+                // Show preview
+                const headers = rows[0];
+                const previewRows = rows.slice(1, 8);
+                
+                document.getElementById('previewHead').innerHTML = `<tr>${headers.map(h => `<th>${h || ''}</th>`).join('')}</tr>`;
+                document.getElementById('previewBody').innerHTML = previewRows.map(row => 
+                    `<tr>${row.map(cell => `<td>${cell || ''}</td>`).join('')}</tr>`
+                ).join('');
+                
+                document.getElementById('rowCount').textContent = `Total: ${rows.length - 1} rows`;
+                previewContainer.style.display = 'block';
+                
+                showToast(`✅ Preview loaded: ${rows.length - 1} products found`, 'success');
+                
+            } catch (error) {
+                showToast('❌ Error reading file: ' + error.message, 'error');
+            }
+        };
+        
+        if (file.name.endsWith('.csv')) {
+            reader.readAsText(file);
+        } else {
+            previewContainer.style.display = 'none';
+        }
+    }
+    
+    // Parse CSV
+    function parseCSV(text) {
+        const lines = text.split('\n').filter(line => line.trim());
+        return lines.map(line => {
+            const cells = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    cells.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            cells.push(current.trim());
+            return cells;
+        });
+    }
+    
+    // ========================================== //
+    // IMPORT PRODUCTS                            //
+    // ========================================== //
+    function importProducts() {
+        if (!selectedFile) {
+            showToast('❌ Please select a file first!', 'error');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        
+        // Show progress
+        document.getElementById('progressContainer').classList.add('show');
+        document.getElementById('importLog').classList.add('show');
+        document.getElementById('importLog').innerHTML = '<div class="log-info">⏳ Uploading file...</div>';
+        importBtn.disabled = true;
+        importBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Importing...';
+        importStatus.style.display = 'none';
+        
+        updateProgress(10);
+        
+        fetch('{% url "product_import" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            updateProgress(100);
+            
+            const log = document.getElementById('importLog');
+            let html = '';
+            
+            if (data.success) {
+                html = `<div class="log-success">✅ ${data.message}</div>`;
+                
+                if (data.created > 0) {
+                    html += `<div class="log-success">   ✅ Created: ${data.created} products</div>`;
+                }
+                if (data.updated > 0) {
+                    html += `<div class="log-info">   🔄 Updated: ${data.updated} products</div>`;
+                }
+                if (data.skipped > 0) {
+                    html += `<div class="log-warning">   ⚠️ Skipped: ${data.skipped} products</div>`;
+                }
+                if (data.errors && data.errors.length > 0) {
+                    html += `<div class="log-warning">   ⚠️ ${data.errors.length} warnings</div>`;
+                    data.errors.slice(0, 5).forEach(err => {
+                        html += `<div class="log-error">      ❌ ${err}</div>`;
+                    });
+                    if (data.errors.length > 5) {
+                        html += `<div class="log-warning">      ... and ${data.errors.length - 5} more</div>`;
+                    }
+                }
+                
+                importStatus.className = 'badge-import-status success';
+                importStatus.textContent = `✅ ${data.created} created, ${data.updated} updated`;
+                importStatus.style.display = 'inline-block';
+                
+                showToast(`✅ Import complete! ${data.created} created, ${data.updated} updated`, 'success');
+                
+                // Reload after 3 seconds
+                setTimeout(() => {
+                    location.reload();
+                }, 3000);
+                
+            } else {
+                html = `<div class="log-error">❌ ${data.message}</div>`;
+                if (data.errors) {
+                    data.errors.forEach(e => {
+                        html += `<div class="log-error">   - ${e}</div>`;
+                    });
+                }
+                
+                importStatus.className = 'badge-import-status error';
+                importStatus.textContent = '❌ Failed';
+                importStatus.style.display = 'inline-block';
+                
+                showToast('❌ Import failed: ' + data.message, 'error');
+                importBtn.disabled = false;
+                importBtn.innerHTML = '<i class="bi bi-upload"></i> Import Products';
+            }
+            
+            log.innerHTML = html;
+            
+        })
+        .catch(error => {
+            document.getElementById('importLog').innerHTML = `<div class="log-error">❌ Error: ${error.message}</div>`;
+            showToast('❌ Import error: ' + error.message, 'error');
+            importBtn.disabled = false;
+            importBtn.innerHTML = '<i class="bi bi-upload"></i> Import Products';
+            importStatus.className = 'badge-import-status error';
+            importStatus.textContent = '❌ Error';
+            importStatus.style.display = 'inline-block';
+        });
+    }
+    
+    // ========================================== //
+    // EXPORT PRODUCTS                            //
+    // ========================================== //
+    function exportProducts(format) {
+        const params = new URLSearchParams();
+        
+        if (document.getElementById('exportWithStock').checked) {
+            params.append('with_stock', 'true');
+        }
+        if (document.getElementById('exportWithPrice').checked) {
+            params.append('with_price', 'true');
+        }
+        if (document.getElementById('exportWithCategories').checked) {
+            params.append('with_categories', 'true');
+        }
+        if (document.getElementById('exportOnlyActive').checked) {
+            params.append('only_active', 'true');
+        }
+        
+        let url = '';
+        if (format === 'csv') {
+            url = '{% url "product_export_csv" %}?' + params.toString();
+        } else if (format === 'excel') {
+            url = '{% url "product_export_excel" %}?' + params.toString();
+        } else {
+            url = '{% url "product_export_all" %}?' + params.toString();
+        }
+        
+        showToast(`📥 Exporting ${format.toUpperCase()} file...`, 'info');
+        
+        // Create a hidden link and click it
+        const link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        setTimeout(() => {
+            showToast(`✅ ${format.toUpperCase()} export started!`, 'success');
+        }, 1000);
+    }
+    
+    // ========================================== //
+    // UTILITY FUNCTIONS                          //
+    // ========================================== //
+    function updateProgress(percent) {
+        document.getElementById('progressFill').style.width = Math.min(percent, 100) + '%';
+        document.getElementById('progressText').textContent = `Processing... ${Math.min(percent, 100)}%`;
+    }
+    
+    function showToast(message, type = 'info') {
+        const toast = document.getElementById('voiceToast');
+        if (toast) {
+            toast.textContent = message;
+            toast.className = `voice-toast ${type} show`;
+            setTimeout(() => { toast.classList.remove('show'); }, 4000);
+        } else {
+            // Fallback
+            const alertDiv = document.createElement('div');
+            alertDiv.style.cssText = `
+                position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+                background: ${type === 'error' ? '#dc2626' : type === 'success' ? '#059669' : type === 'warning' ? '#d97706' : '#3b82f6'};
+                color: white; padding: 12px 24px; border-radius: 8px;
+                z-index: 9999; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                max-width: 90%; text-align: center;
+            `;
+            alertDiv.textContent = message;
+            document.body.appendChild(alertDiv);
+            setTimeout(() => alertDiv.remove(), 4000);
+        }
+    }
+    
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    // ========================================== //
+    // INITIALIZE                                 //
+    // ========================================== //
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(() => {
+            showToast('📦 Import or Export products using CSV/Excel files', 'info');
+        }, 500);
+    });
+</script>
+{% endblock %}

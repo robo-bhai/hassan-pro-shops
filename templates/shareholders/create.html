@@ -1,0 +1,454 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Add Shareholder{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3 px-lg-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 mb-md-4">
+        <h1 class="h3 mb-0">➕ Add Shareholder</h1>
+        <a href="{% url 'shareholder_list' %}" class="btn btn-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
+    </div>
+    
+    <div class="card shadow-sm">
+        <div class="card-body p-2 p-md-4">
+            <form method="POST" id="shareholderForm">
+                {% csrf_token %}
+                
+                <!-- ============================================ -->
+                <!-- PERSONAL INFORMATION -->
+                <!-- ============================================ -->
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5 class="border-bottom pb-2">Personal Information</h5>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Name <span class="text-danger">*</span></label>
+                            <input type="text" name="name" class="form-control" required id="shareholderName">
+                            <small class="text-muted">Username will be auto-generated from this name</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Shareholder Type</label>
+                            <select name="shareholder_type" class="form-select">
+                                {% for value, label in shareholder_types %}
+                                <option value="{{ value }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" name="email" class="form-control">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Phone</label>
+                            <input type="text" name="phone" class="form-control">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Address</label>
+                            <textarea name="address" class="form-control" rows="2"></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h5 class="border-bottom pb-2">Additional Details</h5>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">CNIC/NTN</label>
+                            <input type="text" name="cnic" class="form-control">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Passport No</label>
+                            <input type="text" name="passport_no" class="form-control">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Company Name (if company)</label>
+                            <input type="text" name="company_name" class="form-control">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Registration No</label>
+                            <input type="text" name="registration_no" class="form-control">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="active" selected>Active</option>
+                                <option value="inactive">Inactive</option>
+                                <option value="suspended">Suspended</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-check mb-2">
+                            <input type="checkbox" name="is_founder" class="form-check-input" id="is_founder">
+                            <label class="form-check-label" for="is_founder">Founder Shareholder</label>
+                        </div>
+                        
+                        <div class="form-check mb-2">
+                            <input type="checkbox" name="is_board_member" class="form-check-input" id="is_board_member">
+                            <label class="form-check-label" for="is_board_member">Board Member</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <!-- ============================================ -->
+                <!-- BANKING DETAILS -->
+                <!-- ============================================ -->
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5 class="border-bottom pb-2">Banking Details</h5>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Bank Name</label>
+                            <input type="text" name="bank_name" class="form-control">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Account Number</label>
+                            <input type="text" name="account_number" class="form-control">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Account Title</label>
+                            <input type="text" name="account_title" class="form-control">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">IBAN</label>
+                            <input type="text" name="iban" class="form-control">
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h5 class="border-bottom pb-2">💰 Cash Balance & Shares</h5>
+                        
+                        <!-- Main Cash Balance Info -->
+                        <div class="alert alert-info py-2" id="cashAlert">
+                            <strong>Main Cash Balance:</strong> Rs. {{ main_balance|floatformat:2 }}
+                            <br>
+                            <small><i class="bi bi-info-circle"></i> Initial deposit will be taken from main cash</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Initial Deposit (Rs.)</label>
+                            <input type="number" 
+                                   name="initial_deposit" 
+                                   class="form-control" 
+                                   step="0.01" 
+                                   min="0" 
+                                   value="0"
+                                   id="initialDeposit">
+                            <small class="text-muted">This amount will be added to shareholder's cash balance</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Initial Shares Quantity</label>
+                            <input type="number" 
+                                   name="initial_shares" 
+                                   class="form-control" 
+                                   min="0" 
+                                   value="0"
+                                   id="shareQty">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Purchase Price per Share (Rs.)</label>
+                            <input type="number" 
+                                   name="purchase_price" 
+                                   class="form-control" 
+                                   step="0.01" 
+                                   min="0" 
+                                   value="0"
+                                   id="sharePrice">
+                        </div>
+                        
+                        <div class="form-check mb-3">
+                            <input type="checkbox" 
+                                   name="paid_from_shareholder_balance" 
+                                   class="form-check-input" 
+                                   id="paidFromBalance"
+                                   checked>
+                            <label class="form-check-label" for="paidFromBalance">
+                                Deduct shares from shareholder's cash balance
+                            </label>
+                            <br>
+                            <small class="text-muted ms-4">If unchecked, shares will be purchased from main cash</small>
+                        </div>
+                        
+                        <!-- Investment Summary -->
+                        <div class="alert alert-secondary" id="investmentSummary">
+                            <strong>📊 Investment Summary:</strong><br>
+                            <span id="totalInvestment">Total Investment: Rs. 0.00</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <!-- ============================================ -->
+                <!-- 🔐 LOGIN ACCESS -->
+                <!-- ============================================ -->
+                <div class="row">
+                    <div class="col-12">
+                        <h5 class="border-bottom pb-2">🔐 Login Access</h5>
+                        
+                        <div class="form-check mb-3">
+                            <input type="checkbox" 
+                                   name="allow_login" 
+                                   class="form-check-input" 
+                                   id="allowLogin">
+                            <label class="form-check-label" for="allowLogin">
+                                <strong>Allow Shareholder Login</strong>
+                            </label>
+                            <br>
+                            <small class="text-muted">Enable this to allow shareholder to login to portal</small>
+                        </div>
+                        
+                        <div id="loginFields" style="display: none;">
+                            <div class="alert alert-success py-2">
+                                <i class="bi bi-check-circle"></i> 
+                                <strong>Username will be:</strong> <span id="usernamePreview" class="fw-bold">shareholder_name</span>
+                                <br>
+                                <small>Username is auto-generated from shareholder name (spaces removed)</small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Password</label>
+                                <input type="text" name="password" class="form-control" value="password123" id="loginPassword">
+                                <small class="text-muted">Default password: password123 (change after first login)</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <!-- ============================================ -->
+                <!-- NOTES -->
+                <!-- ============================================ -->
+                <div class="row">
+                    <div class="col-12">
+                        <h5 class="border-bottom pb-2">Notes</h5>
+                        <div class="mb-3">
+                            <label class="form-label">Notes</label>
+                            <textarea name="notes" class="form-control" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-end mt-3">
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="bi bi-check-circle"></i> Save Shareholder
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- JAVASCRIPT - REAL-TIME CALCULATION -->
+<!-- ============================================ -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const nameInput = document.getElementById('shareholderName');
+    const allowLoginCheck = document.getElementById('allowLogin');
+    const usernamePreview = document.getElementById('usernamePreview');
+    const loginFields = document.getElementById('loginFields');
+    const qtyInput = document.getElementById('shareQty');
+    const priceInput = document.getElementById('sharePrice');
+    const depositInput = document.getElementById('initialDeposit');
+    const totalInvestmentSpan = document.getElementById('totalInvestment');
+    const paidFromBalanceCheck = document.getElementById('paidFromBalance');
+    const loginPassword = document.getElementById('loginPassword');
+    
+    // ✅ Update username preview in real-time
+    function updateUsernamePreview() {
+        if (nameInput && nameInput.value.trim()) {
+            const username = nameInput.value.trim().toLowerCase().replace(/\s+/g, '');
+            usernamePreview.textContent = username;
+            usernamePreview.style.color = '#28a745';
+        } else {
+            usernamePreview.textContent = 'shareholder_name';
+            usernamePreview.style.color = '#dc3545';
+        }
+    }
+    
+    if (nameInput) {
+        nameInput.addEventListener('input', updateUsernamePreview);
+    }
+    
+    // ✅ Show/hide login fields
+    if (allowLoginCheck) {
+        allowLoginCheck.addEventListener('change', function() {
+            loginFields.style.display = this.checked ? 'block' : 'none';
+            if (this.checked) {
+                updateUsernamePreview();
+                loginPassword.value = 'password123';
+            }
+        });
+    }
+    
+    // ✅ Investment Summary
+    function updateInvestmentSummary() {
+        const qty = parseInt(qtyInput?.value) || 0;
+        const price = parseFloat(priceInput?.value) || 0;
+        const totalInvestment = qty * price;
+        
+        if (totalInvestmentSpan) {
+            totalInvestmentSpan.textContent = `Total Investment: Rs. ${totalInvestment.toFixed(2)}`;
+            if (totalInvestment > 0) {
+                totalInvestmentSpan.parentElement.className = 'alert alert-success';
+            } else {
+                totalInvestmentSpan.parentElement.className = 'alert alert-secondary';
+            }
+        }
+        
+        if (paidFromBalanceCheck && qty > 0 && price > 0) {
+            const label = paidFromBalanceCheck.nextElementSibling;
+            if (label) {
+                label.textContent = `Deduct Rs. ${totalInvestment.toFixed(2)} from shareholder's cash balance`;
+            }
+        }
+    }
+    
+    if (qtyInput) qtyInput.addEventListener('input', updateInvestmentSummary);
+    if (priceInput) priceInput.addEventListener('input', updateInvestmentSummary);
+    
+    // ✅ Deposit alert update
+    if (depositInput) depositInput.addEventListener('input', function() {
+        const deposit = parseFloat(this.value) || 0;
+        const infoAlert = document.getElementById('cashAlert');
+        const mainBalance = {{ main_balance|floatformat:2 }};
+        
+        if (infoAlert) {
+            if (deposit > mainBalance) {
+                infoAlert.className = 'alert alert-danger py-2';
+                infoAlert.innerHTML = `<strong>⚠️ Insufficient Main Cash!</strong><br>Available: Rs. ${mainBalance.toFixed(2)}, Required: Rs. ${deposit.toFixed(2)}`;
+            } else if (deposit > 0) {
+                infoAlert.className = 'alert alert-success py-2';
+                infoAlert.innerHTML = `<strong>✅ Deposit Available</strong><br>Rs. ${deposit.toFixed(2)} will be added to shareholder's balance`;
+            } else {
+                infoAlert.className = 'alert alert-info py-2';
+                infoAlert.innerHTML = `<strong>Main Cash Balance:</strong> Rs. ${mainBalance.toFixed(2)}<br><small><i class="bi bi-info-circle"></i> Initial deposit will be taken from main cash</small>`;
+            }
+        }
+    });
+    
+    // Initial updates
+    updateUsernamePreview();
+    updateInvestmentSummary();
+});
+
+// ============================================
+// FORM VALIDATION
+// ============================================
+document.getElementById('shareholderForm')?.addEventListener('submit', function(e) {
+    const name = document.querySelector('input[name="name"]');
+    if (!name || !name.value.trim()) {
+        e.preventDefault();
+        alert('❌ Please enter shareholder name!');
+        name?.focus();
+        return false;
+    }
+    
+    const shares = parseInt(document.querySelector('input[name="initial_shares"]')?.value || 0);
+    const price = parseFloat(document.querySelector('input[name="purchase_price"]')?.value || 0);
+    const deposit = parseFloat(document.querySelector('input[name="initial_deposit"]')?.value || 0);
+    const mainBalance = {{ main_balance|floatformat:2 }};
+    
+    if (deposit > mainBalance) {
+        e.preventDefault();
+        alert(`❌ Insufficient main cash balance!\nAvailable: Rs. ${mainBalance.toFixed(2)}\nRequired: Rs. ${deposit.toFixed(2)}`);
+        document.querySelector('input[name="initial_deposit"]')?.focus();
+        return false;
+    }
+    
+    const paidFromBalance = document.getElementById('paidFromBalance')?.checked;
+    if (paidFromBalance && shares > 0 && price > 0) {
+        const totalInvestment = shares * price;
+        const balanceAfterDeposit = deposit;
+        if (totalInvestment > balanceAfterDeposit) {
+            const confirmMsg = `⚠️ Shareholder will only have Rs. ${balanceAfterDeposit.toFixed(2)} after deposit, but shares require Rs. ${totalInvestment.toFixed(2)}.\n\nThis will result in a negative balance!\n\nAre you sure you want to continue?`;
+            if (!confirm(confirmMsg)) {
+                e.preventDefault();
+                return false;
+            }
+        }
+    }
+    
+    const allowLogin = document.getElementById('allowLogin')?.checked;
+    if (allowLogin) {
+        const password = document.querySelector('input[name="password"]');
+        if (!password || password.value.length < 6) {
+            e.preventDefault();
+            alert('❌ Password must be at least 6 characters!');
+            password?.focus();
+            return false;
+        }
+    }
+    
+    return true;
+});
+</script>
+
+{% block extra_css %}
+<style>
+    /* Mobile Responsive */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+        }
+        .card-body {
+            padding: 0.5rem !important;
+        }
+        .btn-lg {
+            font-size: 0.8rem !important;
+            padding: 0.4rem 0.8rem !important;
+        }
+        .form-control, .form-select {
+            font-size: 0.8rem !important;
+        }
+        h1 {
+            font-size: 1.1rem !important;
+        }
+        h5 {
+            font-size: 0.9rem !important;
+        }
+        label {
+            font-size: 0.8rem !important;
+        }
+        .alert {
+            font-size: 0.8rem !important;
+            padding: 0.4rem 0.6rem !important;
+        }
+    }
+    
+    @media (min-width: 577px) and (max-width: 768px) {
+        .card-body {
+            padding: 0.75rem !important;
+        }
+        h1 {
+            font-size: 1.3rem !important;
+        }
+    }
+    
+    #usernamePreview {
+        font-weight: bold;
+        color: #28a745;
+        font-size: 1.1rem;
+    }
+</style>
+{% endblock %}
+
+{% endblock %}

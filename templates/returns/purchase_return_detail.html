@@ -1,0 +1,319 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Purchase Return Details{% endblock %}
+{% block page_title %}📄 Return Details #{{ return.id }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .detail-header {
+        background: linear-gradient(135deg, #f72585, #e91e63);
+        border-radius: 20px;
+        padding: 25px 30px;
+        margin-bottom: 30px;
+        color: white;
+    }
+    .detail-header .sub-info {
+        font-size: 0.9rem;
+        opacity: 0.85;
+    }
+    .info-card {
+        background: white;
+        border-radius: 16px;
+        border: 1px solid #e9ecef;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .info-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+    .info-item {
+        flex: 1;
+        min-width: 150px;
+    }
+    .info-item .label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        color: #6c757d;
+        letter-spacing: 0.5px;
+    }
+    .info-item .value {
+        font-weight: 700;
+        font-size: 1rem;
+        margin-top: 5px;
+    }
+    .items-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .items-table thead th {
+        background: #1a1a2e;
+        color: white;
+        padding: 12px;
+        font-size: 0.75rem;
+        text-align: left;
+    }
+    .items-table tbody td {
+        padding: 12px;
+        border-bottom: 1px solid #e9ecef;
+        vertical-align: middle;
+    }
+    .items-table tfoot td {
+        padding: 12px;
+        font-weight: 700;
+        border-top: 2px solid #1a1a2e;
+    }
+    .badge-reason {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .badge-damaged { background: #fee2e2; color: #dc2626; }
+    .badge-incorrect { background: #fed7aa; color: #ea580c; }
+    .badge-expired { background: #d1fae5; color: #059669; }
+    .badge-quality { background: #fef3c7; color: #d97706; }
+    .badge-wrong_item { background: #dbeafe; color: #2563eb; }
+    .badge-excess { background: #e0e7ff; color: #4f46e5; }
+    .badge-other { background: #f3f4f6; color: #6b7280; }
+    .btn-print {
+        background: #1a1a2e;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 10px;
+        color: white;
+        width: 100%;
+        margin-bottom: 10px;
+        transition: all 0.3s;
+    }
+    .btn-print:hover { background: #2a2a3e; color: white; }
+    .btn-back {
+        background: #6c757d;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 10px;
+        color: white;
+        text-decoration: none;
+        display: block;
+        text-align: center;
+    }
+    .btn-back:hover { background: #5a6268; color: white; }
+    .btn-delete {
+        background: #dc3545;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 10px;
+        color: white;
+        text-decoration: none;
+        display: block;
+        text-align: center;
+        margin-bottom: 10px;
+    }
+    .btn-delete:hover { background: #c82333; color: white; }
+    .amount-positive { color: #dc3545; font-weight: 700; }
+    .return-history-item {
+        padding: 8px 0;
+        border-bottom: 1px solid #e9ecef;
+        font-size: 0.85rem;
+    }
+    .return-history-item:last-child { border-bottom: none; }
+    @media print {
+        .no-print { display: none !important; }
+        .detail-header { background: #1a1a2e !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .items-table thead th { background: #1a1a2e !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="detail-header">
+        <h1><i class="bi bi-arrow-return-left"></i> Purchase Return #{{ return.id }}</h1>
+        <div class="sub-info">
+            <span>Return Date: {{ return.purchase_return_date|date:"d F Y h:i A" }}</span>
+            <span class="ms-3">| Created by: {{ return.created_by.username|default:'System' }}</span>
+            {% if return.warehouse %}
+            <span class="ms-3">| Warehouse: {{ return.warehouse.name }}</span>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Return Info -->
+            <div class="info-card">
+                <h5><i class="bi bi-info-circle"></i> Return Information</h5>
+                <hr>
+                <div class="info-row">
+                    <div class="info-item">
+                        <div class="label">Vendor</div>
+                        <div class="value">{{ return.vendor.name }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Original Bill</div>
+                        <div class="value">{{ return.purchase.bill_no|default:'Pending' }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Return Bill</div>
+                        <div class="value">{{ return.bill_no|default:'—' }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Reason</div>
+                        <div class="value">
+                            <span class="badge-reason badge-{{ return.return_reason }}">
+                                <i class="bi {{ return.reason_icon }}"></i>
+                                {{ return.get_return_reason_display }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                {% if return.notes %}
+                <div class="mt-2">
+                    <div class="label">Notes</div>
+                    <div class="value" style="font-weight: 400;">{{ return.notes }}</div>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Returned Items -->
+            <div class="info-card">
+                <h5><i class="bi bi-box"></i> Returned Items</h5>
+                <hr>
+                <div style="overflow-x: auto;">
+                    <table class="items-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">#</th>
+                                <th>Product</th>
+                                <th style="width: 120px; text-align: right;">Quantity</th>
+                                <th style="width: 120px; text-align: right;">Price</th>
+                                <th style="width: 140px; text-align: right;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in items %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td><strong>{{ item.product.name }}</strong>
+                                    {% if item.product.unit %}
+                                    <br><small class="text-muted">Unit: {{ item.product.unit.name }}</small>
+                                    {% endif %}
+                                </td>
+                                <td style="text-align: right;">{{ item.qty|floatformat:2 }}</td>
+                                <td style="text-align: right;">Rs. {{ item.price|floatformat:2 }}</td>
+                                <td style="text-align: right; color: #dc3545; font-weight: 700;">
+                                    Rs. {{ item.total_amt|floatformat:2 }}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4">
+                                    <i class="bi bi-inbox" style="font-size: 2rem; opacity: 0.3;"></i>
+                                    <p class="mt-2">No items in this return</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="4" style="text-align: right; font-weight: 700;">
+                                    Total Return Value:
+                                </td>
+                                <td style="text-align: right; color: #dc3545; font-weight: 700; font-size: 1.1rem;">
+                                    Rs. {{ total_amount|floatformat:2 }}
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Other Returns from this Purchase -->
+            {% if all_returns %}
+            <div class="info-card">
+                <h5><i class="bi bi-clock-history"></i> Other Returns from this Purchase</h5>
+                <hr>
+                {% for ret in all_returns %}
+                <div class="return-history-item">
+                    <strong>Return #{{ ret.id }}</strong>
+                    <span class="badge-reason badge-{{ ret.return_reason }}">{{ ret.get_return_reason_display }}</span>
+                    <span class="text-muted">{{ ret.purchase_return_date|date:"d M Y" }}</span>
+                    <span class="float-end">
+                        <a href="{% url 'purchase_return_detail' ret.pk %}" class="btn-action view" title="View">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </span>
+                    <br>
+                    <small>
+                        {% for item in ret.return_items.all %}
+                            {{ item.product.name }}: {{ item.qty|floatformat:0 }} units
+                            {% if not forloop.last %}, {% endif %}
+                        {% endfor %}
+                        <strong>Total: Rs. {{ ret.total_return_amount|floatformat:2 }}</strong>
+                    </small>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="col-lg-4">
+            <!-- Actions -->
+            <div class="info-card no-print">
+                <h5><i class="bi bi-gear"></i> Actions</h5>
+                <hr>
+                <button class="btn-print" onclick="window.print()">
+                    <i class="bi bi-printer"></i> Print Return Slip
+                </button>
+                
+                {% if return.can_delete %}
+                <a href="{% url 'purchase_return_delete' return.pk %}" class="btn-delete">
+                    <i class="bi bi-trash"></i> Delete Return
+                </a>
+                {% endif %}
+                
+                <a href="{% url 'purchase_return_list' %}" class="btn-back">
+                    <i class="bi bi-arrow-left"></i> Back to List
+                </a>
+            </div>
+            
+            <!-- Stats -->
+            <div class="info-card">
+                <h5><i class="bi bi-graph-up"></i> Statistics</h5>
+                <hr>
+                <div class="info-item">
+                    <div class="label">Total Items</div>
+                    <div class="value">{{ total_items }}</div>
+                </div>
+                <div class="info-item mt-2">
+                    <div class="label">Total Quantity</div>
+                    <div class="value">{{ total_qty|floatformat:2 }}</div>
+                </div>
+                <div class="info-item mt-2">
+                    <div class="label">Total Value</div>
+                    <div class="value amount-positive">Rs. {{ total_amount|floatformat:2 }}</div>
+                </div>
+            </div>
+            
+            <!-- Vendor Stats -->
+            {% if vendor %}
+            <div class="info-card">
+                <h5><i class="bi bi-building"></i> Vendor Stats</h5>
+                <hr>
+                <div class="info-item">
+                    <div class="label">Total Purchases</div>
+                    <div class="value">{{ vendor_total_purchases }}</div>
+                </div>
+                <div class="info-item mt-2">
+                    <div class="label">Total Returns</div>
+                    <div class="value">{{ vendor_total_returns }}</div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

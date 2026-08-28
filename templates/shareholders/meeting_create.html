@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Schedule Meeting{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>📋 Schedule Meeting</h1>
+        <a href="{% url 'meeting_list' %}" class="btn btn-secondary">← Back</a>
+    </div>
+    
+    <div class="card">
+        <div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5 class="border-bottom pb-2">Meeting Information</h5>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Title *</label>
+                            <input type="text" name="title" class="form-control" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Meeting Type *</label>
+                            <select name="meeting_type" class="form-select" required>
+                                <option value="">Select Type</option>
+                                {% for value, label in meeting_types %}
+                                <option value="{{ value }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Date *</label>
+                            <input type="date" name="date" class="form-control" value="{{ today|date:'Y-m-d' }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Time</label>
+                            <input type="time" name="time" class="form-control">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Venue *</label>
+                            <input type="text" name="venue" class="form-control" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="scheduled">Scheduled</option>
+                                <option value="held">Held</option>
+                                <option value="cancelled">Cancelled</option>
+                                <option value="adjourned">Adjourned</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h5 class="border-bottom pb-2">Agenda & Attendees</h5>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Agenda *</label>
+                            <textarea name="agenda" class="form-control" rows="5" required></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Attendees (Shareholders)</label>
+                            <select name="attendees" class="form-select" multiple style="height:150px;">
+                                {% for sh in shareholders %}
+                                <option value="{{ sh.id }}">{{ sh.shareholder_code }} - {{ sh.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">Hold Ctrl/Cmd to select multiple shareholders</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Notes</label>
+                            <textarea name="notes" class="form-control" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-end mt-3">
+                    <button type="submit" class="btn btn-success btn-lg">📋 Schedule Meeting</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

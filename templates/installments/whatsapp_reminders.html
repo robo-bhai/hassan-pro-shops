@@ -1,0 +1,243 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}WhatsApp EMI Reminders{% endblock %}
+
+{% block extra_css %}
+<style>
+    .whatsapp-card {
+        background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+        border-radius: 24px;
+        padding: 2rem;
+        color: white;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    
+    .whatsapp-card h2 {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .reminder-table tr:hover {
+        background-color: #f8f9fa;
+        cursor: pointer;
+    }
+    
+    .whatsapp-link {
+        background: #25D366;
+        color: white;
+        padding: 6px 12px;
+        border-radius: 50px;
+        text-decoration: none;
+        font-size: 0.85rem;
+        transition: all 0.3s;
+    }
+    
+    .whatsapp-link:hover {
+        background: #128C7E;
+        color: white;
+        transform: scale(1.05);
+    }
+    
+    .badge-overdue {
+        background: #dc3545;
+        color: white;
+    }
+    
+    .badge-today {
+        background: #ffc107;
+        color: #212529;
+    }
+    
+    .badge-upcoming {
+        background: #28a745;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}
+<div class="whatsapp-card animate-slide-up">
+    <i class="bi bi-whatsapp display-1"></i>
+    <h2>WhatsApp EMI Reminders</h2>
+    <p class="mb-0">Send payment reminders to customers via WhatsApp</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-body p-4">
+                    <h5 class="fw-bold mb-3">
+                        <i class="bi bi-calendar-check"></i> Pending EMIs (Next 7 Days)
+                    </h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th>Customer</th>
+                                    <th>Bill No</th>
+                                    <th>EMI #</th>
+                                    <th>Amount</th>
+                                    <th>Due Date</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for reminder in reminders %}
+                                <tr>
+                                    <td>
+                                        {{ reminder.customer }}
+                                        <br>
+                                        <small class="text-muted">{{ reminder.customer_code }}</small>
+                                    </td>
+                                    <td>{{ reminder.bill_no }}</td>
+                                    <td>EMI #{{ reminder.emi_no }}</td>
+                                    <td>Rs. {{ reminder.amount|floatformat:0|intcomma }}</td>
+                                    <td>{{ reminder.due_date }}</td>
+                                    <td>
+                                        {% if 'OVERDUE' in reminder.status %}
+                                        <span class="badge badge-overdue">⚠️ Overdue</span>
+                                        {% elif 'TODAY' in reminder.status %}
+                                        <span class="badge badge-today">🔔 Due Today</span>
+                                        {% else %}
+                                        <span class="badge badge-upcoming">📅 {{ reminder.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{{ reminder.whatsapp_url }}" target="_blank" 
+                                           class="whatsapp-link">
+                                            <i class="bi bi-whatsapp"></i> Send Reminder
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center py-5 text-muted">
+                                        <i class="bi bi-check-circle display-4 text-success"></i>
+                                        <p class="mt-2">No pending EMIs! All payments are up to date.</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-danger text-white rounded-top-4">
+                    <h6 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Overdue Report</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th>Customer</th>
+                                    <th>Bill No</th>
+                                    <th>Days Overdue</th>
+                                    <th>Amount</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for overdue in overdue_reports %}
+                                <tr>
+                                    <td>{{ overdue.customer }}</td>
+                                    <td>{{ overdue.bill_no }}</td>
+                                    <td><span class="text-danger fw-bold">{{ overdue.days_overdue }} days</span></td>
+                                    <td>Rs. {{ overdue.total_overdue|floatformat:0|intcomma }}</td>
+                                    <td>
+                                        <a href="{{ overdue.whatsapp_url }}" target="_blank" 
+                                           class="whatsapp-link btn-sm">
+                                            📱 Send
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-3 text-success">
+                                        ✅ No overdue payments!
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-primary text-white rounded-top-4">
+                    <h6 class="mb-0"><i class="bi bi-send"></i> Quick Actions</h6>
+                </div>
+                <div class="card-body text-center p-4">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <a href="{% url 'installment_list' %}" class="btn btn-outline-primary w-100 py-3 rounded-4">
+                                <i class="bi bi-list fs-4"></i>
+                                <br>View All Installments
+                            </a>
+                        </div>
+                        <div class="col-6">
+                            <a href="{% url 'whatsapp_daily_summary' %}" class="btn btn-outline-success w-100 py-3 rounded-4">
+                                <i class="bi bi-whatsapp fs-4"></i>
+                                <br>Daily Summary
+                            </a>
+                        </div>
+                        <div class="col-12">
+                            <button id="sendBulkReminders" class="btn btn-success w-100 py-3 rounded-4">
+                                <i class="bi bi-envelope-paper"></i> Send Bulk Reminders
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('sendBulkReminders')?.addEventListener('click', async function() {
+    const btn = this;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending...';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch('/ajax/send-bulk-reminders/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(`✅ Sent ${data.sent} reminders!\n\nToday: ${data.today}\nUpcoming: ${data.upcoming}\nOverdue: ${data.overdue}`);
+            location.reload();
+        } else {
+            alert('❌ Error: ' + data.message);
+        }
+    } catch (error) {
+        alert('❌ Network error: ' + error.message);
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+});
+</script>
+{% endblock %}

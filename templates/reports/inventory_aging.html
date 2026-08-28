@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Inventory Aging{% endblock %}
+{% block page_title %}📅 Inventory Aging Report{% endblock %}
+
+{% block extra_css %}
+<style>
+    .aging-card { background: white; border-radius: 12px; padding: 15px; text-align: center; border: 1px solid #e9ecef; }
+    .total-value { font-size: 32px; font-weight: 800; color: #1a1a2e; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-4 mx-auto">
+            <div class="aging-card">
+                <div class="small text-muted">Total Inventory Value</div>
+                <div class="total-value">PKR {{ total_value|floatformat:0 }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-white"><strong><i class="bi bi-clock-history"></i> Stock Aging by Warehouse</strong></div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light"><tr><th>Warehouse</th><th>Product</th><th>Quantity</th><th>Unit Price</th><th>Total Value</th></tr></thead>
+                    <tbody>
+                        {% for item in aging_data %}
+                        <tr>
+                            <td>{{ item.warehouse }}</td>
+                            <td><strong>{{ item.product }}</strong></td>
+                            <td>{{ item.quantity|floatformat:0 }}</td>
+                            <td>PKR {{ item.price|floatformat:2 }}</td>
+                            <td class="text-end">PKR {{ item.value|floatformat:0 }}</td>
+                        </tr>
+                        {% empty %}<td><td colspan="5" class="text-center text-muted">No aging data available</td></tr>{% endfor %}
+                    </tbody>
+                    <tfoot class="table-light"><tr><th colspan="4" class="text-end">Total:</th><th class="text-end">PKR {{ total_value|floatformat:0 }}</th></tr></tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

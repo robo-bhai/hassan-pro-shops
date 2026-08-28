@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Test Report{% endblock %}
+
+{% block extra_css %}
+<style>
+    .report-metric {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 16px 20px;
+        text-align: center;
+        height: 100%;
+    }
+    .report-metric .metric-value {
+        font-size: 28px;
+        font-weight: 700;
+    }
+    .report-metric .metric-label {
+        font-size: 13px;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-file-earmark-text text-primary"></i> Test Report</h2>
+            <p class="text-muted">{{ report.name }}</p>
+        </div>
+        <div>
+            <a href="{% url 'test_report_generate' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> New Report
+            </a>
+            <a href="{% url 'test_dashboard' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    
+    <!-- Report Info -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <small class="text-muted">Project</small>
+                    <p class="fw-bold">{{ report.project.name }}</p>
+                </div>
+                <div class="col-md-6">
+                    <small class="text-muted">Generated</small>
+                    <p class="fw-bold">{{ report.generated_at|date:"d-m-Y H:i" }}</p>
+                </div>
+                <div class="col-12">
+                    <small class="text-muted">Description</small>
+                    <p>{{ report.description }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Metrics -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="report-metric">
+                <div class="metric-value text-primary">{{ report.total_tests }}</div>
+                <div class="metric-label">Total Tests</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="report-metric">
+                <div class="metric-value text-success">{{ report.passed_tests }}</div>
+                <div class="metric-label">Passed</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="report-metric">
+                <div class="metric-value text-danger">{{ report.failed_tests }}</div>
+                <div class="metric-label">Failed</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="report-metric">
+                <div class="metric-value text-warning">{{ report.pass_rate|floatformat:1 }}%</div>
+                <div class="metric-label">Pass Rate</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bugs Summary -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white">
+            <h6 class="mb-0"><i class="bi bi-bug text-danger"></i> Bug Summary</h6>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <div class="report-metric">
+                        <div class="metric-value text-danger">{{ report.total_bugs }}</div>
+                        <div class="metric-label">Total Bugs</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="report-metric">
+                        <div class="metric-value text-danger">{{ report.critical_bugs }}</div>
+                        <div class="metric-label">Critical</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="report-metric">
+                        <div class="metric-value text-warning">{{ report.major_bugs }}</div>
+                        <div class="metric-label">Major</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="report-metric">
+                        <div class="metric-value text-info">{{ report.minor_bugs }}</div>
+                        <div class="metric-label">Minor</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

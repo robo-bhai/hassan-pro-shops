@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Create Account{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">➕ Create New Account</h1>
+        <a href="{% url 'chart_of_accounts' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Code *</label>
+                            <input type="text" name="code" class="form-control" required placeholder="e.g., 1010">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Name *</label>
+                            <input type="text" name="name" class="form-control" required placeholder="Account name">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Account Type *</label>
+                            <select name="account_type" class="form-control" required>
+                                <option value="">Select Type...</option>
+                                {% for type in account_types %}
+                                <option value="{{ type.id }}">{{ type.name }} ({{ type.get_account_class_display }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Parent Account</label>
+                            <select name="parent" class="form-control">
+                                <option value="">None (Top Level)</option>
+                                {% for parent in parent_accounts %}
+                                <option value="{{ parent.id }}">{{ parent.code }} - {{ parent.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Opening Balance</label>
+                            <input type="number" name="opening_balance" class="form-control" step="0.01" value="0.00">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea name="description" class="form-control" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" name="is_active" class="form-check-input" checked>
+                            <label class="form-check-label">Active</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" name="is_bank" class="form-check-input">
+                            <label class="form-check-label">Bank Account</label>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> Create Account
+                </button>
+                <a href="{% url 'chart_of_accounts' %}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

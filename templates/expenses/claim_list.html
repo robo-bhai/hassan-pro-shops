@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Expense Claims - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>📋 Expense Claims</h2>
+                <a href="{% url 'expense_claim_create' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> New Claim
+                </a>
+            </div>
+            
+            <!-- Filters -->
+            <div class="card mb-3">
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-4">
+                            <input type="text" name="search" class="form-control" placeholder="Search claims..." value="{{ search }}">
+                        </div>
+                        <div class="col-md-4">
+                            <select name="status" class="form-select">
+                                <option value="">All Status</option>
+                                {% for key, value in status_choices %}
+                                <option value="{{ key }}" {% if key == status %}selected{% endif %}>{{ value|safe }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="submit" class="btn btn-secondary w-100">Filter</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Stats -->
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <div class="card text-white bg-primary">
+                        <div class="card-body">
+                            <h6>Total Claims</h6>
+                            <h3>{{ total_claims }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-warning">
+                        <div class="card-body">
+                            <h6>Pending</h6>
+                            <h3>{{ pending_claims }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-success">
+                        <div class="card-body">
+                            <h6>Approved</h6>
+                            <h3>{{ approved_claims }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-info">
+                        <div class="card-body">
+                            <h6>Total Amount</h6>
+                            <h3>Rs. {{ total_amount|floatformat:0|intcomma }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Claims Table -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Claim #</th>
+                                    <th>Employee</th>
+                                    <th>Title</th>
+                                    <th>Amount</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for claim in claims %}
+                                <tr>
+                                    <td><strong>{{ claim.claim_no }}</strong></td>
+                                    <td>{{ claim.employee.name }}</td>
+                                    <td>{{ claim.title|truncatechars:25 }}</td>
+                                    <td><strong>Rs. {{ claim.total_amount|floatformat:2|intcomma }}</strong></td>
+                                    <td>{{ claim.claim_date|date:"d-m-Y" }}</td>
+                                    <td>
+                                        {% if claim.status == 'draft' %}
+                                        <span class="badge bg-secondary">📝 Draft</span>
+                                        {% elif claim.status == 'submitted' %}
+                                        <span class="badge bg-primary">📤 Submitted</span>
+                                        {% elif claim.status == 'review' %}
+                                        <span class="badge bg-info">📋 Review</span>
+                                        {% elif claim.status == 'approved' %}
+                                        <span class="badge bg-success">✅ Approved</span>
+                                        {% elif claim.status == 'rejected' %}
+                                        <span class="badge bg-danger">❌ Rejected</span>
+                                        {% elif claim.status == 'reimbursed' %}
+                                        <span class="badge bg-success">💰 Reimbursed</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">❌ Cancelled</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'expense_claim_detail' claim.id %}" class="btn btn-sm btn-info">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="7" class="text-center">No claims found.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}➕ New Loan Given{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-hand-holding-heart"></i> New Loan Given</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <!-- Borrower Info -->
+                        <h6 class="border-bottom pb-2 mb-3">Borrower Information</h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Borrower Name *</label>
+                                <input type="text" name="borrower_name" class="form-control" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Contact Number</label>
+                                <input type="text" name="borrower_contact" class="form-control">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">CNIC</label>
+                                <input type="text" name="borrower_cnic" class="form-control">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Loan Type</label>
+                                <select name="loan_type" class="form-select">
+                                    {% for key, label in loan_types %}
+                                    <option value="{{ key }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Address</label>
+                                <textarea name="borrower_address" class="form-control" rows="2"></textarea>
+                            </div>
+                        </div>
+                        
+                        <!-- Loan Details -->
+                        <h6 class="border-bottom pb-2 mb-3 mt-4">Loan Details</h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Principal Amount *</label>
+                                <input type="number" name="principal_amount" class="form-control" 
+                                       step="0.01" min="0" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Interest Rate (%)</label>
+                                <input type="number" name="interest_rate" class="form-control" 
+                                       step="0.01" min="0" value="0">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Loan Date *</label>
+                                <input type="date" name="loan_date" class="form-control" 
+                                       value="{{ today }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Expected Return Date *</label>
+                                <input type="date" name="due_date" class="form-control" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Total Installments</label>
+                                <input type="number" name="total_installments" class="form-control" 
+                                       min="0" value="0">
+                            </div>
+                        </div>
+                        
+                        <!-- Guarantor Info -->
+                        <h6 class="border-bottom pb-2 mb-3 mt-4">Guarantor Information</h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Guarantor Name</label>
+                                <input type="text" name="guarantor_name" class="form-control">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Guarantor Contact</label>
+                                <input type="text" name="guarantor_contact" class="form-control">
+                            </div>
+                        </div>
+                        
+                        <!-- Document -->
+                        <h6 class="border-bottom pb-2 mb-3 mt-4">Documents</h6>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">Agreement File</label>
+                                <input type="file" name="agreement_file" class="form-control">
+                            </div>
+                        </div>
+                        
+                        <!-- Notes -->
+                        <div class="row g-3 mt-2">
+                            <div class="col-12">
+                                <label class="form-label">Notes</label>
+                                <textarea name="notes" class="form-control" rows="2"></textarea>
+                            </div>
+                        </div>
+                        
+                        <!-- Cash Processing -->
+                        <div class="row g-3 mt-3">
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input type="checkbox" name="process_now" class="form-check-input" 
+                                           id="process_now" checked>
+                                    <label class="form-check-label" for="process_now">
+                                        Deduct cash from balance now
+                                    </label>
+                                </div>
+                                <small class="text-muted d-block">
+                                    Current Cash Balance: <strong>Rs. {{ current_balance|floatformat:2 }}</strong>
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <!-- Buttons -->
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Create Loan
+                            </button>
+                            <a href="{% url 'loan_given_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

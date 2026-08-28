@@ -1,0 +1,423 @@
+{% extends "admin/change_form.html" %}
+{% load i18n admin_urls %}
+
+{% block extrahead %}
+{{ block.super }}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
+{% endblock %}
+
+{% block content %}
+
+<!-- Barcode & Serial Scanner Section -->
+<div style="margin-bottom: 12px; padding: 8px 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 6px; border: 1px solid #dee2e6;">
+    
+    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+        <input type="text" id="barcode-input" placeholder="🏷️ Barcode scan karein ya type karein..." 
+               style="flex: 1; min-width: 180px; padding: 6px 10px; font-size: 13px; border: 1.5px solid white; border-radius: 4px; outline: none;"
+               autofocus>
+        <button type="button" id="add-by-barcode" style="padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; white-space: nowrap;">
+            ➕ Add
+        </button>
+        <button type="button" id="start-camera-btn" style="padding: 6px 12px; background: white; color: #667eea; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; white-space: nowrap;">
+            📸 Scan
+        </button>
+        <button type="button" id="stop-camera-btn" style="padding: 6px 12px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; white-space: nowrap; display: none;">
+            ⏹ Stop
+        </button>
+    </div>
+    
+    <!-- Serial Number Search -->
+    <div style="margin-top: 6px; display: flex; gap: 6px; align-items: center;">
+        <input type="text" id="serial-input" placeholder="🔢 Serial Number search karein..." 
+               style="flex: 1; min-width: 150px; padding: 5px 10px; font-size: 12px; border: 1px solid rgba(255,255,255,0.6); border-radius: 4px; outline: none; background: rgba(255,255,255,0.2); color: white;">
+        <button type="button" id="search-by-serial" style="padding: 5px 12px; background: #ffc107; color: #333; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px; white-space: nowrap;">
+            🔍 Search Serial
+        </button>
+    </div>
+    
+    <!-- Product Found Panel -->
+    <div id="product-found-panel" style="display: none; margin-top: 8px; padding: 10px; background: rgba(255,255,255,0.15); border-radius: 6px; border: 1px dashed rgba(255,255,255,0.4);">
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 120px;">
+                <label style="font-size: 10px; color: rgba(255,255,255,0.8);">Product</label>
+                <div id="found-product-name" style="color: white; font-weight: bold; font-size: 14px;">-</div>
+                <div id="found-product-info" style="color: #ccffcc; font-size: 10px;"></div>
+            </div>
+            <div style="width: 80px;">
+                <label style="font-size: 10px; color: rgba(255,255,255,0.8);">Qty</label>
+                <input type="number" id="found-product-qty" value="1" min="0.01" step="any" inputmode="decimal"
+                       style="width: 100%; padding: 6px; font-size: 14px; border: 2px solid white; border-radius: 4px; outline: none; text-align: center; font-weight: bold;"
+                       onfocus="this.select()">
+            </div>
+            <div style="width: 110px;">
+                <label style="font-size: 10px; color: rgba(255,255,255,0.8);">Price (Rs.)</label>
+                <input type="number" id="found-product-price" value="0.00" min="0" step="any" inputmode="decimal"
+                       style="width: 100%; padding: 6px; font-size: 14px; border: 2px solid white; border-radius: 4px; outline: none; text-align: center; font-weight: bold;"
+                       onfocus="this.select()">
+            </div>
+            <div style="width: 100px; text-align: center;">
+                <label style="font-size: 10px; color: rgba(255,255,255,0.8);">Total</label>
+                <div id="found-product-total" style="color: #ffc107; font-weight: bold; font-size: 15px;">Rs. 0.00</div>
+            </div>
+            <button type="button" id="confirm-add-btn" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; white-space: nowrap; align-self: flex-end;">
+                ✅ Confirm
+            </button>
+            <button type="button" id="cancel-add-btn" style="padding: 8px 12px; background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; white-space: nowrap; align-self: flex-end;">
+                ✖ Cancel
+            </button>
+        </div>
+    </div>
+    
+    <!-- Camera Viewfinder -->
+    <div id="camera-view" style="display: none; margin-top: 6px; position: relative;">
+        <div id="scanner-container" style="width: 100%; max-width: 350px; height: 180px; border: 2px solid white; border-radius: 6px; overflow: hidden; margin: 0 auto; background: #000;">
+            <div id="interactive" class="viewport" style="width: 100%; height: 100%; position: relative;"></div>
+        </div>
+    </div>
+    
+    <span id="scan-status" style="display: block; margin-top: 4px; color: white; font-weight: bold; min-height: 16px; font-size: 11px;"></span>
+    <span id="camera-status" style="color: #ccffcc; font-size: 11px;"></span>
+</div>
+
+{{ block.super }}
+
+<!-- Payment Section -->
+<div id="payment-section" style="margin-top: 15px; padding: 10px 12px; background: #f8f9fa; border-radius: 8px; border: 2px solid #dee2e6; display: none;">
+    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <div style="display: flex; gap: 8px; flex: 1; flex-wrap: wrap; align-items: center;">
+            <span style="font-weight: bold; font-size: 13px; color: #333;">Subtotal:</span>
+            <span id="summary-subtotal" style="font-weight: bold; font-size: 14px; color: #333;">Rs. 0.00</span>
+            <span style="color: #999;">|</span>
+            <span style="font-weight: bold; font-size: 13px; color: #dc3545;">Discount:</span>
+            <input type="number" id="discount-field" value="0" min="0" step="any" inputmode="decimal"
+                   style="width: 80px; padding: 4px 6px; font-size: 13px; border: 1.5px solid #dc3545; border-radius: 4px; outline: none; text-align: right; font-weight: bold;"
+                   onfocus="this.select()">
+            <span style="color: #999;">|</span>
+            <span style="font-weight: bold; font-size: 13px; color: #28a745;">Grand Total:</span>
+            <span id="summary-grandtotal" style="font-weight: bold; font-size: 16px; color: #28a745;">Rs. 0.00</span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <span style="font-weight: bold; font-size: 13px; color: #007bff;">Paid:</span>
+            <input type="number" id="paid-field" value="0" min="0" step="any" inputmode="decimal"
+                   style="width: 150px; padding: 6px 8px; font-size: 15px; border: 2px solid #007bff; border-radius: 4px; outline: none; text-align: right; font-weight: bold;"
+                   onfocus="this.select()">
+            <span style="font-weight: bold; font-size: 13px;">Balance:</span>
+            <span id="summary-balance" style="font-weight: bold; font-size: 14px;">Rs. 0.00</span>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    var barcodeInput = $('#barcode-input');
+    var serialInput = $('#serial-input');
+    var quaggaInitialized = false;
+    var scanStatus = $('#scan-status');
+    var currentFoundProduct = null;
+    var manualPriceMap = {};
+    
+    function getCleanNumber(sel) {
+        var v = $(sel).val(); if (v === '' || v === null) return 0;
+        var n = parseFloat(String(v).replace(/,/g, ''));
+        return isNaN(n) ? 0 : n;
+    }
+    
+    function setCleanNumber(sel, num) { $(sel).val(num); }
+    
+    // ============================================
+    // ✅ BATCH SELLING PRICE CHECK
+    // ============================================
+    function checkBatchSellingPrice(productId, callback) {
+        var warehouseId = $('#id_warehouse').val();
+        
+        $.ajax({
+            url: '/admin/get-batch-selling-price/',
+            data: { product_id: productId, warehouse_id: warehouseId || '' },
+            dataType: 'json',
+            success: function(d) {
+                if (d.success && d.has_batch_price) {
+                    // Batch selling price mili
+                    if (callback) callback(d);
+                } else {
+                    // Default product price use karo
+                    if (callback) callback(null);
+                }
+            }
+        });
+    }
+    
+    // ============================================
+    // PRODUCT FOUND PANEL
+    // ============================================
+    $('#found-product-qty, #found-product-price').on('input', function() {
+        var qty = getCleanNumber('#found-product-qty');
+        var price = getCleanNumber('#found-product-price');
+        $('#found-product-total').text('Rs. ' + (qty * price).toLocaleString('en-IN', {minimumFractionDigits: 2}));
+    });
+    
+    function showProductPanel(product, searchType) {
+        currentFoundProduct = product;
+        $('#found-product-name').text(product.name);
+        var infoText = searchType === 'barcode' ? '🏷️ Barcode: ' + (product.barcode || 'N/A') : '🔢 Serial: ' + (product.serial_no || 'N/A');
+        $('#found-product-info').text(infoText);
+        setCleanNumber('#found-product-qty', 1);
+        setCleanNumber('#found-product-price', parseFloat(product.price) || 0);
+        $('#product-found-panel').slideDown(200);
+        $('#found-product-total').text('Rs. ' + (parseFloat(product.price) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2}));
+        $('#found-product-qty').focus().select();
+        
+        // ✅ Check batch selling price
+        checkBatchSellingPrice(product.id, function(batchData) {
+            if (batchData && batchData.has_batch_price) {
+                setCleanNumber('#found-product-price', parseFloat(batchData.batch_selling_price));
+                $('#found-product-total').text('Rs. ' + parseFloat(batchData.batch_selling_price).toLocaleString('en-IN', {minimumFractionDigits: 2}));
+                $('#found-product-info').append(
+                    ' | <span style="color:#ffc107;">💰 Batch SP: Rs. ' + 
+                    parseFloat(batchData.batch_selling_price).toLocaleString('en-IN', {minimumFractionDigits: 0}) + 
+                    ' (Purch: Rs. ' + parseFloat(batchData.purchase_price).toLocaleString('en-IN', {minimumFractionDigits: 0}) + ')</span>'
+                );
+            }
+        });
+    }
+    
+    function hideProductPanel() {
+        $('#product-found-panel').slideUp(150);
+        currentFoundProduct = null;
+        barcodeInput.val('').focus();
+        serialInput.val('');
+    }
+    
+    $('#confirm-add-btn').click(function() {
+        if (!currentFoundProduct) return;
+        var qty = getCleanNumber('#found-product-qty') || 1;
+        var price = getCleanNumber('#found-product-price') || 0;
+        if (price > 0) manualPriceMap[currentFoundProduct.id] = price;
+        addProductToTable(currentFoundProduct, qty, price);
+        hideProductPanel();
+    });
+    
+    $('#cancel-add-btn').click(function() { hideProductPanel(); });
+    $('#found-product-qty, #found-product-price').keypress(function(e) { if (e.which == 13) { e.preventDefault(); $('#confirm-add-btn').click(); } });
+    $(document).keydown(function(e) { if (e.which == 27 && $('#product-found-panel').is(':visible')) { hideProductPanel(); } });
+    
+    // ============================================
+    // ADD PRODUCT TO TABLE
+    // ============================================
+    function addProductToTable(product, qty, price) {
+        var totalForms = $('#id_saleitem_set-TOTAL_FORMS');
+        var formCount = parseInt(totalForms.val()) || 0;
+        var targetIdx = -1;
+        
+        for (var i = 0; i < formCount; i++) {
+            var delCheck = $('#id_saleitem_set-' + i + '-DELETE');
+            var isDeleted = delCheck.length && delCheck.is(':checked');
+            var selectField = $('#id_saleitem_set-' + i + '-product');
+            
+            if (!isDeleted && selectField.length && (selectField.val() === '' || selectField.val() === null)) {
+                targetIdx = i;
+                break;
+            }
+        }
+        
+        if (targetIdx === -1) {
+            var addBtn = $('.add-row a').first();
+            if (addBtn.length) {
+                addBtn.click();
+                setTimeout(function() {
+                    var newTotal = parseInt(totalForms.val());
+                    fillRow(newTotal - 1, product, qty, price);
+                }, 500);
+            }
+            return;
+        }
+        
+        fillRow(targetIdx, product, qty, price);
+    }
+    
+    function fillRow(idx, product, qty, price) {
+        var selectField = $('#id_saleitem_set-' + idx + '-product');
+        var priceField = $('#id_saleitem_set-' + idx + '-price');
+        var qtyField = $('#id_saleitem_set-' + idx + '-qty');
+        
+        // Price aur qty set karo
+        if (priceField.length) { priceField.val(price); priceField.attr('value', price); }
+        if (qtyField.length) { qtyField.val(qty); qtyField.attr('value', qty); }
+        
+        // Product select karo
+        if (selectField.length) {
+            if (selectField.find('option[value="' + product.id + '"]').length === 0) {
+                selectField.append(new Option(product.name, product.id, true, true));
+            }
+            selectField.val(product.id).trigger('change');
+            
+            // Dobara price set (Select2 override na kare)
+            setTimeout(function() {
+                var sp = manualPriceMap[product.id] || price;
+                $('#id_saleitem_set-' + idx + '-price').val(sp);
+                updateSummary();
+            }, 300);
+            setTimeout(function() {
+                var sp = manualPriceMap[product.id] || price;
+                $('#id_saleitem_set-' + idx + '-price').val(sp);
+                updateSummary();
+            }, 600);
+        }
+        
+        updateSummary();
+        playBeep();
+        scanStatus.text('✅ Added: ' + product.name).css('color', '#ccffcc');
+        barcodeInput.val('').focus();
+        serialInput.val('');
+    }
+    
+    // ============================================
+    // PAYMENT
+    // ============================================
+    function movePaymentFields() {
+        $('#id_discount_value').closest('.form-row').hide();
+        $('#id_paid').closest('.form-row').hide();
+        var inlineGroup = $('.inline-group');
+        if (inlineGroup.length && $('#payment-section').length) {
+            $('#payment-section').insertAfter(inlineGroup).show();
+            setCleanNumber('#discount-field', parseFloat($('#id_discount_value').val()) || 0);
+            setCleanNumber('#paid-field', parseFloat($('#id_paid').val()) || 0);
+        }
+    }
+    
+    $('#discount-field').on('input change', function() { $('#id_discount_value').val($(this).val()); updateSummary(); });
+    $('#paid-field').on('input change', function() { $('#id_paid').val($(this).val()); updateSummary(); });
+    
+    // ============================================
+    // DEFAULTS
+    // ============================================
+    function setDefaults() {
+        var wh = $('#id_warehouse');
+        if (wh.length && !wh.val()) wh.find('option:not([value=""])').first().prop('selected', true);
+        var cust = $('#id_customer');
+        if (cust.length && !cust.val()) {
+            var cashOpt = cust.find('option').filter(function() { return $(this).text().toLowerCase().indexOf('cash') !== -1; }).first();
+            if (cashOpt.length) cashOpt.prop('selected', true);
+            else cust.find('option:not([value=""])').first().prop('selected', true);
+        }
+        if ($('#id_bill_no').length && !$('#id_bill_no').val()) {
+            var today = new Date();
+            var ds = today.getFullYear() + String(today.getMonth()+1).padStart(2,'0') + String(today.getDate()).padStart(2,'0');
+            $.ajax({ url: '/admin/get-next-bill-no/', data: { prefix: 'INV-'+ds }, dataType: 'json', success: function(d) { if(d.success) $('#id_bill_no').val(d.bill_no); } });
+        }
+    }
+    
+    // ============================================
+    // SUMMARY
+    // ============================================
+    function updateSummary() {
+        var sub = 0, fc = parseInt($('#id_saleitem_set-TOTAL_FORMS').val()) || 0;
+        for (var i = 0; i < fc; i++) {
+            var del = $('#id_saleitem_set-' + i + '-DELETE');
+            if (del.length && del.is(':checked')) continue;
+            var ps = $('#id_saleitem_set-' + i + '-product');
+            if (ps.length && ps.val()) {
+                var q = parseFloat($('#id_saleitem_set-' + i + '-qty').val()) || 0;
+                var p = parseFloat($('#id_saleitem_set-' + i + '-price').val()) || 0;
+                sub += q * p;
+            }
+        }
+        var disc = getCleanNumber('#discount-field'), paid = getCleanNumber('#paid-field');
+        var gt = sub - disc, bal = paid - gt;
+        $('#summary-subtotal').text('Rs. ' + sub.toLocaleString('en-IN', {minimumFractionDigits: 2}));
+        $('#summary-grandtotal').text('Rs. ' + gt.toLocaleString('en-IN', {minimumFractionDigits: 2}));
+        if (bal >= 0) $('#summary-balance').html('Rs. ' + bal.toLocaleString('en-IN', {minimumFractionDigits: 2}) + ' <span style="color:#28a745;">(Change)</span>');
+        else $('#summary-balance').html('Rs. ' + Math.abs(bal).toLocaleString('en-IN', {minimumFractionDigits: 2}) + ' <span style="color:#dc3545;">(Due)</span>');
+    }
+    
+    // ============================================
+    // LOOKUP
+    // ============================================
+    function lookupBarcode() {
+        var bc = barcodeInput.val().trim().replace(/[^0-9]/g, '');
+        if (!bc) { scanStatus.text('❌ Barcode likhein').css('color','#ffcccc'); return; }
+        scanStatus.text('🔍...').css('color','white');
+        $.ajax({ url: '/admin/find-product-by-barcode/', data: { barcode: bc }, dataType: 'json',
+            success: function(d) { if(d.success){ scanStatus.text('✅ '+d.product.name).css('color','#ccffcc'); showProductPanel(d.product, 'barcode'); playBeep(); } else { scanStatus.text('❌ Not found').css('color','#ffcccc'); } },
+            error: function() { scanStatus.text('❌ Error').css('color','#ffcccc'); }
+        });
+    }
+    
+    function lookupSerial() {
+        var s = serialInput.val().trim();
+        if (!s) { scanStatus.text('❌ Serial likhein').css('color','#ffcccc'); return; }
+        scanStatus.text('🔍...').css('color','white');
+        $.ajax({ url: '/admin/find-product-by-serial/', data: { serial: s }, dataType: 'json',
+            success: function(d) { if(d.success){ scanStatus.text('✅ '+d.product.name).css('color','#ccffcc'); showProductPanel(d.product, 'serial'); playBeep(); } else { scanStatus.text('❌ Not found').css('color','#ffcccc'); } },
+            error: function() { scanStatus.text('❌ Error').css('color','#ffcccc'); }
+        });
+    }
+    
+    function playBeep() { try { var a=new(window.AudioContext||window.webkitAudioContext)(), o=a.createOscillator(), g=a.createGain(); o.connect(g); g.connect(a.destination); o.frequency.value=800; g.gain.setValueAtTime(0.3,a.currentTime); g.gain.exponentialRampToValueAtTime(0.01,a.currentTime+0.15); o.start(); o.stop(a.currentTime+0.15); } catch(e) {} }
+    
+    // ============================================
+    // EVENTS
+    // ============================================
+    barcodeInput.keypress(function(e) { if(e.which==13) { e.preventDefault(); $('#product-found-panel').is(':visible') ? $('#confirm-add-btn').click() : lookupBarcode(); } });
+    serialInput.keypress(function(e) { if(e.which==13) { e.preventDefault(); $('#product-found-panel').is(':visible') ? $('#confirm-add-btn').click() : lookupSerial(); } });
+    $('#add-by-barcode').click(function() { $('#product-found-panel').is(':visible') ? $('#confirm-add-btn').click() : lookupBarcode(); });
+    $('#search-by-serial').click(function() { $('#product-found-panel').is(':visible') ? $('#confirm-add-btn').click() : lookupSerial(); });
+    
+    // ✅ Product dropdown change -> batch price check
+    $(document).on('change', 'select[id$="-product"]', function() {
+        var m = $(this).attr('name').match(/saleitem_set-(\d+)-/);
+        if (m) {
+            var idx = m[1], pid = $(this).val(), cp = $('#id_saleitem_set-' + idx + '-price').val();
+            if (pid) {
+                checkBatchSellingPrice(pid, function(batchData) {
+                    if (batchData && batchData.has_batch_price) {
+                        $('#id_saleitem_set-' + idx + '-price').val(batchData.batch_selling_price);
+                    } else if (!manualPriceMap[pid] && (!cp || cp == '0' || cp == '0.00')) {
+                        $.ajax({ url: '/admin/get-product-price/', data: { product_id: pid }, success: function(d) {
+                            if (d.success && !manualPriceMap[pid]) $('#id_saleitem_set-' + idx + '-price').val(d.price);
+                            updateSummary();
+                        }});
+                    }
+                    updateSummary();
+                });
+            }
+            setTimeout(updateSummary, 200);
+        }
+    });
+    
+    $(document).on('input change', 'input[id$="-qty"], input[id$="-price"]', function() { updateSummary(); });
+    $(document).on('click', '.inline-deletelink', function() { setTimeout(updateSummary, 200); });
+    $(document).on('click', '.add-row a', function() { setTimeout(updateSummary, 300); });
+    $('form').on('submit', function() { $('#id_discount_value').val($('#discount-field').val()); $('#id_paid').val($('#paid-field').val()); return true; });
+    $(document).on('click', function(e) { if(!$(e.target).is('input,select,button,a,textarea')) barcodeInput.focus(); });
+    
+    // CAMERA
+    $('#start-camera-btn').click(function() {
+        $('#camera-view').show(); $('#start-camera-btn').hide(); $('#stop-camera-btn').show();
+        Quagga.init({ inputStream:{name:"Live",type:"LiveStream",target:document.querySelector('#interactive'),constraints:{facingMode:"environment"},area:{top:"20%",right:"20%",left:"20%",bottom:"20%"}}, decoder:{readers:["ean_reader","ean_8_reader","upc_reader","code_128_reader","code_39_reader"]} }, function(err) {
+            if(err) { stopCamera(); return; }
+            quaggaInitialized=true; Quagga.start();
+        });
+        Quagga.onDetected(function(r) { if(r&&r.codeResult&&r.codeResult.code){ barcodeInput.val(r.codeResult.code); stopCamera(); setTimeout(lookupBarcode,200); } });
+    });
+    $('#stop-camera-btn').click(stopCamera);
+    function stopCamera() { if(quaggaInitialized){ try{Quagga.stop();}catch(e){} quaggaInitialized=false; } $('#camera-view').hide(); $('#start-camera-btn').show(); $('#stop-camera-btn').hide(); $('#interactive').empty(); }
+    $(window).on('beforeunload', function() { if(quaggaInitialized) stopCamera(); });
+    
+    setTimeout(function() { setDefaults(); movePaymentFields(); updateSummary(); barcodeInput.focus(); }, 600);
+});
+</script>
+
+<style>
+    #barcode-input:focus { border-color:#28a745!important; box-shadow:0 0 0 2px rgba(40,167,69,0.25)!important; outline:none; }
+    #serial-input:focus { border-color:#ffc107!important; box-shadow:0 0 0 2px rgba(255,193,7,0.25)!important; outline:none; }
+    #serial-input::placeholder { color: rgba(255,255,255,0.7); }
+    #found-product-qty:focus, #found-product-price:focus { border-color:#ffc107!important; box-shadow:0 0 0 3px rgba(255,193,7,0.3)!important; }
+    #discount-field:focus { border-color:#dc3545!important; }
+    #paid-field:focus { border-color:#007bff!important; }
+    #interactive video, #interactive canvas { width:100%!important; height:100%!important; object-fit:cover!important; position:absolute; top:0; left:0; }
+    #start-camera-btn:hover, #stop-camera-btn:hover, #add-by-barcode:hover, #confirm-add-btn:hover, #cancel-add-btn:hover { transform:scale(1.05); transition:all 0.15s; }
+    #search-by-serial:hover { background:#e0a800!important; transform:scale(1.05); }
+</style>
+
+{% endblock %}

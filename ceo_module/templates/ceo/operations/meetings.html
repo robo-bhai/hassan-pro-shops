@@ -1,0 +1,132 @@
+{% extends 'ceo/base_executive.html' %}
+{% load humanize %}
+
+{% block page_title %}Executive Meetings{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5><i class="bi bi-calendar-event"></i> Meeting Schedule</h5>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#scheduleMeetingModal">
+                    <i class="bi bi-plus-circle"></i> Schedule Meeting
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="stat-card">
+            <h6><i class="bi bi-hourglass-split"></i> Upcoming Meetings</h6>
+            {% for meeting in upcoming %}
+            <div class="border-bottom pb-2 mb-2">
+                <div class="d-flex justify-content-between">
+                    <strong>{{ meeting.title }}</strong>
+                    <span class="badge bg-primary">{{ meeting.get_meeting_type_display }}</span>
+                </div>
+                <small class="text-muted">
+                    <i class="bi bi-calendar"></i> {{ meeting.meeting_date|date:"d M Y, h:i A" }}
+                    <br>
+                    <i class="bi bi-clock"></i> {{ meeting.duration_hours }} hours
+                </small>
+                <div class="mt-1">
+                    <i class="bi bi-person"></i> Chair: {{ meeting.chairperson.title|default:"CEO" }}
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-muted">No upcoming meetings scheduled.</p>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="stat-card">
+            <h6><i class="bi bi-clock-history"></i> Past Meetings</h6>
+            {% for meeting in past %}
+            <div class="border-bottom pb-2 mb-2">
+                <div class="d-flex justify-content-between">
+                    <strong>{{ meeting.title }}</strong>
+                    <span class="badge bg-secondary">{{ meeting.get_meeting_type_display }}</span>
+                </div>
+                <small class="text-muted">
+                    {{ meeting.meeting_date|date:"d M Y" }}
+                </small>
+                {% if meeting.minutes %}
+                <div class="mt-1">
+                    <i class="bi bi-file-text"></i> Minutes recorded
+                </div>
+                {% endif %}
+            </div>
+            {% empty %}
+            <p class="text-muted">No past meetings.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Schedule Meeting Modal -->
+<div class="modal fade" id="scheduleMeetingModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Schedule Meeting</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <label>Meeting Title</label>
+                            <input type="text" name="title" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 mt-2">
+                            <label>Meeting Type</label>
+                            <select name="meeting_type" class="form-control">
+                                {% for mt in meeting_types %}
+                                <option value="{{ mt.0 }}">{{ mt.1 }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mt-2">
+                            <label>Date & Time</label>
+                            <input type="datetime-local" name="meeting_date" class="form-control" required>
+                        </div>
+                        <div class="col-md-4 mt-2">
+                            <label>Duration (hours)</label>
+                            <input type="number" step="0.5" name="duration_hours" class="form-control" value="1">
+                        </div>
+                        <div class="col-md-8 mt-2">
+                            <label>Location</label>
+                            <input type="text" name="location" class="form-control" placeholder="Board Room / Virtual">
+                        </div>
+                        <div class="col-md-12 mt-2">
+                            <label>Virtual Meeting Link</label>
+                            <input type="url" name="virtual_link" class="form-control" placeholder="https://meet.google.com/...">
+                        </div>
+                        <div class="col-md-12 mt-2">
+                            <label>Agenda</label>
+                            <textarea name="agenda" class="form-control" rows="3" required></textarea>
+                        </div>
+                        <div class="col-md-12 mt-2">
+                            <label>Attendees</label>
+                            <select name="attendees" multiple class="form-control">
+                                {% for exec in executives %}
+                                <option value="{{ exec.id }}">{{ exec.title }} - {{ exec.user.username }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">Hold Ctrl/Cmd to select multiple</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Schedule Meeting</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

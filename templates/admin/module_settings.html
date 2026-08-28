@@ -1,0 +1,574 @@
+<!-- templates/admin/module_settings.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Module Settings{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-lg">
+                <div class="card-header bg-gradient-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-gear me-2"></i>
+                        Module Settings
+                    </h4>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- ===== SHOW SUCCESS/ERROR MESSAGES ===== -->
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <!-- ===== FORM FOR MODULE SETTINGS ===== -->
+                    <form method="POST" action="{% url 'module_settings' %}">
+                        {% csrf_token %}
+                        
+                        <!-- Module Settings -->
+                        <div class="row">
+                            {% for setting in module_settings %}
+                            <div class="col-md-6 mb-3">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <h6 class="mb-1">{{ setting.name }}</h6>
+                                                <small class="text-muted">{{ setting.description }}</small>
+                                            </div>
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" 
+                                                       name="setting_{{ setting.key }}"
+                                                       id="setting_{{ setting.key }}"
+                                                       {% if setting.value %}checked{% endif %}>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- ========================================== -->
+                        <!-- SHAREHOLDER DEDUCTION SETTINGS            -->
+                        <!-- ========================================== -->
+                        <div class="card mb-4 border border-warning">
+                            <div class="card-header bg-warning text-dark">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-people me-2"></i>
+                                    Shareholder Deduction Settings
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" 
+                                                   name="setting_enable_shareholder_purchase_deduction"
+                                                   id="enable_shareholder_deduction"
+                                                   {% if is_enabled %}checked{% endif %}>
+                                            <label class="form-check-label fw-bold" for="enable_shareholder_deduction">
+                                                Enable Shareholder Purchase Deduction
+                                            </label>
+                                            <p class="text-muted small mt-1">
+                                                When enabled, purchase amounts will be deducted from 
+                                                shareholders' balances proportionally or equally.
+                                            </p>
+                                            <span class="badge {% if is_enabled %}bg-success{% else %}bg-secondary{% endif %}" 
+                                                  id="deductionStatus">
+                                                {% if is_enabled %}✅ Enabled{% else %}⛔ Disabled{% endif %}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label class="fw-bold">Deduction Type</label>
+                                            <select class="form-select" name="deduction_type" id="deductionType">
+                                                <option value="proportional" {% if deduction_type == 'proportional' %}selected{% endif %}>
+                                                    📊 Proportional (by Balance)
+                                                </option>
+                                                <option value="equal" {% if deduction_type == 'equal' %}selected{% endif %}>
+                                                    📊 Equal Division
+                                                </option>
+                                            </select>
+                                            <p class="text-muted small mt-1">
+                                                <strong>Proportional:</strong> Jis ka balance zyada, us ki deduction zyada<br>
+                                                <strong>Equal:</strong> Sabhi shareholders se barabar deduction
+                                            </p>
+                                            <span class="badge bg-info" id="deductionTypeLabel">
+                                                Current: {{ deduction_type|title }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Quick Stats -->
+                                <div class="row mt-3">
+                                    <div class="col-md-4">
+                                        <div class="card bg-light">
+                                            <div class="card-body text-center">
+                                                <h6 class="text-muted">Active Shareholders</h6>
+                                                <h3>{{ total_shareholders }}</h3>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card bg-light">
+                                            <div class="card-body text-center">
+                                                <h6 class="text-muted">Total Balance</h6>
+                                                <h3>Rs. {{ total_balance|floatformat:0 }}</h3>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card bg-light">
+                                            <div class="card-body text-center">
+                                                <h6 class="text-muted">Pending Deductions</h6>
+                                                <h3>{{ pending_purchases }}</h3>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ========================================== -->
+                        <!-- 🆕 BALANCE-BASED DIVIDEND SETTINGS        -->
+                        <!-- ========================================== -->
+                        <div class="card mb-4 border border-success">
+                            <div class="card-header bg-success text-white">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-coin me-2"></i>
+                                    Balance-Based Dividend Settings
+                                </h5>
+                                <small>Profit distribution based on balance usage (not shares)</small>
+                            </div>
+                            <div class="card-body">
+                                <!-- Enable/Disable -->
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" 
+                                                   name="setting_enable_balance_dividend"
+                                                   id="enable_balance_dividend"
+                                                   {% if enable_balance_dividend %}checked{% endif %}
+                                                   onchange="toggleBalanceDividendFields()">
+                                            <label class="form-check-label fw-bold" for="enable_balance_dividend">
+                                                Enable Balance-Based Dividend
+                                            </label>
+                                            <p class="text-muted small mt-1">
+                                                When enabled, profit is distributed based on balance used in purchases.
+                                                Only shareholders whose balance was used get profit.
+                                            </p>
+                                            <span class="badge {% if enable_balance_dividend %}bg-success{% else %}bg-secondary{% endif %}" 
+                                                  id="balanceDividendStatus">
+                                                {% if enable_balance_dividend %}✅ Enabled{% else %}⛔ Disabled{% endif %}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="alert alert-info">
+                                            <i class="bi bi-info-circle me-2"></i>
+                                            <strong>How it works:</strong>
+                                            <ul class="mb-0 mt-1">
+                                                <li>Profit distributed based on <strong>balance used</strong></li>
+                                                <li>Only <strong>active shareholders</strong> with balance usage get profit</li>
+                                                <li>More balance used = More profit</li>
+                                                <li>Zero balance = No profit</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Dividend Type Selection -->
+                                <div class="row mb-3" id="dividendTypeSection">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label class="fw-bold">Default Dividend Type</label>
+                                            <select class="form-select" name="default_dividend_type" id="defaultDividendType">
+                                                <option value="share" {% if default_dividend_type == 'share' %}selected{% endif %}>
+                                                    📈 Share-Based Dividend
+                                                </option>
+                                                <option value="balance" {% if default_dividend_type == 'balance' %}selected{% endif %}>
+                                                    💰 Balance-Based Dividend
+                                                </option>
+                                                <option value="both" {% if default_dividend_type == 'both' %}selected{% endif %}>
+                                                    🔄 Both (Admin can choose)
+                                                </option>
+                                            </select>
+                                            <p class="text-muted small mt-1">
+                                                <strong>Share-Based:</strong> Based on number of shares held<br>
+                                                <strong>Balance-Based:</strong> Based on balance used in purchases<br>
+                                                <strong>Both:</strong> Admin can choose when creating dividend
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label class="fw-bold">Default Dividend Percentage</label>
+                                            <div class="input-group">
+                                                <input type="number" class="form-control" 
+                                                       name="default_dividend_percentage"
+                                                       id="defaultDividendPercentage"
+                                                       value="{{ default_dividend_percentage|default:'50' }}"
+                                                       min="1" max="100" step="0.5">
+                                                <span class="input-group-text">%</span>
+                                            </div>
+                                            <p class="text-muted small mt-1">
+                                                Default percentage of profit to distribute as dividend
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Eligibility Settings -->
+                                <div class="row mb-3" id="eligibilitySection">
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label class="fw-bold">Minimum Balance Used</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text">Rs.</span>
+                                                <input type="number" class="form-control" 
+                                                       name="min_balance_for_dividend"
+                                                       id="minBalanceForDividend"
+                                                       value="{{ min_balance_for_dividend|default:'0' }}"
+                                                       min="0" step="1000">
+                                            </div>
+                                            <p class="text-muted small mt-1">
+                                                Minimum balance used to be eligible for dividend (0 = all)
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label class="fw-bold">Minimum Holding Period</label>
+                                            <div class="input-group">
+                                                <input type="number" class="form-control" 
+                                                       name="min_holding_months"
+                                                       id="minHoldingMonths"
+                                                       value="{{ min_holding_months|default:'0' }}"
+                                                       min="0" max="60">
+                                                <span class="input-group-text">Months</span>
+                                            </div>
+                                            <p class="text-muted small mt-1">
+                                                Minimum months shareholder must be active (0 = no requirement)
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label class="fw-bold">Auto-Process After</label>
+                                            <div class="input-group">
+                                                <input type="number" class="form-control" 
+                                                       name="auto_process_days"
+                                                       id="autoProcessDays"
+                                                       value="{{ auto_process_days|default:'7' }}"
+                                                       min="0" max="30">
+                                                <span class="input-group-text">Days</span>
+                                            </div>
+                                            <p class="text-muted small mt-1">
+                                                Auto-process dividends after declaration (0 = manual only)
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Quick Stats -->
+                                <div class="row mt-3">
+                                    <div class="col-md-3">
+                                        <div class="card bg-light">
+                                            <div class="card-body text-center">
+                                                <h6 class="text-muted">Total Shareholders</h6>
+                                                <h3>{{ total_shareholders }}</h3>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="card bg-light">
+                                            <div class="card-body text-center">
+                                                <h6 class="text-muted">Eligible for Dividend</h6>
+                                                <h3 id="eligibleCount">{{ eligible_shareholders|default:'0' }}</h3>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="card bg-light">
+                                            <div class="card-body text-center">
+                                                <h6 class="text-muted">Total Balance Used</h6>
+                                                <h3>Rs. {{ total_balance_used|floatformat:0|default:'0' }}</h3>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="card bg-light">
+                                            <div class="card-body text-center">
+                                                <h6 class="text-muted">Pending Dividends</h6>
+                                                <h3>{{ pending_balance_dividends|default:'0' }}</h3>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- ========================================== -->
+                                <!-- 📍 ACTION BUTTONS (UPDATED)              -->
+                                <!-- ========================================== -->
+                                <div class="row mt-3">
+                                    <div class="col-12">
+                                        <div class="alert alert-secondary">
+                                            <i class="bi bi-info-circle me-2"></i>
+                                            <strong>📍 New Location:</strong>
+                                            <span class="text-muted">
+                                                Sidebar → <strong>👥 Shareholders</strong> → 
+                                                <strong>💰 Dividends</strong> → 
+                                                <strong class="text-success">Create Balance Dividend</strong>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Action Buttons (Remove Create Button) -->
+                                <div class="row mt-2">
+                                    <div class="col-12">
+                                        <!-- ❌ REMOVED: Create Balance Dividend Button -->
+                                        <!-- Now only View Reports and View Dividends -->
+                                        <a href="{% url 'balance_dividend_report' %}" class="btn btn-info btn-lg">
+                                            <i class="bi bi-graph-up me-2"></i>
+                                            View Reports
+                                        </a>
+                                        <a href="{% url 'balance_dividend_list' %}" class="btn btn-primary btn-lg">
+                                            <i class="bi bi-list me-2"></i>
+                                            View All Dividends
+                                        </a>
+                                        <button type="button" class="btn btn-warning btn-lg" onclick="calculateEligible()">
+                                            <i class="bi bi-calculator me-2"></i>
+                                            Calculate Eligible
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- 🆕 DIVIDEND TYPE EXPLANATION -->
+                                <div class="row mt-4">
+                                    <div class="col-12">
+                                        <div class="card border-0 bg-light">
+                                            <div class="card-body">
+                                                <h6 class="fw-bold">📊 Dividend Types Comparison</h6>
+                                                <div class="table-responsive">
+                                                    <table class="table table-sm table-bordered">
+                                                        <thead class="table-dark">
+                                                            <tr>
+                                                                <th>Feature</th>
+                                                                <th class="text-center">Share-Based Dividend</th>
+                                                                <th class="text-center text-success">Balance-Based Dividend</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <tr>
+                                                                <td>Basis</td>
+                                                                <td class="text-center">Number of shares held</td>
+                                                                <td class="text-center text-success">Balance used in purchases</td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td>Eligibility</td>
+                                                                <td class="text-center">All shareholders with shares</td>
+                                                                <td class="text-center text-success">Only active shareholders with balance usage</td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td>Shares Required?</td>
+                                                                <td class="text-center">✅ Yes</td>
+                                                                <td class="text-center text-success">❌ No</td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td>Who Gets Profit?</td>
+                                                                <td class="text-center">All shareholders</td>
+                                                                <td class="text-center text-success">Only those who contributed (balance used)</td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td>Create From</td>
+                                                                <td class="text-center"><code>/dividends/create/</code></td>
+                                                                <td class="text-center text-success">
+                                                                    <strong>Sidebar → Shareholders → Dividends</strong>
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ========================================== -->
+                        <!-- SAVE BUTTONS                              -->
+                        <!-- ========================================== -->
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-save me-2"></i>
+                                Save All Settings
+                            </button>
+                            <a href="{% url 'bulk_process_deductions' %}" class="btn btn-warning btn-lg">
+                                <i class="bi bi-layers me-2"></i>
+                                Bulk Process Deductions
+                            </a>
+                            <a href="{% url 'shareholder_deduction_report' %}" class="btn btn-info btn-lg">
+                                <i class="bi bi-graph-up me-2"></i>
+                                View Deduction Report
+                            </a>
+                        </div>
+                    </form>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ========================================== //
+// CSRF Token Helper                         //
+// ========================================== //
+function getCSRFToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+           document.querySelector('input[name="csrfmiddlewaretoken"]')?.value;
+}
+
+console.log('✅ Module settings loaded');
+
+// ========================================== //
+// Toggle Balance Dividend Fields            //
+// ========================================== //
+function toggleBalanceDividendFields() {
+    const isChecked = document.getElementById('enable_balance_dividend').checked;
+    const sections = ['dividendTypeSection', 'eligibilitySection'];
+    const statusBadge = document.getElementById('balanceDividendStatus');
+    
+    sections.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.style.opacity = isChecked ? '1' : '0.5';
+            el.style.pointerEvents = isChecked ? 'auto' : 'none';
+        }
+    });
+    
+    if (statusBadge) {
+        statusBadge.textContent = isChecked ? '✅ Enabled' : '⛔ Disabled';
+        statusBadge.className = isChecked ? 'badge bg-success' : 'badge bg-secondary';
+    }
+}
+
+// ========================================== //
+// Calculate Eligible Shareholders           //
+// ========================================== //
+function calculateEligible() {
+    const minBalance = parseFloat(document.getElementById('minBalanceForDividend').value) || 0;
+    const minMonths = parseFloat(document.getElementById('minHoldingMonths').value) || 0;
+    
+    fetch(`/api/eligible-shareholders/?min_balance=${minBalance}&min_months=${minMonths}`, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': getCSRFToken()
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('eligibleCount').textContent = data.count;
+            showToast('success', `✅ ${data.count} shareholders eligible for dividend`);
+        } else {
+            showToast('danger', '❌ Error: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        showToast('danger', '❌ Network error: ' + error);
+    });
+}
+
+// ========================================== //
+// Toast Notification Helper                 //
+// ========================================== //
+function showToast(type, message) {
+    const existing = document.querySelector('.custom-toast-container');
+    if (existing) existing.remove();
+    
+    const toastContainer = document.createElement('div');
+    toastContainer.className = 'custom-toast-container';
+    toastContainer.style.position = 'fixed';
+    toastContainer.style.bottom = '20px';
+    toastContainer.style.right = '20px';
+    toastContainer.style.zIndex = '9999';
+    
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type} alert-dismissible fade show`;
+    toast.style.minWidth = '300px';
+    toast.style.maxWidth = '500px';
+    toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+    toast.style.borderRadius = '8px';
+    toast.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    toastContainer.appendChild(toast);
+    document.body.appendChild(toastContainer);
+    
+    setTimeout(() => {
+        if (toastContainer.parentNode) {
+            toastContainer.remove();
+        }
+    }, 5000);
+}
+
+// ========================================== //
+// Auto-calculate on load                    //
+// ========================================== //
+document.addEventListener('DOMContentLoaded', function() {
+    toggleBalanceDividendFields();
+    setTimeout(calculateEligible, 500);
+    
+    document.getElementById('minBalanceForDividend')?.addEventListener('change', calculateEligible);
+    document.getElementById('minHoldingMonths')?.addEventListener('change', calculateEligible);
+});
+
+console.log('✅ Balance Dividend settings initialized');
+</script>
+
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+}
+
+.badge {
+    font-size: 0.85rem;
+    padding: 0.5rem 1rem;
+}
+
+.form-switch .form-check-input {
+    width: 3rem;
+    height: 1.5rem;
+}
+
+.table th, .table td {
+    vertical-align: middle;
+}
+code {
+    background: #f8f9fa;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+</style>
+{% endblock %}

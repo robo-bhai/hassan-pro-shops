@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}🏦 Loans{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">🏦 Loans Received</h4>
+                    <a href="{% url 'loan_create' %}" class="btn btn-light">
+                        <i class="bi bi-plus-circle"></i> New Loan
+                    </a>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- Filters -->
+                    <form method="GET" class="row mb-3">
+                        <div class="col-md-3">
+                            <input type="text" name="search" class="form-control" 
+                                   placeholder="Search by Lender, Agreement..." value="{{ search }}">
+                        </div>
+                        <div class="col-md-2">
+                            <select name="type" class="form-control">
+                                <option value="">All Types</option>
+                                {% for type in loan_types %}
+                                    <option value="{{ type.0 }}" {% if loan_type == type.0 %}selected{% endif %}>
+                                        {{ type.1 }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select name="status" class="form-control">
+                                <option value="">All Status</option>
+                                {% for status_choice in status_choices %}
+                                    <option value="{{ status_choice.0 }}" {% if status == status_choice.0 %}selected{% endif %}>
+                                        {{ status_choice.1 }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-search"></i> Filter
+                            </button>
+                        </div>
+                        <div class="col-md-2">
+                            <a href="{% url 'loan_list' %}" class="btn btn-secondary w-100">
+                                <i class="bi bi-arrow-counterclockwise"></i> Reset
+                            </a>
+                        </div>
+                    </form>
+                    
+                    <!-- Stats -->
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body text-center">
+                                    <h5>{{ total_loans }}</h5>
+                                    <small>Total Loans</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h5>{{ active_loans }}</h5>
+                                    <small>✅ Active</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-dark">
+                                <div class="card-body text-center">
+                                    <h5>Rs. {{ total_remaining|floatformat:2 }}</h5>
+                                    <small>Remaining</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-dark text-white">
+                                <div class="card-body text-center">
+                                    <h5>Rs. {{ total_principal|floatformat:2 }}</h5>
+                                    <small>Total Principal</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Table -->
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Loan No</th>
+                                    <th>Lender</th>
+                                    <th>Type</th>
+                                    <th>Principal</th>
+                                    <th>Paid</th>
+                                    <th>Remaining</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for loan in page_obj %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td><strong>{{ loan.loan_no }}</strong></td>
+                                    <td>{{ loan.lender_name }}</td>
+                                    <td>{{ loan.get_loan_type_display }}</td>
+                                    <td><strong>Rs. {{ loan.principal_amount|floatformat:2 }}</strong></td>
+                                    <td>Rs. {{ loan.paid_amount|floatformat:2 }}</td>
+                                    <td>
+                                        {% if loan.remaining_amount > 0 %}
+                                            <span class="text-danger">Rs. {{ loan.remaining_amount|floatformat:2 }}</span>
+                                        {% else %}
+                                            <span class="text-success">Rs. 0.00</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if loan.status == 'active' %}
+                                            <span class="badge bg-success">✅ Active</span>
+                                        {% elif loan.status == 'paid' %}
+                                            <span class="badge bg-info">💰 Paid</span>
+                                        {% elif loan.status == 'defaulted' %}
+                                            <span class="badge bg-danger">❌ Defaulted</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">❌ Cancelled</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'loan_detail' loan.pk %}" class="btn btn-sm btn-info">
+                                            <i class="bi bi-eye"></i> View
+                                        </a>
+                                        {% if loan.status == 'active' %}
+                                            <a href="{% url 'loan_return_create' %}?loan={{ loan.pk }}" class="btn btn-sm btn-warning">
+                                                <i class="bi bi-credit-card"></i> Pay
+                                            </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted py-3">
+                                        <i class="bi bi-inbox fs-1 d-block"></i>
+                                        No loans found
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    {% if page_obj.has_other_pages %}
+                    <nav>
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if loan_type %}&type={{ loan_type }}{% endif %}">
+                                        Previous
+                                    </a>
+                                </li>
+                            {% endif %}
+                            
+                            {% for num in page_obj.paginator.page_range %}
+                                <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                                    <a class="page-link" href="?page={{ num }}{% if search %}&search={{ search }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if loan_type %}&type={{ loan_type }}{% endif %}">
+                                        {{ num }}
+                                    </a>
+                                </li>
+                            {% endfor %}
+                            
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if loan_type %}&type={{ loan_type }}{% endif %}">
+                                        Next
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

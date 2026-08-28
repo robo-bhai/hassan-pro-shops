@@ -1,0 +1,219 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Export Reports{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">📤 Export Reports</h1>
+        <a href="{% url 'accounts_reports' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
+    </div>
+
+    <div class="row">
+        <!-- Export Options -->
+        <div class="col-md-8">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Export Options</h6>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{% url 'export_accounts_report' %}">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Report Type *</label>
+                                    <select name="report_type" class="form-control" required>
+                                        <option value="">Select Report...</option>
+                                        <option value="trial_balance">📊 Trial Balance</option>
+                                        <option value="balance_sheet">📋 Balance Sheet</option>
+                                        <option value="profit_loss">💰 Profit & Loss</option>
+                                        <option value="cash_flow">💵 Cash Flow</option>
+                                        <option value="general_ledger">📒 General Ledger</option>
+                                        <option value="all_accounts">📚 All Accounts</option>
+                                        <option value="journal_entries">📝 Journal Entries</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Format *</label>
+                                    <select name="format" class="form-control" required>
+                                        <option value="excel">📊 Excel (.xlsx)</option>
+                                        <option value="csv">📄 CSV (.csv)</option>
+                                        <option value="pdf">📕 PDF (.pdf)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">From Date</label>
+                                    <input type="date" name="from_date" class="form-control" 
+                                           value="{{ from_date|default:'' }}">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">To Date</label>
+                                    <input type="date" name="to_date" class="form-control" 
+                                           value="{{ to_date|default:'' }}">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">As At Date</label>
+                                    <input type="date" name="as_at_date" class="form-control" 
+                                           value="{{ as_at_date|default:'' }}">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Account (for Ledger)</label>
+                                    <select name="account_id" class="form-control">
+                                        <option value="">All Accounts</option>
+                                        {% for account in accounts %}
+                                        <option value="{{ account.id }}">{{ account.code }} - {{ account.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="mb-3 form-check">
+                                    <input type="checkbox" name="include_summary" class="form-check-input" checked>
+                                    <label class="form-check-label">Include Summary Sheet</label>
+                                </div>
+                                <div class="mb-3 form-check">
+                                    <input type="checkbox" name="include_charts" class="form-check-input" checked>
+                                    <label class="form-check-label">Include Charts</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-success btn-lg w-100">
+                            <i class="bi bi-file-earmark-excel"></i> Export Report
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Export History -->
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Recent Exports</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Report</th>
+                                    <th>Format</th>
+                                    <th>Date</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>1</td>
+                                    <td>Trial Balance</td>
+                                    <td><span class="badge bg-success">Excel</span></td>
+                                    <td>{{ today|date:"d-m-Y H:i" }}</td>
+                                    <td>
+                                        <a href="#" class="btn btn-sm btn-primary">
+                                            <i class="bi bi-download"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>2</td>
+                                    <td>Balance Sheet</td>
+                                    <td><span class="badge bg-info">PDF</span></td>
+                                    <td>{{ today|date:"d-m-Y H:i" }}</td>
+                                    <td>
+                                        <a href="#" class="btn btn-sm btn-primary">
+                                            <i class="bi bi-download"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-md-4">
+            <!-- Quick Export -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">⚡ Quick Export</h6>
+                </div>
+                <div class="card-body">
+                    <a href="{% url 'export_accounts_report' %}?report_type=trial_balance&format=excel" 
+                       class="btn btn-outline-primary w-100 mb-2">
+                        <i class="bi bi-file-excel"></i> Trial Balance
+                    </a>
+                    <a href="{% url 'export_accounts_report' %}?report_type=balance_sheet&format=pdf" 
+                       class="btn btn-outline-success w-100 mb-2">
+                        <i class="bi bi-file-pdf"></i> Balance Sheet
+                    </a>
+                    <a href="{% url 'export_accounts_report' %}?report_type=profit_loss&format=excel" 
+                       class="btn btn-outline-warning w-100 mb-2">
+                        <i class="bi bi-file-excel"></i> Profit & Loss
+                    </a>
+                    <a href="{% url 'export_accounts_report' %}?report_type=cash_flow&format=pdf" 
+                       class="btn btn-outline-info w-100 mb-2">
+                        <i class="bi bi-file-pdf"></i> Cash Flow
+                    </a>
+                    <a href="{% url 'export_accounts_report' %}?report_type=general_ledger&format=excel" 
+                       class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-file-excel"></i> General Ledger
+                    </a>
+                </div>
+            </div>
+
+            <!-- Tips -->
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">💡 Tips</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success"></i> 
+                            Excel format includes multiple sheets
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success"></i> 
+                            PDF format is print-ready
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success"></i> 
+                            CSV format is compatible with all software
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success"></i> 
+                            Include charts for visual analysis
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

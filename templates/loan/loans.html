@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}All Loans{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-file-earmark-text text-primary"></i> All Loans</h2>
+            <p class="text-muted">Manage all loan applications</p>
+        </div>
+        <div>
+            <a href="{% url 'loan_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> New Loan
+            </a>
+            <a href="{% url 'loan_dashboard' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    
+    <!-- Filters -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-3">
+                    <input type="text" name="search" class="form-control" placeholder="Search..." value="{{ request.GET.search }}">
+                </div>
+                <div class="col-md-3">
+                    <select name="status" class="form-select">
+                        <option value="">All Status</option>
+                        {% for key, value in status_choices %}
+                        <option value="{{ key }}" {% if key == status %}selected{% endif %}>{{ value }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select name="type" class="form-select">
+                        <option value="">All Types</option>
+                        {% for key, value in loan_types %}
+                        <option value="{{ key }}" {% if key == loan_type %}selected{% endif %}>{{ value }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary w-100">Filter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Loans Table -->
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Loan No</th>
+                            <th>Borrower</th>
+                            <th>Type</th>
+                            <th>Principal</th>
+                            <th>EMI</th>
+                            <th>Tenure</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for loan in page_obj %}
+                        <tr>
+                            <td>
+                                <span class="fw-bold">{{ loan.loan_no }}</span>
+                                <br>
+                                <small class="text-muted">{{ loan.created_at|date:"d-m-Y" }}</small>
+                            </td>
+                            <td>{{ loan.borrower.name }}</td>
+                            <td>
+                                <span class="badge bg-secondary">{{ loan.get_loan_type_display }}</span>
+                            </td>
+                            <td>Rs. {{ loan.principal|floatformat:0|intcomma }}</td>
+                            <td>Rs. {{ loan.emi_amount|floatformat:0|intcomma }}</td>
+                            <td>{{ loan.tenure_months }} months</td>
+                            <td>
+                                <span class="badge 
+                                    {% if loan.status == 'active' %}bg-success
+                                    {% elif loan.status == 'pending' %}bg-warning
+                                    {% elif loan.status == 'defaulted' %}bg-danger
+                                    {% elif loan.status == 'paid' %}bg-primary
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ loan.get_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'loan_detail' loan.id %}" class="btn btn-outline-info">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    {% if loan.status == 'pending' %}
+                                    <a href="{% url 'loan_approve' loan.id %}" class="btn btn-outline-success"
+                                       onclick="return confirm('Approve this loan?')">
+                                        <i class="bi bi-check-circle"></i>
+                                    </a>
+                                    {% endif %}
+                                    {% if loan.status == 'approved' %}
+                                    <a href="{% url 'loan_disburse' loan.id %}" class="btn btn-outline-primary"
+                                       onclick="return confirm('Disburse this loan?')">
+                                        <i class="bi bi-play-circle"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-muted">
+                                <i class="bi bi-inbox fs-2 d-block"></i>
+                                <p>No loans found</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer bg-white">
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}&search={{ request.GET.search }}&status={{ status }}&type={{ loan_type }}">Previous</a>
+                    </li>
+                    {% endif %}
+                    {% for num in page_obj.paginator.page_range %}
+                    <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                        <a class="page-link" href="?page={{ num }}&search={{ request.GET.search }}&status={{ status }}&type={{ loan_type }}">{{ num }}</a>
+                    </li>
+                    {% endfor %}
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}&search={{ request.GET.search }}&status={{ status }}&type={{ loan_type }}">Next</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

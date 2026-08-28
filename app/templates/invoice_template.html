@@ -1,0 +1,196 @@
+<!-- ✅ UPDATED invoice_template.html WITH FULL COMPANY INFO -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            font-size: 10px;
+            color: #000;
+            margin: 0;
+            padding: 0;
+        }
+
+        .invoice-container {
+            width: 210mm; /* A4 width */
+            max-width: 210mm;
+            margin: 10mm auto;
+            padding: 10mm;
+            background-color: #fff;
+            border: 1px solid #ddd;
+        }
+
+        .invoice-header {
+            text-align: center;
+            margin-bottom: 10mm;
+        }
+
+        .invoice-header h1 {
+            font-size: 16px;
+            margin: 0;
+            color: #000;
+        }
+
+        .invoice-header .company-details {
+            margin-top: 5px;
+            font-size: 11px;
+            color: #000;
+        }
+
+        .details-section {
+            margin-bottom: 10mm;
+            font-size: 11px;
+            color: #000;
+        }
+
+        .details-section p {
+            margin: 2px 0;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 3mm;
+        }
+
+        .table th, .table td {
+            padding: 4px;
+            border: 1px solid #000;
+            font-size: 11px;
+            text-align: center;
+            vertical-align: center;
+        }
+
+        .table th {
+            background-color: #f2f2f2;
+            color: #000;
+        }
+
+        .totals {
+            text-align: right;
+            font-size: 11px;
+            margin-bottom: 10mm;
+        }
+
+        .totals p {
+            margin: 2px 0;
+        }
+
+        .totals p span {
+            font-weight: bold;
+            color: #000;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 9px;
+            color: #000;
+            margin-top: 10mm;
+        }
+
+        .footer .note {
+            font-style: italic;
+            color: #000;
+        }
+
+        @media print {
+            body {
+                margin: 0;
+                padding: 0;
+            }
+
+            .invoice-container {
+                border: none;
+                box-shadow: none;
+                margin: 0;
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="invoice-container">
+        <!-- Header Section -->
+        <div class="invoice-header">
+            {% if company.logo %}<img src="{{ company.logo.url }}" height="60px"><br>{% endif %}
+            <h1> Invoice </h1>
+            <h3>{{ company.name }}</h3>
+            {% if company.tagline %}<p><em>{{ company.tagline }}</em></p>{% endif %}
+            <p class="company-details">
+                {{ company.address }}<br>
+                Phone: {{ company.contact_number }} | Email: {{ company.email }}<br>
+                {% if company.website %}Website: {{ company.website }}<br>{% endif %}
+            </p>
+        </div>
+
+        <!-- Customer Details -->
+        <div class="details-section">
+            <p><strong>Sale Date:</strong> {{ invoice_date }}</p>
+            <p><strong>Bill Number:</strong> {{ bill_number }}</p>
+            <p><strong>Billed To:</strong></p>
+            <p><strong>{{ customer_name }}</strong></p>
+            <p>{{ contact_number }}</p>
+            <p>{{ customer_address }}</p>
+        
+            <p>
+              <strong>{{ ref_customer_name_1 }}</strong> {{ ref_customer_contact_1 }} <br>
+            </p>
+            
+            <p>
+               <strong>{{ ref_customer_name_2 }}</strong> {{ ref_customer_contact_2 }} <br>
+            </p>
+             
+        </div>
+
+        <!-- Table Section -->
+        <table class="table">
+            <thead>
+                <tr>
+                    <th style='width: 7%;'>Sr.No.</th>
+                    <th style='width: 53%;'>Product</th>
+                    <th style='width: 10%;'>Quantity</th>
+                    <th style='width: 15%;'>Unit Price</th>
+                    <th style='width: 15%;'>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in sale_items %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ item.product }}</td>
+                    <td>{{ item.qty|floatformat:2 }}</td>
+                    <td>{{ item.price|floatformat:2 }}</td>
+                    <td>{{ item.total_amt|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Totals Section -->
+        <div class="totals">
+            {% if discount and discount > 0 %}
+                <p>Total Without Discount: <span>{{ total_without_discount|floatformat:2 }}</span></p>
+                <p class="discount">Discount: <span>{{ discount|floatformat:2 }}</span></p>
+            {% endif %}
+
+            <p>Total Amount: <span>{{ total_amount|floatformat:2 }}</span></p>
+            <p>Paid: <span>{{ paid|floatformat:2 }}</span></p>
+            <p>Previous Balance: <span>{{ previous_balance|floatformat:2 }}</span></p>
+            <p>Total Outstanding: <span>{{ total_outstanding|floatformat:2 }}</span></p>
+        </div>
+
+        <!-- Footer Section -->
+        <div class="footer">
+            {% if company.footer_note %}
+                <p class="note">{{ company.footer_note }}</p>
+            {% else %}
+                <p class="note">Thank you for your business! If you have any questions, please contact us.</p>
+            {% endif %}
+            <p>&copy; {{ current_year }} {{ company.name }}. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

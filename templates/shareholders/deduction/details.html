@@ -1,0 +1,227 @@
+<!-- templates/shareholders/deduction/details.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Deduction Details{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-lg">
+                <div class="card-header bg-gradient-success text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-check-circle me-2"></i>
+                        Deduction Details
+                        <span class="badge bg-light text-dark ms-3">
+                            #{{ purchase.bill_no|default:"N/A" }}
+                        </span>
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Summary Cards -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body">
+                                    <h6 class="text-white-50">Total Shareholders</h6>
+                                    <h3>{{ summary.total_shareholders|default:0 }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body">
+                                    <h6 class="text-white-50">Total Deducted</h6>
+                                    <h3>Rs. {{ summary.total_amount|floatformat:2|default:"0.00" }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body">
+                                    <h6 class="text-white-50">Deduction Type</h6>
+                                    <h3>{{ deduction_type|title|default:"Proportional" }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-dark">
+                                <div class="card-body">
+                                    <h6 class="text-dark-50">Deduction Date</h6>
+                                    <h3>{{ deduction_date|date:"d-m-Y"|default:"N/A" }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Deducted From -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-success text-white">
+                            <h6 class="mb-0">
+                                <i class="bi bi-check-circle me-2"></i>
+                                Successfully Deducted From ({{ deducted_from|length }})
+                            </h6>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover mb-0">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Shareholder</th>
+                                            <th>Code</th>
+                                            <th>Shares</th>
+                                            <th>Balance Before</th>
+                                            <th>Deducted</th>
+                                            <th>Balance After</th>
+                                            <th>Percentage</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for item in deducted_from %}
+                                        <tr>
+                                            <td>{{ forloop.counter }}</td>
+                                            <td>
+                                                <strong>{{ item.name }}</strong>
+                                                <br>
+                                                <small class="text-muted">{{ item.code }}</small>
+                                            </td>
+                                            <td>{{ item.shares|default:0 }}</td>
+                                            <td class="text-success">
+                                                Rs. {{ item.balance_before|floatformat:2 }}
+                                            </td>
+                                            <td class="text-danger">
+                                                -Rs. {{ item.deducted|floatformat:2 }}
+                                            </td>
+                                            <td class="text-primary">
+                                                Rs. {{ item.balance_after|floatformat:2 }}
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-{% if item.percentage > 50 %}danger{% elif item.percentage > 30 %}warning{% else %}info{% endif %}">
+                                                    {{ item.percentage|floatformat:1 }}%
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="8" class="text-center text-muted">
+                                                <i class="bi bi-inbox fs-3 d-block"></i>
+                                                No deductions recorded
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    <tfoot class="table-active">
+                                        <tr>
+                                            <td colspan="4"><strong>TOTAL</strong></td>
+                                            <td></td>
+                                            <td>
+                                                <strong>Rs. {{ summary.total_amount|floatformat:2 }}</strong>
+                                            </td>
+                                            <td colspan="2"></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Skipped Shareholders -->
+                    {% if skipped %}
+                    <div class="card mb-4 border-warning">
+                        <div class="card-header bg-warning text-dark">
+                            <h6 class="mb-0">
+                                <i class="bi bi-skip-forward me-2"></i>
+                                Skipped Shareholders ({{ skipped|length }})
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Shareholder</th>
+                                            <th>Reason</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for item in skipped %}
+                                        <tr>
+                                            <td>{{ forloop.counter }}</td>
+                                            <td>{{ item.name }}</td>
+                                            <td>
+                                                <span class="badge bg-secondary">{{ item.reason|default:"Zero Balance" }}</span>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Failed -->
+                    {% if failed %}
+                    <div class="card mb-4 border-danger">
+                        <div class="card-header bg-danger text-white">
+                            <h6 class="mb-0">
+                                <i class="bi bi-x-circle me-2"></i>
+                                Failed Deductions ({{ failed|length }})
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Shareholder</th>
+                                            <th>Error</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for item in failed %}
+                                        <tr>
+                                            <td>{{ forloop.counter }}</td>
+                                            <td>{{ item.name }}</td>
+                                            <td class="text-danger">{{ item.error }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Action Buttons -->
+                    <div class="mt-4">
+                        <div class="btn-group w-100" role="group">
+                            <a href="{% url 'purchase_detail' purchase.pk %}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left me-2"></i>
+                                Back to Purchase
+                            </a>
+                            <a href="{% url 'shareholder_deduction_report' %}" class="btn btn-primary">
+                                <i class="bi bi-graph-up me-2"></i>
+                                View Report
+                            </a>
+                            <a href="{% url 'process_purchase_deduction' purchase.pk %}" class="btn btn-warning">
+                                <i class="bi bi-arrow-repeat me-2"></i>
+                                Reprocess
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.bg-gradient-success {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+}
+</style>
+{% endblock %}

@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Service Inventory - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>📦 Service Inventory</h2>
+                <a href="{% url 'service_inventory_create' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Add Item
+                </a>
+            </div>
+            
+            <!-- Filters -->
+            <div class="card mb-3">
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-3">
+                            <input type="text" name="search" class="form-control" placeholder="Search items..." value="{{ search }}">
+                        </div>
+                        <div class="col-md-2">
+                            <select name="type" class="form-select">
+                                <option value="">All Types</option>
+                                {% for key, value in item_types %}
+                                <option value="{{ key }}" {% if key == item_type %}selected{% endif %}>{{ value|safe }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select name="category" class="form-select">
+                                <option value="">All Categories</option>
+                                {% for cat in categories %}
+                                <option value="{{ cat.id }}" {% if cat.id|stringformat:"s" == category %}selected{% endif %}>{{ cat.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select name="stock_status" class="form-select">
+                                <option value="">All Stock</option>
+                                <option value="ok" {% if stock_status == 'ok' %}selected{% endif %}>✅ OK</option>
+                                <option value="low" {% if stock_status == 'low' %}selected{% endif %}>⚠️ Low</option>
+                                <option value="critical" {% if stock_status == 'critical' %}selected{% endif %}>🔴 Critical</option>
+                                <option value="out" {% if stock_status == 'out' %}selected{% endif %}>❌ Out of Stock</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-secondary w-100">Filter</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Stats -->
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <div class="card text-white bg-primary">
+                        <div class="card-body">
+                            <h6>Total Items</h6>
+                            <h3>{{ total_items }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card text-white bg-warning">
+                        <div class="card-body">
+                            <h6>Low Stock</h6>
+                            <h3>{{ low_stock_count }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card text-white bg-danger">
+                        <div class="card-body">
+                            <h6>Critical</h6>
+                            <h3>{{ critical_count }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Items Table -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Name</th>
+                                    <th>Type</th>
+                                    <th>Category</th>
+                                    <th>Stock</th>
+                                    <th>Reorder</th>
+                                    <th>Unit Cost</th>
+                                    <th>Selling Price</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in page_obj %}
+                                <tr>
+                                    <td><strong>{{ item.item_code }}</strong></td>
+                                    <td>{{ item.name }}</td>
+                                    <td>{{ item.get_item_type_display|truncatechars:15 }}</td>
+                                    <td>{{ item.category.name|default:"-" }}</td>
+                                    <td>
+                                        <strong class="{% if item.is_critical_stock %}text-danger{% elif item.is_low_stock %}text-warning{% else %}text-success{% endif %}">
+                                            {{ item.current_stock|floatformat:0 }}
+                                        </strong>
+                                        {% if item.unit %}
+                                        <small>{{ item.unit.name }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ item.reorder_level|floatformat:0 }}</td>
+                                    <td>Rs. {{ item.unit_cost|floatformat:2 }}</td>
+                                    <td>Rs. {{ item.selling_price|floatformat:2 }}</td>
+                                    <td>
+                                        {% if item.is_critical_stock %}
+                                        <span class="badge bg-danger">🔴 Critical</span>
+                                        {% elif item.is_low_stock %}
+                                        <span class="badge bg-warning">⚠️ Low</span>
+                                        {% elif item.current_stock <= 0 %}
+                                        <span class="badge bg-secondary">❌ Out</span>
+                                        {% else %}
+                                        <span class="badge bg-success">✅ OK</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'service_inventory_detail' item.id %}" class="btn btn-sm btn-info" title="View">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <a href="{% url 'service_inventory_edit' item.id %}" class="btn btn-sm btn-warning" title="Edit">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <a href="{% url 'service_inventory_adjust' item.id %}" class="btn btn-sm btn-secondary" title="Adjust Stock">
+                                            <i class="bi bi-arrow-left-right"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="10" class="text-center">No inventory items found.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&search={{ search }}&type={{ item_type }}&category={{ category }}&stock_status={{ stock_status }}">Previous</a>
+                            </li>
+                            {% endif %}
+                            
+                            {% for num in page_obj.paginator.page_range %}
+                            <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                                <a class="page-link" href="?page={{ num }}&search={{ search }}&type={{ item_type }}&category={{ category }}&stock_status={{ stock_status }}">{{ num }}</a>
+                            </li>
+                            {% endfor %}
+                            
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}&search={{ search }}&type={{ item_type }}&category={{ category }}&stock_status={{ stock_status }}">Next</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Expense Budgets - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>📊 Expense Budgets</h2>
+                <a href="{% url 'expense_budget_create' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Add Budget
+                </a>
+            </div>
+            
+            <!-- Filters -->
+            <div class="card mb-3">
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-4">
+                            <input type="text" name="search" class="form-control" placeholder="Search budgets..." value="{{ search }}">
+                        </div>
+                        <div class="col-md-4">
+                            <select name="status" class="form-select">
+                                <option value="">All Status</option>
+                                {% for key, value in status_choices %}
+                                <option value="{{ key }}" {% if key == status %}selected{% endif %}>{{ value|safe }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="submit" class="btn btn-secondary w-100">Filter</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Stats -->
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <div class="card text-white bg-primary">
+                        <div class="card-body">
+                            <h6>Total Budgets</h6>
+                            <h3>{{ total_budgets }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card text-white bg-success">
+                        <div class="card-body">
+                            <h6>Active</h6>
+                            <h3>{{ active_budgets }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card text-white bg-danger">
+                        <div class="card-body">
+                            <h6>Over Budget</h6>
+                            <h3>{{ over_budget|length }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Budgets Table -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Budget</th>
+                                    <th>Category</th>
+                                    <th>Period</th>
+                                    <th>Allocated</th>
+                                    <th>Used</th>
+                                    <th>Remaining</th>
+                                    <th>Utilization</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for budget in budgets %}
+                                <tr class="{% if budget.is_over %}table-danger{% endif %}">
+                                    <td><strong>{{ budget.name }}</strong></td>
+                                    <td>{{ budget.category.name }}</td>
+                                    <td>{{ budget.period_start|date:"d-m-Y" }} - {{ budget.period_end|date:"d-m-Y" }}</td>
+                                    <td>Rs. {{ budget.allocated_amount|floatformat:0|intcomma }}</td>
+                                    <td>Rs. {{ budget.used_amount|floatformat:0|intcomma }}</td>
+                                    <td>
+                                        {% if budget.remaining_amount < 0 %}
+                                        <strong class="text-danger">Rs. {{ budget.remaining_amount|floatformat:0|intcomma }}</strong>
+                                        {% else %}
+                                        Rs. {{ budget.remaining_amount|floatformat:0|intcomma }}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="progress">
+                                            <div class="progress-bar bg-{% if budget.utilization > 100 %}danger{% elif budget.utilization > 80 %}warning{% else %}success{% endif %}" 
+                                                 role="progressbar" 
+                                                 style="width: {{ budget.utilization|floatformat:0 }}%;">
+                                                {{ budget.utilization|floatformat:0 }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if budget.status == 'draft' %}
+                                        <span class="badge bg-secondary">📝 Draft</span>
+                                        {% elif budget.status == 'active' %}
+                                        <span class="badge bg-success">✅ Active</span>
+                                        {% elif budget.status == 'approved' %}
+                                        <span class="badge bg-primary">✅ Approved</span>
+                                        {% elif budget.status == 'expired' %}
+                                        <span class="badge bg-warning">⏰ Expired</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">❌ Cancelled</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'expense_budget_detail' budget.id %}" class="btn btn-sm btn-info">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="9" class="text-center">No budgets found.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

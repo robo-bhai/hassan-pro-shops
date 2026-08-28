@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Create Claim - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>📋 Create Expense Claim</h2>
+                <a href="{% url 'expense_claim_list' %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+            </div>
+            
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Employee <span class="text-danger">*</span></label>
+                                <select name="employee" class="form-select" required>
+                                    <option value="">Select Employee</option>
+                                    {% for emp in employees %}
+                                    <option value="{{ emp.id }}">{{ emp.name }} ({{ emp.employee_id }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Claim Date <span class="text-danger">*</span></label>
+                                <input type="date" name="claim_date" class="form-control" required value="{% now 'Y-m-d' %}">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Title <span class="text-danger">*</span></label>
+                                <input type="text" name="title" class="form-control" required placeholder="e.g., Business Trip Expenses">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Description</label>
+                                <textarea name="description" class="form-control" rows="2"></textarea>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Expenses <span class="text-danger">*</span></label>
+                                <select name="expense_ids[]" class="form-select" multiple style="height:150px;" required>
+                                    {% for expense in expenses %}
+                                    <option value="{{ expense.id }}">
+                                        {{ expense.expense_no }} - {{ expense.description|truncatechars:30 }} (Rs. {{ expense.amount|floatformat:2 }})
+                                    </option>
+                                    {% empty %}
+                                    <option value="">No approved expenses available</option>
+                                    {% endfor %}
+                                </select>
+                                <small class="text-muted">Hold Ctrl to select multiple expenses</small>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Notes</label>
+                                <textarea name="notes" class="form-control" rows="2"></textarea>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="{% url 'expense_claim_list' %}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> Create Claim
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

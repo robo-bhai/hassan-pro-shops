@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Security Alerts{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-bell text-danger"></i> Security Alerts</h2>
+            <p class="text-muted">All security alerts and notifications</p>
+        </div>
+        <div>
+            <a href="{% url 'security_dashboard' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    
+    <!-- Filters -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-4">
+                    <select name="severity" class="form-select">
+                        <option value="">All Severity</option>
+                        {% for key, value in severity_choices %}
+                        <option value="{{ key }}" {% if key == severity %}selected{% endif %}>{{ value }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <select name="resolved" class="form-select">
+                        <option value="">All Status</option>
+                        <option value="false" {% if resolved == 'false' %}selected{% endif %}>Unresolved</option>
+                        <option value="true" {% if resolved == 'true' %}selected{% endif %}>Resolved</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100">Filter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Alerts Table -->
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Severity</th>
+                            <th>Alert</th>
+                            <th>Type</th>
+                            <th>User</th>
+                            <th>IP</th>
+                            <th>Created</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for alert in page_obj %}
+                        <tr>
+                            <td>
+                                <span class="badge 
+                                    {% if alert.severity == 'critical' %}bg-danger
+                                    {% elif alert.severity == 'high' %}bg-warning
+                                    {% elif alert.severity == 'medium' %}bg-info
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ alert.get_severity_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="fw-bold">{{ alert.title }}</span>
+                                <br>
+                                <small class="text-muted">{{ alert.description|truncatechars:50 }}</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ alert.get_alert_type_display }}</span>
+                            </td>
+                            <td>{{ alert.user.username|default:"-" }}</td>
+                            <td>{{ alert.ip_address|default:"-" }}</td>
+                            <td>{{ alert.created_at|date:"d-m-Y H:i" }}</td>
+                            <td>
+                                {% if alert.is_resolved %}
+                                <span class="badge bg-success">✅ Resolved</span>
+                                {% else %}
+                                <span class="badge bg-danger">⏳ Unresolved</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if not alert.is_resolved %}
+                                <form method="POST" style="display:inline;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="alert_id" value="{{ alert.id }}">
+                                    <button type="submit" class="btn btn-sm btn-success">
+                                        <i class="bi bi-check-circle"></i> Resolve
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-muted">
+                                <i class="bi bi-check-circle fs-2 d-block text-success"></i>
+                                <p>No security alerts</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer bg-white">
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}&severity={{ severity }}&resolved={{ resolved }}">Previous</a>
+                    </li>
+                    {% endif %}
+                    {% for num in page_obj.paginator.page_range %}
+                    <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                        <a class="page-link" href="?page={{ num }}&severity={{ severity }}&resolved={{ resolved }}">{{ num }}</a>
+                    </li>
+                    {% endfor %}
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}&severity={{ severity }}&resolved={{ resolved }}">Next</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

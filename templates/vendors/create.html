@@ -1,0 +1,486 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Add Vendor{% endblock %}
+{% block page_title %}➕ Add New Vendor{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary: #4361ee;
+        --primary-dark: #3a0ca3;
+        --success: #4cc9f0;
+        --danger: #f72585;
+        --warning: #f8961e;
+        --dark: #1a1a2e;
+        --gray: #6c757d;
+        --light-gray: #f8f9fa;
+        --border: #e9ecef;
+    }
+    
+    .page-header {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        border-radius: 20px;
+        padding: 25px 30px;
+        margin-bottom: 30px;
+        color: white;
+        box-shadow: 0 10px 30px rgba(67, 97, 238, 0.2);
+    }
+    
+    .page-header h1 {
+        font-size: 1.5rem;
+        margin-bottom: 5px;
+        font-weight: 600;
+    }
+    
+    .page-header p {
+        opacity: 0.9;
+        margin: 0;
+        font-size: 0.85rem;
+    }
+    
+    .form-container {
+        background: white;
+        border-radius: 24px;
+        box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+    }
+    
+    .form-header {
+        background: var(--light-gray);
+        padding: 20px 30px;
+        border-bottom: 2px solid var(--border);
+    }
+    
+    .form-header h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--dark);
+    }
+    
+    .form-header h3 i {
+        color: var(--primary);
+        margin-right: 8px;
+    }
+    
+    .form-body {
+        padding: 30px;
+    }
+    
+    .form-group {
+        margin-bottom: 24px;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--gray);
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .form-label i {
+        font-size: 0.9rem;
+        color: var(--primary);
+    }
+    
+    .form-label .required {
+        color: var(--danger);
+        font-size: 0.7rem;
+    }
+    
+    .form-control, .form-select {
+        border: 2px solid var(--border);
+        border-radius: 12px;
+        padding: 12px 16px;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+        background: white;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+        outline: none;
+    }
+    
+    .form-control.is-invalid, .form-select.is-invalid {
+        border-color: var(--danger);
+        background-color: rgba(247, 37, 133, 0.02);
+    }
+    
+    .invalid-feedback {
+        font-size: 0.75rem;
+        margin-top: 6px;
+        color: var(--danger);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .form-text {
+        font-size: 0.7rem;
+        color: var(--gray);
+        margin-top: 6px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .form-text i {
+        font-size: 0.7rem;
+    }
+    
+    .form-text.warning {
+        color: var(--warning);
+    }
+    
+    .form-text.warning i {
+        color: var(--warning);
+    }
+    
+    textarea.form-control {
+        resize: vertical;
+        min-height: 80px;
+    }
+    
+    .btn-group-action {
+        display: flex;
+        gap: 12px;
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid var(--border);
+    }
+    
+    .btn-primary-custom {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        border: none;
+        padding: 12px 28px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: white;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .btn-primary-custom:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(67, 97, 238, 0.3);
+        color: white;
+    }
+    
+    .btn-secondary-custom {
+        background: white;
+        border: 2px solid var(--border);
+        padding: 12px 28px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: var(--gray);
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+    }
+    
+    .btn-secondary-custom:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+        background: rgba(67, 97, 238, 0.02);
+    }
+    
+    .opening-balance-box {
+        background: linear-gradient(135deg, #fff8e1 0%, #fff3cd 100%);
+        border: 2px solid #ffc107;
+        border-radius: 16px;
+        padding: 18px 20px;
+        margin-bottom: 24px;
+    }
+    
+    .opening-balance-box .form-label {
+        color: #856404;
+    }
+    
+    .opening-balance-box .form-text {
+        color: #856404;
+    }
+    
+    .opening-balance-box .form-control {
+        border-color: #ffc107;
+        background: white;
+    }
+    
+    .opening-balance-box .form-control:focus {
+        border-color: #ff9800;
+        box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.2);
+    }
+    
+    /* Preview Card */
+    .preview-card {
+        background: linear-gradient(135deg, var(--light-gray) 0%, white 100%);
+        border-radius: 20px;
+        padding: 20px;
+        margin-top: 20px;
+        border: 1px solid var(--border);
+    }
+    
+    .preview-title {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--gray);
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .preview-code {
+        background: white;
+        padding: 10px 15px;
+        border-radius: 12px;
+        font-family: monospace;
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--primary);
+        border: 1px solid var(--border);
+        display: inline-block;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .form-container {
+        animation: fadeIn 0.3s ease;
+    }
+    
+    @media (max-width: 768px) {
+        .form-body { padding: 20px; }
+        .btn-group-action { flex-direction: column; }
+        .btn-primary-custom, .btn-secondary-custom { justify-content: center; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header">
+        <h1><i class="bi bi-building"></i> Add New Vendor</h1>
+        <p>Create a new vendor/supplier in the system. Vendor code will be auto-generated if left blank.</p>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-7">
+            <div class="form-container">
+                <div class="form-header">
+                    <h3><i class="bi bi-pencil-square"></i> Vendor Information</h3>
+                </div>
+                
+                <div class="form-body">
+                    <form method="POST" id="vendorForm" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="bi bi-upc-scan"></i> Vendor Code
+                                <span class="required"></span>
+                            </label>
+                            <input type="text" name="vendor_code" id="vendorCode" 
+                                   class="form-control" 
+                                   placeholder="Leave blank for auto-generate"
+                                   autocomplete="off">
+                            <div class="form-text">
+                                <i class="bi bi-info-circle"></i> 
+                                Leave empty to auto-generate (format: VEN-0001)
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="bi bi-building"></i> Vendor Name 
+                                <span class="required">*</span>
+                            </label>
+                            <input type="text" name="name" id="vendorName" 
+                                   class="form-control" 
+                                   placeholder="Enter vendor name"
+                                   required>
+                            <div class="invalid-feedback">
+                                <i class="bi bi-exclamation-circle"></i> Vendor name is required
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="bi bi-folder"></i> Group
+                            </label>
+                            <select name="group" class="form-select">
+                                <option value="">-- Select Group --</option>
+                                {% for group in groups %}
+                                <option value="{{ group.id }}">{{ group.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">
+                                <i class="bi bi-tag"></i> Group vendors by category (optional)
+                            </div>
+                        </div>
+                        
+                        <!-- ✅ NEW: Opening Balance Field -->
+                        <div class="opening-balance-box">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">
+                                    <i class="bi bi-wallet2"></i> Opening Balance 
+                                    <span style="font-weight: 400; text-transform: none; font-size: 0.7rem; color: #856404;">
+                                        (Previous Outstanding)
+                                    </span>
+                                </label>
+                                <input type="number" name="opening_balance" class="form-control" 
+                                       step="0.01" min="0" value="0" 
+                                       placeholder="Previous outstanding amount before using this system">
+                                <div class="form-text warning">
+                                    <i class="bi bi-exclamation-triangle-fill"></i> 
+                                    <strong>⚠️ Important:</strong> Ye wo amount hai jo vendor se pehle se pending thi. 
+                                    System start karne se pehle ka outstanding balance.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="form-label">
+                                        <i class="bi bi-telephone"></i> Contact Number
+                                    </label>
+                                    <input type="text" name="contact_number" 
+                                           class="form-control" 
+                                           placeholder="e.g., 0300 1234567">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="form-label">
+                                        <i class="bi bi-envelope"></i> Email
+                                    </label>
+                                    <input type="email" name="email" 
+                                           class="form-control" 
+                                           placeholder="vendor@example.com">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="bi bi-geo-alt"></i> Address
+                            </label>
+                            <textarea name="address" class="form-control" 
+                                      placeholder="Full address of vendor"></textarea>
+                        </div>
+                        
+                        <div class="btn-group-action">
+                            <button type="submit" class="btn-primary-custom">
+                                <i class="bi bi-check-lg"></i> Save Vendor
+                            </button>
+                            <a href="{% url 'vendor_list' %}" class="btn-secondary-custom">
+                                <i class="bi bi-x-lg"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-5">
+            <div class="preview-card">
+                <div class="preview-title">
+                    <i class="bi bi-eye"></i> Preview
+                </div>
+                <div id="previewContent">
+                    <div style="margin-bottom: 15px;">
+                        <small style="color: #6c757d; font-size: 0.7rem;">Vendor Code</small>
+                        <div id="previewCode" class="preview-code">VEN-XXXX</div>
+                    </div>
+                    <div>
+                        <small style="color: #6c757d; font-size: 0.7rem;">Vendor Name</small>
+                        <div id="previewName" style="font-weight: 600; font-size: 1rem; margin-top: 5px;">—</div>
+                    </div>
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border);">
+                        <small style="color: #6c757d; font-size: 0.7rem;">Opening Balance</small>
+                        <div id="previewOpeningBalance" style="font-weight: 600; font-size: 1rem; margin-top: 5px; color: var(--warning);">Rs. 0.00</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Live preview
+    const vendorName = document.getElementById('vendorName');
+    const vendorCode = document.getElementById('vendorCode');
+    const openingBalance = document.querySelector('input[name="opening_balance"]');
+    const previewName = document.getElementById('previewName');
+    const previewCode = document.getElementById('previewCode');
+    const previewOpeningBalance = document.getElementById('previewOpeningBalance');
+    
+    if (vendorName) {
+        vendorName.addEventListener('input', function() {
+            if (this.value) {
+                previewName.innerHTML = this.value;
+            } else {
+                previewName.innerHTML = '—';
+            }
+        });
+    }
+    
+    if (vendorCode) {
+        vendorCode.addEventListener('input', function() {
+            if (this.value) {
+                previewCode.innerHTML = this.value;
+                previewCode.style.color = '#4361ee';
+            } else {
+                previewCode.innerHTML = 'VEN-XXXX (Auto)';
+                previewCode.style.color = '#f8961e';
+            }
+        });
+    }
+    
+    if (openingBalance) {
+        openingBalance.addEventListener('input', function() {
+            const val = parseFloat(this.value) || 0;
+            previewOpeningBalance.innerHTML = 'Rs. ' + val.toFixed(2);
+            previewOpeningBalance.style.color = val > 0 ? '#f8961e' : '#6c757d';
+        });
+    }
+    
+    // Form validation
+    const form = document.getElementById('vendorForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const nameInput = document.getElementById('vendorName');
+            if (!nameInput.value.trim()) {
+                e.preventDefault();
+                nameInput.classList.add('is-invalid');
+                nameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } else {
+                nameInput.classList.remove('is-invalid');
+            }
+        });
+        
+        document.getElementById('vendorName').addEventListener('input', function() {
+            if (this.value.trim()) {
+                this.classList.remove('is-invalid');
+            }
+        });
+    }
+</script>
+{% endblock %}

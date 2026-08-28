@@ -1,0 +1,90 @@
+{% extends 'ceo/base_executive.html' %}
+{% load humanize %}
+
+{% block page_title %}CEO Settings{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="stat-card">
+            <h5><i class="bi bi-gear"></i> Executive Profile</h5>
+            <form method="POST">
+                {% csrf_token %}
+                <div class="row">
+                    <div class="col-md-6 mt-2">
+                        <label>Title</label>
+                        <input type="text" name="title" class="form-control" value="{{ executive.title }}">
+                    </div>
+                    <div class="col-md-6 mt-2">
+                        <label>Personal Email</label>
+                        <input type="email" name="personal_email" class="form-control" value="{{ executive.personal_email }}">
+                    </div>
+                    <div class="col-md-6 mt-2">
+                        <label>Office Phone</label>
+                        <input type="text" name="office_phone" class="form-control" value="{{ executive.office_phone }}">
+                    </div>
+                    <div class="col-md-6 mt-2">
+                        <label>Mobile Phone</label>
+                        <input type="text" name="mobile_phone" class="form-control" value="{{ executive.mobile_phone }}">
+                    </div>
+                    <div class="col-md-6 mt-2">
+                        <label>Assistant Email</label>
+                        <input type="email" name="assistant_email" class="form-control" value="{{ executive.assistant_email }}">
+                    </div>
+                    <div class="col-md-6 mt-2">
+                        <label>Assistant Phone</label>
+                        <input type="text" name="assistant_phone" class="form-control" value="{{ executive.assistant_phone }}">
+                    </div>
+                </div>
+                
+                <hr class="mt-3">
+                <h6>Security Settings</h6>
+                <div class="row">
+                    <div class="col-md-6 mt-2">
+                        <label>Security Clearance Level</label>
+                        <select name="security_clearance_level" class="form-control">
+                            {% for level in security_levels %}
+                            <option value="{{ level.0 }}" {% if executive.security_clearance_level == level.0 %}selected{% endif %}>{{ level.1 }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6 mt-2">
+                        <label>Session Timeout (minutes)</label>
+                        <input type="number" name="session_timeout_minutes" class="form-control" value="{{ executive.session_timeout_minutes }}">
+                    </div>
+                    <div class="col-md-12 mt-2">
+                        <div class="form-check">
+                            <input type="checkbox" name="mfa_enabled" class="form-check-input" {% if executive.mfa_enabled %}checked{% endif %}>
+                            <label class="form-check-label">Enable MFA (Multi-Factor Authentication)</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr class="mt-3">
+                <h6>Notification Preferences</h6>
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="form-check">
+                            <input type="checkbox" name="email_alerts" class="form-check-input" {% if executive.email_alerts %}checked{% endif %}>
+                            <label class="form-check-label">Email Alerts</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="whatsapp_alerts" class="form-check-input" {% if executive.whatsapp_alerts %}checked{% endif %}>
+                            <label class="form-check-label">WhatsApp Alerts</label>
+                        </div>
+                        <div class="mt-2">
+                            <label>Slack Webhook URL</label>
+                            <input type="url" name="slack_webhook" class="form-control" placeholder="https://hooks.slack.com/..." value="{{ executive.slack_webhook|default:'' }}">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary">Save Settings</button>
+                    <a href="{% url 'ceo:dashboard' %}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Salary Slip - {{ employee.name }} | {{ company_name }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', 'Segoe UI', 'Consolas', monospace;
+            background: white;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* Black & White Container */
+        .salary-slip {
+            max-width: 750px;
+            width: 100%;
+            background: white;
+            border: 1px solid black;
+            overflow: hidden;
+        }
+
+        /* Header - No Color */
+        .header {
+            padding: 12px 15px;
+            border-bottom: 2px solid black;
+        }
+
+        .company-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .company-name {
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: 1px;
+        }
+
+        .company-name small {
+            font-size: 7px;
+            letter-spacing: 1px;
+            display: block;
+        }
+
+        .badge {
+            border: 1px solid black;
+            padding: 2px 10px;
+            font-size: 8px;
+            font-weight: 600;
+        }
+
+        .title {
+            text-align: center;
+            border-top: 1px solid black;
+            border-bottom: 1px solid black;
+            padding: 6px 0;
+            margin: 6px 0;
+        }
+
+        .title h1 {
+            font-size: 16px;
+            letter-spacing: 2px;
+        }
+
+        .title p {
+            font-size: 8px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .info-item {
+            flex: 1;
+        }
+
+        .info-label {
+            font-size: 7px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-value {
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        /* Content */
+        .content {
+            padding: 12px 15px;
+        }
+
+        /* Employee Grid - Borders */
+        .emp-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0px;
+            border: 1px solid black;
+            margin-bottom: 12px;
+        }
+
+        .emp-field {
+            display: flex;
+            flex-direction: column;
+            padding: 6px 8px;
+            border-right: 1px solid black;
+            border-bottom: 1px solid black;
+        }
+
+        .emp-field:nth-child(3n) {
+            border-right: none;
+        }
+
+        .emp-field:nth-last-child(-n+3) {
+            border-bottom: none;
+        }
+
+        .emp-field .label {
+            font-size: 7px;
+            text-transform: uppercase;
+        }
+
+        .emp-field .value {
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        /* Tables - Black Borders Only */
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+            font-size: 9px;
+            border: 1px solid black;
+        }
+
+        .table th {
+            border: 1px solid black;
+            padding: 5px 8px;
+            text-align: left;
+            font-weight: 700;
+            font-size: 8px;
+            background: white;
+        }
+
+        .table td {
+            border: 1px solid black;
+            padding: 4px 8px;
+        }
+
+        .total-row td {
+            font-weight: 700;
+            border: 1px solid black;
+        }
+
+        .highlight-row td {
+            border: 1px solid black;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        /* Two Column Layout */
+        .two-columns {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .two-columns > div {
+            flex: 1;
+        }
+
+        /* Net Salary Box - Black Border */
+        .net-box {
+            border: 2px solid black;
+            padding: 8px;
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .net-label {
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .net-amount {
+            font-size: 20px;
+            font-weight: 800;
+        }
+
+        .net-amount small {
+            font-size: 9px;
+        }
+
+        /* Words Box - Black Border */
+        .words-box {
+            border: 1px solid black;
+            padding: 6px 10px;
+            margin: 8px 0;
+        }
+
+        .words-label {
+            font-size: 7px;
+            text-transform: uppercase;
+        }
+
+        .words-text {
+            font-size: 8px;
+            font-weight: 600;
+            margin-top: 2px;
+        }
+
+        /* Summary Cards - Black Borders */
+        .summary {
+            display: flex;
+            gap: 8px;
+            margin: 10px 0;
+        }
+
+        .summary-card {
+            flex: 1;
+            border: 1px solid black;
+            padding: 6px;
+            text-align: center;
+        }
+
+        .summary-value {
+            font-size: 14px;
+            font-weight: 800;
+        }
+
+        .summary-label {
+            font-size: 7px;
+            margin-top: 2px;
+        }
+
+        /* Footer */
+        .footer {
+            border-top: 1px solid black;
+            padding: 6px 15px;
+            text-align: center;
+            font-size: 7px;
+        }
+
+        /* Buttons - No Color */
+        .action-buttons {
+            max-width: 750px;
+            margin: 10px auto 0;
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .btn {
+            padding: 6px 16px;
+            border: 1px solid black;
+            background: white;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 11px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-family: monospace;
+        }
+
+        .btn:hover {
+            background: #f0f0f0;
+        }
+
+        /* Print Styles */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+                margin: 0;
+            }
+            .action-buttons {
+                display: none !important;
+            }
+            .salary-slip {
+                border: 1px solid black;
+                max-width: 100%;
+            }
+            @page {
+                size: A4;
+                margin: 0.3cm;
+            }
+        }
+
+        @media (max-width: 550px) {
+            .emp-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .emp-field:nth-child(2n) {
+                border-right: none;
+            }
+            .emp-field:nth-child(3n) {
+                border-right: 1px solid black;
+            }
+            .two-columns {
+                flex-direction: column;
+                gap: 8px;
+            }
+            .summary {
+                flex-wrap: wrap;
+            }
+            .summary-card {
+                min-width: 70px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <div class="salary-slip" id="salarySlip">
+            <!-- Header -->
+            <div class="header">
+                <div class="company-row">
+                    <div class="company-name">
+                        {{ company_name|upper }}
+                        <small>EST. 2024</small>
+                    </div>
+                    <div class="badge">OFFICIAL</div>
+                </div>
+                
+                <div class="title">
+                    <h1>SALARY SLIP</h1>
+                    <p>{{ month }}</p>
+                </div>
+                
+                <div class="info-row">
+                    <div class="info-item">
+                        <div class="info-label">SLIP NO.</div>
+                        <div class="info-value">SLP-{{ employee.employee_id }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">DATE</div>
+                        <div class="info-value">{{ current_date|slice:":10" }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">MODE</div>
+                        <div class="info-value">Bank Transfer</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Content -->
+            <div class="content">
+                <!-- Employee Details -->
+                <div class="emp-grid">
+                    <div class="emp-field"><span class="label">NAME</span><span class="value">{{ employee.name }}</span></div>
+                    <div class="emp-field"><span class="label">ID</span><span class="value">{{ employee.employee_id }}</span></div>
+                    <div class="emp-field"><span class="label">DEPT</span><span class="value">{{ employee.get_department_display|truncatechars:12 }}</span></div>
+                    <div class="emp-field"><span class="label">DESIGNATION</span><span class="value">{{ employee.designation|default:'Staff'|truncatechars:12 }}</span></div>
+                    <div class="emp-field"><span class="label">JOINING</span><span class="value">{{ employee.joining_date|date:"d M Y" }}</span></div>
+                    <div class="emp-field"><span class="label">BANK A/C</span><span class="value">{{ employee.account_number|default:'XXXX'|truncatechars:8 }}</span></div>
+                </div>
+                
+                <!-- Two Column Tables -->
+                <div class="two-columns">
+                    <!-- Salary Breakdown -->
+                    <div>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th colspan="2">SALARY BREAKDOWN</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>Basic Salary</td><td class="text-right">PKR {{ basic_salary|floatformat:0 }}</td></tr>
+                                <tr class="total-row"><td><strong>Gross Salary</strong></td><td class="text-right"><strong>PKR {{ total_salary|floatformat:0 }}</strong></td></tr>
+                                <tr><td>Working Days</td><td class="text-right">{{ working_days }} days</td></tr>
+                                <tr><td>Present Days</td><td class="text-right">{{ present_days }} days</td></tr>
+                                <tr><td>Absent Days</td><td class="text-right">{{ absent_days }} days</td></tr>
+                                <tr><td>Per Day Salary</td><td class="text-right">PKR {{ per_day|floatformat:0 }}</td></tr>
+                                <tr class="total-row"><td><strong>Salary for Present Days</strong></td><td class="text-right"><strong>PKR {{ salary_for_present|floatformat:0 }}</strong></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Earnings & Deductions -->
+                    <div>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th colspan="2">EARNINGS & DEDUCTIONS</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>Salary for Present Days</td><td class="text-right">PKR {{ salary_for_present|floatformat:0 }}</td></tr>
+                                <tr><td>Bonus</td><td class="text-right">PKR {{ bonus|default:"0"|floatformat:0 }}</td></tr>
+                                <tr class="total-row"><td><strong>Total Earnings</strong></td><td class="text-right"><strong>PKR {{ total_earnings|floatformat:0 }}</strong></td></tr>
+                                <tr><td>Absence Deduction</td><td class="text-right">- PKR {{ absence_deduction|floatformat:0 }}</td></tr>
+                                <tr><td>Tax Deduction</td><td class="text-right">- PKR {{ tax_deduction|default:"0"|floatformat:0 }}</td></tr>
+                                <tr class="total-row"><td><strong>Total Deductions</strong></td><td class="text-right"><strong>- PKR {{ total_deductions|floatformat:0 }}</strong></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Net Salary -->
+                <div class="net-box">
+                    <div class="net-label">NET PAYABLE AMOUNT</div>
+                    <div class="net-amount">PKR {{ net_salary|floatformat:0 }} <small>PKR</small></div>
+                </div>
+                
+                <!-- Amount in Words -->
+                <div class="words-box">
+                    <div class="words-label">AMOUNT IN WORDS</div>
+                    <div class="words-text" id="amountInWords">Rupees {{ net_salary|floatformat:0 }} Only</div>
+                </div>
+                
+                <!-- Summary Cards -->
+                <div class="summary">
+                    <div class="summary-card"><div class="summary-value">{{ working_days }}</div><div class="summary-label">Working Days</div></div>
+                    <div class="summary-card"><div class="summary-value">{{ present_days }}</div><div class="summary-label">Present</div></div>
+                    <div class="summary-card"><div class="summary-value">{{ absent_days }}</div><div class="summary-label">Absent</div></div>
+                    <div class="summary-card"><div class="summary-value">{{ total_deductions|floatformat:0 }}</div><div class="summary-label">Deductions</div></div>
+                </div>
+            </div>
+            
+            <!-- Footer -->
+            <div class="footer">
+                {{ company_name }} | {{ company_address|truncatechars:40 }} | Tel: {{ company_phone }}
+                <br>Generated: {{ current_date|slice:":10" }}
+            </div>
+        </div>
+        
+        <!-- Buttons -->
+        <div class="action-buttons">
+            <button class="btn" onclick="window.print()">🖨️ PRINT</button>
+            <button class="btn" onclick="downloadSalarySlip()">⬇️ DOWNLOAD</button>
+        </div>
+    </div>
+
+    <script>
+        // Number to Words
+        function numberToWords(num) {
+            if (num === 0) return 'Zero';
+            const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+                         'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
+                         'Seventeen', 'Eighteen', 'Nineteen'];
+            const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+            
+            function convert(n) {
+                if (n < 20) return ones[n];
+                if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '');
+                if (n < 1000) return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' ' + convert(n % 100) : '');
+                if (n < 100000) return convert(Math.floor(n / 1000)) + ' Thousand' + (n % 1000 ? ' ' + convert(n % 1000) : '');
+                if (n < 10000000) return convert(Math.floor(n / 100000)) + ' Lakh' + (n % 100000 ? ' ' + convert(n % 100000) : '');
+                return convert(Math.floor(n / 10000000)) + ' Crore' + (n % 10000000 ? ' ' + convert(n % 10000000) : '');
+            }
+            const rupees = Math.floor(num);
+            let result = convert(rupees);
+            if (rupees === 1) result += ' Rupee';
+            else result += ' Rupees';
+            return result + ' Only';
+        }
+
+        const netSalary = {{ net_salary|floatformat:2 }};
+        document.getElementById('amountInWords').innerHTML = numberToWords(netSalary);
+
+        function downloadSalarySlip() {
+            const element = document.getElementById('salarySlip');
+            const styles = document.querySelector('style').innerHTML;
+            const employeeName = '{{ employee.name }}';
+            const month = '{{ month|cut:" " }}';
+            
+            const fullHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Salary Slip - {{ employee.name }}</title>
+    <style>${styles}</style>
+</head>
+<body style="background: white; padding: 15px; margin: 0;">
+    ${element.outerHTML}
+    <script>
+        function numberToWords(num) {
+            if (num === 0) return 'Zero';
+            const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+                         'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
+                         'Seventeen', 'Eighteen', 'Nineteen'];
+            const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+            function convert(n) {
+                if (n < 20) return ones[n];
+                if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '');
+                if (n < 1000) return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' ' + convert(n % 100) : '');
+                if (n < 100000) return convert(Math.floor(n / 1000)) + ' Thousand' + (n % 1000 ? ' ' + convert(n % 1000) : '');
+                if (n < 10000000) return convert(Math.floor(n / 100000)) + ' Lakh' + (n % 100000 ? ' ' + convert(n % 100000) : '');
+                return convert(Math.floor(n / 10000000)) + ' Crore' + (n % 10000000 ? ' ' + convert(n % 10000000) : '');
+            }
+            const rupees = Math.floor({{ net_salary|floatformat:2 }});
+            let result = convert(rupees);
+            if (rupees === 1) result += ' Rupee';
+            else result += ' Rupees';
+            return result + ' Only';
+        }
+        document.getElementById('amountInWords').innerHTML = numberToWords({{ net_salary|floatformat:2 }});
+    <\/script>
+</body>
+</html>`;
+            
+            const blob = new Blob([fullHtml], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Salary_Slip_${employeeName}_${month}.html`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

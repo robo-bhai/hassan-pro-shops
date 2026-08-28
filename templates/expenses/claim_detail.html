@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Claim {{ claim.claim_no }} - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>📋 Claim #{{ claim.claim_no }}</h2>
+                <a href="{% url 'expense_claim_list' %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+            </div>
+            
+            <!-- Status -->
+            <div class="alert {% if claim.status == 'draft' %}alert-secondary{% elif claim.status == 'submitted' or claim.status == 'review' %}alert-warning{% elif claim.status == 'approved' %}alert-success{% elif claim.status == 'rejected' %}alert-danger{% elif claim.status == 'reimbursed' %}alert-success{% else %}alert-secondary{% endif %}">
+                <h5>Status: 
+                    {% if claim.status == 'draft' %}
+                    📝 Draft
+                    {% elif claim.status == 'submitted' %}
+                    📤 Submitted
+                    {% elif claim.status == 'review' %}
+                    📋 Under Review
+                    {% elif claim.status == 'approved' %}
+                    ✅ Approved
+                    {% elif claim.status == 'rejected' %}
+                    ❌ Rejected
+                    {% elif claim.status == 'reimbursed' %}
+                    💰 Reimbursed
+                    {% else %}
+                    ❌ Cancelled
+                    {% endif %}
+                </h5>
+                <p class="mb-0"><strong>Total Amount:</strong> Rs. {{ claim.total_amount|floatformat:2|intcomma }}</p>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-8">
+                    <!-- Claim Details -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">📋 Claim Details</h5>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-bordered">
+                                <tr><th style="width:150px;">Claim #</th><td>{{ claim.claim_no }}</td></tr>
+                                <tr><th>Employee</th><td>{{ claim.employee.name }} ({{ claim.employee.employee_id }})</td></tr>
+                                <tr><th>Title</th><td>{{ claim.title }}</td></tr>
+                                <tr><th>Description</th><td>{{ claim.description|default:"-"|linebreaks }}</td></tr>
+                                <tr><th>Claim Date</th><td>{{ claim.claim_date|date:"d-m-Y" }}</td></tr>
+                                <tr><th>Total Amount</th><td><strong>Rs. {{ claim.total_amount|floatformat:2|intcomma }}</strong></td></tr>
+                                <tr><th>Created By</th><td>{{ claim.created_by.username|default:"System" }}</td></tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Expenses in Claim -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">📋 Expenses in Claim</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Description</th>
+                                            <th>Amount</th>
+                                            <th>Tax</th>
+                                            <th>Total</th>
+                                            <th>Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for expense in expenses %}
+                                        <tr>
+                                            <td>{{ expense.expense_no }}</td>
+                                            <td>{{ expense.description|truncatechars:30 }}</td>
+                                            <td>Rs. {{ expense.amount|floatformat:2 }}</td>
+                                            <td>Rs. {{ expense.tax_amount|floatformat:2 }}</td>
+                                            <td><strong>Rs. {{ expense.total_amount|floatformat:2 }}</strong></td>
+                                            <td>{{ expense.expense_date|date:"d-m-Y" }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr><td colspan="6" class="text-center">No expenses in this claim.</td></tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <!-- Quick Actions -->
+                    {% if claim.status == 'draft' %}
+                    <div class="card mb-3">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">⚡ Quick Actions</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                <form method="POST" action="{% url 'expense_claim_submit' claim.id %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-primary w-100">
+                                        <i class="bi bi-send"></i> Submit for Approval
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if claim.status == 'submitted' or claim.status == 'review' %}
+                    <div class="card mb-3">
+                        <div class="card-header bg-warning text-white">
+                            <h5 class="mb-0">⚡ Quick Actions</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                <form method="POST" action="{% url 'expense_claim_approve' claim.id %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-success w-100">
+                                        <i class="bi bi-check-circle"></i> Approve
+                                    </button>
+                                </form>
+                                <form method="POST" action="{% url 'expense_claim_reject' claim.id %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-danger w-100">
+                                        <i class="bi bi-x-circle"></i> Reject
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if claim.status == 'approved' %}
+                    <div class="card mb-3">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0">💰 Reimbursement</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid">
+                                <form method="POST" action="{% url 'expense_claim_reimburse' claim.id %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-success w-100">
+                                        <i class="bi bi-currency-rupee"></i> Mark as Reimbursed
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Summary -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">📊 Summary</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between mb-2">
+                                <strong>Total Expenses:</strong>
+                                <span>{{ expenses|length }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <strong>Total Amount:</strong>
+                                <span><strong>Rs. {{ claim.total_amount|floatformat:2|intcomma }}</strong></span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <strong>Status:</strong>
+                                <span>
+                                    {% if claim.status == 'draft' %}📝 Draft
+                                    {% elif claim.status == 'submitted' %}📤 Submitted
+                                    {% elif claim.status == 'review' %}📋 Review
+                                    {% elif claim.status == 'approved' %}✅ Approved
+                                    {% elif claim.status == 'rejected' %}❌ Rejected
+                                    {% elif claim.status == 'reimbursed' %}💰 Reimbursed
+                                    {% else %}❌ Cancelled
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

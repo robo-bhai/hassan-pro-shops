@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Daily Closing Detail{% endblock %}
+{% block page_title %}📊 Daily Closing Report - {{ closing.closing_date|date:"d-m-Y" }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header" style="background: linear-gradient(135deg, #1a1a2e, #16213e); color: white;">
+                    <h5 class="mb-0">📊 Daily Closing Report</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="border rounded p-3">
+                                <h6>Basic Information</h6>
+                                <table class="table table-sm">
+                                    <tr><td>Date:</td><td><strong>{{ closing.closing_date|date:"d-m-Y" }}</strong></td></tr>
+                                    <tr><td>Closed By:</td><td>{{ closing.closed_by.username|default:'System' }}</td></tr>
+                                    <tr><td>Closed At:</td><td>{{ closing.closed_at|date:"d-m-Y h:i A"|default:'N/A' }}</td></tr>
+                                    {% if closing.notes %}
+                                    <tr><td>Notes:</td><td>{{ closing.notes }}</td></tr>
+                                    {% endif %}
+                                </table>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="border rounded p-3 bg-light">
+                                <h6>Cash Summary</h6>
+                                <table class="table table-sm">
+                                    <tr><td>Opening Cash:</td><td class="text-end"><strong>Rs. {{ closing.opening_cash|floatformat:2 }}</strong></td></tr>
+                                    <tr><td>+ Cash Sales:</td><td class="text-end text-success">+ Rs. {{ closing.cash_sales|floatformat:2 }}</td></tr>
+                                    <tr><td>- Expenses:</td><td class="text-end text-danger">- Rs. {{ closing.total_expenses|floatformat:2 }}</td></tr>
+                                    <tr class="table-active"><td><strong>Expected Cash:</strong></td><td class="text-end"><strong>Rs. {{ closing.expected_cash|floatformat:2 }}</strong></td></tr>
+                                    <tr><td>Actual Closing Cash:</td><td class="text-end">Rs. {{ closing.closing_cash|floatformat:2 }}</td></tr>
+                                    <tr class="{% if closing.cash_difference >= 0 %}table-success{% else %}table-danger{% endif %}">
+                                        <td><strong>Difference:</strong></td>
+                                        <td class="text-end"><strong>{{ closing.cash_difference|floatformat:2 }}</strong></td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header bg-primary text-white">
+                                    <strong>💰 Sales Breakdown</strong>
+                                </div>
+                                <div class="card-body">
+                                    <table class="table table-sm">
+                                        <tr><td>💵 Cash Sales:</td><td class="text-end">Rs. {{ closing.cash_sales|floatformat:2 }}</td></tr>
+                                        <tr><td>💳 Card Sales:</td><td class="text-end">Rs. {{ closing.card_sales|floatformat:2 }}</td></tr>
+                                        <tr><td>📱 JazzCash Sales:</td><td class="text-end">Rs. {{ closing.jazzcash_sales|floatformat:2 }}</td></tr>
+                                        <tr><td>📱 EasyPaisa Sales:</td><td class="text-end">Rs. {{ closing.easypaisa_sales|floatformat:2 }}</td></tr>
+                                        <tr><td>🏦 Bank Transfer Sales:</td><td class="text-end">Rs. {{ closing.bank_transfer_sales|floatformat:2 }}</td></tr>
+                                        <tr class="table-active"><td><strong>Total Sales:</strong></td><td class="text-end"><strong>Rs. {{ closing.total_sales_today|floatformat:2 }}</strong></td></tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header bg-warning">
+                                    <strong>📝 Expenses</strong>
+                                </div>
+                                <div class="card-body">
+                                    {% if closing.expenses.exists %}
+                                        <table class="table table-sm">
+                                            <thead>
+                                                <tr><th>Description</th><th class="text-end">Amount</th></tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for exp in closing.expenses.all %}
+                                                <tr>
+                                                    <td>{{ exp.description }}</div>
+                                                    <td class="text-end text-danger">- Rs. {{ exp.amount|floatformat:2 }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                            <tfoot>
+                                                <tr class="table-danger">
+                                                    <td><strong>Total</strong></div>
+                                                    <td class="text-end"><strong>Rs. {{ closing.total_expenses|floatformat:2 }}</strong></td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    {% else %}
+                                        <div class="text-muted">No expenses recorded</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center">
+                        <a href="{% url 'daily_closing_pdf' closing.id %}" class="btn btn-primary">📄 Download PDF</a>
+                        <a href="{% url 'daily_closing_list' %}" class="btn btn-secondary">← Back to List</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

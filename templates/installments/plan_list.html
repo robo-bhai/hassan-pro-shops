@@ -1,0 +1,668 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+{% load custom_filters %}
+
+{% block title %}Installment Plans | Premium Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --success-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        --danger-gradient: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+        --warning-gradient: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+        --dark-gradient: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    }
+
+    .premium-card {
+        background: #ffffff;
+        border-radius: 28px;
+        box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+        overflow: hidden;
+    }
+
+    .premium-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 25px 45px -15px rgba(0, 0, 0, 0.15);
+    }
+
+    .stat-card {
+        border-radius: 24px;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .stat-icon {
+        width: 55px;
+        height: 55px;
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+    }
+
+    .plan-table th {
+        background: var(--dark-gradient);
+        color: white;
+        font-weight: 600;
+        padding: 16px 20px;
+        border: none;
+    }
+
+    .plan-table td {
+        padding: 16px 20px;
+        vertical-align: middle;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .plan-table tbody tr {
+        transition: all 0.2s ease;
+    }
+
+    .plan-table tbody tr:hover {
+        background: linear-gradient(90deg, #f8f9ff 0%, #ffffff 100%);
+    }
+
+    .badge-premium {
+        padding: 6px 14px;
+        border-radius: 50px;
+        font-weight: 500;
+        font-size: 0.75rem;
+    }
+
+    .btn-premium-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        margin: 0 3px;
+    }
+
+    .btn-premium-icon:hover {
+        transform: translateY(-2px);
+    }
+
+    .calculator-preview {
+        background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+        border-radius: 24px;
+        border: 1px solid rgba(102, 126, 234, 0.15);
+    }
+
+    .result-box {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 20px;
+        padding: 18px;
+        color: white;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+
+    .result-box:hover {
+        transform: scale(1.02);
+    }
+
+    .result-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        opacity: 0.8;
+        margin-bottom: 6px;
+    }
+
+    .result-value {
+        font-size: 1.4rem;
+        font-weight: 700;
+        margin: 0;
+    }
+
+    .animated-gradient {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background-size: 200% 200%;
+        animation: gradientShift 3s ease infinite;
+    }
+
+    @keyframes gradientShift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+    }
+
+    .empty-state-icon {
+        font-size: 80px;
+        color: #cbd5e0;
+        margin-bottom: 20px;
+    }
+
+    .search-input {
+        border: 2px solid #e9ecef;
+        border-radius: 50px;
+        padding: 12px 20px;
+        transition: all 0.3s ease;
+    }
+
+    .search-input:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        outline: none;
+    }
+
+    .filter-select {
+        border: 2px solid #e9ecef;
+        border-radius: 50px;
+        padding: 12px 20px;
+        background: white;
+        transition: all 0.3s ease;
+    }
+
+    .filter-select:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        outline: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    <!-- Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h1 class="display-6 fw-bold mb-1" style="background: var(--primary-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+                📦 Installment Plans
+            </h1>
+            <p class="text-muted mb-0">Manage your financing plans and customer payment schedules</p>
+        </div>
+        <a href="{% url 'installment_create' %}" class="btn btn-primary rounded-pill shadow-sm px-4 py-2 animated-gradient">
+            <i class="bi bi-plus-lg"></i> Create New Plan
+        </a>
+    </div>
+
+    <!-- Stats Cards Row -->
+    <div class="row g-4 mb-5">
+        <div class="col-md-3">
+            <div class="stat-card bg-white shadow-sm rounded-4 p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted small text-uppercase">Total Plans</span>
+                        <h2 class="fw-bold mb-0" style="color: #4e73df;">{{ total_plans }}</h2>
+                    </div>
+                    <div class="stat-icon bg-primary bg-opacity-10">
+                        <i class="bi bi-collection fs-3 text-primary"></i>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <small class="text-muted">All configured plans</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card bg-white shadow-sm rounded-4 p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted small text-uppercase">Active Plans</span>
+                        <h2 class="fw-bold mb-0" style="color: #1cc88a;">{{ active_plans }}</h2>
+                    </div>
+                    <div class="stat-icon bg-success bg-opacity-10">
+                        <i class="bi bi-check-circle-fill fs-3 text-success"></i>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <small class="text-muted">Available for new sales</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card bg-white shadow-sm rounded-4 p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted small text-uppercase">Inactive Plans</span>
+                        <h2 class="fw-bold mb-0" style="color: #f6c23e;">{{ inactive_plans }}</h2>
+                    </div>
+                    <div class="stat-icon bg-warning bg-opacity-10">
+                        <i class="bi bi-pause-circle-fill fs-3 text-warning"></i>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <small class="text-muted">Temporarily disabled</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card bg-white shadow-sm rounded-4 p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted small text-uppercase">Used in Sales</span>
+                        <h2 class="fw-bold mb-0" style="color: #36b9cc;">{{ used_in_sales }}</h2>
+                    </div>
+                    <div class="stat-icon bg-info bg-opacity-10">
+                        <i class="bi bi-cart-check-fill fs-3 text-info"></i>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <small class="text-muted">Plans with active installments</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="premium-card mb-4">
+        <div class="card-body p-4">
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-end-0 rounded-start-4">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text" id="searchInput" class="form-control search-input rounded-end-4" 
+                               placeholder="Search by plan name..." autocomplete="off">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select id="statusFilter" class="form-select filter-select">
+                        <option value="all">📌 All Status</option>
+                        <option value="active">✅ Active Plans</option>
+                        <option value="inactive">⏸️ Inactive Plans</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select id="sortFilter" class="form-select filter-select">
+                        <option value="name">Sort by Name</option>
+                        <option value="duration">Sort by Duration</option>
+                        <option value="popular">Sort by Popularity</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button id="resetFilters" class="btn btn-outline-secondary w-100 rounded-pill">
+                        <i class="bi bi-arrow-repeat"></i> Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Plans Table -->
+    <div class="premium-card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table plan-table mb-0" id="plansTable">
+                    <thead>
+                        <tr>
+                            <th><i class="bi bi-hash"></i> #</th>
+                            <th><i class="bi bi-tag"></i> Plan Name</th>
+                            <th class="text-center"><i class="bi bi-calendar-month"></i> Duration</th>
+                            <th class="text-center"><i class="bi bi-arrow-down-circle"></i> Down Payment</th>
+                            <th class="text-center"><i class="bi bi-percent"></i> Interest</th>
+                            <th class="text-center"><i class="bi bi-clock-history"></i> Late Fee/Day</th>
+                            <th class="text-center"><i class="bi bi-circle"></i> Status</th>
+                            <th class="text-center"><i class="bi bi-graph-up"></i> Usage</th>
+                            <th class="text-center"><i class="bi bi-tools"></i> Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="plansTableBody">
+                        {% for plan in plans %}
+                        <tr data-status="{% if plan.is_active %}active{% else %}inactive{% endif %}" 
+                            data-name="{{ plan.name|lower }}"
+                            data-duration="{{ plan.duration_months }}"
+                            data-popular="{{ plan.installment_count }}">
+                            <td class="fw-semibold text-muted">#{{ forloop.counter }}</td>
+                            <td>
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="stat-icon bg-primary bg-opacity-10" style="width: 40px; height: 40px;">
+                                        <i class="bi bi-calendar-check fs-5 text-primary"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="fw-bold mb-0">{{ plan.name }}</h6>
+                                        <small class="text-muted">ID: #{{ plan.id }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge-premium bg-primary bg-opacity-10 text-primary">
+                                    {{ plan.duration_months }} months
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                {% if plan.down_payment_percent > 0 %}
+                                <span class="badge-premium bg-warning bg-opacity-10 text-warning">
+                                    {{ plan.down_payment_percent|floatformat:0 }}%
+                                </span>
+                                {% else %}
+                                <span class="badge-premium bg-secondary bg-opacity-10 text-secondary">
+                                    No Down Payment
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if plan.interest_rate > 0 %}
+                                <span class="badge-premium bg-info bg-opacity-10 text-info">
+                                    {{ plan.interest_rate|floatformat:1 }}% APR
+                                </span>
+                                {% else %}
+                                <span class="badge-premium bg-success bg-opacity-10 text-success">
+                                    Interest Free
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if plan.late_fee_per_day > 0 %}
+                                <span class="badge-premium bg-danger bg-opacity-10 text-danger">
+                                    Rs. {{ plan.late_fee_per_day|floatformat:0|intcomma }}
+                                </span>
+                                {% else %}
+                                <span class="badge-premium bg-secondary bg-opacity-10 text-secondary">
+                                    No Fee
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if plan.is_active %}
+                                <span class="badge-premium bg-success bg-opacity-15 text-success" style="background: rgba(28, 200, 138, 0.15);">
+                                    <i class="bi bi-check-circle-fill me-1"></i> Active
+                                </span>
+                                {% else %}
+                                <span class="badge-premium bg-secondary bg-opacity-15 text-secondary" style="background: rgba(133, 135, 150, 0.15);">
+                                    <i class="bi bi-pause-circle-fill me-1"></i> Inactive
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <div class="d-flex flex-column align-items-center">
+                                    <span class="fw-bold" style="color: #4e73df;">{{ plan.installment_count }}</span>
+                                    <small class="text-muted" style="font-size: 10px;">sales</small>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center gap-1">
+                                    <a href="{% url 'installment_plan_edit' plan.id %}" 
+                                       class="btn-premium-icon btn-outline-warning"
+                                       title="Edit Plan">
+                                        <i class="bi bi-pencil-fill"></i>
+                                    </a>
+                                    <a href="{% url 'installment_plan_delete' plan.id %}" 
+                                       class="btn-premium-icon btn-outline-danger"
+                                       title="Delete Plan"
+                                       onclick="return confirm('⚠️ Delete &quot;{{ plan.name }}&quot; plan?\n\nThis will affect {{ plan.installment_count }} installment(s)!\n\nThis action cannot be undone!');">
+                                        <i class="bi bi-trash3-fill"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="empty-state">
+                                <div class="empty-state-icon">
+                                    <i class="bi bi-inbox"></i>
+                                </div>
+                                <h5 class="fw-bold">No Plans Created Yet</h5>
+                                <p class="text-muted">Get started by creating your first installment plan</p>
+                                <a href="{% url 'installment_create' %}" class="btn btn-primary rounded-pill px-4">
+                                    <i class="bi bi-plus-lg"></i> Create First Plan
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- EMI Calculator Preview Section -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="calculator-preview p-4">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <i class="bi bi-calculator-fill fs-4" style="color: #667eea;"></i>
+                    <h5 class="fw-bold mb-0">Quick EMI Calculator</h5>
+                    <span class="badge bg-primary bg-opacity-10 text-primary ms-2">Live Preview</span>
+                </div>
+                
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold small text-muted">Select Plan</label>
+                        <select id="calcPlan" class="form-select rounded-3 border-2">
+                            <option value="">-- Choose a plan --</option>
+                            {% for plan in plans %}
+                            {% if plan.is_active %}
+                            <option value="{{ plan.id }}" 
+                                    data-down="{{ plan.down_payment_percent }}"
+                                    data-rate="{{ plan.interest_rate }}"
+                                    data-months="{{ plan.duration_months }}">
+                                {{ plan.name }} ({{ plan.duration_months }} months)
+                            </option>
+                            {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small text-muted">Product Price (Rs.)</label>
+                        <input type="number" id="calcAmount" class="form-control rounded-3 border-2" 
+                               value="50000" step="10000" placeholder="Enter amount">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small text-muted">&nbsp;</label>
+                        <button id="calcBtn" class="btn btn-primary w-100 rounded-pill animated-gradient">
+                            <i class="bi bi-calculator"></i> Calculate EMI
+                        </button>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-semibold small text-muted">&nbsp;</label>
+                        <button id="resetCalc" class="btn btn-outline-secondary w-100 rounded-pill">
+                            <i class="bi bi-arrow-counterclockwise"></i> Reset
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="calcResult" class="mt-4" style="display: none;">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <div class="result-box">
+                                <div class="result-label">
+                                    <i class="bi bi-arrow-down-circle"></i> DOWN PAYMENT
+                                </div>
+                                <div class="result-value" id="resultDown">Rs. 0</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="result-box" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                                <div class="result-label">
+                                    <i class="bi bi-piggy-bank"></i> LOAN AMOUNT
+                                </div>
+                                <div class="result-value" id="resultLoan">Rs. 0</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="result-box" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                                <div class="result-label">
+                                    <i class="bi bi-calendar-week"></i> MONTHLY EMI
+                                </div>
+                                <div class="result-value" id="resultEMI">Rs. 0</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="result-box" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                                <div class="result-label">
+                                    <i class="bi bi-cash-stack"></i> TOTAL PAYABLE
+                                </div>
+                                <div class="result-value" id="resultTotal">Rs. 0</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-center">
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle"></i> 
+                            Total Interest: <strong id="resultInterest" class="text-warning">Rs. 0</strong>
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // DOM Elements
+    const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
+    const sortFilter = document.getElementById('sortFilter');
+    const resetFilters = document.getElementById('resetFilters');
+    const tableBody = document.getElementById('plansTableBody');
+    const rows = Array.from(document.querySelectorAll('#plansTableBody tr[data-status]'));
+
+    // Filter Function
+    function filterTable() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const statusValue = statusFilter.value;
+        const sortValue = sortFilter.value;
+
+        let filteredRows = rows.filter(row => {
+            const name = row.getAttribute('data-name') || '';
+            const status = row.getAttribute('data-status') || '';
+            
+            const matchesSearch = name.includes(searchTerm);
+            const matchesStatus = statusValue === 'all' || status === statusValue;
+            
+            return matchesSearch && matchesStatus;
+        });
+
+        // Sorting
+        filteredRows.sort((a, b) => {
+            if (sortValue === 'name') {
+                return (a.getAttribute('data-name') || '').localeCompare(b.getAttribute('data-name') || '');
+            } else if (sortValue === 'duration') {
+                return (parseInt(a.getAttribute('data-duration')) || 0) - (parseInt(b.getAttribute('data-duration')) || 0);
+            } else if (sortValue === 'popular') {
+                return (parseInt(b.getAttribute('data-popular')) || 0) - (parseInt(a.getAttribute('data-popular')) || 0);
+            }
+            return 0;
+        });
+
+        // Update table
+        if (filteredRows.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="9" class="empty-state">
+                        <div class="empty-state-icon">
+                            <i class="bi bi-search"></i>
+                        </div>
+                        <h5 class="fw-bold">No matching plans found</h5>
+                        <p class="text-muted">Try adjusting your search or filters</p>
+                        <button class="btn btn-outline-primary rounded-pill" id="clearFiltersBtn">
+                            <i class="bi bi-arrow-repeat"></i> Clear Filters
+                        </button>
+                    </td>
+                </tr>
+            `;
+            const clearBtn = document.getElementById('clearFiltersBtn');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', () => {
+                    searchInput.value = '';
+                    statusFilter.value = 'all';
+                    sortFilter.value = 'name';
+                    filterTable();
+                });
+            }
+        } else {
+            tableBody.innerHTML = '';
+            filteredRows.forEach(row => {
+                tableBody.appendChild(row.cloneNode(true));
+            });
+        }
+    }
+
+    // Reset Filters
+    function resetAllFilters() {
+        searchInput.value = '';
+        statusFilter.value = 'all';
+        sortFilter.value = 'name';
+        filterTable();
+    }
+
+    // Event Listeners
+    searchInput.addEventListener('input', filterTable);
+    statusFilter.addEventListener('change', filterTable);
+    sortFilter.addEventListener('change', filterTable);
+    resetFilters.addEventListener('click', resetAllFilters);
+
+    // ============================================
+    // EMI CALCULATOR
+    // ============================================
+    const calcPlan = document.getElementById('calcPlan');
+    const calcAmount = document.getElementById('calcAmount');
+    const calcBtn = document.getElementById('calcBtn');
+    const resetCalc = document.getElementById('resetCalc');
+    const calcResult = document.getElementById('calcResult');
+
+    function calculateEMI() {
+        const selectedOption = calcPlan.options[calcPlan.selectedIndex];
+        if (!calcPlan.value || !selectedOption) {
+            alert('⚠️ Please select a plan first!');
+            return;
+        }
+
+        const amount = parseFloat(calcAmount.value) || 0;
+        const downPercent = parseFloat(selectedOption.getAttribute('data-down')) || 0;
+        const rate = parseFloat(selectedOption.getAttribute('data-rate')) || 0;
+        const months = parseInt(selectedOption.getAttribute('data-months')) || 1;
+
+        if (amount <= 0) {
+            alert('⚠️ Please enter a valid amount!');
+            return;
+        }
+
+        const downPayment = (downPercent / 100) * amount;
+        const loanAmount = amount - downPayment;
+
+        let emi = 0;
+        if (rate > 0 && months > 0) {
+            const monthlyRate = (rate / 100) / 12;
+            emi = loanAmount * monthlyRate * Math.pow(1 + monthlyRate, months);
+            emi = emi / (Math.pow(1 + monthlyRate, months) - 1);
+        } else {
+            emi = loanAmount / months;
+        }
+
+        const totalPayable = downPayment + (emi * months);
+        const totalInterest = totalPayable - amount;
+
+        // Update display
+        document.getElementById('resultDown').innerHTML = `Rs. ${downPayment.toLocaleString('en-PK', {minimumFractionDigits: 2})}`;
+        document.getElementById('resultLoan').innerHTML = `Rs. ${loanAmount.toLocaleString('en-PK', {minimumFractionDigits: 2})}`;
+        document.getElementById('resultEMI').innerHTML = `Rs. ${emi.toLocaleString('en-PK', {minimumFractionDigits: 2})}`;
+        document.getElementById('resultTotal').innerHTML = `Rs. ${totalPayable.toLocaleString('en-PK', {minimumFractionDigits: 2})}`;
+        document.getElementById('resultInterest').innerHTML = `Rs. ${totalInterest.toLocaleString('en-PK', {minimumFractionDigits: 2})}`;
+
+        calcResult.style.display = 'block';
+        
+        // Smooth scroll
+        calcResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function resetCalculator() {
+        calcPlan.value = '';
+        calcAmount.value = '50000';
+        calcResult.style.display = 'none';
+    }
+
+    calcBtn.addEventListener('click', calculateEMI);
+    resetCalc.addEventListener('click', resetCalculator);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,218 @@
+{% extends 'shareholders/portal/base.html' %}
+{% load static %}
+
+{% block title %}Sell Shares{% endblock %}
+
+{% block portal_content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">📉 Sell Shares</h1>
+        <a href="{% url 'shareholder_portal_dashboard' %}" class="btn btn-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <!-- Balance Info -->
+                    <div class="alert alert-info">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <strong>💰 Current Balance:</strong> 
+                                <span class="fw-bold fs-5">Rs. {{ balance|floatformat:2 }}</span>
+                            </div>
+                            <div class="col-md-6 text-md-end">
+                                <span class="badge bg-primary">Current Price: Rs. {{ current_price|floatformat:2 }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <form method="POST" id="sellForm">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Select Shares to Sell</label>
+                            <select name="share_id" class="form-select form-select-lg" id="shareSelect" required>
+                                <option value="">Select shares...</option>
+                                {% for share in available_shares %}
+                                <option value="{{ share.id }}" 
+                                        data-type="{{ share.get_share_type_display }}"
+                                        data-qty="{{ share.quantity }}"
+                                        data-price="{{ share.purchase_price }}"
+                                        data-total="{{ share.total_investment }}">
+                                    {{ share.get_share_type_display }} - {{ share.quantity }} shares 
+                                    (Purchase: Rs. {{ share.purchase_price|floatformat:2 }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if not available_shares %}
+                            <div class="alert alert-warning mt-2">
+                                <i class="bi bi-exclamation-triangle"></i> 
+                                You don't have any shares to sell.
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Quantity to Sell</label>
+                            <input type="number" name="sell_quantity" class="form-control form-control-lg" 
+                                   min="1" required id="sellQuantity" placeholder="Enter quantity">
+                            <small class="text-muted">Maximum: <span id="maxSellQty">0</span> shares</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Sell Price per Share (Rs.)</label>
+                            <input type="number" name="sell_price" class="form-control form-control-lg" 
+                                   step="0.01" min="0.01" required id="sellPrice"
+                                   value="{{ current_price|floatformat:2 }}">
+                            <small class="text-muted">Current market price: <strong>Rs. {{ current_price|floatformat:2 }}</strong></small>
+                        </div>
+                        
+                        <div class="form-check mb-3">
+                            <input type="checkbox" name="add_to_balance" class="form-check-input" 
+                                   id="addToBalance" checked>
+                            <label class="form-check-label fw-bold" for="addToBalance">
+                                Add amount to cash balance
+                            </label>
+                            <br>
+                            <small class="text-muted">If unchecked, amount will go to main cash</small>
+                        </div>
+                        
+                        <!-- Sell Summary -->
+                        <div class="alert alert-secondary" id="summaryBox">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>📊 Total Amount:</strong><br>
+                                    <span id="totalAmount" class="fs-5">Rs. 0.00</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>💰 Balance After:</strong><br>
+                                    <span id="balanceAfter" class="fs-5">Rs. {{ balance|floatformat:2 }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-warning btn-lg" id="sellBtn">
+                                <i class="bi bi-cart-dash"></i> Sell Shares
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">📊 Your Share Holdings</h6>
+                </div>
+                <div class="card-body">
+                    {% for share in available_shares %}
+                    <div class="border-bottom py-2">
+                        <div class="d-flex justify-content-between">
+                            <span><strong>{{ share.get_share_type_display }}</strong></span>
+                            <span class="badge bg-primary">{{ share.quantity }} shares</span>
+                        </div>
+                        <div class="d-flex justify-content-between small text-muted">
+                            <span>Purchase: Rs. {{ share.purchase_price|floatformat:2 }}</span>
+                            <span>Value: Rs. {{ share.total_value|floatformat:2 }}</span>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted text-center py-3">No shares available</p>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">💡 Quick Sell</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-warning btn-sm" onclick="quickSell(25)">
+                            <i class="bi bi-cart-dash"></i> Sell 25%
+                        </button>
+                        <button class="btn btn-outline-warning btn-sm" onclick="quickSell(50)">
+                            <i class="bi bi-cart-dash"></i> Sell 50%
+                        </button>
+                        <button class="btn btn-outline-warning btn-sm" onclick="quickSell(75)">
+                            <i class="bi bi-cart-dash"></i> Sell 75%
+                        </button>
+                        <button class="btn btn-outline-warning btn-sm" onclick="quickSell(100)">
+                            <i class="bi bi-cart-dash"></i> Sell All
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const balance = {{ balance|floatformat:2 }};
+    const currentPrice = {{ current_price|floatformat:2 }};
+    let selectedShareQty = 0;
+    
+    function quickSell(percent) {
+        const qty = Math.floor(selectedShareQty * percent / 100);
+        if (qty > 0) {
+            document.getElementById('sellQuantity').value = qty;
+            updateSummary();
+        } else {
+            alert('No shares to sell!');
+        }
+    }
+    
+    function updateSummary() {
+        const qty = parseInt(document.getElementById('sellQuantity').value) || 0;
+        const price = parseFloat(document.getElementById('sellPrice').value) || 0;
+        const total = qty * price;
+        const balanceAfter = balance + total;
+        const addToBalance = document.getElementById('addToBalance').checked;
+        
+        document.getElementById('totalAmount').textContent = `Rs. ${total.toFixed(2)}`;
+        
+        if (addToBalance) {
+            document.getElementById('balanceAfter').textContent = `Rs. ${balanceAfter.toFixed(2)}`;
+        } else {
+            document.getElementById('balanceAfter').textContent = 'No change (main cash)';
+        }
+        
+        // Validate quantity
+        const maxQty = parseInt(document.getElementById('maxSellQty').textContent) || 0;
+        const sellBtn = document.getElementById('sellBtn');
+        if (qty > maxQty) {
+            document.getElementById('summaryBox').className = 'alert alert-danger';
+            sellBtn.disabled = true;
+            sellBtn.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Insufficient Shares';
+        } else if (qty === 0) {
+            document.getElementById('summaryBox').className = 'alert alert-secondary';
+            sellBtn.disabled = true;
+            sellBtn.innerHTML = '<i class="bi bi-cart-dash"></i> Sell Shares';
+        } else {
+            document.getElementById('summaryBox').className = 'alert alert-success';
+            sellBtn.disabled = false;
+            sellBtn.innerHTML = '<i class="bi bi-cart-dash"></i> Sell Shares';
+        }
+    }
+    
+    document.getElementById('shareSelect').addEventListener('change', function() {
+        const selected = this.options[this.selectedIndex];
+        if (selected.value) {
+            selectedShareQty = parseInt(selected.dataset.qty) || 0;
+            document.getElementById('maxSellQty').textContent = selectedShareQty;
+            document.getElementById('sellQuantity').max = selectedShareQty;
+            document.getElementById('sellQuantity').placeholder = `Max: ${selectedShareQty}`;
+        }
+        updateSummary();
+    });
+    
+    document.getElementById('sellQuantity').addEventListener('input', updateSummary);
+    document.getElementById('sellPrice').addEventListener('input', updateSummary);
+    document.getElementById('addToBalance').addEventListener('change', updateSummary);
+</script>
+{% endblock %}

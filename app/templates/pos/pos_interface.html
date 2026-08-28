@@ -1,0 +1,543 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+
+<style>
+    .pos-container { display: flex; gap: 20px; }
+    .pos-left { flex: 2; }
+    .pos-right { flex: 1; background: #f5f5f5; padding: 15px; border-radius: 10px; }
+    
+    .search-box { 
+        width: 100%; padding: 15px; font-size: 18px; 
+        border: 2px solid #ddd; border-radius: 10px; margin-bottom: 15px;
+    }
+    .search-box:focus { border-color: #007bff; outline: none; }
+    
+    .scan-box {
+        width: 100%; padding: 15px; font-size: 18px;
+        border: 2px solid #28a745; border-radius: 10px; margin-bottom: 15px;
+        background: #f0fff0;
+    }
+    .scan-box:focus { border-color: #28a745; outline: none; }
+    
+    .product-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; max-height: 400px; overflow-y: auto; }
+    .product-card { 
+        background: white; padding: 15px; border-radius: 10px; 
+        border: 1px solid #ddd; cursor: pointer; text-align: center;
+        transition: all 0.2s;
+    }
+    .product-card:hover { background: #e3f2fd; border-color: #007bff; transform: scale(1.02); }
+    .product-card .name { font-weight: bold; font-size: 13px; }
+    .product-card .price { color: #28a745; font-weight: bold; }
+    .product-card .stock { color: #666; font-size: 11px; }
+    
+    .cart-item { 
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 10px; background: white; margin-bottom: 5px; border-radius: 8px;
+    }
+    .cart-item .remove-btn { 
+        background: #f44336; color: white; border: none; 
+        padding: 5px 10px; border-radius: 5px; cursor: pointer;
+    }
+    
+    .total-row { font-size: 20px; font-weight: bold; text-align: right; padding: 15px 0; }
+    
+    .btn { padding: 12px 25px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; }
+    .btn-primary { background: #007bff; color: white; }
+    .btn-success { background: #28a745; color: white; width: 100%; margin-top: 10px; }
+    .btn-warning { background: #ff9800; color: white; }
+    .btn-danger { background: #f44336; color: white; }
+    
+    .no-results { text-align: center; padding: 20px; color: #666; }
+    .search-results { max-height: 300px; overflow-y: auto; }
+    .search-result-item {
+        padding: 10px; background: white; margin-bottom: 3px; border-radius: 5px;
+        cursor: pointer; display: flex; justify-content: space-between;
+    }
+    .search-result-item:hover { background: #e3f2fd; }
+</style>
+
+<h1>🛒 Point of Sale</h1>
+
+<div class="pos-container">
+    <!-- Left Side - Products & Search -->
+    <div class="pos-left">
+        <!-- Dual Input: Scan + Search -->
+        <div style="display: flex; gap: 10px;">
+            <div style="flex: 1;">
+                <label style="font-weight: bold; color: #28a745;">📷 Barcode Scan:</label>
+                <input type="text" id="barcodeInput" class="scan-box" 
+                       placeholder="Barcode scan karo ya type karo..." 
+                       autofocus autocomplete="off">
+            </div>
+            <div style="flex: 2;">
+                <label style="font-weight: bold; color: #007bff;">🔍 Search Product:</label>
+                <input type="text" id="searchInput" class="search-box" 
+                       placeholder="Product name search karo..."
+                       autocomplete="off" 
+                       onkeyup="searchProducts()">
+            </div>
+        </div>
+        
+        <!-- Search Results (Show hoga jab search karo) -->
+        <div id="searchResults" class="search-results" style="display: none;"></div>
+        
+        <!-- Recent Products Grid -->
+        <h4 style="margin-top: 15px;">📦 All Products</h4>
+        <div id="productGrid" class="product-grid">
+            <div class="no-results">Loading products...</div>
+        </div>
+    </div>
+    
+    <!-- Right Side - Cart -->
+    <div class="pos-right">
+        <h3>🛒 Cart</h3>
+        
+        <div>
+            <label>Customer:</label>
+            <select id="customerSelect" style="width: 100%; padding: 8px; border-radius: 5px; margin-bottom: 10px;">
+                <option value="">Select Customer</option>
+            </select>
+        </div>
+        
+        <div style="max-height: 350px; overflow-y: auto;" id="cartItems">
+            <p style="text-align: center; color: #666;">Cart is empty</p>
+        </div>
+        
+        <hr>
+        
+        <div>
+            <label>Discount (Rs.):</label>
+            <input type="number" id="discountInput" value="0" 
+                   style="width: 100%; padding: 8px; border-radius: 5px; margin-bottom: 10px;"
+                   onchange="updateTotal()">
+        </div>
+        
+        <div>
+            <label>Paid Amount (Rs.):</label>
+            <input type="number" id="paidInput" value="0" 
+                   style="width: 100%; padding: 8px; border-radius: 5px; margin-bottom: 10px;"
+                   onchange="updateTotal()">
+        </div>
+        
+        <div class="total-row">
+            Total: <span id="totalAmount">Rs. 0.00</span>
+        </div>
+        <div style="text-align: right; color: #28a745; font-weight: bold;">
+            Change: <span id="changeAmount">Rs. 0.00</span>
+        </div>
+        
+        <button class="btn btn-success" onclick="completeSale()" style="margin-top: 10px;">
+            ✅ Complete Sale
+        </button>
+        <button class="btn btn-warning" onclick="holdSale()" style="width: 100%; margin-top: 5px;">
+            📌 Hold Sale
+        </button>
+        <button class="btn btn-danger" onclick="clearCart()" style="width: 100%; margin-top: 5px;">
+            🗑️ Clear Cart
+        </button>
+    </div>
+</div>
+
+<script>
+// ============================================
+// VARIABLES
+// ============================================
+let cart = [];
+let allProducts = [];
+let customers = [];
+
+// ============================================
+// INITIALIZE
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    loadProducts();
+    loadCustomers();
+    
+    // Barcode input - Enter dabao to add
+    document.getElementById('barcodeInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addByBarcode(this.value);
+            this.value = '';
+        }
+    });
+});
+
+// ============================================
+// LOAD PRODUCTS
+// ============================================
+function loadProducts() {
+    const warehouseId = '{{ default_warehouse.id }}';
+    
+    fetch(`/pos/get-products/?warehouse=${warehouseId}`)
+        .then(res => res.json())
+        .then(data => {
+            allProducts = data.products;
+            displayProducts(allProducts);
+        })
+        .catch(err => {
+            document.getElementById('productGrid').innerHTML = 
+                '<div class="no-results">❌ Products load nahi hue</div>';
+        });
+}
+
+// ============================================
+// DISPLAY PRODUCTS GRID
+// ============================================
+function displayProducts(products) {
+    const grid = document.getElementById('productGrid');
+    
+    if (!products || products.length === 0) {
+        grid.innerHTML = '<div class="no-results">No products found</div>';
+        return;
+    }
+    
+    grid.innerHTML = products.map(p => `
+        <div class="product-card" onclick="addToCart(${p.id}, '${p.name.replace(/'/g, "\\'")}', ${p.price}, ${p.stock})" 
+             title="Click to add | Stock: ${p.stock}">
+            <div class="name">${p.name}</div>
+            <div class="price">Rs. ${parseFloat(p.price).toFixed(0)}</div>
+            <div class="stock">Stock: ${p.stock} ${p.unit || 'pcs'}</div>
+            <small style="color: #999;">${p.barcode || ''}</small>
+        </div>
+    `).join('');
+}
+
+// ============================================
+// SEARCH PRODUCTS (Name/Barcode)
+// ============================================
+function searchProducts() {
+    const query = document.getElementById('searchInput').value.trim();
+    const resultsDiv = document.getElementById('searchResults');
+    
+    if (query.length < 1) {
+        resultsDiv.style.display = 'none';
+        displayProducts(allProducts);
+        return;
+    }
+    
+    // Search in name, barcode, serial
+    const filtered = allProducts.filter(p => 
+        p.name.toLowerCase().includes(query.toLowerCase()) ||
+        (p.barcode && p.barcode.includes(query)) ||
+        p.id.toString() === query
+    );
+    
+    // Also search via AJAX for server-side results
+    fetch(`/pos/search-product/?q=${encodeURIComponent(query)}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.products && data.products.length > 0) {
+                const serverProducts = data.products.filter(sp => 
+                    !filtered.some(fp => fp.id === sp.id)
+                );
+                showSearchResults([...filtered, ...serverProducts]);
+            } else {
+                showSearchResults(filtered);
+            }
+        })
+        .catch(() => {
+            showSearchResults(filtered);
+        });
+}
+
+function showSearchResults(products) {
+    const resultsDiv = document.getElementById('searchResults');
+    
+    if (products.length === 0) {
+        resultsDiv.style.display = 'block';
+        resultsDiv.innerHTML = '<div class="no-results">❌ No product found</div>';
+    } else {
+        resultsDiv.style.display = 'block';
+        resultsDiv.innerHTML = products.slice(0, 15).map(p => `
+            <div class="search-result-item" onclick="addToCart(${p.id}, '${p.name.replace(/'/g, "\\'")}', ${p.price}, ${p.stock}); document.getElementById('searchResults').style.display='none'; document.getElementById('searchInput').value=''; displayProducts(allProducts);">
+                <span><b>${p.name}</b> <small style="color:#999;">${p.barcode || ''}</small></span>
+                <span style="color: #28a745; font-weight: bold;">Rs. ${parseFloat(p.price).toFixed(0)} | Stock: ${p.stock}</span>
+            </div>
+        `).join('');
+    }
+}
+
+// ============================================
+// ADD BY BARCODE (Scan ya Manual Type)
+// ============================================
+function addByBarcode(barcode) {
+    if (!barcode) return;
+    
+    // Pehle local products mein search karo
+    const localProduct = allProducts.find(p => p.barcode === barcode);
+    
+    if (localProduct) {
+        addToCart(localProduct.id, localProduct.name, localProduct.price, localProduct.stock);
+        return;
+    }
+    
+    // Server pe search karo
+    fetch(`/pos/quick-add/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            barcode: barcode,
+            warehouse: '{{ default_warehouse.id }}'
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            addToCart(data.product.id, data.product.name, data.product.price, data.product.stock);
+            showMessage('✅ Product added!', 'success');
+        } else {
+            showMessage('❌ ' + data.message, 'error');
+        }
+    })
+    .catch(() => {
+        showMessage('❌ Product not found', 'error');
+    });
+}
+
+// ============================================
+// ADD TO CART
+// ============================================
+function addToCart(productId, name, price, stock) {
+    // Check if already in cart
+    const existing = cart.find(item => item.product_id === productId);
+    
+    if (existing) {
+        if (existing.qty >= stock) {
+            showMessage('⚠️ Stock limit reached! Available: ' + stock, 'error');
+            return;
+        }
+        existing.qty += 1;
+    } else {
+        if (stock <= 0) {
+            showMessage('❌ Out of stock!', 'error');
+            return;
+        }
+        cart.push({
+            product_id: productId,
+            name: name,
+            price: parseFloat(price),
+            qty: 1,
+            stock: stock
+        });
+    }
+    
+    updateCartDisplay();
+    updateTotal();
+    showMessage('✅ ' + name + ' added!', 'success');
+}
+
+// ============================================
+// UPDATE CART DISPLAY
+// ============================================
+function updateCartDisplay() {
+    const cartDiv = document.getElementById('cartItems');
+    
+    if (cart.length === 0) {
+        cartDiv.innerHTML = '<p style="text-align: center; color: #666;">Cart is empty</p>';
+        return;
+    }
+    
+    cartDiv.innerHTML = cart.map((item, index) => `
+        <div class="cart-item">
+            <div>
+                <b>${item.name}</b><br>
+                <small>Rs. ${item.price.toFixed(0)} x ${item.qty} = Rs. ${(item.price * item.qty).toFixed(0)}</small>
+            </div>
+            <div style="display: flex; gap: 5px; align-items: center;">
+                <button onclick="changeQty(${index}, -1)" style="background: #ddd; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 16px;">−</button>
+                <span style="font-weight: bold; min-width: 25px; text-align: center;">${item.qty}</span>
+                <button onclick="changeQty(${index}, 1)" style="background: #ddd; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 16px;">+</button>
+                <button onclick="removeFromCart(${index})" class="remove-btn">✕</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// ============================================
+// CHANGE QUANTITY
+// ============================================
+function changeQty(index, delta) {
+    const item = cart[index];
+    const newQty = item.qty + delta;
+    
+    if (newQty <= 0) {
+        cart.splice(index, 1);
+    } else if (newQty > item.stock) {
+        showMessage('⚠️ Stock limit! Max: ' + item.stock, 'error');
+        return;
+    } else {
+        item.qty = newQty;
+    }
+    
+    updateCartDisplay();
+    updateTotal();
+}
+
+// ============================================
+// REMOVE FROM CART
+// ============================================
+function removeFromCart(index) {
+    cart.splice(index, 1);
+    updateCartDisplay();
+    updateTotal();
+}
+
+// ============================================
+// UPDATE TOTAL
+// ============================================
+function updateTotal() {
+    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    const discount = parseFloat(document.getElementById('discountInput').value) || 0;
+    const paid = parseFloat(document.getElementById('paidInput').value) || 0;
+    
+    const total = Math.max(0, subtotal - discount);
+    const change = Math.max(0, paid - total);
+    
+    document.getElementById('totalAmount').textContent = 'Rs. ' + total.toFixed(0);
+    document.getElementById('changeAmount').textContent = 'Rs. ' + change.toFixed(0);
+}
+
+// ============================================
+// COMPLETE SALE
+// ============================================
+function completeSale() {
+    if (cart.length === 0) {
+        alert('Cart is empty!');
+        return;
+    }
+    
+    const customerId = document.getElementById('customerSelect').value;
+    const discount = parseFloat(document.getElementById('discountInput').value) || 0;
+    const paid = parseFloat(document.getElementById('paidInput').value) || 0;
+    
+    if (!customerId) {
+        alert('Please select a customer!');
+        return;
+    }
+    
+    const saleData = {
+        customer_id: customerId,
+        warehouse_id: '{{ default_warehouse.id }}',
+        items: cart.map(item => ({
+            id: item.product_id,
+            qty: item.qty,
+            price: item.price
+        })),
+        discount: discount,
+        paid_amount: paid,
+        payment_method: 'cash'
+    };
+    
+    fetch('/pos/complete-sale/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(saleData)
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Sale Complete!\nBill: ' + data.bill_no + '\nTotal: Rs. ' + data.total);
+            
+            // Print receipt
+            window.open('/pos/print-receipt/' + data.sale_id + '/', '_blank');
+            
+            // Clear cart
+            cart = [];
+            updateCartDisplay();
+            updateTotal();
+            loadProducts();
+        } else {
+            alert('❌ ' + data.message);
+        }
+    })
+    .catch(err => {
+        alert('❌ Error completing sale');
+    });
+}
+
+// ============================================
+// HOLD SALE
+// ============================================
+function holdSale() {
+    if (cart.length === 0) {
+        alert('Cart is empty!');
+        return;
+    }
+    
+    fetch('/pos/hold-sale/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({ cart: cart })
+    })
+    .then(res => res.json())
+    .then(data => {
+        alert('📌 Sale held!');
+        cart = [];
+        updateCartDisplay();
+        updateTotal();
+    });
+}
+
+// ============================================
+// CLEAR CART
+// ============================================
+function clearCart() {
+    if (confirm('Clear cart?')) {
+        cart = [];
+        updateCartDisplay();
+        updateTotal();
+    }
+}
+
+// ============================================
+// LOAD CUSTOMERS
+// ============================================
+function loadCustomers() {
+    fetch('/pos/get-customers/')
+        .then(res => res.json())
+        .then(data => {
+            const select = document.getElementById('customerSelect');
+            data.customers.forEach(c => {
+                select.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+            });
+        });
+}
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+function showMessage(msg, type) {
+    // Simple notification - aap toast bana sakte ho
+    const input = document.getElementById('barcodeInput');
+    input.placeholder = msg;
+    setTimeout(() => {
+        input.placeholder = 'Barcode scan karo ya type karo...';
+    }, 2000);
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

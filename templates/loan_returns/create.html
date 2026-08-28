@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}💰 New Loan Return{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">💰 Loan Return / Repayment</h4>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- Current Balance Alert -->
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        Current Main Cash Balance: <strong>Rs. {{ current_balance|floatformat:2 }}</strong>
+                        <br>
+                        <small>Payment will be deducted from this balance when processed.</small>
+                    </div>
+                    
+                    <!-- ✅ If coming from Loan Detail page -->
+                    {% if pre_filled_loan %}
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle"></i>
+                        <strong>Loan Selected:</strong> {{ pre_filled_loan.loan_no }} - {{ pre_filled_loan.lender_name }}
+                        <br>
+                        <small>Remaining Balance: Rs. {{ pre_filled_loan.remaining_amount|floatformat:2 }}</small>
+                        {% if pre_filled_amount > 0 %}
+                            <br>
+                            <small class="text-muted">💡 Suggested amount: Rs. {{ pre_filled_amount|floatformat:2 }}</small>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    <form method="POST" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <!-- ✅ HIDDEN: Loan ID (if coming from loan detail) -->
+                        {% if loan_id %}
+                            <input type="hidden" name="loan_id" value="{{ loan_id }}">
+                        {% endif %}
+                        
+                        <!-- ✅ HIDDEN: Loan Agreement No (auto-filled) -->
+                        <input type="hidden" name="loan_agreement_no" value="{{ pre_filled_agreement|default:'' }}">
+                        
+                        <!-- Lender Details -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label class="fw-bold">Lender/Bank Name *</label>
+                                    <input type="text" name="lender_name" class="form-control" 
+                                           placeholder="e.g., HBL, UBL" 
+                                           value="{{ pre_filled_lender }}" 
+                                           {% if pre_filled_lender %}readonly{% endif %} required>
+                                    {% if pre_filled_lender %}
+                                        <small class="text-muted">🔒 Auto-filled from loan</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label class="fw-bold">Loan Agreement No</label>
+                                    <input type="text" class="form-control" 
+                                           value="{{ pre_filled_agreement|default:'Auto-filled from loan' }}" 
+                                           readonly disabled>
+                                    <small class="text-muted">Auto-filled from selected loan</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Return Type & Date -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label class="fw-bold">Return Type</label>
+                                    <select name="return_type" class="form-control">
+                                        <option value="installment">📅 Installment Payment</option>
+                                        <option value="full">💰 Full Settlement</option>
+                                        <option value="partial">📊 Partial Payment</option>
+                                        <option value="early">⚡ Early Repayment</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label class="fw-bold">Return Date</label>
+                                    <input type="date" name="return_date" class="form-control" 
+                                           value="{{ today }}">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- ✅ ONLY TOTAL AMOUNT -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label class="fw-bold">Total Amount *</label>
+                                    <input type="number" name="amount" class="form-control form-control-lg" 
+                                           step="0.01" required placeholder="0.00" 
+                                           value="{% if pre_filled_amount > 0 %}{{ pre_filled_amount }}{% else %}0{% endif %}">
+                                    <small class="text-muted">Enter total amount to return</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label class="fw-bold">Due Date</label>
+                                    <input type="date" name="due_date" class="form-control">
+                                    <small class="text-muted">Optional - Original due date</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Payment Method -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label class="fw-bold">Payment Method</label>
+                                    <select name="payment_method" class="form-control">
+                                        <option value="bank_transfer">🏦 Bank Transfer</option>
+                                        <option value="cash">💵 Cash</option>
+                                        <option value="online">🌐 Online Payment</option>
+                                        <option value="cheque">📄 Cheque</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label class="fw-bold">Reference No</label>
+                                    <input type="text" name="reference_no" class="form-control" 
+                                           placeholder="Transaction reference">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Description -->
+                        <div class="form-group mb-3">
+                            <label class="fw-bold">Description</label>
+                            <textarea name="description" class="form-control" rows="2" 
+                                      placeholder="e.g., 1st installment payment"></textarea>
+                        </div>
+                        
+                        <!-- Notes -->
+                        <div class="form-group mb-3">
+                            <label class="fw-bold">Notes</label>
+                            <textarea name="notes" class="form-control" rows="2"></textarea>
+                        </div>
+                        
+                        <!-- Receipt Upload -->
+                        <div class="form-group mb-3">
+                            <label class="fw-bold">Receipt / Document</label>
+                            <input type="file" name="receipt" class="form-control" accept=".pdf,.jpg,.png">
+                            <small class="text-muted">Upload payment receipt</small>
+                        </div>
+                        
+                        <!-- Process Now -->
+                        <div class="form-check mb-3">
+                            <input type="checkbox" name="process_now" class="form-check-input" id="processNow" checked>
+                            <label class="form-check-label" for="processNow">
+                                <strong>✅ Process payment immediately</strong>
+                                <br>
+                                <small class="text-muted">Amount will be deducted from main cash balance</small>
+                            </label>
+                        </div>
+                        
+                        <!-- Buttons -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% if loan_id %}{% url 'loan_detail' loan_id %}{% else %}{% url 'loan_return_list' %}{% endif %}" 
+                               class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-credit-card"></i> Submit Return
+                            </button>
+                        </div>
+                        
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Execute Test Case{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h5><i class="bi bi-play-circle text-primary"></i> Execute Test Case</h5>
+                    <p class="text-muted small">{{ test_case.title }}</p>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <strong>Description:</strong>
+                        <p>{{ test_case.description }}</p>
+                    </div>
+                    
+                    {% if test_case.pre_conditions %}
+                    <div class="mb-3">
+                        <strong>Pre-Conditions:</strong>
+                        <p>{{ test_case.pre_conditions }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if test_case.test_steps %}
+                    <div class="mb-3">
+                        <strong>Test Steps:</strong>
+                        <ol>
+                            {% for step in test_case.test_steps %}
+                            <li>{{ step }}</li>
+                            {% endfor %}
+                        </ol>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        <strong>Expected Result:</strong>
+                        <p>{{ test_case.expected_result }}</p>
+                    </div>
+                    
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Execution Status</label>
+                            <select name="status" class="form-select" required>
+                                {% for key, value in status_choices %}
+                                <option value="{{ key }}">{{ value }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Actual Result</label>
+                            <textarea name="actual_result" class="form-control" rows="3"></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Notes</label>
+                            <textarea name="notes" class="form-control" rows="2"></textarea>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> Submit Result
+                            </button>
+                            <a href="{% url 'test_case_list' test_case.suite.id %}" class="btn btn-secondary">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,587 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Budget Management - ERP System{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ========================================== */
+    /* PREMIUM STYLES                            */
+    /* ========================================== */
+    .stat-card {
+        transition: all 0.3s ease;
+        border: none;
+        border-radius: 16px;
+        overflow: hidden;
+    }
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    }
+    .stat-card .stat-icon {
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        background: rgba(255,255,255,0.2);
+        font-size: 24px;
+    }
+    .stat-card .stat-value {
+        font-size: 28px;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    .stat-card .stat-label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        opacity: 0.8;
+    }
+    
+    /* Table */
+    .table-budget {
+        font-size: 14px;
+    }
+    .table-budget thead th {
+        background: #f8f9fa;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: 0.5px;
+        color: #6c757d;
+        border-bottom: 2px solid #e9ecef;
+        padding: 12px 8px;
+    }
+    .table-budget tbody td {
+        padding: 12px 8px;
+        vertical-align: middle;
+    }
+    .table-budget tbody tr {
+        transition: all 0.2s ease;
+    }
+    .table-budget tbody tr:hover {
+        background: #f8f9fa;
+        box-shadow: inset 0 0 0 1px #e9ecef;
+    }
+    
+    /* Status Badges */
+    .badge-status {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-weight: 500;
+        font-size: 11px;
+    }
+    .badge-status.draft { background: #e9ecef; color: #6c757d; }
+    .badge-status.pending { background: #fff3cd; color: #856404; }
+    .badge-status.approved { background: #cce5ff; color: #004085; }
+    .badge-status.active { background: #d4edda; color: #155724; }
+    .badge-status.expired { background: #f8d7da; color: #721c24; }
+    .badge-status.cancelled { background: #f8d7da; color: #721c24; }
+    
+    /* Action Buttons */
+    .btn-action {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        border: none;
+        font-size: 14px;
+    }
+    .btn-action:hover {
+        transform: scale(1.1);
+    }
+    .btn-action-view { background: #e3f2fd; color: #1976d2; }
+    .btn-action-view:hover { background: #1976d2; color: #fff; }
+    .btn-action-edit { background: #fff3e0; color: #f57c00; }
+    .btn-action-edit:hover { background: #f57c00; color: #fff; }
+    .btn-action-submit { background: #e8f5e9; color: #388e3c; }
+    .btn-action-submit:hover { background: #388e3c; color: #fff; }
+    .btn-action-approve { background: #e8f5e9; color: #2e7d32; }
+    .btn-action-approve:hover { background: #2e7d32; color: #fff; }
+    .btn-action-activate { background: #e8f5e9; color: #1b5e20; }
+    .btn-action-activate:hover { background: #1b5e20; color: #fff; }
+    .btn-action-delete { background: #fce4ec; color: #c62828; }
+    .btn-action-delete:hover { background: #c62828; color: #fff; }
+    
+    /* Progress Bar */
+    .progress-budget {
+        height: 6px;
+        border-radius: 10px;
+        background: #e9ecef;
+        min-width: 80px;
+    }
+    .progress-budget .progress-bar {
+        border-radius: 10px;
+        transition: width 1s ease;
+    }
+    
+    /* Filters */
+    .filter-section {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 16px 20px;
+    }
+    .filter-section .form-label {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #6c757d;
+        margin-bottom: 4px;
+    }
+    
+    /* Empty State */
+    .empty-state {
+        padding: 60px 20px;
+        text-align: center;
+    }
+    .empty-state .empty-icon {
+        font-size: 64px;
+        color: #dee2e6;
+        margin-bottom: 16px;
+    }
+    .empty-state h5 {
+        color: #495057;
+        margin-bottom: 8px;
+    }
+    .empty-state p {
+        color: #6c757d;
+        max-width: 400px;
+        margin: 0 auto 20px;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .stat-card .stat-value {
+            font-size: 20px;
+        }
+        .table-budget {
+            font-size: 12px;
+        }
+        .table-budget thead th,
+        .table-budget tbody td {
+            padding: 8px 4px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <!-- ========================================== -->
+    <!-- HEADER                                     -->
+    <!-- ========================================== -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">
+                <i class="bi bi-wallet2 text-primary me-2"></i> Budget Management
+            </h2>
+            <p class="text-muted small mb-0">
+                <i class="bi bi-calendar3"></i> 
+                {% now "F Y" %} • 
+                <span class="fw-bold">{{ page_obj.paginator.count }}</span> budgets found
+            </p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{% url 'budget_dashboard' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </a>
+            <a href="{% url 'budget_report' %}" class="btn btn-outline-info btn-sm">
+                <i class="bi bi-file-earmark-text"></i> Reports
+            </a>
+            <a href="{% url 'budget_create' %}" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-circle"></i> New Budget
+            </a>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- QUICK STATS                               -->
+    <!-- ========================================== -->
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-lg-6 col-md-6">
+            <div class="stat-card card text-white" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="stat-label">Total Budgets</div>
+                            <div class="stat-value">{{ total_budgets }}</div>
+                            <small class="opacity-75">{{ page_obj.paginator.count }} total</small>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="bi bi-wallet2"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-lg-6 col-md-6">
+            <div class="stat-card card text-white" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="stat-label">Active</div>
+                            <div class="stat-value">{{ active_count }}</div>
+                            <small class="opacity-75">{{ active_percent|floatformat:0 }}% of total</small>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="bi bi-check-circle"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-lg-6 col-md-6">
+            <div class="stat-card card text-white" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="stat-label">Total Allocated</div>
+                            <div class="stat-value">Rs. {{ total_allocated|floatformat:0|intcomma }}</div>
+                            <small class="opacity-75">Budget allocation</small>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="bi bi-coin"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-lg-6 col-md-6">
+            <div class="stat-card card text-white" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="stat-label">⚠️ Over Budget</div>
+                            <div class="stat-value">{{ over_budget_count }}</div>
+                            <small class="opacity-75">Needs attention</small>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="bi bi-exclamation-triangle"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- FILTERS - Premium                         -->
+    <!-- ========================================== -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body filter-section">
+            <form method="GET" class="row g-3 align-items-end" id="filterForm">
+                <div class="col-xl-2 col-lg-3 col-md-4">
+                    <label class="form-label">🔍 Search</label>
+                    <input type="text" name="search" class="form-control form-control-sm" 
+                           placeholder="Name, code..." value="{{ search }}">
+                </div>
+                <div class="col-xl-2 col-lg-3 col-md-4">
+                    <label class="form-label">📂 Type</label>
+                    <select name="type" class="form-select form-select-sm">
+                        <option value="">All Types</option>
+                        {% for key, value in budget_types %}
+                        <option value="{{ key }}" {% if key == budget_type %}selected{% endif %}>{{ value|safe }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-xl-2 col-lg-3 col-md-4">
+                    <label class="form-label">📊 Status</label>
+                    <select name="status" class="form-select form-select-sm">
+                        <option value="">All Status</option>
+                        {% for key, value in status_choices %}
+                        <option value="{{ key }}" {% if key == status %}selected{% endif %}>{{ value|safe }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-xl-2 col-lg-3 col-md-4">
+                    <label class="form-label">🏢 Department</label>
+                    <select name="department" class="form-select form-select-sm">
+                        <option value="">All Departments</option>
+                        {% for dept in departments %}
+                        <option value="{{ dept.id }}" {% if dept.id|stringformat:"s" == department %}selected{% endif %}>{{ dept.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-xl-2 col-lg-3 col-md-4">
+                    <label class="form-label">📅 From</label>
+                    <input type="date" name="from_date" class="form-control form-control-sm" 
+                           value="{{ from_date }}">
+                </div>
+                <div class="col-xl-2 col-lg-3 col-md-4">
+                    <label class="form-label">📅 To</label>
+                    <input type="date" name="to_date" class="form-control form-control-sm" 
+                           value="{{ to_date }}">
+                </div>
+                <div class="col-xl-12">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-search"></i> Apply Filters
+                    </button>
+                    <a href="{% url 'budget_list' %}" class="btn btn-secondary btn-sm">
+                        <i class="bi bi-arrow-counterclockwise"></i> Reset
+                    </a>
+                    <span class="ms-3 text-muted small">
+                        <i class="bi bi-funnel"></i> 
+                        {{ page_obj.paginator.count }} results
+                    </span>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- BUDGETS TABLE - Premium                   -->
+    <!-- ========================================== -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center py-3">
+            <div>
+                <h6 class="mb-0 fw-bold">
+                    <i class="bi bi-list-ul text-primary me-2"></i> Budget List
+                </h6>
+            </div>
+            <div class="d-flex gap-2">
+                <span class="badge bg-success">✅ Active: {{ active_count }}</span>
+                <span class="badge bg-warning text-dark">📝 Draft: {{ draft_count|default:0 }}</span>
+                <span class="badge bg-danger">⚠️ Over: {{ over_budget_count }}</span>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-budget mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 6%;">#</th>
+                            <th style="width: 14%;">Budget</th>
+                            <th style="width: 9%;">Type</th>
+                            <th style="width: 10%;">Department</th>
+                            <th style="width: 10%;">Period</th>
+                            <th style="width: 10%;">Allocated</th>
+                            <th style="width: 10%;">Used</th>
+                            <th style="width: 10%;">Remaining</th>
+                            <th style="width: 11%;">Utilization</th>
+                            <th style="width: 8%;">Status</th>
+                            <th style="width: 12%;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for budget in page_obj %}
+                        <tr class="{% if budget.is_over_budget %}table-danger{% elif budget.status == 'expired' %}table-secondary{% endif %}">
+                            <td>
+                                <span class="fw-bold text-primary">{{ budget.budget_no }}</span>
+                            </td>
+                            <td>
+                                <div>
+                                    <a href="{% url 'budget_detail' budget.id %}" class="text-decoration-none fw-bold">
+                                        {{ budget.name }}
+                                    </a>
+                                    {% if budget.allow_rollover %}
+                                    <span class="badge bg-info ms-1" title="Rollover enabled">🔄</span>
+                                    {% endif %}
+                                    {% if budget.is_over_budget %}
+                                    <span class="badge bg-danger ms-1">⚠️</span>
+                                    {% endif %}
+                                </div>
+                                <div class="small text-muted">
+                                    <i class="bi bi-person"></i> {{ budget.created_by|default:"System" }}
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ budget.get_budget_type_display }}</span>
+                            </td>
+                            <td>
+                                {{ budget.department.name|default:"—" }}
+                                {% if budget.project %}
+                                <div class="small text-muted">
+                                    <i class="bi bi-folder"></i> {{ budget.project.name }}
+                                </div>
+                                {% endif %}
+                            </td>
+                            <td class="small">
+                                {{ budget.period_start|date:"d M Y" }}
+                                <br>
+                                <i class="bi bi-arrow-right text-muted"></i>
+                                {{ budget.period_end|date:"d M Y" }}
+                                <br>
+                                <span class="badge bg-light text-dark">
+                                    {{ budget.get_frequency_display }}
+                                </span>
+                            </td>
+                            <td class="text-end fw-bold">
+                                Rs. {{ budget.allocated_amount|floatformat:0|intcomma }}
+                            </td>
+                            <td class="text-end text-warning">
+                                Rs. {{ budget.used_amount|floatformat:0|intcomma }}
+                            </td>
+                            <td class="text-end">
+                                <span class="{% if budget.remaining_amount < 0 %}text-danger fw-bold{% else %}text-success{% endif %}">
+                                    Rs. {{ budget.remaining_amount|floatformat:0|intcomma }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="progress-budget flex-grow-1 me-2">
+                                        <div class="progress-bar 
+                                            {% if budget.utilization_percent > 95 %}bg-danger
+                                            {% elif budget.utilization_percent > 80 %}bg-warning
+                                            {% else %}bg-success{% endif %}" 
+                                            role="progressbar" 
+                                            style="width: {{ budget.utilization_percent|floatformat:0 }}%;">
+                                        </div>
+                                    </div>
+                                    <span class="small fw-bold 
+                                        {% if budget.utilization_percent > 95 %}text-danger
+                                        {% elif budget.utilization_percent > 80 %}text-warning
+                                        {% else %}text-success{% endif %}"
+                                        style="min-width: 40px;">
+                                        {{ budget.utilization_percent|floatformat:0 }}%
+                                    </span>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge-status {{ budget.status }}">
+                                    {{ budget.get_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="d-flex gap-1 flex-wrap">
+                                    <!-- View -->
+                                    <a href="{% url 'budget_detail' budget.id %}" 
+                                       class="btn-action btn-action-view" title="View Details">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    
+                                    <!-- Edit -->
+                                    {% if budget.status == 'draft' or budget.status == 'rejected' or budget.status == 'pending' %}
+                                    <a href="{% url 'budget_edit' budget.id %}" 
+                                       class="btn-action btn-action-edit" title="Edit Budget">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    {% endif %}
+                                    
+                                    <!-- Submit -->
+                                    {% if budget.status == 'draft' %}
+                                    <a href="{% url 'budget_submit' budget.id %}" 
+                                       class="btn-action btn-action-submit" title="Submit for Approval"
+                                       onclick="return confirm('Submit this budget for approval?')">
+                                        <i class="bi bi-send"></i>
+                                    </a>
+                                    {% endif %}
+                                    
+                                    <!-- Approve -->
+                                    {% if budget.status == 'pending' %}
+                                    <a href="{% url 'budget_approve' budget.id %}" 
+                                       class="btn-action btn-action-approve" title="Approve Budget"
+                                       onclick="return confirm('Approve this budget?')">
+                                        <i class="bi bi-check-circle"></i>
+                                    </a>
+                                    {% endif %}
+                                    
+                                    <!-- Activate -->
+                                    {% if budget.status == 'approved' %}
+                                    <a href="{% url 'budget_activate' budget.id %}" 
+                                       class="btn-action btn-action-activate" title="Activate Budget"
+                                       onclick="return confirm('Activate this budget?')">
+                                        <i class="bi bi-play-circle"></i>
+                                    </a>
+                                    {% endif %}
+                                    
+                                    <!-- Delete -->
+                                    {% if budget.status == 'draft' or budget.status == 'rejected' %}
+                                    <a href="{% url 'budget_delete' budget.id %}" 
+                                       class="btn-action btn-action-delete" title="Delete Budget"
+                                       onclick="return confirm('⚠️ Are you sure you want to delete this budget? This action cannot be undone.')">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="11">
+                                <div class="empty-state">
+                                    <div class="empty-icon">
+                                        <i class="bi bi-inbox"></i>
+                                    </div>
+                                    <h5>No Budgets Found</h5>
+                                    <p>You haven't created any budgets yet. Start by creating your first budget to track your expenses.</p>
+                                    <a href="{% url 'budget_create' %}" class="btn btn-primary">
+                                        <i class="bi bi-plus-circle"></i> Create Your First Budget
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- ========================================== -->
+        <!-- FOOTER - Premium                          -->
+        <!-- ========================================== -->
+        <div class="card-footer bg-white d-flex flex-wrap justify-content-between align-items-center py-3">
+            <div>
+                <small class="text-muted">
+                    <i class="bi bi-info-circle"></i> 
+                    Showing <strong>{{ page_obj.start_index }}</strong> to <strong>{{ page_obj.end_index }}</strong> 
+                    of <strong>{{ page_obj.paginator.count }}</strong> budgets
+                    {% if page_obj.paginator.count > 0 %}
+                    • Page <strong>{{ page_obj.number }}</strong> of <strong>{{ page_obj.paginator.num_pages }}</strong>
+                    {% endif %}
+                </small>
+            </div>
+            
+            <!-- Pagination - Premium -->
+            <nav aria-label="Page navigation">
+                <ul class="pagination pagination-sm mb-0">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}&search={{ search }}&type={{ budget_type }}&status={{ status }}&department={{ department }}&from_date={{ from_date }}&to_date={{ to_date }}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if num == page_obj.number %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}&search={{ search }}&type={{ budget_type }}&status={{ status }}&department={{ department }}&from_date={{ from_date }}&to_date={{ to_date }}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}&search={{ search }}&type={{ budget_type }}&status={{ status }}&department={{ department }}&from_date={{ from_date }}&to_date={{ to_date }}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

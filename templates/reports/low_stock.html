@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Low Stock Alert{% endblock %}
+{% block page_title %}📦 Low Stock Alert Report{% endblock %}
+
+{% block extra_css %}
+<style>
+    .alert-card { background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 16px; padding: 20px; margin-bottom: 20px; }
+    .low-stock-item { background: white; border-radius: 12px; padding: 15px; margin-bottom: 12px; border-left: 4px solid #f59e0b; }
+    .stock-bar { height: 8px; background: #e9ecef; border-radius: 10px; overflow: hidden; margin-top: 10px; }
+    .stock-fill { height: 100%; background: #f59e0b; border-radius: 10px; }
+    .stock-fill.critical { background: #dc2626; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="alert-card">
+        <div class="d-flex justify-content-between align-items-center">
+            <div><i class="bi bi-exclamation-triangle-fill fs-1"></i></div>
+            <div class="text-center"><div class="display-4 fw-bold">{{ total_low_stock }}</div><div>Products Low in Stock</div></div>
+            <div><a href="{% url 'export_report_excel' 'low_stock' %}" class="btn btn-dark"><i class="bi bi-download"></i> Export</a></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-white"><strong><i class="bi bi-box-seam"></i> Products Below Threshold</strong></div>
+        <div class="card-body">
+            {% for item in low_stock_items %}
+            <div class="low-stock-item">
+                <div class="d-flex justify-content-between flex-wrap">
+                    <div><strong>{{ item.product.name }}</strong>{% if item.product.serial_no %}<span class="badge bg-secondary ms-2">SN: {{ item.product.serial_no }}</span>{% endif %}<div class="small text-muted">Warehouse: {{ item.warehouse.name }}</div></div>
+                    <div class="text-end"><div>Current Stock: <span class="fw-bold">{{ item.stock|floatformat:0 }}</span></div><div>Threshold: {{ item.product.low_stock_threshold|floatformat:0 }}</div></div>
+                </div>
+                <div class="stock-bar"><div class="stock-fill {% if item.stock_percent < 30 %}critical{% endif %}" style="width: {{ item.stock_percent }}%"></div></div>
+                <div class="mt-2"><a href="/products/{{ item.product.id }}/update/" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i> Update Threshold</a>
+                <a href="/purchases/create/?product={{ item.product.id }}" class="btn btn-sm btn-outline-success"><i class="bi bi-cart-plus"></i> Create Purchase Order</a></div>
+            </div>
+            {% empty %}<div class="text-center text-success py-5"><i class="bi bi-check-circle-fill fs-1"></i><h4>All stocks are at healthy levels!</h4><p>No products are low in stock.</p></div>{% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

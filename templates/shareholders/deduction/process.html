@@ -1,0 +1,287 @@
+<!-- templates/shareholders/deduction/process.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Process Shareholder Deduction{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-lg">
+                <div class="card-header bg-gradient-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-cash-stack me-2"></i>
+                        Process Shareholder Deduction
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Alert Messages -->
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                                {{ message|linebreaks }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <!-- Purchase Info -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title text-muted">Purchase Information</h6>
+                                    <table class="table table-sm table-borderless">
+                                        <tr>
+                                            <td><strong>Bill No:</strong></td>
+                                            <td><span class="badge bg-primary">{{ purchase.bill_no|default:"N/A" }}</span></td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Vendor:</strong></td>
+                                            <td>{{ purchase.vendor.name }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Total Amount:</strong></td>
+                                            <td class="text-danger h5">Rs. {{ total_amount|floatformat:2 }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Purchase Date:</strong></td>
+                                            <td>{{ purchase.pur_date|date:"d-m-Y H:i" }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Status:</strong></td>
+                                            <td>
+                                                {% if purchase.shareholder_deduction_done %}
+                                                    <span class="badge bg-success">✅ Deducted</span>
+                                                {% else %}
+                                                    <span class="badge bg-warning">⏳ Pending</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title text-muted">Deduction Summary</h6>
+                                    <table class="table table-sm table-borderless">
+                                        <tr>
+                                            <td><strong>Total Shareholders:</strong></td>
+                                            <td>{{ total_shareholders }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Deduction Type:</strong></td>
+                                            <td>
+                                                <span class="badge bg-info">
+                                                    {{ deduction_type|title }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Per Shareholder:</strong></td>
+                                            <td class="text-primary">
+                                                Rs. {{ per_shareholder|floatformat:2|default:"0.00" }}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Feature Status:</strong></td>
+                                            <td>
+                                                {% if is_enabled %}
+                                                    <span class="badge bg-success">✅ Enabled</span>
+                                                {% else %}
+                                                    <span class="badge bg-danger">⛔ Disabled</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Preview Section -->
+                    {% if preview_data %}
+                    <div class="card mb-4">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0">
+                                <i class="bi bi-eye me-2"></i>
+                                Preview: Proportional Deduction Breakdown
+                            </h6>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover mb-0">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Shareholder</th>
+                                            <th>Balance</th>
+                                            <th>Deduction</th>
+                                            <th>Percentage</th>
+                                            <th>After Deduction</th>
+                                            <th>Progress</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for item in preview_data %}
+                                        <tr>
+                                            <td>{{ forloop.counter }}</td>
+                                            <td>
+                                                <strong>{{ item.name }}</strong>
+                                            </td>
+                                            <td>Rs. {{ item.balance|floatformat:2 }}</td>
+                                            <td class="text-danger">
+                                                -Rs. {{ item.deduction|floatformat:2 }}
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-primary">
+                                                    {{ item.percentage|floatformat:1 }}%
+                                                </span>
+                                            </td>
+                                            <td>
+                                                Rs. {{ item.balance|add:item.deduction|floatformat:2 }}
+                                            </td>
+                                            <td>
+                                                <div class="progress" style="height:20px;">
+                                                    <div class="progress-bar bg-{% if item.percentage > 50 %}danger{% elif item.percentage > 30 %}warning{% else %}info{% endif %}"
+                                                         role="progressbar"
+                                                         style="width: {{ item.percentage }}%;"
+                                                         aria-valuenow="{{ item.percentage }}"
+                                                         aria-valuemin="0"
+                                                         aria-valuemax="100">
+                                                        {{ item.percentage|floatformat:1 }}%
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    <tfoot class="table-active">
+                                        <tr>
+                                            <td colspan="2"><strong>TOTAL</strong></td>
+                                            <td><strong>Rs. {{ total_amount|floatformat:2 }}</strong></td>
+                                            <td colspan="4"></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Warning Box -->
+                    <div class="alert alert-warning border-2">
+                        <div class="d-flex">
+                            <div class="me-3">
+                                <i class="bi bi-exclamation-triangle fs-2"></i>
+                            </div>
+                            <div>
+                                <h6 class="alert-heading">⚠️ Important Notice</h6>
+                                <p class="mb-0">
+                                    This will deduct <strong>Rs. {{ per_shareholder|floatformat:2|default:"0.00" }}</strong> 
+                                    from each active shareholder's balance.
+                                    {% if deduction_type == 'proportional' %}
+                                        Deduction is proportional to each shareholder's balance.
+                                    {% else %}
+                                        Deduction is equal for all shareholders.
+                                    {% endif %}
+                                </p>
+                                <p class="mb-0 mt-1 small text-muted">
+                                    <i class="bi bi-info-circle"></i>
+                                    This action cannot be undone immediately. Please confirm before proceeding.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="mt-4">
+                        <form method="POST">
+                            {% csrf_token %}
+                            <div class="btn-group w-100" role="group">
+                                <button type="submit" class="btn btn-danger btn-lg">
+                                    <i class="bi bi-check-circle me-2"></i>
+                                    Confirm Deduction
+                                </button>
+                                <a href="{% url 'purchase_detail' purchase.pk %}" class="btn btn-secondary btn-lg">
+                                    <i class="bi bi-arrow-left me-2"></i>
+                                    Cancel
+                                </a>
+                                <a href="{% url 'shareholder_deduction_report' %}" class="btn btn-info btn-lg">
+                                    <i class="bi bi-graph-up me-2"></i>
+                                    View Report
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Quick Stats -->
+                    <div class="row mt-4">
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h6 class="text-white-50">Active Shareholders</h6>
+                                    <h3>{{ total_shareholders }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body text-center">
+                                    <h6 class="text-white-50">Total Amount</h6>
+                                    <h3>Rs. {{ total_amount|floatformat:0 }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-dark">
+                                <div class="card-body text-center">
+                                    <h6 class="text-dark-50">Per Shareholder</h6>
+                                    <h3>Rs. {{ per_shareholder|floatformat:0|default:"0" }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body text-center">
+                                    <h6 class="text-white-50">Deduction Type</h6>
+                                    <h3>{{ deduction_type|title }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-hide alerts after 5 seconds
+    setTimeout(function() {
+        const alerts = document.querySelectorAll('.alert');
+        alerts.forEach(function(alert) {
+            const bsAlert = new bootstrap.Alert(alert);
+            bsAlert.close();
+        });
+    }, 5000);
+});
+</script>
+
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+.progress {
+    border-radius: 10px;
+    overflow: hidden;
+}
+.progress-bar {
+    transition: width 0.6s ease;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Create New Target{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white border-0 pt-4">
+                    <h4 class="fw-bold">
+                        <i class="bi bi-plus-circle text-primary"></i> Create New Target
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Target Type</label>
+                            <select name="target_type" class="form-select" id="targetType" onchange="toggleSalesmanField()">
+                                <option value="monthly">📊 Monthly Company Target</option>
+                                <option value="daily">📅 Daily Target</option>
+                                <option value="salesman">👤 Salesman Target</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Target Amount (Rs.)</label>
+                            <input type="number" name="target_amount" class="form-control" placeholder="e.g., 1000000" required>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Start Date</label>
+                                <input type="date" name="start_date" class="form-control" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">End Date</label>
+                                <input type="date" name="end_date" class="form-control" required>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3" id="salesmanField" style="display: none;">
+                            <label class="form-label fw-bold">Select Salesman</label>
+                            <select name="salesman_id" class="form-select">
+                                <option value="">-- Select Salesman --</option>
+                                {% for user in users %}
+                                <option value="{{ user.id }}">{{ user.username|title }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Bonus Percentage (%)</label>
+                                <input type="number" name="bonus_percentage" class="form-control" value="0" step="0.5">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Bonus Amount (Rs.)</label>
+                                <input type="number" name="bonus_amount" class="form-control" value="0">
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary px-4">
+                                <i class="bi bi-save"></i> Create Target
+                            </button>
+                            <a href="{% url 'target_dashboard' %}" class="btn btn-secondary px-4">
+                                <i class="bi bi-arrow-left"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleSalesmanField() {
+        var targetType = document.getElementById('targetType').value;
+        var salesmanField = document.getElementById('salesmanField');
+        if (targetType === 'salesman') {
+            salesmanField.style.display = 'block';
+        } else {
+            salesmanField.style.display = 'none';
+        }
+    }
+    
+    // Set default dates
+    var today = new Date();
+    var firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    var lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    
+    document.querySelector('[name="start_date"]').valueAsDate = firstDay;
+    document.querySelector('[name="end_date"]').valueAsDate = lastDay;
+</script>
+{% endblock %}

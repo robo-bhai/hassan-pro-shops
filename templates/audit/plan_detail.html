@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Audit Plan Detail{% endblock %}
+
+{% block extra_css %}
+<style>
+    .plan-header {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        border-radius: 16px;
+        padding: 30px;
+        color: white;
+    }
+    .finding-card {
+        border-left: 4px solid #6c757d;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin-bottom: 10px;
+        background: white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .finding-card.critical { border-left-color: #dc3545; }
+    .finding-card.high { border-left-color: #fd7e14; }
+    .finding-card.medium { border-left-color: #ffc107; }
+    .finding-card.low { border-left-color: #28a745; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <!-- ========================================== -->
+    <!-- HEADER                                     -->
+    <!-- ========================================== -->
+    <div class="plan-header mb-4">
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <h4>{{ plan.name }}</h4>
+                <p style="opacity:0.8;">
+                    <span><i class="bi bi-hash"></i> {{ plan.plan_no }}</span>
+                    <span class="ms-3"><i class="bi bi-calendar3"></i> {{ plan.start_date|date:"d M Y" }} - {{ plan.end_date|date:"d M Y" }}</span>
+                    <span class="ms-3"><i class="bi bi-tag"></i> {{ plan.get_audit_type_display }}</span>
+                </p>
+            </div>
+            <div>
+                <span class="badge 
+                    {% if plan.status == 'completed' %}bg-success
+                    {% elif plan.status == 'in_progress' %}bg-warning
+                    {% elif plan.status == 'approved' %}bg-primary
+                    {% else %}bg-secondary{% endif %}" 
+                    style="font-size:14px; padding:8px 16px;">
+                    {{ plan.get_status_display }}
+                </span>
+            </div>
+        </div>
+        
+        <!-- Progress -->
+        <div class="mt-3">
+            <div class="d-flex justify-content-between">
+                <span>Progress</span>
+                <span>{{ progress }}%</span>
+            </div>
+            <div class="progress" style="height:8px;">
+                <div class="progress-bar bg-success" style="width: {{ progress }}%;"></div>
+            </div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="mt-3 d-flex gap-2">
+            {% if plan.status == 'draft' %}
+            <a href="{% url 'audit_plan_edit' plan.id %}" class="btn btn-light btn-sm">
+                <i class="bi bi-pencil"></i> Edit
+            </a>
+            <a href="{% url 'audit_plan_delete' plan.id %}" class="btn btn-danger btn-sm"
+               onclick="return confirm('Delete this plan?')">
+                <i class="bi bi-trash"></i> Delete
+            </a>
+            {% endif %}
+            {% if plan.status == 'approved' %}
+            <a href="{% url 'audit_plan_start' plan.id %}" class="btn btn-success btn-sm"
+               onclick="return confirm('Start this audit?')">
+                <i class="bi bi-play-circle"></i> Start Audit
+            </a>
+            {% endif %}
+            {% if plan.status == 'in_progress' %}
+            <a href="{% url 'audit_plan_complete' plan.id %}" class="btn btn-success btn-sm"
+               onclick="return confirm('Complete this audit?')">
+                <i class="bi bi-check-circle"></i> Complete
+            </a>
+            <a href="{% url 'audit_findings' plan.id %}" class="btn btn-warning btn-sm">
+                <i class="bi bi-exclamation-triangle"></i> Findings ({{ findings|length }})
+            </a>
+            {% endif %}
+            <a href="{% url 'audit_plan_list' %}" class="btn btn-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- DETAILS                                   -->
+    <!-- ========================================== -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-info-circle text-primary"></i> Audit Information</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <small class="text-muted">Lead Auditor</small>
+                            <p>{{ plan.lead_auditor.name|default:"Not Assigned" }}</p>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Department</small>
+                            <p>{{ plan.department.name|default:"-" }}</p>
+                        </div>
+                        <div class="col-12">
+                            <small class="text-muted">Scope</small>
+                            <p>{{ plan.scope }}</p>
+                        </div>
+                        <div class="col-12">
+                            <small class="text-muted">Criteria</small>
+                            <p>{{ plan.criteria }}</p>
+                        </div>
+                        {% if plan.description %}
+                        <div class="col-12">
+                            <small class="text-muted">Description</small>
+                            <p>{{ plan.description }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-people text-primary"></i> Audit Team</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        {% for member in plan.audit_team.all %}
+                        <li class="border-bottom py-2">
+                            <span class="fw-bold">{{ member.name }}</span>
+                            <br>
+                            <small class="text-muted">{{ member.department }}</small>
+                        </li>
+                        {% empty %}
+                        <li class="text-muted">No team members assigned</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- FINDINGS                                  -->
+    <!-- ========================================== -->
+    {% if findings %}
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h6 class="mb-0"><i class="bi bi-exclamation-triangle text-danger"></i> Findings ({{ findings|length }})</h6>
+            <a href="{% url 'audit_findings' plan.id %}" class="btn btn-sm btn-primary">
+                <i class="bi bi-plus-circle"></i> Add Finding
+            </a>
+        </div>
+        <div class="card-body">
+            {% for finding in findings %}
+            <div class="finding-card {{ finding.severity }}">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <span class="fw-bold">{{ finding.title }}</span>
+                        <p class="small mb-0">{{ finding.description|truncatechars:100 }}</p>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge 
+                            {% if finding.severity == 'critical' %}bg-danger
+                            {% elif finding.severity == 'high' %}bg-warning
+                            {% elif finding.severity == 'medium' %}bg-info
+                            {% else %}bg-secondary{% endif %}">
+                            {{ finding.get_severity_display }}
+                        </span>
+                        <br>
+                        <span class="badge 
+                            {% if finding.status == 'resolved' %}bg-success
+                            {% elif finding.status == 'open' %}bg-danger
+                            {% else %}bg-warning{% endif %}">
+                            {{ finding.get_status_display }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+</div>
+{% endblock %}

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+{% load custom_filters %}
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monthly Closing Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            color: #333;
+        }
+        h1 {
+            font-size: 20px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        p {
+            text-align: center;
+            font-size: 12px;
+            margin-bottom: 20px;
+            color: #555;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        th, td {
+            padding: 8px;
+            border: 1px solid #ccc;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tfoot tr {
+            font-weight: bold;
+            background-color: #f4f4f4;
+        }
+        .no-data {
+            text-align: center;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+    <h1>Monthly Closing Report</h1>
+    <p>Date: {{ date|date:"d-m-Y " }}</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Month</th>
+                <th>Previous Closing Balance</th>
+                <th>Total Purchase</th>
+                <th>Total Sale </th>
+                <th>Closing Balance </th>
+               
+            </tr>
+        </thead>
+        <tbody>
+            {% for MonthlyClosing in MonthlyClosings %}
+            <tr>
+                <td>{{ MonthlyClosing.month|date:"M-Y" }}</td>
+                <td>{{ MonthlyClosing.get_previous_month_closing|floatformat:2 }}</td>
+                <td>{{ MonthlyClosing.total_purchase_balance|floatformat:2 }}</td>
+                <td>{{ MonthlyClosing.total_sale_balance|floatformat:2 }}</td>
+                <td>{{ MonthlyClosing.closing_balance|floatformat:2 }}</td>
+                   
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" class="no-data">No Monthly Closing found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            
+        </tfoot>
+    </table>
+</body>
+</html>
