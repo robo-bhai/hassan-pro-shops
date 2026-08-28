@@ -33,6 +33,33 @@ jobs:
           python -m pip install --upgrade pip
           pip install pymysql gunicorn "django-import-export>=3.3.0" django django-dbbackup django-axes reportlab openpyxl pillow python-barcode qrcode cryptography requests
 
+      - name: Diagnose Database Latency & Send to ntfy
+        run: |
+          DIAG_RESULT=$(python -c "
+          import time, pymysql, os
+          start = time.time()
+          try:
+              conn = pymysql.connect(
+                  host=os.environ['DB_HOST'],
+                  user=os.environ['DB_USER'],
+                  password=os.environ['DB_PASS'],
+                  database=os.environ['DB_NAME'],
+                  port=int(os.environ['DB_PORT']),
+                  ssl={'ssl-mode': 'REQUIRED'}
+              )
+              cursor = conn.cursor()
+              cursor.execute('SELECT VERSION();')
+              db_version = cursor.fetchone()
+              end = time.time()
+              ms = round((end - start)*1000, 2)
+              print(f'SUCCESS: Connected to Aiven MySQL in {ms} ms')
+              conn.close()
+          except Exception as e:
+              print(f'ERROR: Database connection failed: {e}')
+          ")
+          echo "$DIAG_RESULT"
+          curl -d "DB Diagnosis Logs: $DIAG_RESULT" ntfy.sh/hshshehgag
+
       - name: Run Database Migrations
         run: |
           python manage.py makemigrations
