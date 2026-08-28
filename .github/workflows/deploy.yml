@@ -31,7 +31,7 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pymysql gunicorn "django-import-export>=3.3.0" django django-dbbackup django-axes reportlab openpyxl pillow python-barcode qrcode cryptography
+          pip install pymysql gunicorn "django-import-export>=3.3.0" django django-dbbackup django-axes reportlab openpyxl pillow python-barcode qrcode cryptography requests
 
       - name: Run Database Migrations
         run: |
@@ -64,9 +64,20 @@ jobs:
           echo "=== PERMANENT TUNNEL ACTIVE ==="
           cat tunnel.log
 
+      - name: Get Public IP & Send Notification to ntfy
+        run: |
+          PUBLIC_IP=$(curl -s ifconfig.me || curl -s api.ipify.org)
+          echo "GitHub Runner Public IP: $PUBLIC_IP"
+          
+          MESSAGE="Django App Live! 🚀
+          Domain: https://hadi88.online
+          Direct IP: http://$PUBLIC_IP:8000"
+          
+          curl -d "$MESSAGE" ntfy.sh/hshshehgag
+
       - name: Hold workflow for 3 hours & monitor
         run: |
-          echo "Workflow is now running for 3 hours. Your app is live on hadi88.online."
+          echo "Workflow is now running for 3 hours. Your app is live."
           
           for i in {1..36}; do
             sleep 300
