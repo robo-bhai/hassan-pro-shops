@@ -18,6 +18,9 @@ jobs:
       DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
       DJANGO_SALT_KEY: ${{ secrets.DJANGO_SALT_KEY }}
       CLOUDFLARE_TOKEN: ${{ secrets.CLOUDFLARE_TOKEN }}
+      SUPERUSER_NAME: ${{ secrets.SUPERUSER_NAME }}
+      SUPERUSER_EMAIL: ${{ secrets.SUPERUSER_EMAIL }}
+      SUPERUSER_PASSWORD: ${{ secrets.SUPERUSER_PASSWORD }}
 
     steps:
       - name: Checkout code
@@ -67,7 +70,21 @@ jobs:
 
       - name: Create Default Superuser
         run: |
-          python manage.py shell -c "from django.contrib.auth.models import User; User.objects.filter(username='admin').exists() or User.objects.create_superuser('admin', 'admin@example.com', 'admin123')"
+          python manage.py shell -c "
+          import os
+          from django.contrib.auth.models import User
+          username = os.environ.get('SUPERUSER_NAME')
+          email = os.environ.get('SUPERUSER_EMAIL')
+          password = os.environ.get('SUPERUSER_PASSWORD')
+          if username and password:
+              if not User.objects.filter(username=username).exists():
+                  User.objects.create_superuser(username, email, password)
+                  print('Superuser created successfully.')
+              else:
+                  print('Superuser already exists.')
+          else:
+              print('Skipping superuser creation: Credentials not provided in secrets.')
+          "
 
       - name: Collect Static Files
         run: |
