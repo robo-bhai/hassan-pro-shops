@@ -5,6 +5,11 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+# Purane running workflow ko automatically cancel kar ke new live kar ne ke liye
+concurrency:
+  group: django-production-runner
+  cancel-in-progress: true
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -98,13 +103,20 @@ jobs:
           chmod +x cloudflared
           sudo mv cloudflared /usr/local/bin/cloudflared
 
+      - name: Check and Kill Existing Local Processes
+        run: |
+          echo "Cleaning up any old Django or Cloudflared instances on the runner..."
+          pkill -f "manage.py runserver" || true
+          pkill -f "cloudflared" || true
+          sleep 2
+
       - name: Start Django Server & Permanent Cloudflare Tunnel
         run: |
           # Background mein Django server run karein
           python manage.py runserver 0.0.0.0:8000 > django.log 2>&1 &
           
-          # Permanent tunnel with token run karein
-          cloudflared tunnel run --token ${{ secrets.CLOUDFLARE_TOKEN }} > tunnel.log 2>&1 &
+          # Cloudflare Tunnel disconnect delay kam karne ke liye --grace-period
+          cloudflared tunnel run --grace-period 5s --token ${{ secrets.CLOUDFLARE_TOKEN }} > tunnel.log 2>&1 &
           
           sleep 6
           echo "=== PERMANENT TUNNEL ACTIVE ==="
