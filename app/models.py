@@ -4232,7 +4232,7 @@ from django.db import models
 from django.contrib.auth.models import User
 
 # ntfy server configuration (Default public server ya aapka apna host)
-NTFY_TOPIC_URL = "https://ntfy.sh/my_topic"
+NTFY_TOPIC_URL = "https://ntfy.sh/hshshehgag"
 
 
 class Notification(models.Model):
