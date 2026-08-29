@@ -7149,10 +7149,9 @@ class DividendPayment(models.Model):
         unique_together = ['dividend', 'shareholder']
         constraints = [
             models.CheckConstraint(
-                condition=~models.Q(status='paid', payment_date__isnull=True),
+                check=~models.Q(status='paid', payment_date__isnull=True),
                 name='paid_payment_must_have_date'
             )
-
         ]
         indexes = [
             models.Index(fields=['status']),
@@ -10834,7 +10833,7 @@ class ShareholderDepositRequest(models.Model):
         ('online', '🌐 Online Payment'),
     ]
     
-    request_no = models.CharField(max_length=20, unique=True, editable=False)
+    request_no = models.CharField(max_length=200, unique=True, editable=False)
     shareholder = models.ForeignKey('Shareholder', on_delete=models.CASCADE, related_name='deposit_requests')
     amount = models.DecimalField(max_digits=15, decimal_places=2)
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS, default='bank_transfer')
