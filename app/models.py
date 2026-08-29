@@ -4227,6 +4227,14 @@ class EmiPayment(models.Model):
 # IN-APP NOTIFICATION MODEL
 # ============================================
 
+import requests
+from django.db import models
+from django.contrib.auth.models import User
+
+# ntfy server configuration (Default public server ya aapka apna host)
+NTFY_TOPIC_URL = "https://ntfy.sh/my_topic"
+
+
 class Notification(models.Model):
     NOTIFICATION_TYPES = [
         ('info', 'ℹ️ Info'),
@@ -4239,7 +4247,6 @@ class Notification(models.Model):
         ('payment', '💰 Payment Received'),
     ]
     
-    # Categories for filtering
     NOTIFICATION_CATEGORIES = [
         ('all', 'All Notifications'),
         ('sales', 'Sales'),
@@ -4271,8 +4278,30 @@ class Notification(models.Model):
         return f"{self.title} - {self.created_at.strftime('%d-%m-%Y %H:%M')}"
     
     @classmethod
+    def _send_ntfy(cls, title, message, link=None, category='all'):
+        """Helper method to publish notification to ntfy topic 'my_topic'"""
+        try:
+            headers = {
+                "Title": title.encode('utf-8'),
+                "Tags": category
+            }
+            if link:
+                # User click karne par redirect domain add kar sakte hain
+                headers["Click"] = link 
+            
+            requests.post(
+                NTFY_TOPIC_URL,
+                data=message.encode('utf-8'),
+                headers=headers,
+                timeout=5  # Request hang na hone dene ke liye timeout
+            )
+        except Exception as e:
+            # Code fail na ho agar network issue ho
+            print(f"ntfy notification error: {e}")
+
+    @classmethod
     def send(cls, user, title, message, notification_type='info', category='all', link=None):
-        """Create notification for a user"""
+        """Create notification for a user and publish to ntfy topic"""
         notification = cls.objects.create(
             user=user,
             title=title,
@@ -4281,11 +4310,15 @@ class Notification(models.Model):
             category=category,
             link=link
         )
+        
+        # Ntfy par broadcast karna
+        cls._send_ntfy(title, message, link, category)
+        
         return notification
     
     @classmethod
     def send_to_all(cls, title, message, notification_type='info', category='all', link=None):
-        """Send notification to all staff users"""
+        """Send notification to all staff users and publish once to ntfy"""
         users = User.objects.filter(is_staff=True)
         for user in users:
             cls.objects.create(
@@ -4296,7 +4329,10 @@ class Notification(models.Model):
                 category=category,
                 link=link
             )
-    
+        
+        # Topic par sirf ek baar broadcast bhejega
+        cls._send_ntfy(title, message, link, category)
+
     @classmethod
     def send_sale_notification(cls, user, sale):
         """Send sale notification"""
@@ -4372,9 +4408,8 @@ class Notification(models.Model):
             notification_type='payment',
             category='payments',
             link=f"/installments/{installment.id}/"
-        )    
-        
-# models.py mein yeh add karo (apne existing models ke saath)
+        )
+
 
 class SalesTarget(models.Model):
     TARGET_TYPES = [
