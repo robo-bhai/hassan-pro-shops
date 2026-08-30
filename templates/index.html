@@ -5,6 +5,14 @@
 {% block page_title %}📊 Dashboard{% endblock %}
 
 {% block extra_css %}
+<!-- PWA & Mobile Meta Tags -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1a1a2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BMS App">
+<meta name="mobile-web-app-capable" content="yes">
+
 <style>
     :root {
         --card-bg: #ffffff;
@@ -14,6 +22,8 @@
         --accent: #0d6efd;
         --shadow: 0 2px 12px rgba(0,0,0,0.04);
         --shadow-hover: 0 8px 25px rgba(0,0,0,0.08);
+        --safe-area-inset-top: env(safe-area-inset-top, 0px);
+        --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
     }
     
     /* ========== DARK MODE ========== */
@@ -61,6 +71,7 @@
         align-items: center;
         flex-direction: column;
         backdrop-filter: blur(3px);
+        -webkit-backdrop-filter: blur(3px);
     }
     
     .loading-overlay.show {
@@ -110,6 +121,7 @@
         gap: 15px;
         position: relative;
         overflow: hidden;
+        padding-top: calc(20px + var(--safe-area-inset-top));
     }
     
     .welcome-bar::after {
@@ -140,6 +152,7 @@
         font-size: 1.2rem; cursor: pointer;
         transition: all 0.3s;
         display: flex; align-items: center; justify-content: center;
+        touch-action: manipulation;
     }
     
     #dashVoiceBtn:hover { transform: scale(1.05); }
@@ -157,6 +170,7 @@
     #dashVoiceStatus {
         background: rgba(15,17,35,0.95);
         backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
         border-radius: 12px;
         padding: 12px 16px;
         margin-bottom: 15px;
@@ -200,6 +214,7 @@
         cursor: pointer;
         position: relative;
         overflow: hidden;
+        touch-action: manipulation;
     }
     
     .stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
@@ -212,7 +227,7 @@
     }
     
     .stat-card .stat-info { flex: 1; min-width: 0; }
-    .stat-card .stat-value { font-size: 1.3rem; font-weight: 800; color: var(--text); line-height: 1; }
+    .stat-card .stat-value { font-size: 1.3rem; font-weight: 800; color: var(--text); line-height: 1; word-break: break-word; }
     .stat-card .stat-label { font-size: 0.72rem; color: var(--text-light); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
     .stat-card .stat-sub { font-size: 0.7rem; color: #a0a8b8; margin-top: 2px; }
     
@@ -273,12 +288,14 @@
         padding: 12px 15px;
         text-align: center;
         backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
         border: 1px solid rgba(255,255,255,0.05);
     }
     
     .ceo-stat-item .ceo-stat-value {
         font-size: 1.4rem;
         font-weight: 800;
+        word-break: break-word;
     }
     
     .ceo-stat-item .ceo-stat-label {
@@ -309,6 +326,7 @@
         display: inline-flex;
         align-items: center;
         gap: 6px;
+        touch-action: manipulation;
     }
     
     .ceo-actions .btn-ceo:hover {
@@ -411,6 +429,7 @@
         font-size: 0.7rem;
         transition: all 0.2s;
         border: none;
+        touch-action: manipulation;
     }
     
     .refresh-status:hover {
@@ -420,10 +439,11 @@
     /* ========== NOTIFICATION TOAST ========== */
     .notification-toast {
         position: fixed;
-        bottom: 20px;
+        bottom: calc(20px + var(--safe-area-inset-bottom));
         right: 20px;
         z-index: 10000;
-        min-width: 300px;
+        min-width: 280px;
+        max-width: 90vw;
         background: white;
         border-radius: 12px;
         box-shadow: 0 10px 40px rgba(0,0,0,0.2);
@@ -527,6 +547,7 @@
         padding: 14px 18px; border-radius: 12px; text-decoration: none;
         font-weight: 600; font-size: 0.85rem; transition: all 0.3s;
         border: 1px solid var(--border); background: white; color: var(--text);
+        touch-action: manipulation;
     }
     
     .quick-action-btn:hover {
@@ -546,7 +567,13 @@
     .gap-3 { gap: 1rem; }
     .align-items-center { align-items: center; }
     
-    /* ========== RESPONSIVE ========== */
+    /* ========== RESPONSIVE & PWA OPTIMIZATIONS ========== */
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
     @media (max-width: 768px) {
         .welcome-bar { padding: 15px 18px; }
         .welcome-text h4 { font-size: 1rem; }
@@ -562,6 +589,7 @@
         .mini-table th, .mini-table td { padding: 8px 10px; font-size: 0.75rem; }
         .ceo-stats-grid { grid-template-columns: repeat(2, 1fr); }
         .ceo-card::after { font-size: 3rem; }
+        .system-status-grid { grid-template-columns: 1fr; }
     }
     
     @media (max-width: 400px) {
@@ -570,6 +598,7 @@
         .stat-card .stat-value { font-size: 1rem; }
         .stat-card .stat-label { font-size: 0.65rem; }
         .ceo-stats-grid { grid-template-columns: 1fr 1fr; }
+        .notification-toast { right: 10px; left: 10px; min-width: auto; }
     }
 </style>
 {% endblock %}
@@ -969,6 +998,25 @@
 
 {% block extra_js %}
 <script>
+    // ========== SERVICE WORKER REGISTRATION FOR PWA ==========
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+            navigator.serviceWorker.register('/sw.js').then(function(registration) {
+                console.log('PWA ServiceWorker registration successful with scope: ', registration.scope);
+            }, function(err) {
+                console.log('PWA ServiceWorker registration failed: ', err);
+            });
+        });
+    }
+
+    // ========== NETWORK STATUS DETECTOR FOR PWA ==========
+    window.addEventListener('online', function() {
+        showNotification('📶 Back Online', 'Connection restored successfully', 'success');
+    });
+    window.addEventListener('offline', function() {
+        showNotification('⚠️ Offline Mode', 'Working in cached PWA mode', 'warning');
+    });
+
     // ========== LOADING SPINNER FUNCTIONS ==========
     function showLoading(message = 'Loading...') {
         const overlay = document.getElementById('loadingOverlay');
