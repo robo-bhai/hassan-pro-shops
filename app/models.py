@@ -102,6 +102,9 @@ class Brand(models.Model):
 
     class Meta:
         verbose_name_plural = '1.1 Product Brands'
+        indexes = [
+            models.Index(fields=['name']),
+        ]
 
     def __str__(self):
         return self.name
@@ -112,6 +115,10 @@ class Category(models.Model):
 
     class Meta:
         verbose_name_plural = '1.2 Product Category'
+        indexes = [
+            models.Index(fields=['name']),
+        ]
+        
 
     def __str__(self):
         return self.name
@@ -140,6 +147,9 @@ class Unit(models.Model):
 
     class Meta:
         verbose_name_plural = '1.5 Product Unit'
+        indexes = [
+            models.Index(fields=['name']),
+        ]
 
     def __str__(self):
         return self.name
@@ -468,7 +478,8 @@ class Vendor(models.Model):
         verbose_name_plural = '3. Vendor'
         indexes = [
             models.Index(fields=['vendor_code']),
-            models.Index(fields=['name', 'group']),
+            models.Index(fields=['name']),
+            models.Index(fields=['group']),
         ]
 
     def __str__(self):
@@ -673,7 +684,6 @@ class GoodsReceivedNote(models.Model):
     
     class Meta:
         verbose_name_plural = '4.2 Goods Received Notes'
-        ordering = ['-grn_date']
         indexes = [
             models.Index(fields=['grn_no']),
             models.Index(fields=['vendor']),
@@ -845,7 +855,8 @@ class Purchase(models.Model):
         verbose_name_plural = '4. Purchase'
         indexes = [
             models.Index(fields=['vendor', 'pur_date']),
-            models.Index(fields=['bill_no', 'warehouse']),
+            models.Index(fields=['bill_no']),
+            models.Index(fields=['warehouse']),
             models.Index(fields=['shareholder_deduction_done']),
         ]
 
@@ -1120,7 +1131,8 @@ class Customer(models.Model):
         verbose_name_plural = '2. Customers'
         indexes = [
             models.Index(fields=['customer_code']),
-            models.Index(fields=['name', 'group']),
+            models.Index(fields=['name']),
+            models.Index(fields=['group']),
         ]
 
     def __str__(self):
@@ -1505,7 +1517,6 @@ class SaleOrder(models.Model):
     
     class Meta:
         verbose_name_plural = '5.0 Sale Orders'
-        ordering = ['-order_date']
         indexes = [
             models.Index(fields=['order_no']),
             models.Index(fields=['customer']),
@@ -1679,7 +1690,6 @@ class DeliveryChallan(models.Model):
     
     class Meta:
         verbose_name_plural = '5.2 Delivery Challans'
-        ordering = ['-challan_date']
         indexes = [
             models.Index(fields=['challan_no']),
             models.Index(fields=['customer']),
@@ -1776,9 +1786,13 @@ class StockBatch(models.Model):
     )
 
     class Meta:
-        ordering = ['-id']  # FIFO ordering
+        ordering = ['-id']
         verbose_name_plural = '7.1 Batches'
-        unique_together = ('product', 'warehouse', 'purchase_item')
+        indexes = [
+            models.Index(fields=['product', 'warehouse']),
+            models.Index(fields=['remaining_qty']),
+            models.Index(fields=['selling_price']),
+        ]
 
     # ============================================
     # ✅ VALIDATION
@@ -4227,14 +4241,6 @@ class EmiPayment(models.Model):
 # IN-APP NOTIFICATION MODEL
 # ============================================
 
-import requests
-from django.db import models
-from django.contrib.auth.models import User
-
-# ntfy server configuration (Default public server ya aapka apna host)
-NTFY_TOPIC_URL = "https://ntfy.sh/hshshehgag"
-
-
 class Notification(models.Model):
     NOTIFICATION_TYPES = [
         ('info', 'ℹ️ Info'),
@@ -4247,6 +4253,7 @@ class Notification(models.Model):
         ('payment', '💰 Payment Received'),
     ]
     
+    # Categories for filtering
     NOTIFICATION_CATEGORIES = [
         ('all', 'All Notifications'),
         ('sales', 'Sales'),
@@ -4278,30 +4285,8 @@ class Notification(models.Model):
         return f"{self.title} - {self.created_at.strftime('%d-%m-%Y %H:%M')}"
     
     @classmethod
-    def _send_ntfy(cls, title, message, link=None, category='all'):
-        """Helper method to publish notification to ntfy topic 'my_topic'"""
-        try:
-            headers = {
-                "Title": title.encode('utf-8'),
-                "Tags": category
-            }
-            if link:
-                # User click karne par redirect domain add kar sakte hain
-                headers["Click"] = link 
-            
-            requests.post(
-                NTFY_TOPIC_URL,
-                data=message.encode('utf-8'),
-                headers=headers,
-                timeout=5  # Request hang na hone dene ke liye timeout
-            )
-        except Exception as e:
-            # Code fail na ho agar network issue ho
-            print(f"ntfy notification error: {e}")
-
-    @classmethod
     def send(cls, user, title, message, notification_type='info', category='all', link=None):
-        """Create notification for a user and publish to ntfy topic"""
+        """Create notification for a user"""
         notification = cls.objects.create(
             user=user,
             title=title,
@@ -4310,15 +4295,11 @@ class Notification(models.Model):
             category=category,
             link=link
         )
-        
-        # Ntfy par broadcast karna
-        cls._send_ntfy(title, message, link, category)
-        
         return notification
     
     @classmethod
     def send_to_all(cls, title, message, notification_type='info', category='all', link=None):
-        """Send notification to all staff users and publish once to ntfy"""
+        """Send notification to all staff users"""
         users = User.objects.filter(is_staff=True)
         for user in users:
             cls.objects.create(
@@ -4329,10 +4310,7 @@ class Notification(models.Model):
                 category=category,
                 link=link
             )
-        
-        # Topic par sirf ek baar broadcast bhejega
-        cls._send_ntfy(title, message, link, category)
-
+    
     @classmethod
     def send_sale_notification(cls, user, sale):
         """Send sale notification"""
@@ -4408,8 +4386,9 @@ class Notification(models.Model):
             notification_type='payment',
             category='payments',
             link=f"/installments/{installment.id}/"
-        )
-
+        )    
+        
+# models.py mein yeh add karo (apne existing models ke saath)
 
 class SalesTarget(models.Model):
     TARGET_TYPES = [
@@ -4583,7 +4562,6 @@ class Employee(models.Model):
     
     class Meta:
         verbose_name_plural = "HR - Employees"
-        ordering = ['name']
         indexes = [
             models.Index(fields=['employee_id']),
             models.Index(fields=['department', 'status']),
@@ -5471,7 +5449,6 @@ class Shareholder(models.Model):
 
     class Meta:
         verbose_name_plural = "👥 Shareholders"
-        ordering = ['name']
         indexes = [
             models.Index(fields=['shareholder_code']),
             models.Index(fields=['name']),
@@ -6052,7 +6029,6 @@ class Share(models.Model):
     # ============================================
     class Meta:
         verbose_name_plural = "📈 Share Holdings"
-        ordering = ['-created_at']
         indexes = [
             models.Index(fields=['shareholder']),
             models.Index(fields=['share_type']),
@@ -10568,7 +10544,6 @@ class Expense(models.Model):
     
     class Meta:
         verbose_name_plural = "Expenses"
-        ordering = ['-expense_date', '-created_at']
         indexes = [
             models.Index(fields=['expense_no']),
             models.Index(fields=['category', 'expense_date']),

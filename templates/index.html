@@ -56,6 +56,51 @@
         background: #1e293b;
         color: white;
     }
+
+    /* ========== PWA INSTALL BUTTON & BANNER ========== */
+    .pwa-install-btn {
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        color: white;
+        border: none;
+        padding: 8px 14px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.8rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        transition: all 0.3s ease;
+        touch-action: manipulation;
+    }
+
+    .pwa-install-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
+    }
+
+    .pwa-floating-banner {
+        position: fixed;
+        bottom: calc(20px + var(--safe-area-inset-bottom));
+        left: 20px;
+        z-index: 9990;
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 12px 16px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        display: none;
+        align-items: center;
+        gap: 12px;
+        max-width: 380px;
+        animation: pwaSlideUp 0.4s ease-out;
+    }
+
+    @keyframes pwaSlideUp {
+        from { transform: translateY(100px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
     
     /* ========== LOADING SPINNER ========== */
     .loading-overlay {
@@ -590,6 +635,7 @@
         .ceo-stats-grid { grid-template-columns: repeat(2, 1fr); }
         .ceo-card::after { font-size: 3rem; }
         .system-status-grid { grid-template-columns: 1fr; }
+        .pwa-floating-banner { left: 10px; right: 10px; max-width: none; }
     }
     
     @media (max-width: 400px) {
@@ -610,6 +656,19 @@
     <div class="spinner"></div>
     <div class="spinner-text" id="loadingText">Loading...</div>
     <div class="spinner-subtext">Please wait while we fetch your data</div>
+</div>
+
+<!-- Dynamic PWA Floating Installation Banner -->
+<div id="pwaBanner" class="pwa-floating-banner">
+    <div style="font-size: 1.8rem;">📱</div>
+    <div style="flex: 1;">
+        <div style="font-weight: 700; font-size: 0.85rem; color: var(--text);">Install BMS App</div>
+        <div style="font-size: 0.72rem; color: var(--text-light);">Install on home screen for quick access & offline support</div>
+    </div>
+    <button class="pwa-install-btn" onclick="triggerPwaInstall()">
+        <i class="bi bi-download"></i> Install
+    </button>
+    <button onclick="dismissPwaBanner()" style="background:none; border:none; color:var(--text-light); cursor:pointer; font-size:0.9rem;">✕</button>
 </div>
 
 <!-- ========================================== -->
@@ -680,6 +739,10 @@
         <p>Here's what's happening with your business today.</p>
     </div>
     <div class="d-flex align-items-center gap-3" style="position:relative; z-index:1;">
+        <!-- PWA Header Action Button (Dynamic) -->
+        <button id="pwaHeaderBtn" class="pwa-install-btn" onclick="triggerPwaInstall()" style="display:none;">
+            📲 Install App
+        </button>
         <button onclick="startDashboardVoice()" id="dashVoiceBtn" title="🎤 Voice Command (Ctrl+Space)">🎤</button>
         <div class="welcome-date">
             <div class="date-big">{% now "d M" %}</div>
@@ -998,6 +1061,61 @@
 
 {% block extra_js %}
 <script>
+    // ========== PWA INSTALLATION SYSTEM ==========
+    let deferredPrompt = null;
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+        // Prevent default browser banner
+        e.preventDefault();
+        deferredPrompt = e;
+
+        // Show installation elements if not dismissed previously
+        if (!localStorage.getItem('pwaDismissed')) {
+            const banner = document.getElementById('pwaBanner');
+            if (banner) banner.style.display = 'flex';
+        }
+
+        const headerBtn = document.getElementById('pwaHeaderBtn');
+        if (headerBtn) headerBtn.style.display = 'inline-flex';
+    });
+
+    async function triggerPwaInstall() {
+        if (!deferredPrompt) {
+            showNotification('📱 PWA Info', 'App installation prompt is not ready or already installed.', 'info');
+            return;
+        }
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log(`User response to install prompt: ${outcome}`);
+        deferredPrompt = null;
+        dismissPwaBanner();
+
+        const headerBtn = document.getElementById('pwaHeaderBtn');
+        if (headerBtn) headerBtn.style.display = 'none';
+    }
+
+    function dismissPwaBanner() {
+        const banner = document.getElementById('pwaBanner');
+        if (banner) banner.style.display = 'none';
+        localStorage.setItem('pwaDismissed', 'true');
+    }
+
+    window.addEventListener('appinstalled', () => {
+        console.log('PWA installed successfully');
+        dismissPwaBanner();
+        const headerBtn = document.getElementById('pwaHeaderBtn');
+        if (headerBtn) headerBtn.style.display = 'none';
+        showNotification('🎉 Success', 'BMS App installed successfully!', 'success');
+    });
+
+    // Check if running in standalone PWA mode
+    if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+        const banner = document.getElementById('pwaBanner');
+        const headerBtn = document.getElementById('pwaHeaderBtn');
+        if (banner) banner.style.display = 'none';
+        if (headerBtn) headerBtn.style.display = 'none';
+    }
+
     // ========== SERVICE WORKER REGISTRATION FOR PWA ==========
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', function() {
@@ -1355,6 +1473,8 @@
         'shareholders': "{% url 'shareholder_list' %}",
         'dividends': "{% url 'dividend_list' %}",
         'backup': "{% url 'database_backup' %}",
+        'install app': "javascript:triggerPwaInstall()",
+        'install pwa': "javascript:triggerPwaInstall()"
     };
     
     function startDashboardVoice() {
@@ -1420,8 +1540,12 @@
             if (cmd.includes(phrase)) {
                 if (commandTextEl) commandTextEl.textContent = '✅ Opening: ' + phrase;
                 speakText(`Opening ${phrase}. Please wait.`);
-                showLoading(`Opening ${phrase}...`);
-                setTimeout(() => { window.location = url; }, 1000);
+                if (url.startsWith('javascript:')) {
+                    eval(url.replace('javascript:', ''));
+                } else {
+                    showLoading(`Opening ${phrase}...`);
+                    setTimeout(() => { window.location = url; }, 1000);
+                }
                 return;
             }
         }
@@ -1539,7 +1663,7 @@
         // Help command
         if (cmd.includes('help') || cmd.includes('what can you do') || cmd.includes('commands')) {
             if (commandTextEl) commandTextEl.textContent = '📋 Showing help...';
-            speakText("I can help you navigate, calculate numbers, tell time, and more. Try saying: Go to Sales, What is 500 plus 200, or What time is it?");
+            speakText("I can help you navigate, calculate numbers, tell time, and install the app. Try saying: Go to Sales, Install App, or What time is it?");
             setTimeout(stopDashboardVoice, 18000);
             return;
         }
