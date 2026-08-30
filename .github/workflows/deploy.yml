@@ -41,8 +41,7 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pymysql gunicorn "django-import-export>=3.3.0" "django>=5.2,<5.3" django-dbbackup django-axes reportlab openpyxl pillow python-barcode qrcode cryptography requests
-
+          pip install pymysql gunicorn "django-import-export>=3.3.0" "django>=5.2,<5.3" django-dbbackup django-axes reportlab openpyxl pillow python-barcode qrcode cryptography requests django-pwa
 
       - name: Diagnose Database Latency & Send to ntfy
         run: |
@@ -92,6 +91,39 @@ jobs:
                   print('Superuser already exists.')
           else:
               print('Skipping superuser creation: Credentials not provided in secrets.')
+          "
+
+      - name: Process & Place PWA Icons from Home Directory
+        run: |
+          python -c "
+          import os
+          from PIL import Image
+
+          home = os.path.expanduser('~')
+          target_dir = os.path.join(os.getcwd(), 'ceo_module', 'static', 'ceo', 'images')
+          os.makedirs(target_dir, exist_ok=True)
+
+          extensions = ('.png', '.jpg', '.jpeg', '.webp')
+          found_images = [
+              os.path.join(home, f) for f in os.listdir(home)
+              if f.lower().endswith(extensions)
+          ]
+
+          if not found_images:
+              print('No source image found in Home directory to resize.')
+          else:
+              source_img_path = found_images[0]
+              print(f'Processing source image: {source_img_path}')
+
+              sizes = [(192, 192, 'icon-192.png'), (512, 512, 'icon-512.png')]
+
+              with Image.open(source_img_path) as img:
+                  img = img.convert('RGBA')
+                  for width, height, filename in sizes:
+                      resized_img = img.resize((width, height), Image.Resampling.LANCZOS)
+                      output_path = os.path.join(target_dir, filename)
+                      resized_img.save(output_path, 'PNG')
+                      print(f'Saved: {output_path}')
           "
 
       - name: Collect Static Files

@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
+    'pwa',
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
@@ -240,3 +241,26 @@ __all__ = [
     'RCLONE_REMOTE_NAME',
     'RCLONE_REMOTE_DIR',
 ]
+
+PWA_APP_NAME = 'Business Management System'
+PWA_APP_SHORT_NAME = 'BMS App'
+PWA_APP_DESCRIPTION = "Executive & Business Management Platform"
+PWA_APP_THEME_COLOR = '#0d6efd'
+PWA_APP_BACKGROUND_COLOR = '#ffffff'
+PWA_APP_DISPLAY = 'standalone'
+PWA_APP_SCOPE = '/'
+PWA_APP_ORIENTATION = 'any'
+PWA_APP_START_URL = '/'
+PWA_APP_STATUS_BAR_COLOR = 'default'
+PWA_APP_ICONS = [
+    {
+        'src': '/static/ceo/images/icon-192.png',
+        'sizes': '192x192'
+    },
+    {
+        'src': '/static/ceo/images/icon-512.png',
+        'sizes': '512x512'
+    }
+]
+PWA_APP_DIR = 'ltr'
+PWA_APP_LANG = 'en-US'
