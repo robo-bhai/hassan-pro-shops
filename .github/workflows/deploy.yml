@@ -138,23 +138,34 @@ jobs:
       - name: Check and Kill Existing Local Processes
         run: |
           echo "Cleaning up any old Django or Cloudflared instances on the runner..."
+          pkill -f "gunicorn" || true
           pkill -f "manage.py runserver" || true
           pkill -f "cloudflared" || true
           sleep 2
 
       - name: Start Django Server & Verify Health
         run: |
-          echo "Starting Django in background using nohup..."
-          nohup python manage.py runserver 0.0.0.0:8000 > django.log 2>&1 &
+          echo "Finding WSGI module..."
+          WSGI_MODULE=$(python -c "
+          import os
+          for root, dirs, files in os.walk('.'):
+              if 'wsgi.py' in files:
+                  mod = root.replace('./', '').replace('/', '.') + '.wsgi'
+                  print(mod)
+                  break
+          ")
+          echo "Detected WSGI Module: $WSGI_MODULE"
+
+          echo "Starting Gunicorn Production Server..."
+          nohup gunicorn --bind 0.0.0.0:8000 --workers 2 --timeout 120 "$WSGI_MODULE:application" > django.log 2>&1 &
           
-          echo "Waiting for Django to bind on port 8000..."
-          sleep 5
+          echo "Waiting for Gunicorn to bind on port 8000..."
+          sleep 6
           
-          # Verification check ki server sach me response de raha hai ya crash hua
           if curl -s http://localhost:8000 > /dev/null; then
-            echo "SUCCESS: Django local server is UP and responding on port 8000!"
+            echo "SUCCESS: Gunicorn server is UP and responding on port 8000!"
           else
-            echo "ERROR: Django server failed to start on port 8000! Printing django.log:"
+            echo "ERROR: Gunicorn server failed to start! Logs below:"
             cat django.log
             exit 1
           fi
