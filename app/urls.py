@@ -76,18 +76,7 @@ urlpatterns = [
     path('targets/', views_frontend.target_dashboard, name='target_dashboard'),
     path('targets/add/', views_frontend.add_target, name='add_target'),
     
-    # ============================================
-    # SYSTEM STATUS APIS
-    # ============================================
-    path('api/system/db-status/', views_frontend.system_db_status, name='system_db_status'),
-    path('api/system/cache-status/', views_frontend.system_cache_status, name='system_cache_status'),
-    path('api/system/backup-status/', views_frontend.system_backup_status, name='system_backup_status'),
-    path('api/system/queue-status/', views_frontend.system_queue_status, name='system_queue_status'),
-    path('api/system/disk-status/', views_frontend.system_disk_status, name='system_disk_status'),
-    path('api/system/memory-status/', views_frontend.system_memory_status, name='system_memory_status'),
-    path('api/auth/health/', views_frontend.system_api_health, name='auth_health'),
-    path('api/sales/health/', views_frontend.system_api_health, name='sales_health'),
-    
+
     # ============================================
     # PRODUCTS API
     # ============================================
