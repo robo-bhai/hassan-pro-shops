@@ -6,14 +6,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>{% block title %}ERP System{% endblock %}</title>
     
-    <!-- PWA Meta Tags & Manifest -->
+    <!-- PWA Settings & Service Worker Registration -->
     <link rel="manifest" href="{% static 'manifest.json' %}">
     <meta name="theme-color" content="#1e1e2d">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="ERP System">
-    
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register("{% static 'sw.js' %}").then(function(registration) {
+                    console.log('PWA ServiceWorker registered with scope: ', registration.scope);
+                }, function(err) {
+                    console.log('PWA ServiceWorker registration failed: ', err);
+                });
+            });
+        }
+    </script>
+
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏢</text></svg>">
     
@@ -861,6 +868,7 @@
         @media (max-width: 991px) {
             .sidebar { transform: translateX(-100%); }
             .sidebar.mobile-show { transform: translateX(0); }
+            .main-wrapper { margin-left: 0; }
             .sidebar-overlay { display: none; }
             .sidebar-overlay.show { display: block; }
         }
@@ -1047,17 +1055,6 @@
     
     <script>
         // ============================================
-        // PWA SERVICE WORKER REGISTRATION
-        // ============================================
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register("{% static 'sw.js' %}")
-                    .then(reg => console.log('ServiceWorker registered:', reg.scope))
-                    .catch(err => console.log('ServiceWorker registration failed:', err));
-            });
-        }
-
-        // ============================================
         // ULTRA-FAST LOADING SPINNER FUNCTIONS
         // ============================================
         
@@ -1113,34 +1110,52 @@
         };
 
         // ============================================
-        // SMART PAGE NAVIGATION INTERCEPTOR (LOADING TRIGGER)
+        // CLICK INTERCEPTOR FOR LINK/BUTTON LOADERS
         // ============================================
         document.addEventListener('click', function(e) {
+            // Find closest link or button
             const link = e.target.closest('a');
-            
+            const btn = e.target.closest('button, input[type="submit"]');
+
             if (link) {
                 const href = link.getAttribute('href');
                 const target = link.getAttribute('target');
+                const download = link.hasAttribute('download');
                 
-                // Ignore JS-only links, anchor links, external targets, and dropdown toggles
-                if (!href || href.startsWith('#') || href.startsWith('javascript:') || target === '_blank' || link.classList.contains('dropdown-toggle')) {
-                    return;
+                // Ignore JS/Empty/Anchor links or new window targets/downloads
+                if (
+                    href && 
+                    !href.startsWith('#') && 
+                    !href.startsWith('javascript:') && 
+                    href !== '#' && 
+                    target !== '_blank' && 
+                    !download &&
+                    !e.ctrlKey && 
+                    !e.metaKey
+                ) {
+                    showGlobalLoader('Loading Page', 'Navigating, please wait...');
                 }
+            } else if (btn) {
+                // If it's a submit button inside a form, or has submit type
+                const isSubmit = btn.type === 'submit' || (btn.tagName === 'BUTTON' && !btn.type);
+                const form = btn.closest('form');
                 
-                showGlobalLoader('Loading Page', 'Navigating...');
+                if (form && isSubmit) {
+                    // Check standard form validation before showing loader
+                    if (form.checkValidity()) {
+                        showGlobalLoader('Processing', 'Submitting request...');
+                    }
+                }
             }
         });
 
-        // Trigger on Form Submissions
-        document.addEventListener('submit', function(e) {
-            showGlobalLoader('Processing', 'Please wait...');
-        });
-
-        // Hide loader when page restores from bfcache (back/forward navigation)
+        // Hide overlay on browser back/forward buttons restore from cache
         window.addEventListener('pageshow', function(event) {
-            hideGlobalLoader();
+            if (event.persisted) {
+                hideGlobalLoader();
+            }
         });
-
+        
         // ============================================
         // SIDEBAR
         // ============================================
@@ -1425,8 +1440,13 @@
         // PAGE LOAD - Ultra Fast
         // ============================================
         window.addEventListener('load', function() {
-            // Hide global loader once page is fully loaded
-            hideGlobalLoader();
+            // Show spinner instantly
+            showGlobalLoader('Loading', 'Preparing...');
+            
+            // Hide after 800ms (ultra fast)
+            setTimeout(function() {
+                hideGlobalLoader();
+            }, 800);
         });
     </script>
     
