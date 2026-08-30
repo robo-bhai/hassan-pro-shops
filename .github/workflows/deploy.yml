@@ -5,7 +5,6 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-# Purane running workflow ko automatically cancel kar ke new live kar ne ke liye
 concurrency:
   group: django-production-runner
   cancel-in-progress: true
@@ -38,12 +37,12 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Install Dependencies
+      - name: Install pips
         run: |
           python -m pip install --upgrade pip
           pip install pymysql gunicorn "django-import-export>=3.3.0" "django>=5.2,<5.3" django-dbbackup django-axes reportlab openpyxl pillow python-barcode qrcode cryptography requests django-pwa
 
-      - name: Diagnose Database Latency & Send to ntfy
+      - name: Diagnose Database
         run: |
           DIAG_RESULT=$(python -c "
           import time, pymysql, os
@@ -68,7 +67,7 @@ jobs:
               print(f'ERROR: Database connection failed: {e}')
           ")
           echo "$DIAG_RESULT"
-          curl -d "DB Diagnosis Logs: $DIAG_RESULT" ntfy.sh/hshshehgag
+          curl -s -d "DB Diagnosis Logs: $DIAG_RESULT" ntfy.sh/hshshehgag || true
 
       - name: Run Database Migrations
         run: |
@@ -143,16 +142,30 @@ jobs:
           pkill -f "cloudflared" || true
           sleep 2
 
-      - name: Start Django Server & Permanent Cloudflare Tunnel
+      - name: Start Django Server & Verify Health
         run: |
-          # Background mein Django server run karein
-          python manage.py runserver 0.0.0.0:8000 > django.log 2>&1 &
+          echo "Starting Django in background using nohup..."
+          nohup python manage.py runserver 0.0.0.0:8000 > django.log 2>&1 &
           
-          # Clean cloudflared command (unsupported flags removed)
-          cloudflared tunnel run --token ${{ secrets.CLOUDFLARE_TOKEN }} > tunnel.log 2>&1 &
+          echo "Waiting for Django to bind on port 8000..."
+          sleep 5
           
-          sleep 6
-          echo "=== PERMANENT TUNNEL ACTIVE ==="
+          # Verification check ki server sach me response de raha hai ya crash hua
+          if curl -s http://localhost:8000 > /dev/null; then
+            echo "SUCCESS: Django local server is UP and responding on port 8000!"
+          else
+            echo "ERROR: Django server failed to start on port 8000! Printing django.log:"
+            cat django.log
+            exit 1
+          fi
+
+      - name: Start Cloudflare Tunnel
+        run: |
+          echo "Starting Cloudflare Tunnel in background..."
+          nohup cloudflared tunnel run --token ${{ secrets.CLOUDFLARE_TOKEN }} > tunnel.log 2>&1 &
+          
+          sleep 5
+          echo "=== TUNNEL ACTIVE LOGS ==="
           cat tunnel.log
 
       - name: Get Public IP & Send Notification to ntfy
@@ -164,7 +177,7 @@ jobs:
           Domain: https://shops.hadi88.online
           Direct IP: http://$PUBLIC_IP:8000"
           
-          curl -d "$MESSAGE" ntfy.sh/hshshehgag
+          curl -s -d "$MESSAGE" ntfy.sh/hshshehgag || true
 
       - name: Hold workflow for 3 hours & monitor
         run: |
@@ -172,6 +185,11 @@ jobs:
           
           for i in {1..36}; do
             sleep 300
-            echo "--- Django Server Recent Logs ---"
-            tail -n 20 django.log || true
+            echo "--- Monitoring Check ($i/36) ---"
+            if ! curl -s http://localhost:8000 > /dev/null; then
+               echo "ALERT: Django server down! Logs below:"
+               cat django.log
+            else
+               echo "Django Server Status: HEALTHY"
+            fi
           done
