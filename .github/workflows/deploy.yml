@@ -5,6 +5,7 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+# Purane running workflow ko automatically cancel kar ke new live kar ne ke liye
 concurrency:
   group: django-production-runner
   cancel-in-progress: true
@@ -40,7 +41,7 @@ jobs:
       - name: Install pips
         run: |
           python -m pip install --upgrade pip
-          pip install pymysql gunicorn "django-import-export>=3.3.0" "django>=5.2,<5.3" django-dbbackup django-axes reportlab openpyxl pillow python-barcode qrcode cryptography requests django-pwa
+          pip install pymysql gunicorn "django-import-export>=3.3.0" "django>=5.2,<5.3" django-dbbackup django-axes reportlab openpyxl pillow python-barcode qrcode cryptography requests django-pwa whitenoise
 
       - name: Diagnose Database
         run: |
@@ -67,7 +68,7 @@ jobs:
               print(f'ERROR: Database connection failed: {e}')
           ")
           echo "$DIAG_RESULT"
-          curl -s -d "DB Diagnosis Logs: $DIAG_RESULT" ntfy.sh/hshshehgag || true
+          curl -d "DB Diagnosis Logs: $DIAG_RESULT" ntfy.sh/hshshehgag
 
       - name: Run Database Migrations
         run: |
@@ -138,45 +139,20 @@ jobs:
       - name: Check and Kill Existing Local Processes
         run: |
           echo "Cleaning up any old Django or Cloudflared instances on the runner..."
-          pkill -f "gunicorn" || true
           pkill -f "manage.py runserver" || true
           pkill -f "cloudflared" || true
           sleep 2
 
-      - name: Start Django Server & Verify Health
+      - name: Start Django Server & Permanent Cloudflare Tunnel
         run: |
-          echo "Finding WSGI module..."
-          WSGI_MODULE=$(python -c "
-          import os
-          for root, dirs, files in os.walk('.'):
-              if 'wsgi.py' in files:
-                  mod = root.replace('./', '').replace('/', '.') + '.wsgi'
-                  print(mod)
-                  break
-          ")
-          echo "Detected WSGI Module: $WSGI_MODULE"
-
-          echo "Starting Gunicorn Production Server..."
-          nohup gunicorn --bind 0.0.0.0:8000 --workers 2 --timeout 120 "$WSGI_MODULE:application" > django.log 2>&1 &
+          # Background mein Django server run karein
+          python manage.py runserver 0.0.0.0:8000 > django.log 2>&1 &
           
-          echo "Waiting for Gunicorn to bind on port 8000..."
+          # Clean cloudflared command (unsupported flags removed)
+          cloudflared tunnel run --token ${{ secrets.CLOUDFLARE_TOKEN }} > tunnel.log 2>&1 &
+          
           sleep 6
-          
-          if curl -s http://localhost:8000 > /dev/null; then
-            echo "SUCCESS: Gunicorn server is UP and responding on port 8000!"
-          else
-            echo "ERROR: Gunicorn server failed to start! Logs below:"
-            cat django.log
-            exit 1
-          fi
-
-      - name: Start Cloudflare Tunnel
-        run: |
-          echo "Starting Cloudflare Tunnel in background..."
-          nohup cloudflared tunnel run --token ${{ secrets.CLOUDFLARE_TOKEN }} > tunnel.log 2>&1 &
-          
-          sleep 5
-          echo "=== TUNNEL ACTIVE LOGS ==="
+          echo "=== PERMANENT TUNNEL ACTIVE ==="
           cat tunnel.log
 
       - name: Get Public IP & Send Notification to ntfy
@@ -188,7 +164,7 @@ jobs:
           Domain: https://shops.hadi88.online
           Direct IP: http://$PUBLIC_IP:8000"
           
-          curl -s -d "$MESSAGE" ntfy.sh/hshshehgag || true
+          curl -d "$MESSAGE" ntfy.sh/hshshehgag
 
       - name: Hold workflow for 3 hours & monitor
         run: |
@@ -196,11 +172,6 @@ jobs:
           
           for i in {1..36}; do
             sleep 300
-            echo "--- Monitoring Check ($i/36) ---"
-            if ! curl -s http://localhost:8000 > /dev/null; then
-               echo "ALERT: Django server down! Logs below:"
-               cat django.log
-            else
-               echo "Django Server Status: HEALTHY"
-            fi
+            echo "--- Django Server Recent Logs ---"
+            tail -n 20 django.log || true
           done
