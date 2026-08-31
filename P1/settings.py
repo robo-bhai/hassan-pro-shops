@@ -75,6 +75,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -175,6 +176,10 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -254,13 +259,16 @@ PWA_APP_START_URL = '/'
 PWA_APP_STATUS_BAR_COLOR = 'default'
 PWA_APP_ICONS = [
     {
-        'src': '/static/ceo/images/icon-192.png',
-        'sizes': '192x192'
+        'src': '/static/images/icon-192.png',
+        'sizes': '192x192',
+        'type': 'image/png'
     },
     {
-        'src': '/static/ceo/images/icon-512.png',
-        'sizes': '512x512'
+        'src': '/static/images/icon-512.png',
+        'sizes': '512x512',
+        'type': 'image/png'
     }
 ]
 PWA_APP_DIR = 'ltr'
 PWA_APP_LANG = 'en-US'
+PWA_SERVICE_WORKER_PATH = os.path.join(BASE_DIR, 'static', 'serviceworker.js')
