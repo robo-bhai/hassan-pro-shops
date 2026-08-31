@@ -57,7 +57,7 @@ urlpatterns = [
     # ============================================
     # SHAREHOLDER PORTAL URLS (NEW)
     # ============================================
-    path('shareholder/login/', views_frontend.shareholder_login, name='shareholder_login'),
+    path('investor/login/', views_frontend.shareholder_login, name='shareholder_login'),
     path('shareholder/logout/', views_frontend.shareholder_logout, name='shareholder_logout'),
     path('shareholder/dashboard/', views_frontend.shareholder_portal_dashboard, name='shareholder_portal_dashboard'),
     path('shareholder/profile/', views_frontend.shareholder_portal_profile, name='shareholder_portal_profile'),
