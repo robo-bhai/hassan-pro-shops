@@ -6,21 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>{% block title %}ERP System{% endblock %}</title>
     
-    <!-- PWA Settings & Service Worker Registration -->
-    <link rel="manifest" href="{% static 'manifest.json' %}">
-    <meta name="theme-color" content="#1e1e2d">
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function() {
-                navigator.serviceWorker.register("{% static 'sw.js' %}").then(function(registration) {
-                    console.log('PWA ServiceWorker registered with scope: ', registration.scope);
-                }, function(err) {
-                    console.log('PWA ServiceWorker registration failed: ', err);
-                });
-            });
-        }
-    </script>
-
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏢</text></svg>">
     
@@ -34,7 +19,7 @@
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
     
     <style>
-        /* ========== CSS VARIABLES ========== */
+        /* ========== CSS VARIABLES - LIGHT MODE (DEFAULT) ========== */
         :root {
             --bg-primary: #f5f6fa;
             --bg-secondary: #ffffff;
@@ -66,10 +51,9 @@
             --sidebar-width: 260px;
             --primary: #0d6efd;
             --text-muted-sidebar: #a2a3b7;
-            --spinner-color: #667eea;
         }
         
-        /* ========== DARK MODE ========== */
+        /* ========== CSS VARIABLES - DARK MODE ========== */
         body.dark-theme {
             --bg-primary: #0f1123;
             --bg-secondary: #1a1d3a;
@@ -94,7 +78,6 @@
             --dropdown-bg: #1a1d3a;
             --modal-bg: #1a1d3a;
             --alert-bg: #252860;
-            --spinner-color: #818cf8;
         }
         
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -107,165 +90,7 @@
             transition: background 0.3s ease, color 0.3s ease;
         }
         
-        /* ========================================== */
-        /* ULTRA-FAST LOADING SPINNER                 */
-        /* ========================================== */
-        #globalLoadingOverlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(4px);
-            z-index: 10000;
-            display: none;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            transition: opacity 0.15s ease;
-        }
-        
-        body.dark-theme #globalLoadingOverlay {
-            background: rgba(15, 17, 35, 0.96);
-        }
-        
-        #globalLoadingOverlay.show {
-            display: flex;
-            animation: fastFadeIn 0.15s ease-out;
-        }
-        
-        #globalLoadingOverlay.hide {
-            animation: fastFadeOut 0.15s ease-out forwards;
-        }
-        
-        @keyframes fastFadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        
-        @keyframes fastFadeOut {
-            from { opacity: 1; }
-            to { opacity: 0; }
-        }
-        
-        /* Ultra Fast Spinner */
-        .spinner-fast {
-            width: 40px;
-            height: 40px;
-            position: relative;
-        }
-        
-        .spinner-fast .dot {
-            position: absolute;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--spinner-color);
-            animation: fastDot 1s ease-in-out infinite;
-        }
-        
-        .spinner-fast .dot:nth-child(1) { top: 0; left: 50%; transform: translateX(-50%); animation-delay: 0s; }
-        .spinner-fast .dot:nth-child(2) { top: 50%; right: 0; transform: translateY(-50%); animation-delay: 0.125s; }
-        .spinner-fast .dot:nth-child(3) { bottom: 0; left: 50%; transform: translateX(-50%); animation-delay: 0.25s; }
-        .spinner-fast .dot:nth-child(4) { top: 50%; left: 0; transform: translateY(-50%); animation-delay: 0.375s; }
-        
-        @keyframes fastDot {
-            0%, 100% { transform: scale(0.3); opacity: 0.3; }
-            50% { transform: scale(1); opacity: 1; }
-        }
-        
-        /* Spinner Text */
-        .spinner-text-fast {
-            color: var(--text-primary);
-            font-size: 0.85rem;
-            font-weight: 500;
-            margin-top: 14px;
-            letter-spacing: 0.2px;
-        }
-        
-        .spinner-text-fast .dots::after {
-            content: '';
-            animation: fastDots 1s steps(4) infinite;
-        }
-        
-        @keyframes fastDots {
-            0% { content: ''; }
-            25% { content: '.'; }
-            50% { content: '..'; }
-            75% { content: '...'; }
-            100% { content: ''; }
-        }
-        
-        .spinner-sub-fast {
-            color: var(--text-muted);
-            font-size: 0.7rem;
-            margin-top: 3px;
-        }
-        
-        /* Mini Progress Bar */
-        .spinner-progress-fast {
-            width: 120px;
-            height: 2px;
-            background: var(--border-color);
-            border-radius: 2px;
-            margin-top: 14px;
-            overflow: hidden;
-        }
-        
-        .spinner-progress-fast .bar {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, var(--spinner-color), #a78bfa);
-            border-radius: 2px;
-            transition: width 0.3s ease;
-        }
-        
-        .spinner-progress-fast .bar.animate {
-            animation: fastProgress 1.5s ease-in-out infinite;
-        }
-        
-        @keyframes fastProgress {
-            0% { width: 0%; }
-            50% { width: 70%; }
-            100% { width: 100%; }
-        }
-        
-        /* ========================================== */
-        /* PAGE TRANSITION                           */
-        /* ========================================== */
-        .page-content {
-            opacity: 0;
-            animation: fastPageIn 0.25s ease-out forwards;
-        }
-        
-        @keyframes fastPageIn {
-            from { opacity: 0; transform: translateY(6px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        /* ========================================== */
-        /* BUTTON LOADING                            */
-        /* ========================================== */
-        .btn-spinner {
-            display: inline-block;
-            width: 14px;
-            height: 14px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-top-color: #fff;
-            border-radius: 50%;
-            animation: fastSpin 0.5s linear infinite;
-            vertical-align: middle;
-            margin-right: 6px;
-        }
-        
-        @keyframes fastSpin {
-            to { transform: rotate(360deg); }
-        }
-        
-        /* ========================================== */
-        /* SIDEBAR - Existing Styles                  */
-        /* ========================================== */
+        /* ========== SIDEBAR ========== */
         .sidebar {
             position: fixed;
             top: 0;
@@ -854,6 +679,27 @@
             .global-toast { min-width: 200px; padding: 10px 15px; font-size: 0.85rem; }
         }
         
+        /* ========== GLOBAL LOADING OVERLAY ========== */
+        #globalLoadingOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            z-index: 10000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        
+        @keyframes globalSpin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
         /* ========== SCROLLBAR ========== */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: var(--bg-secondary); border-radius: 10px; }
@@ -939,25 +785,6 @@
 </head>
 <body>
     
-    <!-- ========================================== -->
-    <!-- ULTRA-FAST LOADING SPINNER                 -->
-    <!-- ========================================== -->
-    <div id="globalLoadingOverlay">
-        <div class="spinner-fast">
-            <div class="dot"></div>
-            <div class="dot"></div>
-            <div class="dot"></div>
-            <div class="dot"></div>
-        </div>
-        <div class="spinner-text-fast">
-            <span id="spinnerMainText">Loading</span><span class="dots"></span>
-        </div>
-        <div class="spinner-sub-fast" id="spinnerSubText">Please wait...</div>
-        <div class="spinner-progress-fast">
-            <div class="bar animate" id="spinnerProgressBar"></div>
-        </div>
-    </div>
-    
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
     
     {% if user.is_authenticated %}
@@ -974,15 +801,27 @@
                     <span class="page-title">{% block page_title %}Dashboard{% endblock %}</span>
                 </div>
                 <div class="d-flex align-items-center gap-3 user-menu">
-                    <!-- Theme Toggle -->
+                    <!-- Theme Toggle Dropdown -->
                     <div class="dropdown d-inline-block">
                         <button class="btn btn-link text-dark p-0 dropdown-toggle" data-bs-toggle="dropdown" style="text-decoration: none; font-size: 1.2rem;" id="themeToggleBtn">
                             <span id="themeIcon">🌙</span>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="#" onclick="applyTheme('light'); return false;">☀️ Light</a></li>
-                            <li><a class="dropdown-item" href="#" onclick="applyTheme('dark'); return false;">🌙 Dark</a></li>
-                            <li><a class="dropdown-item" href="#" onclick="applyTheme('auto'); return false;">🖥️ Auto</a></li>
+                            <li>
+                                <a class="dropdown-item" href="#" onclick="applyTheme('light'); return false;">
+                                    ☀️ Light Mode
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#" onclick="applyTheme('dark'); return false;">
+                                    🌙 Dark Mode
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#" onclick="applyTheme('auto'); return false;">
+                                    🖥️ Auto (System)
+                                </a>
+                            </li>
                         </ul>
                     </div>
                     
@@ -1003,31 +842,46 @@
                         </div>
                     </div>
                     
-                    <!-- USER DROPDOWN -->
+                    <!-- ========================================== -->
+                    <!-- ✅ UPDATED: USER DROPDOWN - SIRF CEO      -->
+                    <!-- ========================================== -->
                     <div class="dropdown">
                         <button class="btn btn-link text-dark p-0 dropdown-toggle" data-bs-toggle="dropdown" style="text-decoration: none;">
                             <i class="bi bi-person-circle"></i> {{ request.user.username|default:'User' }}
+                            
+                            <!-- ✅ Sirf CEO Badge (Admin hataya) -->
                             {% if request.user.is_superuser %}
                                 <span class="badge bg-primary ms-1" style="font-size:0.6rem; padding:2px 6px;">👑 CEO</span>
+                            {% elif request.user.groups.filter.name == 'CEO' %}
+                                <span class="badge bg-primary ms-1" style="font-size:0.6rem; padding:2px 6px;">👑 CEO</span>
+                            {% elif request.user.groups.filter.name == 'Owner' %}
+                                <span class="badge bg-success ms-1" style="font-size:0.6rem; padding:2px 6px;">🏢 Owner</span>
+                            {% elif request.user.groups.filter.name == 'Store Manager' %}
+                                <span class="badge bg-warning ms-1" style="font-size:0.6rem; padding:2px 6px; color:#222;">👔 Manager</span>
                             {% endif %}
                         </button>
                         
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><a class="dropdown-item" href="{% url 'dashboard' %}"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+                            
+                            <!-- ✅ CEO Panel - Only for Superuser -->
                             {% if request.user.is_superuser %}
                             <li><hr class="dropdown-divider"></li>
                             <li class="dropdown-header text-primary"><i class="bi bi-crown"></i> 👑 CEO Panel</li>
-                            <li><a class="dropdown-item" href="{% url 'user_list' %}"><i class="bi bi-people"></i> Manage Users</a></li>
-                            <li><a class="dropdown-item" href="{% url 'employee_list' %}"><i class="bi bi-person-badge"></i> HR Management</a></li>
-                            <li><a class="dropdown-item" href="{% url 'shareholder_list' %}"><i class="bi bi-building"></i> Shareholders</a></li>
-                            <li><a class="dropdown-item" href="{% url 'reports_dashboard' %}"><i class="bi bi-graph-up"></i> Reports</a></li>
-                            <li><a class="dropdown-item" href="{% url 'module_settings' %}"><i class="bi bi-gear"></i> Module Settings</a></li>
-                            <li><a class="dropdown-item" href="{% url 'database_backup' %}"><i class="bi bi-hdd-stack"></i> Backup</a></li>
+                            <li><a class="dropdown-item" href="{% url 'user_list' %}"><i class="bi bi-people"></i> 👑 Manage Users</a></li>
+                            <li><a class="dropdown-item" href="{% url 'employee_list' %}"><i class="bi bi-person-badge"></i> 👑 HR Management</a></li>
+                            <li><a class="dropdown-item" href="{% url 'shareholder_list' %}"><i class="bi bi-building"></i> 👑 Shareholders</a></li>
+                            <li><a class="dropdown-item" href="{% url 'reports_dashboard' %}"><i class="bi bi-graph-up"></i> 👑 Reports</a></li>
+                            <li><a class="dropdown-item" href="{% url 'module_settings' %}"><i class="bi bi-gear"></i> 👑 Module Settings</a></li>
+                            <li><a class="dropdown-item" href="{% url 'database_backup' %}"><i class="bi bi-hdd-stack"></i> 👑 Backup</a></li>
+                            <li><a class="dropdown-item" href="{% url 'dividend_list' %}"><i class="bi bi-coin"></i> 👑 Dividends</a></li>
+                            <li><a class="dropdown-item" href="{% url 'shareholder_balance_dashboard' %}"><i class="bi bi-wallet2"></i> 👑 Balances</a></li>
                             {% endif %}
+                            
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'company_settings' %}"><i class="bi bi-gear"></i> ⚙️ Settings</a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item text-danger" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+                            <li><a class="dropdown-item text-danger" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right"></i> 🚪 Logout</a></li>
                         </ul>
                     </div>
                 </div>
@@ -1036,7 +890,7 @@
         
         {% include 'components/messages.html' %}
         
-        <div class="content-area page-content">
+        <div class="content-area">
             {% block content %}{% endblock %}
         </div>
         
@@ -1046,118 +900,22 @@
     <!-- Global Toast Container -->
     <div id="globalToastContainer" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;"></div>
     
+    <!-- Global Loading Overlay -->
+    <div id="globalLoadingOverlay">
+        <div style="width: 50px; height: 50px; border: 3px solid rgba(255,255,255,0.2); border-top: 3px solid #667eea; border-radius: 50%; animation: globalSpin 0.8s linear infinite;"></div>
+        <div style="color: white; margin-top: 15px; font-size: 0.9rem;" id="globalLoadingText">Loading...</div>
+    </div>
+    
     <!-- Keyboard Shortcuts Hint -->
     <div class="keyboard-hint" onclick="showKeyboardShortcuts()" title="Click to see shortcuts">
-        ⌨️ Ctrl+H
+        ⌨️ Ctrl+H for Help
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
         // ============================================
-        // ULTRA-FAST LOADING SPINNER FUNCTIONS
-        // ============================================
-        
-        let spinnerTimer = null;
-        let spinnerInterval = null;
-        
-        /**
-         * Show loading spinner instantly
-         */
-        window.showGlobalLoader = function(message = 'Loading', subMessage = 'Please wait...') {
-            const overlay = document.getElementById('globalLoadingOverlay');
-            const textEl = document.getElementById('spinnerMainText');
-            const subEl = document.getElementById('spinnerSubText');
-            
-            if (textEl) textEl.textContent = message;
-            if (subEl) subEl.textContent = subMessage;
-            
-            if (overlay) {
-                overlay.classList.remove('hide');
-                overlay.classList.add('show');
-                document.body.style.overflow = 'hidden';
-            }
-            
-            // Auto-hide after 10 seconds (safety)
-            if (spinnerTimer) clearTimeout(spinnerTimer);
-            spinnerTimer = setTimeout(function() {
-                hideGlobalLoader();
-            }, 10000);
-        };
-        
-        /**
-         * Hide loading spinner instantly
-         */
-        window.hideGlobalLoader = function() {
-            const overlay = document.getElementById('globalLoadingOverlay');
-            
-            if (spinnerInterval) {
-                clearInterval(spinnerInterval);
-                spinnerInterval = null;
-            }
-            if (spinnerTimer) {
-                clearTimeout(spinnerTimer);
-                spinnerTimer = null;
-            }
-            
-            if (overlay) {
-                overlay.classList.add('hide');
-                setTimeout(function() {
-                    overlay.classList.remove('show', 'hide');
-                    document.body.style.overflow = '';
-                }, 150);
-            }
-        };
-
-        // ============================================
-        // CLICK INTERCEPTOR FOR LINK/BUTTON LOADERS
-        // ============================================
-        document.addEventListener('click', function(e) {
-            // Find closest link or button
-            const link = e.target.closest('a');
-            const btn = e.target.closest('button, input[type="submit"]');
-
-            if (link) {
-                const href = link.getAttribute('href');
-                const target = link.getAttribute('target');
-                const download = link.hasAttribute('download');
-                
-                // Ignore JS/Empty/Anchor links or new window targets/downloads
-                if (
-                    href && 
-                    !href.startsWith('#') && 
-                    !href.startsWith('javascript:') && 
-                    href !== '#' && 
-                    target !== '_blank' && 
-                    !download &&
-                    !e.ctrlKey && 
-                    !e.metaKey
-                ) {
-                    showGlobalLoader('Loading Page', 'Navigating, please wait...');
-                }
-            } else if (btn) {
-                // If it's a submit button inside a form, or has submit type
-                const isSubmit = btn.type === 'submit' || (btn.tagName === 'BUTTON' && !btn.type);
-                const form = btn.closest('form');
-                
-                if (form && isSubmit) {
-                    // Check standard form validation before showing loader
-                    if (form.checkValidity()) {
-                        showGlobalLoader('Processing', 'Submitting request...');
-                    }
-                }
-            }
-        });
-
-        // Hide overlay on browser back/forward buttons restore from cache
-        window.addEventListener('pageshow', function(event) {
-            if (event.persisted) {
-                hideGlobalLoader();
-            }
-        });
-        
-        // ============================================
-        // SIDEBAR
+        // SIDEBAR FUNCTIONS
         // ============================================
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
@@ -1174,8 +932,9 @@
         }
         
         // ============================================
-        // DARK/LIGHT MODE
+        // IMPROVED DARK/LIGHT MODE WITH PERSISTENCE
         // ============================================
+        
         const THEMES = { LIGHT: 'light', DARK: 'dark', AUTO: 'auto' };
         
         function getSystemTheme() {
@@ -1187,7 +946,10 @@
             const themeIcon = document.getElementById('themeIcon');
             
             let actualTheme = theme;
-            if (theme === THEMES.AUTO) actualTheme = getSystemTheme();
+            
+            if (theme === THEMES.AUTO) {
+                actualTheme = getSystemTheme();
+            }
             
             if (actualTheme === 'dark') {
                 body.classList.add('dark-theme');
@@ -1198,18 +960,40 @@
                 if (themeIcon) themeIcon.textContent = '🌙';
                 localStorage.setItem('userTheme', theme);
             }
+            
+            // Dispatch event for other components
+            window.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme: actualTheme } }));
         }
         
-        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        function toggleTheme() {
+            const currentTheme = localStorage.getItem('userTheme') || THEMES.LIGHT;
+            
+            if (currentTheme === THEMES.LIGHT) {
+                applyTheme(THEMES.DARK);
+                showToast('🌙 Dark mode enabled', 'success');
+            } else if (currentTheme === THEMES.DARK) {
+                applyTheme(THEMES.AUTO);
+                showToast('🖥️ Auto mode (system preference)', 'info');
+            } else if (currentTheme === THEMES.AUTO) {
+                applyTheme(THEMES.LIGHT);
+                showToast('☀️ Light mode enabled', 'success');
+            }
+        }
+        
+        // Listen for system theme changes when in auto mode
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
             const userTheme = localStorage.getItem('userTheme') || THEMES.LIGHT;
-            if (userTheme === THEMES.AUTO) applyTheme(THEMES.AUTO);
+            if (userTheme === THEMES.AUTO) {
+                applyTheme(THEMES.AUTO);
+            }
         });
         
+        // Initialize theme on page load
         const savedTheme = localStorage.getItem('userTheme') || THEMES.LIGHT;
         applyTheme(savedTheme);
         
         // ============================================
-        // GLOBAL TOAST
+        // GLOBAL TOAST SYSTEM
         // ============================================
         window.showToast = function(message, type = 'info') {
             const container = document.getElementById('globalToastContainer');
@@ -1217,12 +1001,13 @@
             
             const toast = document.createElement('div');
             toast.className = `global-toast ${type}`;
+            
             const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
             
             toast.innerHTML = `
-                <span>${icons[type] || 'ℹ️'}</span>
+                <span style="font-size:1.1rem;">${icons[type] || 'ℹ️'}</span>
                 <span style="flex:1;">${message}</span>
-                <button onclick="this.parentElement.remove()" style="background:none; border:none; cursor:pointer;">✕</button>
+                <button onclick="this.parentElement.remove()" style="background:none; border:none; cursor:pointer; font-size:1rem;">✕</button>
             `;
             
             container.appendChild(toast);
@@ -1235,7 +1020,28 @@
         };
         
         // ============================================
-        // GLOBAL AJAX WITH LOADER
+        // GLOBAL LOADER SYSTEM
+        // ============================================
+        window.showGlobalLoader = function(message = 'Loading...') {
+            const overlay = document.getElementById('globalLoadingOverlay');
+            const textEl = document.getElementById('globalLoadingText');
+            if (textEl) textEl.textContent = message;
+            if (overlay) {
+                overlay.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            }
+        };
+        
+        window.hideGlobalLoader = function() {
+            const overlay = document.getElementById('globalLoadingOverlay');
+            if (overlay) {
+                overlay.style.display = 'none';
+                document.body.style.overflow = '';
+            }
+        };
+        
+        // ============================================
+        // GLOBAL AJAX WITH CSRF
         // ============================================
         function getCSRFToken() {
             let cookieValue = null;
@@ -1252,8 +1058,8 @@
             return cookieValue;
         }
         
-        window.globalAjax = function(url, method = 'GET', data = null, showLoader = true, message = 'Loading') {
-            if (showLoader) showGlobalLoader(message);
+        window.globalAjax = function(url, method = 'GET', data = null, showLoader = true) {
+            if (showLoader) showGlobalLoader();
             
             const options = {
                 method: method,
@@ -1282,7 +1088,7 @@
         };
         
         // ============================================
-        // FORMATTERS
+        // GLOBAL FORMATTERS
         // ============================================
         window.formatCurrency = function(amount) {
             return new Intl.NumberFormat('en-PK', {
@@ -1292,10 +1098,42 @@
             }).format(amount);
         };
         
+        window.formatDate = function(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-PK', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        };
+        
+        window.formatDateTime = function(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-PK', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        };
+        
+        // ============================================
+        // GLOBAL CONFIRM DIALOG
+        // ============================================
+        window.confirmAction = function(message, callback, cancelCallback = null) {
+            if (confirm(message)) {
+                if (callback) callback();
+            } else {
+                if (cancelCallback) cancelCallback();
+            }
+        };
+        
         // ============================================
         // KEYBOARD SHORTCUTS
         // ============================================
         document.addEventListener('keydown', function(e) {
+            // Ctrl + S = Save/Submit
             if (e.ctrlKey && e.key === 's') {
                 e.preventDefault();
                 const form = document.querySelector('form');
@@ -1306,34 +1144,58 @@
                     showToast('Saving...', 'info');
                 }
             }
+            
+            // Ctrl + N = New
+            if (e.ctrlKey && e.key === 'n') {
+                e.preventDefault();
+                const currentPath = window.location.pathname;
+                if (currentPath.includes('/sales/')) window.location.href = '/sales/create/';
+                else if (currentPath.includes('/purchases/')) window.location.href = '/purchases/create/';
+                else if (currentPath.includes('/customers/')) window.location.href = '/customers/create/';
+                else if (currentPath.includes('/products/')) window.location.href = '/products/create/';
+                else if (currentPath.includes('/installment/')) window.location.href = '/installment/create/';
+                else showToast('No create page available for this section', 'warning');
+            }
+            
+            // Ctrl + H = Go to Dashboard/Home
             if (e.ctrlKey && e.key === 'h') {
                 e.preventDefault();
                 window.location.href = '/';
             }
+            
+            // Ctrl + L = Logout
             if (e.ctrlKey && e.key === 'l') {
                 e.preventDefault();
-                if (confirm('Logout?')) {
+                if (confirm('Are you sure you want to logout?')) {
                     showToast('Logging out...', 'info');
                     setTimeout(() => { window.location.href = '/logout/'; }, 500);
                 }
             }
+            
+            // Ctrl + / = Show shortcuts
             if (e.ctrlKey && e.key === '/') {
                 e.preventDefault();
-                alert('⌨️ Shortcuts:\nCtrl+S → Save\nCtrl+H → Home\nCtrl+L → Logout');
+                showKeyboardShortcuts();
             }
         });
         
+        function showKeyboardShortcuts() {
+            const shortcuts = `⌨️ Keyboard Shortcuts:\n\nCtrl + S → Save form\nCtrl + N → Create new item\nCtrl + H → Go to Dashboard\nCtrl + L → Logout\nCtrl + / → Show this help\nCtrl + Space → Voice commands (on dashboard)\n\nClick OK to continue`;
+            alert(shortcuts);
+        }
+        
         // ============================================
-        // NOTIFICATIONS
+        // NOTIFICATION SYSTEM
         // ============================================
         function toggleNotifications() {
             const dropdown = document.getElementById('notificationDropdown');
             if (dropdown) {
-                if (dropdown.classList.contains('show')) {
-                    dropdown.classList.remove('show');
-                } else {
+                const isVisible = dropdown.classList.contains('show');
+                if (!isVisible) {
                     dropdown.classList.add('show');
                     loadNotifications();
+                } else {
+                    dropdown.classList.remove('show');
                 }
             }
         }
@@ -1416,11 +1278,15 @@
             }
         }
         
+        // Update badge on page load
         fetch('/api/notifications/unread-count/')
             .then(response => response.json())
-            .then(data => updateBadge(data.unread_count || 0))
+            .then(data => {
+                updateBadge(data.unread_count || 0);
+            })
             .catch(error => console.error('Error:', error));
         
+        // Click outside to close notification dropdown
         document.addEventListener('click', function(event) {
             const dropdown = document.getElementById('notificationDropdown');
             const bell = document.querySelector('.notification-bell');
@@ -1429,6 +1295,7 @@
             }
         });
         
+        // Auto-refresh notifications every 30 seconds
         setInterval(function() {
             fetch('/api/notifications/unread-count/')
                 .then(response => response.json())
@@ -1437,16 +1304,10 @@
         }, 30000);
         
         // ============================================
-        // PAGE LOAD - Ultra Fast
+        // PAGE LOAD - Hide any loaders
         // ============================================
         window.addEventListener('load', function() {
-            // Show spinner instantly
-            showGlobalLoader('Loading', 'Preparing...');
-            
-            // Hide after 800ms (ultra fast)
-            setTimeout(function() {
-                hideGlobalLoader();
-            }, 800);
+            hideGlobalLoader();
         });
     </script>
     
