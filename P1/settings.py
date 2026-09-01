@@ -1,35 +1,49 @@
 import os
 from pathlib import Path
 import socket
-import pymysql
-
-pymysql.install_as_MySQLdb()
+import sys
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
-SALT_KEY = os.environ.get('DJANGO_SALT_KEY')
+# --- TERMUX DETECTION LOGIC ---
+IS_TERMUX = 'TERMUX_VERSION' in os.environ or os.path.exists('/data/data/com.termux')
 
-DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
+if not IS_TERMUX:
+    import pymysql
+    pymysql.install_as_MySQLdb()
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
+# --- KEYS & GENERAL CONFIGURATION ---
+if IS_TERMUX:
+    # Hardcoded fallback values for local Termux environment
+    SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-termux-local-dev-key-1234567890')
+    SALT_KEY = os.environ.get('DJANGO_SALT_KEY', 'termux-salt-key-dev')
+    DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
+    ALLOWED_HOSTS = ['*']
+else:
+    # Production / GitHub Workflow Environment Variables
+    SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+    SALT_KEY = os.environ.get('DJANGO_SALT_KEY')
+    DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
+    ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
 
+# Automatic Local IP Resolution
 try:
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.connect(("8.8.8.8", 80))
     local_ip = s.getsockname()[0]
     s.close()
     
-    if local_ip and local_ip not in ALLOWED_HOSTS:
+    if local_ip and local_ip not in ALLOWED_HOSTS and '*' not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append(local_ip)
 except Exception:
     pass
 
-env_allowed = os.environ.get('ALLOWED_HOSTS', '')
-if env_allowed:
-    ALLOWED_HOSTS = [h.strip() for h in env_allowed.split(',') if h.strip()]
-else:
-    ALLOWED_HOSTS = []
+if not IS_TERMUX:
+    env_allowed = os.environ.get('ALLOWED_HOSTS', '')
+    if env_allowed:
+        ALLOWED_HOSTS = [h.strip() for h in env_allowed.split(',') if h.strip()]
+    else:
+        ALLOWED_HOSTS = []
 
 CSRF_TRUSTED_ORIGINS = []
 env_csrf = os.environ.get('CSRF_TRUSTED_ORIGINS')
@@ -116,24 +130,33 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'P1.wsgi.application'
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.environ.get('DB_NAME', 'defaultdb'),
-        'USER': os.environ.get('DB_USER', 'avnadmin'),
-        'PASSWORD': os.environ.get('DB_PASS', ''),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DB_PORT', '3306'),
-        'OPTIONS': {
-            'ssl': {
-                'ssl-mode': 'REQUIRED',
-            },
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-            'charset': 'utf8mb4',
-        },
-        'CONN_MAX_AGE': 60,
+# --- DYNAMIC DATABASE CONFIGURATION ---
+if IS_TERMUX:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': os.environ.get('DB_NAME', 'defaultdb'),
+            'USER': os.environ.get('DB_USER', 'avnadmin'),
+            'PASSWORD': os.environ.get('DB_PASS', ''),
+            'HOST': os.environ.get('DB_HOST', 'localhost'),
+            'PORT': os.environ.get('DB_PORT', '3306'),
+            'OPTIONS': {
+                'ssl': {
+                    'ssl-mode': 'REQUIRED',
+                },
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+                'charset': 'utf8mb4',
+            },
+            'CONN_MAX_AGE': 60,
+        }
+    }
 
 DBBACKUP_STORAGE = 'django.core.files.storage.FileSystemStorage'
 DBBACKUP_STORAGE_OPTIONS = {
