@@ -1,0 +1,95 @@
+name: Database Backup to Google Drive (Latest 7 Rotated)
+
+on:
+  workflow_dispatch: # Sirf Manual Trigger active hai
+
+jobs:
+  backup-to-gdrive:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install Python Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install cryptography pymysql sqlalchemy python-dotenv jq
+
+    - name: Run Encrypted Backup
+      env:
+        DB_USER: ${{ secrets.DB_USER }}
+        DB_PASS: ${{ secrets.DB_PASS }}
+        DB_HOST: ${{ secrets.DB_HOST }}
+        DB_PORT: ${{ secrets.DB_PORT }}
+        DB_NAME: ${{ secrets.DB_NAME }}
+        BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
+      run: |
+        echo "🔒 Starting Database Backup..."
+        python db_backup_manager.py backup
+        
+        # Verify file creation
+        if [ -z "$(ls -A *.enc 2>/dev/null)" ]; then
+          echo "❌ Backup file not generated!"
+          exit 1
+        fi
+        echo "✅ Encrypted backup generated successfully."
+
+    - name: Install & Setup Rclone
+      env:
+        RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
+      run: |
+        sudo apt-get update && sudo apt-get install -y rclone jq
+        mkdir -p ~/.config/rclone
+        
+        # Write config via environment variable safely
+        echo "$RCLONE_CONFIG_DATA" > ~/.config/rclone/rclone.conf
+        
+        # Verify Rclone configuration
+        echo "📋 Available Rclone Remotes:"
+        rclone listremotes
+
+    - name: Upload New Backup & Rotate (Keep Latest 7)
+      run: |
+        TARGET_DIR="gdrive:DB_Backups"
+
+        echo "🚀 Uploading new backup to Google Drive folder: DB_Backups..."
+        rclone copy *.enc $TARGET_DIR --verbose
+
+        echo "🧹 Checking and rotating backups (Keeping only latest 7)..."
+        
+        # Google Drive se sabhi .enc files ki sorted list nikalna
+        ALL_FILES=$(rclone lsjson $TARGET_DIR --include "*.enc" | jq -r 'sort_by(.ModTime) | .[].Name' | grep -v '^$' || true)
+        
+        if [ -z "$ALL_FILES" ]; then
+          FILE_COUNT=0
+        else
+          FILE_COUNT=$(echo "$ALL_FILES" | wc -l)
+        fi
+
+        echo "📊 Total backups currently in Drive: $FILE_COUNT"
+
+        # Agar 7 se zyada files hain to oldest files delete karna
+        if [ "$FILE_COUNT" -gt 7 ]; then
+          DELETE_COUNT=$((FILE_COUNT - 7))
+          echo "⚠️ Found $FILE_COUNT backups. Deleting oldest $DELETE_COUNT backup(s)..."
+          
+          FILES_TO_DELETE=$(echo "$ALL_FILES" | head -n $DELETE_COUNT)
+          
+          for FILE in $FILES_TO_DELETE; do
+            echo "🗑️ Deleting old backup: $FILE"
+            rclone deletefile "$TARGET_DIR/$FILE"
+          done
+          echo "✅ Old backups cleaned up successfully."
+        else
+          echo "ℹ️ Total backups ($FILE_COUNT) are within the 7-file limit. No cleanup needed."
+        fi
+
+    - name: Workflow Status Summary
+      run: |
+        echo "🎉 Backup and 7-file rotation process completed successfully!"
