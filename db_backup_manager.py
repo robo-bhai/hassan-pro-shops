@@ -2,7 +2,8 @@ import os
 import io
 import json
 import base64
-from datetime import datetime
+from datetime import datetime, date
+from decimal import Decimal
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, inspect, text
 from cryptography.fernet import Fernet
@@ -36,6 +37,14 @@ def get_db_engine():
         engine_options['connect_args'] = {'ssl': {'ssl_mode': 'REQUIRED'}}
     
     return create_engine(db_uri, **engine_options)
+
+# Custom JSON Serializer for Date, Datetime, Decimal & non-standard types
+def json_serializer(obj):
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    if isinstance(obj, Decimal):
+        return float(obj)
+    raise TypeError(f"Type {type(obj)} not serializable")
 
 # --- 3. ENCRYPTION HELPERS ---
 def _derive_key(salt: bytes) -> bytes:
@@ -80,15 +89,10 @@ def export_backup(output_filename=None):
             print(f"  ➜ Exporting table: {table}")
             result = conn.execute(text(f"SELECT * FROM `{table}`"))
             rows = [dict(row._mapping) for row in result]
-            
-            for row in rows:
-                for k, v in row.items():
-                    if isinstance(v, (datetime)):
-                        row[k] = v.isoformat()
-
             backup_data[table] = rows
 
-    json_payload = json.dumps(backup_data)
+    # Custom serializer pass kiya hai taake date, datetime & decimal crash na hon
+    json_payload = json.dumps(backup_data, default=json_serializer)
     encrypted_content = encrypt_data(json_payload)
 
     with open(output_filename, "wb") as f:
@@ -121,10 +125,9 @@ def restore_backup(backup_filepath):
 
     schema_is_valid = True
     missing_tables = []
-    missing_columns = {} # Format: {table_name: [missing_cols]}
-    existing_columns_report = {} # Format: {table_name: [existing_cols]}
+    missing_columns = {}
+    existing_columns_report = {}
 
-    # Step A: Validate Database Structure
     for table_name, rows in backup_data.items():
         if not inspector.has_table(table_name):
             schema_is_valid = False
@@ -132,9 +135,8 @@ def restore_backup(backup_filepath):
             continue
 
         if not rows:
-            continue  # Empty table in backup
+            continue
 
-        # Fetch columns from target database
         target_db_cols = {col['name'] for col in inspector.get_columns(table_name)}
         backup_cols = set(rows[0].keys())
 
@@ -147,7 +149,6 @@ def restore_backup(backup_filepath):
             schema_is_valid = False
             missing_columns[table_name] = list(unmatched_cols)
 
-    # Step B: Display Detailed Verification Report
     print("\n📊 --- SCHEMA COMPARISON REPORT ---")
 
     for tbl, cols in existing_columns_report.items():
@@ -163,25 +164,13 @@ def restore_backup(backup_filepath):
         for tbl, cols in missing_columns.items():
             print(f"   - Table `{tbl}` missing column(s): {', '.join(cols)}")
 
-    # Step C: Abort if schema mismatched
     if not schema_is_valid:
         print("\n" + "🚨"*30)
         print("⛔ RESTORE CANCELLED! Database Schema Mismatch Detected.")
         print("   Ek bhi record restore nahi kiya gaya hai.")
         print("🚨"*30)
-        
-        print("\n🛠️  ACTION REQUIRED: Execute these changes in Target DB before restoring:")
-        if missing_tables:
-            print("\n  [Missing Tables]: Create the missing tables first.")
-        if missing_columns:
-            print("\n  [Missing Columns Query Examples]:")
-            for tbl, cols in missing_columns.items():
-                for c in cols:
-                    print(f"   ALTER TABLE `{tbl}` ADD COLUMN `{c}` VARCHAR(255); -- Adjust datatype accordingly")
-        print("\nFix the schema and run restore command again.\n")
         return
 
-    # Step D: Proceed with Restore ONLY if ALL Columns Match
     print("\n✅ All tables and columns perfectly match! Proceeding with full restore...")
 
     with engine.begin() as conn:
@@ -202,10 +191,6 @@ def restore_backup(backup_filepath):
 # --- 6. CLI INTERFACE ---
 if __name__ == "__main__":
     import sys
-    print("--------------------------------------------------")
-    print("      MySQL Secure Backup & Strict Restore        ")
-    print("--------------------------------------------------")
-    
     if len(sys.argv) < 2:
         print("Usage:")
         print("  Take Backup:    python db_backup_manager.py backup")
