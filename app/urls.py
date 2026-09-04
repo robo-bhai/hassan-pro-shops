@@ -860,5 +860,48 @@ urlpatterns = [
     path('loans-given/<int:pk>/delete/', views_frontend.loan_given_delete, name='loan_given_delete'),
     path('returns/purchase/<int:pk>/delete/', views_frontend.purchase_return_delete, name='purchase_return_delete'),
     path('ajax/get-purchase-return-history/', views_frontend.get_purchase_return_history, name='get_purchase_return_history'),
+    path('vendors/<int:pk>/ledger/pay/', views_frontend.vendor_ledger_pay, name='vendor_ledger_pay'),
+    path('customers/<int:pk>/ledger/pay/', views_frontend.customer_ledger_pay, name='customer_ledger_pay'),
+    
+    # ========================================== #
+    # TERMS & CONDITIONS ADMIN URLS              #
+    # ========================================== #
+    path('terms/admin/', views_frontend.terms_admin, name='terms_admin'),
+    path('terms/create/', views_frontend.terms_create, name='terms_create'),
+    path('terms/<int:pk>/edit/', views_frontend.terms_edit, name='terms_edit'),
+    path('terms/<int:pk>/delete/', views_frontend.terms_delete, name='terms_delete'),
+    path('terms/<int:pk>/activate/', views_frontend.terms_activate, name='terms_activate'),
+    path('terms/<int:pk>/preview/', views_frontend.terms_preview, name='terms_preview'),
+    
+    # ========================================== #
+    # SHAREHOLDER TERMS URL                      #
+    # ========================================== #
+    path('shareholder/terms/', views_frontend.shareholder_terms, name='shareholder_terms'),
+    
+    # ========================================== #
+    # SHAREHOLDER SUPPORT URLS                   #
+    # ========================================== #
+    path('shareholder/support/', views_frontend.shareholder_support, name='shareholder_support'),
+    path('shareholder/support/ticket/<int:pk>/', views_frontend.shareholder_support_ticket_detail, name='shareholder_support_ticket_detail'),
+    
+    # ========================================== #
+    # ADMIN SUPPORT URLS                         #
+    # ========================================== #
+    path('admin/support/tickets/', views_frontend.admin_support_tickets, name='admin_support_tickets'),
+    path('admin/support/ticket/<int:pk>/', views_frontend.admin_support_ticket_detail, name='admin_support_ticket_detail'),
+    path('terms/acceptances/', views_frontend.terms_acceptance_list, name='terms_acceptance_list'),
+    path('terms/acceptances/<int:pk>/', views_frontend.terms_acceptance_detail, name='terms_acceptance_detail'),
+    path('terms/acceptances/export/', views_frontend.terms_acceptance_export, name='terms_acceptance_export'),
+    path('terms/acceptances/<int:pk>/delete/', views_frontend.terms_acceptance_delete, name='terms_acceptance_delete'),
+    path('api/terms/acceptance-stats/', views_frontend.terms_acceptance_stats_api, name='terms_acceptance_stats_api'),
+    path('register/', views_frontend.shareholder_register, name='shareholder_register'),
+    path('shareholder-requests/', views_frontend.shareholder_requests_list, name='shareholder_requests_list'),
+    path('shareholder-requests/<int:pk>/', views_frontend.shareholder_request_detail, name='shareholder_request_detail'),
+    path('shareholder-requests/<int:pk>/approve/', views_frontend.shareholder_request_approve, name='shareholder_request_approve'),
+    path('shareholder-requests/<int:pk>/reject/', views_frontend.shareholder_request_reject, name='shareholder_request_reject'),
+    path('shareholder-requests/<int:pk>/delete/', views_frontend.shareholder_request_delete, name='shareholder_request_delete'),
+    path('shareholder-requests/bulk-action/', views_frontend.shareholder_requests_bulk_action, name='shareholder_requests_bulk_action'),
+    path('api/shareholder-requests/stats/', views_frontend.shareholder_requests_stats_api, name='shareholder_requests_stats_api'),
+    path('register/success/', views_frontend.shareholder_register_success, name='shareholder_register_success'),
     
 ]

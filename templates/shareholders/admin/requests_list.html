@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Shareholder Registration Requests{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="bi bi-person-plus"></i> Registration Requests
+                    </h4>
+                    <div>
+                        <span class="badge bg-warning text-dark me-2">Pending: {{ pending }}</span>
+                        <span class="badge bg-success me-2">Approved: {{ approved }}</span>
+                        <span class="badge bg-danger">Rejected: {{ rejected }}</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Stats Cards -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h3 class="mb-0">{{ total }}</h3>
+                                    <small class="text-muted">Total Requests</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning">
+                                <div class="card-body text-center">
+                                    <h3 class="mb-0">{{ pending }}</h3>
+                                    <small>⏳ Pending</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h3 class="mb-0">{{ approved }}</h3>
+                                    <small>✅ Approved</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-danger text-white">
+                                <div class="card-body text-center">
+                                    <h3 class="mb-0">{{ rejected }}</h3>
+                                    <small>❌ Rejected</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Filters -->
+                    <form method="get" class="mb-4">
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <input type="text" name="search" class="form-control" 
+                                       placeholder="Search by name/email/phone..." value="{{ search }}">
+                            </div>
+                            <div class="col-md-2">
+                                <select name="status" class="form-select">
+                                    <option value="">All Status</option>
+                                    {% for key, label in status_choices %}
+                                        <option value="{{ key }}" {% if status_filter == key %}selected{% endif %}>
+                                            {{ label }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="bi bi-filter"></i> Filter
+                                </button>
+                            </div>
+                            <div class="col-md-2">
+                                <a href="{% url 'shareholder_requests_list' %}" class="btn btn-secondary w-100">
+                                    <i class="bi bi-arrow-counterclockwise"></i> Reset
+                                </a>
+                            </div>
+                            <div class="col-md-2">
+                                <a href="{% url 'shareholder_register' %}" class="btn btn-success w-100" target="_blank">
+                                    <i class="bi bi-plus-circle"></i> Public Page
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <!-- Bulk Actions -->
+                    <div class="mb-3">
+                        <button class="btn btn-success btn-sm" onclick="bulkAction('approve')">
+                            <i class="bi bi-check-all"></i> Approve Selected
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="bulkAction('reject')">
+                            <i class="bi bi-x-circle"></i> Reject Selected
+                        </button>
+                        <span class="text-muted ms-3">
+                            <small>Select requests using checkboxes</small>
+                        </span>
+                    </div>
+                    
+                    <!-- Table -->
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th><input type="checkbox" id="selectAll" onclick="toggleAll(this)"></th>
+                                    <th>#</th>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Phone</th>
+                                    <th>Status</th>
+                                    <th>Requested</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for req in requests %}
+                                <tr>
+                                    <td>
+                                        {% if req.status == 'pending' %}
+                                            <input type="checkbox" class="request-checkbox" value="{{ req.id }}">
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td><strong>{{ req.full_name }}</strong></td>
+                                    <td>{{ req.email }}</td>
+                                    <td>{{ req.phone }}</td>
+                                    <td>
+                                        {% if req.status == 'pending' %}
+                                            <span class="badge bg-warning text-dark">⏳ Pending</span>
+                                        {% elif req.status == 'approved' %}
+                                            <span class="badge bg-success">✅ Approved</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">❌ Rejected</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ req.requested_at|date:"d-m-Y H:i" }}</td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'shareholder_request_detail' req.id %}" 
+                                               class="btn btn-info" title="View Details">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            {% if req.status == 'pending' %}
+                                                <a href="{% url 'shareholder_request_approve' req.id %}" 
+                                                   class="btn btn-success" title="Approve">
+                                                    <i class="bi bi-check"></i>
+                                                </a>
+                                                <a href="{% url 'shareholder_request_reject' req.id %}" 
+                                                   class="btn btn-danger" title="Reject">
+                                                    <i class="bi bi-x"></i>
+                                                </a>
+                                            {% endif %}
+                                            {% if user.is_superuser %}
+                                                <a href="{% url 'shareholder_request_delete' req.id %}" 
+                                                   class="btn btn-dark" title="Delete"
+                                                   onclick="return confirm('Delete this request?')">
+                                                    <i class="bi bi-trash"></i>
+                                                </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center py-4">
+                                        <i class="bi bi-inbox fs-1 d-block text-muted"></i>
+                                        <p class="text-muted">No registration requests found</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    {% include "components/pagination.html" %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleAll(source) {
+    document.querySelectorAll('.request-checkbox').forEach(checkbox => {
+        checkbox.checked = source.checked;
+    });
+}
+
+function bulkAction(action) {
+    const selected = document.querySelectorAll('.request-checkbox:checked');
+    if (selected.length === 0) {
+        alert('Please select at least one request!');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to ${action} ${selected.length} request(s)?`)) {
+        return;
+    }
+    
+    const ids = Array.from(selected).map(cb => cb.value);
+    
+    fetch('{% url "shareholder_requests_bulk_action" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify({ action: action, request_ids: ids })
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.message);
+        location.reload();
+    })
+    .catch(error => {
+        alert('Error: ' + error);
+    });
+}
+</script>
+{% endblock %}

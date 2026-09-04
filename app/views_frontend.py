@@ -837,21 +837,58 @@ def shareholder_portal_transactions(request):
 
 @login_required
 def shareholder_portal_dashboard(request):
-    """Shareholder portal dashboard - only for shareholders"""
+    """
+    Shareholder portal dashboard - Complete with Terms & Conditions check
+    """
     
+    # ========================================== #
+    # 1. CHECK: Is user a shareholder?          #
+    # ========================================== #
     if not hasattr(request.user, 'shareholder_profile'):
         messages.error(request, 'Access denied! This portal is for shareholders only.')
         return redirect('dashboard')
     
     shareholder = request.user.shareholder_profile
     
-    if shareholder.status != 'active' or not shareholder.allow_login:
-        messages.error(request, 'Your account is not active!')
+    # ========================================== #
+    # 2. CHECK: Terms & Conditions Accepted?    #
+    # ========================================== #
+    
+    # Check if shareholder has accepted terms
+    if not hasattr(shareholder, 'terms_acceptance'):
+        messages.info(request, '📋 Please accept the Terms & Conditions to continue.')
+        return redirect('shareholder_terms')
+    
+    # Check if terms version is up-to-date with active version
+    active_terms = TermsAndConditions.objects.filter(is_active=True).first()
+    if active_terms and shareholder.terms_acceptance.terms_version != active_terms.version:
+        messages.warning(
+            request, 
+            f'📋 New Terms & Conditions (v{active_terms.version}) are available. Please accept them.'
+        )
+        return redirect('shareholder_terms')
+    
+    # ========================================== #
+    # 3. CHECK: Shareholder Status              #
+    # ========================================== #
+    if shareholder.status != 'active':
+        messages.error(request, 'Your account is not active! Please contact admin.')
         logout(request)
         return redirect('shareholder_login')
     
-    # Get shareholder data
+    if not shareholder.allow_login:
+        messages.error(request, 'Login is disabled for your account!')
+        logout(request)
+        return redirect('shareholder_login')
+    
+    # ========================================== #
+    # 4. GET SHAREHOLDER DATA                    #
+    # ========================================== #
+    
+    # Get cash balance
     balance = ShareholderCashBalance.get_balance(shareholder)
+    
+    # Get shares data
     total_shares = shareholder.total_shares()
     total_investment = shareholder.total_investment()
     total_dividends = shareholder.total_dividends()
@@ -863,10 +900,13 @@ def shareholder_portal_dashboard(request):
     
     # Calculate profit/loss
     profit_loss = current_value - total_investment
-    profit_loss_percent = (profit_loss / total_investment * 100) if total_investment > 0 else 0
+    if total_investment > 0:
+        profit_loss_percent = (profit_loss / total_investment) * 100
+    else:
+        profit_loss_percent = Decimal('0.00')
     
     # Get share holdings
-    shares = shareholder.shares.all()
+    shares = shareholder.shares.filter(is_locked=False, quantity__gt=0)
     
     # Get dividend payments
     dividend_payments = shareholder.dividend_payments.all().order_by('-created_at')[:10]
@@ -879,9 +919,96 @@ def shareholder_portal_dashboard(request):
     # Get pending dividends
     pending_dividends = shareholder.dividend_payments.filter(status='pending')
     
+    # Get pending deposit/withdrawal requests
+    pending_deposits = ShareholderDepositRequest.objects.filter(
+        shareholder=shareholder,
+        status='pending'
+    ).count()
+    
+    pending_withdrawals = ShareholderWithdrawalRequest.objects.filter(
+        shareholder=shareholder,
+        status='pending'
+    ).count()
+    
+    # ========================================== #
+    # 5. GET DRIP ENROLLMENT                     #
+    # ========================================== #
+    drip_enrollment = ShareholderDRIPEnrollment.objects.filter(
+        shareholder=shareholder,
+        status='active'
+    ).select_related('drip', 'drip__dividend').first()
+    
+    # ========================================== #
+    # 6. GET NOTIFICATIONS COUNT                 #
+    # ========================================== #
+    notification_count = Notification.objects.filter(
+        Q(user=request.user) | Q(user__isnull=True),
+        is_read=False
+    ).count()
+    
+    # ========================================== #
+    # 7. GET MEETING DATA                        #
+    # ========================================== #
+    upcoming_meetings = ShareholderMeeting.objects.filter(
+        date__gte=date.today(),
+        status='scheduled'
+    ).count()
+    
+    # Check if shareholder is attending any meeting
+    meeting_attendance = MeetingAttendance.objects.filter(
+        shareholder=shareholder,
+        status__in=['present', 'online', 'proxy']
+    ).count()
+    
+    # ========================================== #
+    # 8. GET SHARE TRANSFER DATA                 #
+    # ========================================== #
+    pending_transfers_out = ShareTransfer.objects.filter(
+        from_shareholder=shareholder,
+        status='pending'
+    ).count()
+    
+    pending_transfers_in = ShareTransfer.objects.filter(
+        to_shareholder=shareholder,
+        status='pending'
+    ).count()
+    
+    # ========================================== #
+    # 9. CHART DATA (Monthly Dividend)           #
+    # ========================================== #
+    chart_months = []
+    chart_amounts = []
+    
+    for i in range(6):
+        month_date = date.today().replace(day=1) - timedelta(days=30 * i)
+        month_name = month_date.strftime('%b %Y')
+        chart_months.insert(0, month_name)
+        
+        # Get dividends for this month
+        month_dividends = shareholder.dividend_payments.filter(
+            payment_date__year=month_date.year,
+            payment_date__month=month_date.month,
+            status='paid'
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        
+        chart_amounts.insert(0, float(month_dividends))
+    
+    # ========================================== #
+    # 10. COMPANY INFO                           #
+    # ========================================== #
+    company = CompanyInfo.objects.first()
+    company_name = company.name if company else 'ERP System'
+    company_logo = company.logo.url if company and company.logo else None
+    
+    # ========================================== #
+    # 11. CONTEXT                               #
+    # ========================================== #
     context = {
-        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'company_name': company_name,
+        'company_logo': company_logo,
         'shareholder': shareholder,
+        
+        # Financial Data
         'balance': balance,
         'total_shares': total_shares,
         'total_investment': total_investment,
@@ -890,12 +1017,47 @@ def shareholder_portal_dashboard(request):
         'current_value': current_value,
         'profit_loss': profit_loss,
         'profit_loss_percent': profit_loss_percent,
+        
+        # Holdings
         'shares': shares,
+        'share_count': shares.count(),
+        
+        # Recent Activity
         'dividend_payments': dividend_payments,
         'transactions': transactions,
         'pending_dividends': pending_dividends,
+        'pending_dividends_count': pending_dividends.count(),
+        
+        # Requests
+        'pending_deposits': pending_deposits,
+        'pending_withdrawals': pending_withdrawals,
+        
+        # DRIP
+        'drip_enrollment': drip_enrollment,
+        
+        # Notifications
+        'notification_count': notification_count,
+        
+        # Meetings
+        'upcoming_meetings': upcoming_meetings,
+        'meeting_attendance': meeting_attendance,
+        
+        # Transfers
+        'pending_transfers_out': pending_transfers_out,
+        'pending_transfers_in': pending_transfers_in,
+        
+        # Chart
+        'chart_months': json.dumps(chart_months),
+        'chart_amounts': json.dumps(chart_amounts),
+        
+        # Latest Price
         'latest_price': latest_price,
+        
+        # Timestamps
+        'today': date.today(),
+        'now': now(),
     }
+    
     return render(request, 'shareholders/portal/dashboard.html', context)
     
 @login_required
@@ -29482,3 +29644,1498 @@ def sale_return_delete(request, pk):
         'return_reason_display': sale_return.get_return_reason_display(),
     }
     return render(request, 'returns/sale_return_delete.html', context)
+    
+@login_required
+def vendor_ledger_pay(request, pk):
+    """Pay vendor outstanding balance"""
+    
+    vendor = get_object_or_404(Vendor, pk=pk)
+    
+    if request.method == 'POST':
+        try:
+            amount = Decimal(request.POST.get('amount', 0))
+            payment_method = request.POST.get('payment_method', 'cash')
+            reference_no = request.POST.get('reference_no', '')
+            notes = request.POST.get('notes', '')
+            purchase_id = request.POST.get('purchase_id') or None
+            
+            # Validation
+            if amount <= 0:
+                messages.error(request, '❌ Amount must be greater than zero!')
+                return redirect('vendor_ledger_pay', pk=pk)
+            
+            current_outstanding = vendor.outstanding_balance()
+            if amount > current_outstanding:
+                messages.error(
+                    request, 
+                    f'❌ Amount exceeds outstanding balance! Outstanding: Rs. {current_outstanding:,.2f}'
+                )
+                return redirect('vendor_ledger_pay', pk=pk)
+            
+            # Check cash balance
+            current_cash = CashBalance.get_balance()
+            if amount > current_cash:
+                messages.error(
+                    request, 
+                    f'❌ Insufficient cash balance! Available: Rs. {current_cash:,.2f}'
+                )
+                return redirect('vendor_ledger_pay', pk=pk)
+            
+            with transaction.atomic():
+                # Get or create PaymentMethod
+                from .models import PaymentMethod
+                
+                method_mapping = {
+                    'cash': 'Cash',
+                    'bank_transfer': 'Bank Transfer',
+                    'cheque': 'Cheque',
+                    'jazzcash': 'JazzCash',
+                    'easypaisa': 'EasyPaisa',
+                }
+                
+                method_name = method_mapping.get(payment_method, 'Cash')
+                method, created = PaymentMethod.objects.get_or_create(
+                    name=method_name,
+                    defaults={'is_active': True}
+                )
+                
+                purchase = None
+                
+                # ✅ IF specific purchase selected
+                if purchase_id:
+                    purchase = get_object_or_404(Purchase, pk=purchase_id, vendor=vendor)
+                    
+                    purchase_outstanding = purchase.total_amount() - purchase.paid
+                    if amount > purchase_outstanding:
+                        messages.error(
+                            request, 
+                            f'❌ Amount exceeds purchase outstanding! Purchase: Rs. {purchase_outstanding:,.2f}'
+                        )
+                        return redirect('vendor_ledger_pay', pk=pk)
+                    
+                    # Update purchase paid amount
+                    purchase.paid += amount
+                    purchase.save()
+                    
+                    messages.success(
+                        request, 
+                        f'✅ Rs. {amount:,.2f} paid for Purchase #{purchase.bill_no or purchase.id}!\n'
+                        f'Remaining: Rs. {purchase.total_amount() - purchase.paid:,.2f}'
+                    )
+                    
+                else:
+                    # ✅ PAY FULL OUTSTANDING - Distribute among purchases (FIFO)
+                    purchases = Purchase.objects.filter(
+                        vendor=vendor
+                    ).order_by('pur_date')
+                    
+                    remaining = amount
+                    paid_purchases = []
+                    
+                    for p in purchases:
+                        if remaining <= 0:
+                            break
+                        
+                        purchase_outstanding = p.total_amount() - p.paid
+                        if purchase_outstanding <= 0:
+                            continue
+                        
+                        pay_amount = min(remaining, purchase_outstanding)
+                        p.paid += pay_amount
+                        p.save()
+                        remaining -= pay_amount
+                        paid_purchases.append({
+                            'bill_no': p.bill_no or str(p.id),
+                            'amount': pay_amount
+                        })
+                    
+                    # Build success message
+                    paid_summary = ", ".join([f"#{p['bill_no']} (Rs. {p['amount']:,.2f})" for p in paid_purchases])
+                    messages.success(
+                        request, 
+                        f'✅ Rs. {amount:,.2f} paid to {vendor.name}!\n'
+                        f'Purchases: {paid_summary}\n'
+                        f'Remaining Outstanding: Rs. {vendor.outstanding_balance():,.2f}'
+                    )
+                
+                # ✅ Create VendorPayment record
+                from .models import VendorPayment
+                VendorPayment.objects.create(
+                    vendor=vendor,
+                    purchase=purchase,  # Can be None if no specific purchase
+                    amount=amount,
+                    payment_date=now(),
+                    payment_method=method,
+                    reference_no=reference_no,
+                    notes=notes,
+                    created_by=request.user
+                )
+                
+                # ✅ Deduct from cash
+                CashBalance.update_balance(
+                    amount=amount,
+                    transaction_type='withdraw',
+                    user=request.user,
+                    description=f"Vendor payment: {vendor.name}"
+                )
+                
+                return redirect('vendor_ledger', pk=vendor.pk)
+                
+        except Exception as e:
+            messages.error(request, f'❌ Error: {str(e)}')
+            return redirect('vendor_ledger_pay', pk=pk)
+    
+    # GET request - show form
+    outstanding = vendor.outstanding_balance()
+    
+    all_purchases = vendor.purchase_set.all().order_by('pur_date')
+    purchases_with_outstanding = []
+    
+    for p in all_purchases:
+        p_outstanding = p.total_amount() - p.paid
+        if p_outstanding > 0:
+            p.outstanding_balance = p_outstanding
+            purchases_with_outstanding.append(p)
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'vendor': vendor,
+        'outstanding': outstanding,
+        'purchases': purchases_with_outstanding,
+        'current_cash': CashBalance.get_balance(),
+        'payment_methods': [
+            ('cash', '💵 Cash'),
+            ('bank_transfer', '🏦 Bank Transfer'),
+            ('cheque', '📄 Cheque'),
+            ('jazzcash', '📱 JazzCash'),
+            ('easypaisa', '📱 EasyPaisa'),
+        ],
+        'today': date.today().strftime('%Y-%m-%d'),
+    }
+    return render(request, 'vendors/ledger_pay.html', context)
+    
+@login_required
+def customer_ledger_pay(request, pk):
+    """Receive payment from customer against outstanding balance"""
+    
+    customer = get_object_or_404(Customer, pk=pk)
+    
+    if request.method == 'POST':
+        try:
+            amount = Decimal(request.POST.get('amount', 0))
+            payment_method = request.POST.get('payment_method', 'cash')
+            reference_no = request.POST.get('reference_no', '')
+            notes = request.POST.get('notes', '')
+            sale_id = request.POST.get('sale_id') or None
+            
+            # Validation
+            if amount <= 0:
+                messages.error(request, '❌ Amount must be greater than zero!')
+                return redirect('customer_ledger_pay', pk=pk)
+            
+            current_outstanding = customer.adjusted_outstanding_balance()
+            if amount > current_outstanding:
+                messages.error(
+                    request, 
+                    f'❌ Amount exceeds outstanding balance! Outstanding: Rs. {current_outstanding:,.2f}'
+                )
+                return redirect('customer_ledger_pay', pk=pk)
+            
+            with transaction.atomic():
+                # Get or create PaymentMethod
+                from .models import PaymentMethod
+                
+                method_mapping = {
+                    'cash': 'Cash',
+                    'bank_transfer': 'Bank Transfer',
+                    'cheque': 'Cheque',
+                    'jazzcash': 'JazzCash',
+                    'easypaisa': 'EasyPaisa',
+                    'card': 'Card',
+                }
+                
+                method_name = method_mapping.get(payment_method, 'Cash')
+                method, created = PaymentMethod.objects.get_or_create(
+                    name=method_name,
+                    defaults={'is_active': True}
+                )
+                
+                sale = None
+                
+                # ✅ IF specific sale selected
+                if sale_id:
+                    sale = get_object_or_404(Sale, pk=sale_id, customer=customer)
+                    
+                    sale_outstanding = sale.total_amount() - sale.paid
+                    if amount > sale_outstanding:
+                        messages.error(
+                            request, 
+                            f'❌ Amount exceeds sale outstanding! Sale: Rs. {sale_outstanding:,.2f}'
+                        )
+                        return redirect('customer_ledger_pay', pk=pk)
+                    
+                    # Update sale paid amount
+                    sale.paid += amount
+                    sale.save()
+                    
+                    # ✅ Also update Cash Balance (INFLOW)
+                    CashBalance.update_balance(
+                        amount=amount,
+                        transaction_type='sale',
+                        user=request.user,
+                        description=f"Customer payment: {customer.name} - Sale #{sale.bill_no}"
+                    )
+                    
+                    messages.success(
+                        request, 
+                        f'✅ Rs. {amount:,.2f} received for Sale #{sale.bill_no}!\n'
+                        f'Remaining: Rs. {sale.total_amount() - sale.paid:,.2f}'
+                    )
+                    
+                else:
+                    # ✅ RECEIVE FULL OUTSTANDING - Distribute among sales (FIFO)
+                    sales = Sale.objects.filter(
+                        customer=customer
+                    ).order_by('sale_date')  # Oldest first
+                    
+                    remaining = amount
+                    paid_sales = []
+                    
+                    for s in sales:
+                        if remaining <= 0:
+                            break
+                        
+                        sale_outstanding = s.total_amount() - s.paid
+                        if sale_outstanding <= 0:
+                            continue
+                        
+                        pay_amount = min(remaining, sale_outstanding)
+                        s.paid += pay_amount
+                        s.save()
+                        remaining -= pay_amount
+                        paid_sales.append({
+                            'bill_no': s.bill_no or str(s.id),
+                            'amount': pay_amount
+                        })
+                    
+                    # ✅ Update Cash Balance (INFLOW)
+                    CashBalance.update_balance(
+                        amount=amount,
+                        transaction_type='sale',
+                        user=request.user,
+                        description=f"Customer payment: {customer.name} - Outstanding payment"
+                    )
+                    
+                    # Build success message
+                    paid_summary = ", ".join([f"#{p['bill_no']} (Rs. {p['amount']:,.2f})" for p in paid_sales])
+                    messages.success(
+                        request, 
+                        f'✅ Rs. {amount:,.2f} received from {customer.name}!\n'
+                        f'Sales: {paid_summary}\n'
+                        f'Remaining Outstanding: Rs. {customer.adjusted_outstanding_balance():,.2f}'
+                    )
+                
+                # ✅ Create CustomerPayment record
+                from .models import CustomerPayment
+                CustomerPayment.objects.create(
+                    customer=customer,
+                    sale=sale,  # Can be None if no specific sale
+                    amount=amount,
+                    payment_date=now(),
+                    payment_method=method,
+                    reference_no=reference_no,
+                    notes=notes,
+                    created_by=request.user
+                )
+                
+                return redirect('customer_ledger', pk=customer.pk)
+                
+        except Exception as e:
+            messages.error(request, f'❌ Error: {str(e)}')
+            return redirect('customer_ledger_pay', pk=pk)
+    
+    # GET request - show form
+    outstanding = customer.adjusted_outstanding_balance()
+    
+    all_sales = customer.sale_set.all().order_by('sale_date')
+    sales_with_outstanding = []
+    
+    for s in all_sales:
+        s_outstanding = s.total_amount() - s.paid
+        if s_outstanding > 0:
+            s.outstanding_balance = s_outstanding
+            sales_with_outstanding.append(s)
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'customer': customer,
+        'outstanding': outstanding,
+        'sales': sales_with_outstanding,
+        'payment_methods': [
+            ('cash', '💵 Cash'),
+            ('bank_transfer', '🏦 Bank Transfer'),
+            ('cheque', '📄 Cheque'),
+            ('jazzcash', '📱 JazzCash'),
+            ('easypaisa', '📱 EasyPaisa'),
+            ('card', '💳 Card'),
+        ],
+        'today': date.today().strftime('%Y-%m-%d'),
+    }
+    return render(request, 'customers/ledger_pay.html', context)
+    
+# ========================================== #
+# TERMS & CONDITIONS ADMIN VIEWS             #
+# ========================================== #
+
+@login_required
+def terms_admin(request):
+    """Admin panel for Terms & Conditions"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied! Only administrators can manage terms.')
+        return redirect('dashboard')
+    
+    terms_list = TermsAndConditions.objects.all().order_by('-version')
+    active_terms = terms_list.filter(is_active=True).first()
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'terms_list': terms_list,
+        'active_terms': active_terms,
+        'total_terms': terms_list.count(),
+    }
+    return render(request, 'terms/admin_list.html', context)
+
+
+@login_required
+def terms_create(request):
+    """Create new Terms & Conditions"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        try:
+            version = request.POST.get('version')
+            title = request.POST.get('title', 'Shareholder Terms & Conditions')
+            content = request.POST.get('content')
+            is_active = request.POST.get('is_active') == 'on'
+            effective_date = request.POST.get('effective_date')
+            
+            if not version:
+                messages.error(request, '❌ Version is required!')
+                return redirect('terms_create')
+            
+            if not content:
+                messages.error(request, '❌ Content is required!')
+                return redirect('terms_create')
+            
+            if TermsAndConditions.objects.filter(version=version).exists():
+                messages.error(request, f'❌ Version {version} already exists!')
+                return redirect('terms_create')
+            
+            terms = TermsAndConditions.objects.create(
+                version=version,
+                title=title,
+                content=content,
+                is_active=is_active,
+                effective_date=effective_date or date.today(),
+                created_by=request.user
+            )
+            
+            if is_active:
+                TermsAndConditions.objects.exclude(pk=terms.pk).update(is_active=False)
+            
+            messages.success(request, f'✅ Terms v{version} created successfully!')
+            return redirect('terms_admin')
+            
+        except Exception as e:
+            messages.error(request, f'❌ Error: {str(e)}')
+            return redirect('terms_create')
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'today': date.today().strftime('%Y-%m-%d'),
+    }
+    return render(request, 'terms/create.html', context)
+
+
+@login_required
+def terms_edit(request, pk):
+    """Edit existing Terms & Conditions"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    terms = get_object_or_404(TermsAndConditions, pk=pk)
+    
+    if request.method == 'POST':
+        try:
+            version = request.POST.get('version')
+            title = request.POST.get('title')
+            content = request.POST.get('content')
+            is_active = request.POST.get('is_active') == 'on'
+            effective_date = request.POST.get('effective_date')
+            
+            if not version:
+                messages.error(request, '❌ Version is required!')
+                return redirect('terms_edit', pk=pk)
+            
+            if not content:
+                messages.error(request, '❌ Content is required!')
+                return redirect('terms_edit', pk=pk)
+            
+            if TermsAndConditions.objects.filter(version=version).exclude(pk=pk).exists():
+                messages.error(request, f'❌ Version {version} already exists!')
+                return redirect('terms_edit', pk=pk)
+            
+            terms.version = version
+            terms.title = title
+            terms.content = content
+            terms.is_active = is_active
+            terms.effective_date = effective_date or date.today()
+            terms.save()
+            
+            if is_active:
+                TermsAndConditions.objects.exclude(pk=terms.pk).update(is_active=False)
+            
+            messages.success(request, f'✅ Terms v{version} updated successfully!')
+            return redirect('terms_admin')
+            
+        except Exception as e:
+            messages.error(request, f'❌ Error: {str(e)}')
+            return redirect('terms_edit', pk=pk)
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'terms': terms,
+        'today': date.today().strftime('%Y-%m-%d'),
+    }
+    return render(request, 'terms/edit.html', context)
+
+
+@login_required
+def terms_delete(request, pk):
+    """Delete Terms & Conditions"""
+    
+    if not request.user.is_superuser:
+        messages.error(request, '❌ Access denied! Only superuser can delete terms.')
+        return redirect('dashboard')
+    
+    terms = get_object_or_404(TermsAndConditions, pk=pk)
+    
+    if request.method == 'POST':
+        version = terms.version
+        terms.delete()
+        messages.success(request, f'🗑️ Terms v{version} deleted successfully!')
+        return redirect('terms_admin')
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'terms': terms,
+    }
+    return render(request, 'terms/delete.html', context)
+
+
+@login_required
+def terms_activate(request, pk):
+    """Activate a Terms version"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    terms = get_object_or_404(TermsAndConditions, pk=pk)
+    TermsAndConditions.objects.exclude(pk=pk).update(is_active=False)
+    terms.is_active = True
+    terms.save()
+    
+    messages.success(request, f'✅ Terms v{terms.version} activated successfully!')
+    return redirect('terms_admin')
+
+
+@login_required
+def terms_preview(request, pk):
+    """Preview Terms & Conditions"""
+    
+    terms = get_object_or_404(TermsAndConditions, pk=pk)
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'terms': terms,
+    }
+    return render(request, 'terms/preview.html', context)
+
+
+# ========================================== #
+# SHAREHOLDER TERMS VIEW                     #
+# ========================================== #
+
+@login_required
+def shareholder_terms(request):
+    """Show Terms & Conditions to shareholder"""
+    
+    if not hasattr(request.user, 'shareholder_profile'):
+        messages.error(request, 'Access denied!')
+        return redirect('dashboard')
+    
+    shareholder = request.user.shareholder_profile
+    
+    if hasattr(shareholder, 'terms_acceptance'):
+        messages.info(request, '✅ You have already accepted the terms.')
+        return redirect('shareholder_portal_dashboard')
+    
+    terms = TermsAndConditions.objects.filter(is_active=True).first()
+    
+    if not terms:
+        messages.error(request, '❌ Terms & Conditions not found. Please contact admin.')
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        if request.POST.get('agree'):
+            ShareholderTermsAcceptance.objects.create(
+                shareholder=shareholder,
+                terms_version=terms.version,
+                accepted_at=now(),
+                ip_address=request.META.get('REMOTE_ADDR'),
+                user_agent=request.META.get('HTTP_USER_AGENT')
+            )
+            messages.success(request, '✅ Terms accepted! Welcome to the portal.')
+            return redirect('shareholder_portal_dashboard')
+        else:
+            messages.error(request, '❌ Please accept the terms to continue.')
+            return redirect('shareholder_terms')
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'terms': terms,
+        'shareholder': shareholder,
+    }
+    return render(request, 'terms/terms.html', context)
+
+
+# ========================================== #
+# SHAREHOLDER SUPPORT TICKET VIEWS          #
+# ========================================== #
+
+@login_required
+def shareholder_support(request):
+    """Shareholder support ticket system"""
+    
+    if not hasattr(request.user, 'shareholder_profile'):
+        messages.error(request, 'Access denied!')
+        return redirect('dashboard')
+    
+    shareholder = request.user.shareholder_profile
+    tickets = shareholder.support_tickets.all().order_by('-created_at')
+    
+    if request.method == 'POST':
+        subject = request.POST.get('subject')
+        message = request.POST.get('message')
+        priority = request.POST.get('priority', 'medium')
+        
+        if not subject or not message:
+            messages.error(request, 'Subject and message are required!')
+            return redirect('shareholder_support')
+        
+        ticket = ShareholderSupportTicket.objects.create(
+            shareholder=shareholder,
+            subject=subject,
+            message=message,
+            priority=priority,
+            created_by=request.user
+        )
+        
+        if request.FILES.get('attachment'):
+            ticket.attachment = request.FILES['attachment']
+            ticket.save()
+        
+        # Notify admin
+        from .models import Notification
+        admin_users = User.objects.filter(is_superuser=True) | User.objects.filter(is_staff=True)
+        for admin in admin_users:
+            Notification.send(
+                user=admin,
+                title="🎫 New Support Ticket",
+                message=f"Ticket #{ticket.ticket_no} from {shareholder.name}: {subject[:50]}",
+                notification_type='info',
+                category='system',
+                link=f"/admin/support/ticket/{ticket.id}/"
+            )
+        
+        messages.success(request, f'✅ Ticket #{ticket.ticket_no} created! We will respond soon.')
+        return redirect('shareholder_support')
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'shareholder': shareholder,
+        'tickets': tickets,
+        'priority_choices': ShareholderSupportTicket.PRIORITY_CHOICES,
+    }
+    return render(request, 'shareholders/portal/support.html', context)
+
+
+@login_required
+def shareholder_support_ticket_detail(request, pk):
+    """View support ticket detail"""
+    
+    if not hasattr(request.user, 'shareholder_profile'):
+        messages.error(request, 'Access denied!')
+        return redirect('dashboard')
+    
+    shareholder = request.user.shareholder_profile
+    ticket = get_object_or_404(ShareholderSupportTicket, pk=pk, shareholder=shareholder)
+    
+    if request.method == 'POST':
+        message = request.POST.get('message')
+        if message:
+            SupportTicketReply.objects.create(
+                ticket=ticket,
+                message=message,
+                is_internal=False,
+                created_by=request.user
+            )
+            
+            if ticket.status == 'closed':
+                ticket.status = 'in_progress'
+                ticket.save()
+            
+            messages.success(request, '✅ Reply sent successfully!')
+            return redirect('shareholder_support_ticket_detail', pk=pk)
+    
+    replies = ticket.replies.filter(is_internal=False).order_by('created_at')
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'ticket': ticket,
+        'replies': replies,
+    }
+    return render(request, 'shareholders/portal/ticket_detail.html', context)
+
+
+# ========================================== #
+# ADMIN SUPPORT TICKET VIEWS                 #
+# ========================================== #
+
+@login_required
+def admin_support_tickets(request):
+    """Admin view all support tickets"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, 'Access denied!')
+        return redirect('dashboard')
+    
+    tickets = ShareholderSupportTicket.objects.select_related('shareholder', 'assigned_to').all()
+    
+    status = request.GET.get('status', '')
+    if status:
+        tickets = tickets.filter(status=status)
+    
+    priority = request.GET.get('priority', '')
+    if priority:
+        tickets = tickets.filter(priority=priority)
+    
+    search = request.GET.get('search', '')
+    if search:
+        tickets = tickets.filter(
+            Q(ticket_no__icontains=search) |
+            Q(subject__icontains=search) |
+            Q(shareholder__name__icontains=search)
+        )
+    
+    total_tickets = tickets.count()
+    new_tickets = tickets.filter(status='new').count()
+    in_progress = tickets.filter(status='in_progress').count()
+    resolved = tickets.filter(status='resolved').count()
+    closed = tickets.filter(status='closed').count()
+    
+    paginator = Paginator(tickets, 25)
+    page = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page)
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'page_obj': page_obj,
+        'tickets': page_obj,
+        'total_tickets': total_tickets,
+        'new_tickets': new_tickets,
+        'in_progress': in_progress,
+        'resolved': resolved,
+        'closed': closed,
+        'status': status,
+        'priority': priority,
+        'search': search,
+        'status_choices': ShareholderSupportTicket.STATUS_CHOICES,
+        'priority_choices': ShareholderSupportTicket.PRIORITY_CHOICES,
+    }
+    return render(request, 'shareholders/admin/tickets.html', context)
+
+
+@login_required
+def admin_support_ticket_detail(request, pk):
+    """Admin view ticket detail"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, 'Access denied!')
+        return redirect('dashboard')
+    
+    ticket = get_object_or_404(ShareholderSupportTicket, pk=pk)
+    replies = ticket.replies.all().order_by('created_at')
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'reply':
+            message = request.POST.get('message')
+            is_internal = request.POST.get('is_internal') == 'on'
+            
+            if message:
+                SupportTicketReply.objects.create(
+                    ticket=ticket,
+                    message=message,
+                    is_internal=is_internal,
+                    created_by=request.user
+                )
+                
+                if not is_internal:
+                    messages.success(request, '✅ Reply sent to shareholder!')
+                else:
+                    messages.success(request, '✅ Internal note added!')
+        
+        elif action == 'assign':
+            assigned_to_id = request.POST.get('assigned_to')
+            if assigned_to_id:
+                ticket.assigned_to_id = assigned_to_id
+                ticket.status = 'in_progress'
+                ticket.save()
+                messages.success(request, f'✅ Ticket assigned to {ticket.assigned_to.username}')
+        
+        elif action == 'resolve':
+            ticket.status = 'resolved'
+            ticket.resolved_at = now()
+            ticket.save()
+            messages.success(request, '✅ Ticket resolved!')
+        
+        elif action == 'close':
+            ticket.status = 'closed'
+            ticket.save()
+            messages.success(request, '✅ Ticket closed!')
+        
+        return redirect('admin_support_ticket_detail', pk=pk)
+    
+    users = User.objects.filter(is_active=True)
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'ticket': ticket,
+        'replies': replies,
+        'users': users,
+        'status_choices': ShareholderSupportTicket.STATUS_CHOICES,
+    }
+    return render(request, 'shareholders/admin/ticket_detail.html', context)
+    
+# ========================================== #
+# TERMS ACCEPTANCE ADMIN VIEWS               #
+# ========================================== #
+
+from django.db.models import Q, Count, Sum
+from django.core.paginator import Paginator
+from django.http import HttpResponse
+import csv
+from datetime import datetime, date
+
+@login_required
+def terms_acceptance_list(request):
+    """
+    Admin: List all shareholders with their terms acceptance status
+    """
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied! Only administrators can view this page.')
+        return redirect('dashboard')
+    
+    # Get all shareholders with acceptance status
+    shareholders = Shareholder.objects.select_related(
+        'terms_acceptance'
+    ).prefetch_related(
+        'shares'
+    ).all()
+    
+    # Filters
+    search = request.GET.get('search', '')
+    if search:
+        shareholders = shareholders.filter(
+            Q(name__icontains=search) |
+            Q(shareholder_code__icontains=search) |
+            Q(email__icontains=search)
+        )
+    
+    status_filter = request.GET.get('status', '')
+    if status_filter == 'accepted':
+        shareholders = shareholders.filter(terms_acceptance__isnull=False)
+    elif status_filter == 'pending':
+        shareholders = shareholders.filter(terms_acceptance__isnull=True)
+    
+    version_filter = request.GET.get('version', '')
+    if version_filter:
+        shareholders = shareholders.filter(terms_acceptance__terms_version=version_filter)
+    
+    # Add acceptance info to each shareholder
+    for shareholder in shareholders:
+        if hasattr(shareholder, 'terms_acceptance'):
+            shareholder.acceptance_status = '✅ Accepted'
+            shareholder.acceptance_date = shareholder.terms_acceptance.accepted_at
+            shareholder.accepted_version = shareholder.terms_acceptance.terms_version
+            shareholder.acceptance_ip = shareholder.terms_acceptance.ip_address
+        else:
+            shareholder.acceptance_status = '⏳ Pending'
+            shareholder.acceptance_date = None
+            shareholder.accepted_version = '-'
+            shareholder.acceptance_ip = '-'
+    
+    # Statistics
+    total_shareholders = shareholders.count()
+    accepted_count = shareholders.filter(terms_acceptance__isnull=False).count()
+    pending_count = shareholders.filter(terms_acceptance__isnull=True).count()
+    acceptance_percentage = (accepted_count / total_shareholders * 100) if total_shareholders > 0 else 0
+    
+    # Version wise stats
+    version_stats = {}
+    for acceptance in ShareholderTermsAcceptance.objects.all():
+        version = acceptance.terms_version
+        if version not in version_stats:
+            version_stats[version] = 0
+        version_stats[version] += 1
+    
+    # Latest active terms
+    active_terms = TermsAndConditions.objects.filter(is_active=True).first()
+    
+    # Pagination
+    paginator = Paginator(shareholders, 25)
+    page = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page)
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'page_obj': page_obj,
+        'shareholders': page_obj,
+        'total_shareholders': total_shareholders,
+        'accepted_count': accepted_count,
+        'pending_count': pending_count,
+        'acceptance_percentage': acceptance_percentage,
+        'version_stats': version_stats,
+        'active_terms': active_terms,
+        'all_versions': TermsAndConditions.objects.values_list('version', flat=True).distinct(),
+        'search': search,
+        'status_filter': status_filter,
+        'version_filter': version_filter,
+        'today': date.today().strftime('%Y-%m-%d'),
+    }
+    return render(request, 'terms/admin_acceptance_list.html', context)
+
+
+@login_required
+def terms_acceptance_detail(request, pk):
+    """
+    Admin: View specific shareholder's acceptance detail
+    """
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    shareholder = get_object_or_404(Shareholder, pk=pk)
+    
+    # Get acceptance record
+    acceptance = None
+    if hasattr(shareholder, 'terms_acceptance'):
+        acceptance = shareholder.terms_acceptance
+    
+    # Get the terms document that was accepted
+    terms = None
+    if acceptance:
+        terms = TermsAndConditions.objects.filter(version=acceptance.terms_version).first()
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'shareholder': shareholder,
+        'acceptance': acceptance,
+        'terms': terms,
+        'now': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+    }
+    return render(request, 'terms/admin_acceptance_detail.html', context)
+
+
+@login_required
+def terms_acceptance_delete(request, pk):
+    """
+    Admin: Delete a shareholder's acceptance record (force them to re-accept)
+    """
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    acceptance = get_object_or_404(ShareholderTermsAcceptance, pk=pk)
+    shareholder_name = acceptance.shareholder.name
+    
+    if request.method == 'POST':
+        acceptance.delete()
+        messages.success(
+            request, 
+            f'✅ Acceptance record for "{shareholder_name}" deleted! '
+            f'They will need to accept terms again.'
+        )
+        return redirect('terms_acceptance_list')
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'acceptance': acceptance,
+        'shareholder': acceptance.shareholder,
+    }
+    return render(request, 'terms/admin_acceptance_delete.html', context)
+
+
+@login_required
+def terms_acceptance_export(request):
+    """
+    Admin: Export terms acceptance data to CSV
+    """
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    # Get all shareholders
+    shareholders = Shareholder.objects.select_related('terms_acceptance').all()
+    
+    # Filters from request
+    status_filter = request.GET.get('status', '')
+    if status_filter == 'accepted':
+        shareholders = shareholders.filter(terms_acceptance__isnull=False)
+    elif status_filter == 'pending':
+        shareholders = shareholders.filter(terms_acceptance__isnull=True)
+    
+    # Create CSV response
+    response = HttpResponse(content_type='text/csv')
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    response['Content-Disposition'] = f'attachment; filename="terms_acceptance_report_{timestamp}.csv"'
+    
+    writer = csv.writer(response)
+    
+    # Headers
+    writer.writerow([
+        'Shareholder Code',
+        'Name',
+        'Email',
+        'Phone',
+        'Status',
+        'Accepted Version',
+        'Accepted Date',
+        'IP Address',
+        'User Agent'
+    ])
+    
+    # Data
+    for shareholder in shareholders:
+        if hasattr(shareholder, 'terms_acceptance'):
+            acceptance = shareholder.terms_acceptance
+            writer.writerow([
+                shareholder.shareholder_code,
+                shareholder.name,
+                shareholder.email or '',
+                shareholder.phone or '',
+                'Accepted',
+                acceptance.terms_version,
+                acceptance.accepted_at.strftime('%Y-%m-%d %H:%M:%S'),
+                acceptance.ip_address or '',
+                acceptance.user_agent or '',
+            ])
+        else:
+            writer.writerow([
+                shareholder.shareholder_code,
+                shareholder.name,
+                shareholder.email or '',
+                shareholder.phone or '',
+                'Pending',
+                '-',
+                '-',
+                '-',
+                '-',
+            ])
+    
+    return response
+
+
+@login_required
+def terms_acceptance_stats_api(request):
+    """
+    AJAX API: Get terms acceptance statistics
+    """
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        return JsonResponse({'success': False, 'message': 'Access denied!'})
+    
+    try:
+        total = Shareholder.objects.filter(status='active').count()
+        accepted = ShareholderTermsAcceptance.objects.count()
+        pending = total - accepted
+        
+        # Version wise breakdown
+        version_data = {}
+        for acceptance in ShareholderTermsAcceptance.objects.all():
+            version = acceptance.terms_version
+            if version not in version_data:
+                version_data[version] = 0
+            version_data[version] += 1
+        
+        # Daily acceptance trend (last 30 days)
+        trend_data = []
+        from datetime import timedelta
+        today = date.today()
+        
+        for i in range(30):
+            day = today - timedelta(days=i)
+            count = ShareholderTermsAcceptance.objects.filter(
+                accepted_at__date=day
+            ).count()
+            trend_data.append({
+                'date': day.strftime('%d-%b'),
+                'count': count
+            })
+        trend_data.reverse()
+        
+        return JsonResponse({
+            'success': True,
+            'stats': {
+                'total_shareholders': total,
+                'accepted': accepted,
+                'pending': pending,
+                'acceptance_percentage': round((accepted / total * 100) if total > 0 else 0, 1),
+                'version_breakdown': version_data,
+                'trend_data': trend_data,
+            }
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+        
+# ========================================== #
+# SHAREHOLDER REGISTER - PUBLIC VIEW         #
+# ========================================== #
+
+def shareholder_register(request):
+    """
+    Public page - Shareholder apni details bhar kar request send kare
+    """
+    
+    if request.method == 'POST':
+        try:
+            full_name = request.POST.get('full_name', '').strip()
+            email = request.POST.get('email', '').strip()
+            phone = request.POST.get('phone', '').strip()
+            cnic = request.POST.get('cnic', '').strip()
+            address = request.POST.get('address', '').strip()
+            notes = request.POST.get('notes', '').strip()
+            
+            # Validation
+            if not full_name:
+                messages.error(request, '❌ Full name is required!')
+                return redirect('shareholder_register')
+            
+            if not email:
+                messages.error(request, '❌ Email is required!')
+                return redirect('shareholder_register')
+            
+            if not phone:
+                messages.error(request, '❌ Phone number is required!')
+                return redirect('shareholder_register')
+            
+            # Check if already exists
+            if Shareholder.objects.filter(email=email).exists():
+                messages.error(request, '❌ This email is already registered!')
+                return redirect('shareholder_register')
+            
+            if ShareholderLoginRequest.objects.filter(email=email, status='pending').exists():
+                messages.warning(request, '⚠️ A request with this email is already pending!')
+                return redirect('shareholder_register')
+            
+            # Create request
+            request_obj = ShareholderLoginRequest.objects.create(
+                full_name=full_name,
+                email=email,
+                phone=phone,
+                cnic=cnic,
+                address=address,
+                notes=notes,
+                ip_address=request.META.get('REMOTE_ADDR'),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
+                status='pending'
+            )
+            
+            # Send notification to admins
+            try:
+                admin_users = User.objects.filter(is_superuser=True) | User.objects.filter(is_staff=True)
+                for admin in admin_users:
+                    Notification.send(
+                        user=admin,
+                        title="🆕 New Shareholder Registration Request",
+                        message=f"{full_name} wants to register as shareholder. Email: {email}",
+                        notification_type='info',
+                        category='system',
+                        link=f"/shareholder-requests/{request_obj.id}/"
+                    )
+            except:
+                pass
+            
+            # ✅ YEH CHANGE - Success page par redirect
+            return redirect('shareholder_register_success')
+            
+        except Exception as e:
+            messages.error(request, f'❌ Error: {str(e)}')
+            return redirect('shareholder_register')
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'is_register_page': True,
+    }
+    return render(request, 'shareholders/register.html', context)
+
+
+# ========================================== #
+# ✅ NEW: SUCCESS PAGE VIEW                  #
+# ========================================== #
+
+def shareholder_register_success(request):
+    """
+    Show success page after registration
+    """
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'is_success_page': True,
+    }
+    return render(request, 'shareholders/register_success.html', context)
+
+
+# ========================================== #
+# ADMIN - SHAREHOLDER REQUESTS LIST          #
+# ========================================== #
+
+@login_required
+def shareholder_requests_list(request):
+    """
+    Admin: List all shareholder registration requests
+    """
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied! Only administrators can view requests.')
+        return redirect('dashboard')
+    
+    requests = ShareholderLoginRequest.objects.all().order_by('-requested_at')
+    
+    # Filters
+    status_filter = request.GET.get('status', '')
+    if status_filter:
+        requests = requests.filter(status=status_filter)
+    
+    search = request.GET.get('search', '')
+    if search:
+        requests = requests.filter(
+            Q(full_name__icontains=search) |
+            Q(email__icontains=search) |
+            Q(phone__icontains=search)
+        )
+    
+    # Statistics
+    total = requests.count()
+    pending = requests.filter(status='pending').count()
+    approved = requests.filter(status='approved').count()
+    rejected = requests.filter(status='rejected').count()
+    
+    paginator = Paginator(requests, 25)
+    page = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page)
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'page_obj': page_obj,
+        'requests': page_obj,
+        'total': total,
+        'pending': pending,
+        'approved': approved,
+        'rejected': rejected,
+        'status_filter': status_filter,
+        'search': search,
+        'status_choices': ShareholderLoginRequest.STATUS_CHOICES,
+    }
+    return render(request, 'shareholders/admin/requests_list.html', context)
+
+
+# ========================================== #
+# ADMIN - REQUEST DETAIL                     #
+# ========================================== #
+
+@login_required
+def shareholder_request_detail(request, pk):
+    """
+    Admin: View request detail and approve/reject
+    """
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    request_obj = get_object_or_404(ShareholderLoginRequest, pk=pk)
+    
+    # ✅ Check if credentials are available
+    show_credentials = False
+    username = None
+    password = None
+    
+    if request_obj.status == 'approved':
+        if request_obj.generated_username and request_obj.generated_password:
+            show_credentials = True
+            username = request_obj.generated_username
+            password = request_obj.generated_password
+        elif request_obj.created_shareholder and request_obj.created_shareholder.user:
+            # Fallback: Get from created shareholder
+            show_credentials = True
+            username = request_obj.created_shareholder.user.username
+            password = "🔒 Password not stored"  # Can't retrieve plain password
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'request': request_obj,
+        'can_act': request_obj.status == 'pending',
+        'show_credentials': show_credentials,
+        'username': username,
+        'password': password,
+    }
+    return render(request, 'shareholders/admin/request_detail.html', context)
+
+
+# ========================================== #
+# ADMIN - APPROVE REQUEST                    #
+# ========================================== #
+
+@login_required
+def shareholder_request_approve(request, pk):
+    """
+    Admin: Approve request - Shareholder create ho ga
+    """
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    request_obj = get_object_or_404(ShareholderLoginRequest, pk=pk)
+    
+    if request_obj.status != 'pending':
+        messages.warning(request, '⚠️ This request is already processed!')
+        return redirect('shareholder_request_detail', pk=pk)
+    
+    if request.method == 'POST':
+        try:
+            result = request_obj.approve(request.user)
+            
+            messages.success(
+                request, 
+                f'✅ Request approved!\n'
+                f'👤 Shareholder: {result["shareholder"].name}\n'
+                f'🔑 Username: {result["username"]}\n'
+                f'🔐 Password: {result["password"]}\n'
+                f'📧 Login credentials sent to {request_obj.email}'
+            )
+            
+            # Send email with credentials (optional)
+            # send_login_credentials_email(request_obj.email, result["username"], result["password"])
+            
+            return redirect('shareholder_requests_list')
+            
+        except Exception as e:
+            messages.error(request, f'❌ Error: {str(e)}')
+            return redirect('shareholder_request_detail', pk=pk)
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'request': request_obj,
+    }
+    return render(request, 'shareholders/admin/request_approve.html', context)
+
+
+# ========================================== #
+# ADMIN - REJECT REQUEST                     #
+# ========================================== #
+
+@login_required
+def shareholder_request_reject(request, pk):
+    """
+    Admin: Reject request with reason
+    """
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    request_obj = get_object_or_404(ShareholderLoginRequest, pk=pk)
+    
+    if request_obj.status != 'pending':
+        messages.warning(request, '⚠️ This request is already processed!')
+        return redirect('shareholder_request_detail', pk=pk)
+    
+    if request.method == 'POST':
+        try:
+            reason = request.POST.get('reason', '')
+            request_obj.reject(request.user, reason)
+            
+            messages.success(
+                request, 
+                f'❌ Request rejected!\n'
+                f'Reason: {reason or "Not specified"}'
+            )
+            return redirect('shareholder_requests_list')
+            
+        except Exception as e:
+            messages.error(request, f'❌ Error: {str(e)}')
+            return redirect('shareholder_request_detail', pk=pk)
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'request': request_obj,
+    }
+    return render(request, 'shareholders/admin/request_reject.html', context)
+
+
+# ========================================== #
+# ADMIN - DELETE REQUEST                     #
+# ========================================== #
+
+@login_required
+def shareholder_request_delete(request, pk):
+    """
+    Admin: Delete request
+    """
+    
+    if not request.user.is_superuser:
+        messages.error(request, '❌ Access denied! Only superuser can delete requests.')
+        return redirect('dashboard')
+    
+    request_obj = get_object_or_404(ShareholderLoginRequest, pk=pk)
+    
+    if request.method == 'POST':
+        name = request_obj.full_name
+        request_obj.delete()
+        messages.success(request, f'🗑️ Request from "{name}" deleted!')
+        return redirect('shareholder_requests_list')
+    
+    return redirect('shareholder_request_detail', pk=pk)
+
+
+# ========================================== #
+# ADMIN - BULK ACTION                        #
+# ========================================== #
+
+@login_required
+def shareholder_requests_bulk_action(request):
+    """
+    Admin: Bulk approve/reject requests
+    """
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        return JsonResponse({'success': False, 'message': 'Access denied!'})
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Invalid method!'})
+    
+    try:
+        data = json.loads(request.body)
+        action = data.get('action')
+        request_ids = data.get('request_ids', [])
+        
+        if not request_ids:
+            return JsonResponse({'success': False, 'message': 'No requests selected!'})
+        
+        requests = ShareholderLoginRequest.objects.filter(id__in=request_ids, status='pending')
+        
+        if not requests.exists():
+            return JsonResponse({'success': False, 'message': 'No pending requests found!'})
+        
+        if action == 'approve':
+            approved = 0
+            failed = 0
+            for req in requests:
+                try:
+                    req.approve(request.user)
+                    approved += 1
+                except:
+                    failed += 1
+            message = f'✅ {approved} requests approved! {failed} failed.'
+            
+        elif action == 'reject':
+            reason = data.get('reason', 'Bulk rejected by admin')
+            rejected = 0
+            for req in requests:
+                try:
+                    req.reject(request.user, reason)
+                    rejected += 1
+                except:
+                    pass
+            message = f'❌ {rejected} requests rejected!'
+            
+        else:
+            return JsonResponse({'success': False, 'message': 'Invalid action!'})
+        
+        return JsonResponse({'success': True, 'message': message})
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+# ========================================== #
+# API - REQUEST STATS                        #
+# ========================================== #
+
+@login_required
+def shareholder_requests_stats_api(request):
+    """
+    AJAX API: Get request statistics
+    """
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        return JsonResponse({'success': False, 'message': 'Access denied!'})
+    
+    try:
+        total = ShareholderLoginRequest.objects.count()
+        pending = ShareholderLoginRequest.objects.filter(status='pending').count()
+        approved = ShareholderLoginRequest.objects.filter(status='approved').count()
+        rejected = ShareholderLoginRequest.objects.filter(status='rejected').count()
+        
+        # Last 7 days trend
+        trend_data = []
+        today = date.today()
+        for i in range(7):
+            day = today - timedelta(days=i)
+            count = ShareholderLoginRequest.objects.filter(
+                requested_at__date=day
+            ).count()
+            trend_data.append({
+                'date': day.strftime('%d-%b'),
+                'count': count
+            })
+        trend_data.reverse()
+        
+        return JsonResponse({
+            'success': True,
+            'stats': {
+                'total': total,
+                'pending': pending,
+                'approved': approved,
+                'rejected': rejected,
+                'trend_data': trend_data,
+            }
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})

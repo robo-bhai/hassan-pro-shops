@@ -1,0 +1,156 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Receive Payment - {{ customer.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="page-title-box">
+                <div class="page-title-right">
+                    <ol class="breadcrumb m-0">
+                        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'customer_list' %}">Customers</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'customer_ledger' customer.pk %}">Ledger</a></li>
+                        <li class="breadcrumb-item active">Receive Payment</li>
+                    </ol>
+                </div>
+                <h4 class="page-title">💰 Receive Payment</h4>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <!-- Customer Summary -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="border rounded p-3 bg-light">
+                                <h6 class="text-muted mb-1">Customer Details</h6>
+                                <p class="mb-0"><strong>Name:</strong> {{ customer.name }}</p>
+                                <p class="mb-0"><strong>Code:</strong> {{ customer.customer_code|default:"N/A" }}</p>
+                                <p class="mb-0"><strong>Contact:</strong> {{ customer.contact_number|default:"N/A" }}</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="border rounded p-3 {% if outstanding > 0 %}bg-warning text-dark{% else %}bg-success text-white{% endif %}">
+                                <h6 class="{% if outstanding > 0 %}text-dark{% else %}text-white-50{% endif %} mb-1">Outstanding Balance</h6>
+                                <h2 class="mb-0">Rs. {{ outstanding|floatformat:2 }}</h2>
+                                <small class="{% if outstanding > 0 %}text-dark{% else %}text-white-50{% endif %}">
+                                    {% if outstanding > 0 %}⚠️ Payment Due{% else %}✅ Fully Paid{% endif %}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment Form -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Receive Payment</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Amount to Receive <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text">Rs.</span>
+                                    <input type="number" 
+                                           name="amount" 
+                                           id="amount" 
+                                           class="form-control form-control-lg" 
+                                           step="0.01" 
+                                           min="0.01" 
+                                           max="{{ outstanding }}"
+                                           value="{{ outstanding }}"
+                                           required
+                                           oninput="updateDisplay()">
+                                </div>
+                                <small class="text-muted">Max: Rs. {{ outstanding|floatformat:2 }}</small>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Payment Method <span class="text-danger">*</span></label>
+                                <select name="payment_method" class="form-select form-control-lg" required>
+                                    <option value="cash">💵 Cash</option>
+                                    <option value="bank_transfer">🏦 Bank Transfer</option>
+                                    <option value="cheque">📄 Cheque</option>
+                                    <option value="jazzcash">📱 JazzCash</option>
+                                    <option value="easypaisa">📱 EasyPaisa</option>
+                                    <option value="card">💳 Card</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Reference No</label>
+                                <input type="text" name="reference_no" class="form-control" placeholder="e.g., Cheque No, Transaction ID">
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Sale (Optional)</label>
+                                <select name="sale_id" class="form-select">
+                                    <option value="">-- All Sales --</option>
+                                    {% for sale in sales %}
+                                    <option value="{{ sale.id }}">
+                                        #{{ sale.bill_no }} - Rs. {{ sale.outstanding_balance|floatformat:2 }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <small class="text-muted">Select specific sale to pay</small>
+                            </div>
+
+                            <div class="col-12 mb-3">
+                                <label class="form-label">Notes</label>
+                                <textarea name="notes" class="form-control" rows="2" placeholder="Payment notes..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-success">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Note:</strong> This payment will be added to the main cash balance.
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'customer_ledger' customer.pk %}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-success btn-lg" id="payBtn">
+                                <i class="bi bi-check-circle"></i> Receive Rs. <span id="display-amount">{{ outstanding|floatformat:2 }}</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function updateDisplay() {
+    const amount = document.getElementById('amount');
+    const display = document.getElementById('display-amount');
+    const payBtn = document.getElementById('payBtn');
+    const val = parseFloat(amount.value) || 0;
+    display.textContent = val.toFixed(2);
+    
+    // Disable if amount is 0 or exceeds outstanding
+    if (val <= 0 || val > {{ outstanding }}) {
+        payBtn.disabled = true;
+        payBtn.style.opacity = '0.6';
+    } else {
+        payBtn.disabled = false;
+        payBtn.style.opacity = '1';
+    }
+}
+
+// Initialize on load
+document.addEventListener('DOMContentLoaded', updateDisplay);
+</script>
+{% endblock %}

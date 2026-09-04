@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Acceptance Detail - {{ shareholder.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-person-badge me-2"></i>
+                        Acceptance Detail - {{ shareholder.name }}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- Shareholder Info -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Shareholder Information</h6>
+                            <table class="table table-sm table-borderless">
+                                <tr>
+                                    <td><strong>Code:</strong></td>
+                                    <td>{{ shareholder.shareholder_code }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Name:</strong></td>
+                                    <td>{{ shareholder.name }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Email:</strong></td>
+                                    <td>{{ shareholder.email|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Phone:</strong></td>
+                                    <td>{{ shareholder.phone|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Type:</strong></td>
+                                    <td>{{ shareholder.get_shareholder_type_display }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Acceptance Information</h6>
+                            {% if acceptance %}
+                            <table class="table table-sm table-borderless">
+                                <tr>
+                                    <td><strong>Status:</strong></td>
+                                    <td>
+                                        <span class="badge bg-success">
+                                            <i class="bi bi-check-circle"></i> Accepted
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Terms Version:</strong></td>
+                                    <td>
+                                        <span class="badge bg-info">v{{ acceptance.terms_version }}</span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Accepted At:</strong></td>
+                                    <td>{{ acceptance.accepted_at|date:"d-m-Y H:i:s" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>IP Address:</strong></td>
+                                    <td>{{ acceptance.ip_address|default:"Not recorded" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>User Agent:</strong></td>
+                                    <td><small>{{ acceptance.user_agent|default:"Not recorded"|truncatechars:50 }}</small></td>
+                                </tr>
+                            </table>
+                            {% else %}
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                This shareholder has not accepted the terms yet.
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Accepted Terms Content -->
+                    {% if terms %}
+                    <div class="card border mb-4">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">
+                                <i class="bi bi-file-text me-2"></i>
+                                Accepted Terms - Version v{{ terms.version }}
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="terms-content" style="max-height: 300px; overflow-y: auto; background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                                {{ terms.content|linebreaks }}
+                            </div>
+                        </div>
+                        <div class="card-footer text-muted">
+                            <small>
+                                Effective Date: {{ terms.effective_date|date:"d-m-Y" }}
+                                {% if terms.is_active %}
+                                    <span class="badge bg-success ms-2">Active</span>
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Actions -->
+                    <div class="mt-4">
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'terms_acceptance_list' %}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Back to List
+                            </a>
+                            <div>
+                                {% if acceptance %}
+                                    <a href="{% url 'terms_acceptance_delete' acceptance.id %}" 
+                                       class="btn btn-danger"
+                                       onclick="return confirm('Are you sure you want to delete this acceptance record?');">
+                                        <i class="bi bi-trash"></i> Delete Acceptance
+                                    </a>
+                                {% endif %}
+                                <a href="{% url 'shareholder_detail' shareholder.id %}" class="btn btn-info">
+                                    <i class="bi bi-person"></i> View Full Profile
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

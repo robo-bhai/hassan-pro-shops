@@ -14934,3 +14934,486 @@ class LoanGivenPayment(models.Model):
     
     def __str__(self):
         return f"{self.loan_given.loan_no} - Rs. {self.amount:,.2f} on {self.payment_date}"
+        
+ # ========================================== #
+# VENDOR PAYMENT MODEL                       #
+# ========================================== #
+
+class VendorPayment(models.Model):
+    """Vendor payment record - Separate from SalePayment"""
+    
+    vendor = models.ForeignKey('Vendor', on_delete=models.CASCADE, related_name='payments')
+    purchase = models.ForeignKey('Purchase', on_delete=models.SET_NULL, null=True, blank=True, related_name='payments')
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    payment_date = models.DateTimeField(default=now)
+    payment_method = models.ForeignKey('PaymentMethod', on_delete=models.SET_NULL, null=True)
+    reference_no = models.CharField(max_length=100, blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name_plural = "Vendor Payments"
+        ordering = ['-payment_date']
+        indexes = [
+            models.Index(fields=['vendor', 'payment_date']),
+            models.Index(fields=['purchase']),
+        ]
+    
+    def __str__(self):
+        return f"{self.vendor.name} - Rs. {self.amount:,.2f} - {self.payment_date.strftime('%d-%m-%Y')}"
+        
+# ========================================== #
+# CUSTOMER PAYMENT MODEL                     #
+# ========================================== #
+
+class CustomerPayment(models.Model):
+    """Customer payment record - Separate from SalePayment"""
+    
+    customer = models.ForeignKey('Customer', on_delete=models.CASCADE, related_name='payments')
+    sale = models.ForeignKey('Sale', on_delete=models.SET_NULL, null=True, blank=True, related_name='customer_payments')  # ✅ Changed
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    payment_date = models.DateTimeField(default=now)
+    payment_method = models.ForeignKey('PaymentMethod', on_delete=models.SET_NULL, null=True)
+    reference_no = models.CharField(max_length=100, blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name_plural = "Customer Payments"
+        ordering = ['-payment_date']
+        indexes = [
+            models.Index(fields=['customer', 'payment_date']),
+            models.Index(fields=['sale']),
+        ]
+    
+    def __str__(self):
+        return f"{self.customer.name} - Rs. {self.amount:,.2f} - {self.payment_date.strftime('%d-%m-%Y')}"
+        
+# ========================================== #
+# TERMS & CONDITIONS MODELS                   #
+# ========================================== #
+
+class TermsAndConditions(models.Model):
+    """Terms & Conditions for Shareholders"""
+    
+    version = models.CharField(max_length=20, unique=True)
+    title = models.CharField(max_length=200, default="Shareholder Terms & Conditions")
+    content = models.TextField()
+    is_active = models.BooleanField(default=True)
+    effective_date = models.DateField(default=now)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    
+    class Meta:
+        verbose_name_plural = "Terms & Conditions"
+        ordering = ['-version']
+    
+    def __str__(self):
+        return f"Terms v{self.version} - {self.effective_date}"
+
+
+class ShareholderTermsAcceptance(models.Model):
+    """Track shareholder acceptance of terms"""
+    
+    shareholder = models.OneToOneField('Shareholder', on_delete=models.CASCADE, related_name='terms_acceptance')
+    terms_version = models.CharField(max_length=20)
+    accepted_at = models.DateTimeField(default=now)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True, null=True)
+    
+    class Meta:
+        verbose_name_plural = "Shareholder Terms Acceptances"
+    
+    def __str__(self):
+        return f"{self.shareholder.name} - Accepted v{self.terms_version}"
+
+
+# ========================================== #
+# SHAREHOLDER SUPPORT TICKET MODEL           #
+# ========================================== #
+
+class ShareholderSupportTicket(models.Model):
+    """Support tickets for shareholders"""
+    
+    STATUS_CHOICES = [
+        ('new', '🆕 New'),
+        ('in_progress', '⚙️ In Progress'),
+        ('resolved', '✅ Resolved'),
+        ('closed', '🔒 Closed'),
+    ]
+    
+    PRIORITY_CHOICES = [
+        ('low', '🟢 Low'),
+        ('medium', '🟡 Medium'),
+        ('high', '🔴 High'),
+        ('urgent', '🔥 Urgent'),
+    ]
+    
+    ticket_no = models.CharField(max_length=20, unique=True, editable=False)
+    shareholder = models.ForeignKey('Shareholder', on_delete=models.CASCADE, related_name='support_tickets')
+    subject = models.CharField(max_length=200)
+    message = models.TextField()
+    priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='medium')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='new')
+    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_tickets')
+    attachment = models.FileField(upload_to='support_tickets/', null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    
+    class Meta:
+        verbose_name_plural = "Shareholder Support Tickets"
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.ticket_no} - {self.subject[:30]}"
+    
+    def save(self, *args, **kwargs):
+        if not self.ticket_no:
+            from datetime import datetime
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+            self.ticket_no = f'ST-{timestamp}'
+        super().save(*args, **kwargs)
+
+
+class SupportTicketReply(models.Model):
+    """Replies to support tickets"""
+    
+    ticket = models.ForeignKey(ShareholderSupportTicket, on_delete=models.CASCADE, related_name='replies')
+    message = models.TextField()
+    is_internal = models.BooleanField(default=False, help_text="Internal note (not visible to shareholder)")
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    attachment = models.FileField(upload_to='support_replies/', null=True, blank=True)
+    
+    class Meta:
+        verbose_name_plural = "Support Ticket Replies"
+        ordering = ['created_at']
+    
+    def __str__(self):
+        return f"Reply to {self.ticket.ticket_no}"
+        
+class ShareholderLoginRequest(models.Model):
+    """
+    Shareholder login request - pending approval
+    Admin approve karega to user + shareholder create ho ga
+    """
+    
+    STATUS_CHOICES = [
+        ('pending', '⏳ Pending'),
+        ('approved', '✅ Approved'),
+        ('rejected', '❌ Rejected'),
+    ]
+    
+    # ========================================== #
+    # BASIC INFORMATION                         #
+    # ========================================== #
+    full_name = models.CharField(max_length=200, verbose_name="Full Name")
+    email = models.EmailField(verbose_name="Email Address")
+    phone = models.CharField(max_length=20, verbose_name="Phone Number")
+    cnic = models.CharField(max_length=20, blank=True, null=True, verbose_name="CNIC")
+    address = models.TextField(blank=True, null=True, verbose_name="Address")
+    notes = models.TextField(blank=True, null=True, verbose_name="Additional Notes")
+    
+    # ========================================== #
+    # REQUEST DETAILS                           #
+    # ========================================== #
+    requested_at = models.DateTimeField(auto_now_add=True, verbose_name="Requested At")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name="Status")
+    
+    # ========================================== #
+    # ADMIN RESPONSE                            #
+    # ========================================== #
+    reviewed_by = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='reviewed_requests',
+        verbose_name="Reviewed By"
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True, verbose_name="Reviewed At")
+    rejection_reason = models.TextField(blank=True, null=True, verbose_name="Rejection Reason")
+    
+    # ========================================== #
+    # ✅ GENERATED CREDENTIALS - YEH IMPORTANT   #
+    # ========================================== #
+    generated_username = models.CharField(
+        max_length=150, 
+        blank=True, 
+        null=True, 
+        verbose_name="Generated Username"
+    )
+    generated_password = models.CharField(
+        max_length=255, 
+        blank=True, 
+        null=True, 
+        verbose_name="Generated Password"
+    )
+    
+    # ========================================== #
+    # CREATED SHAREHOLDER                       #
+    # ========================================== #
+    created_shareholder = models.ForeignKey(
+        'Shareholder', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='login_requests',
+        verbose_name="Created Shareholder"
+    )
+    
+    # ========================================== #
+    # IP AND DEVICE INFO                        #
+    # ========================================== #
+    ip_address = models.GenericIPAddressField(null=True, blank=True, verbose_name="IP Address")
+    user_agent = models.TextField(blank=True, null=True, verbose_name="User Agent")
+    
+    # ========================================== #
+    # META                                      #
+    # ========================================== #
+    class Meta:
+        verbose_name_plural = "Shareholder Login Requests"
+        ordering = ['-requested_at']
+        indexes = [
+            models.Index(fields=['status']),
+            models.Index(fields=['email']),
+            models.Index(fields=['requested_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.full_name} - {self.email} ({self.get_status_display()})"
+    
+    # ========================================== #
+    # ✅ APPROVE METHOD - COMPLETE              #
+    # ========================================== #
+    
+    def approve(self, admin_user):
+        """
+        ✅ Approve request and create:
+        1. User account
+        2. Shareholder profile
+        3. Cash balance
+        4. Store credentials
+        """
+        from django.contrib.auth.models import User
+        from django.utils.timezone import now
+        from django.db import transaction
+        from decimal import Decimal
+        import secrets
+        import string
+        
+        # Check if already approved
+        if self.status == 'approved':
+            raise ValidationError("This request is already approved!")
+        
+        # Check if already rejected
+        if self.status == 'rejected':
+            raise ValidationError("This request was rejected and cannot be approved!")
+        
+        try:
+            with transaction.atomic():
+                # ========================================== #
+                # STEP 1: CREATE USERNAME                   #
+                # ========================================== #
+                username = self.email.split('@')[0]
+                base_username = username
+                counter = 1
+                
+                # Ensure username is unique
+                while User.objects.filter(username=username).exists():
+                    username = f"{base_username}{counter}"
+                    counter += 1
+                
+                # ========================================== #
+                # STEP 2: GENERATE RANDOM PASSWORD          #
+                # ========================================== #
+                alphabet = string.ascii_letters + string.digits
+                password = ''.join(secrets.choice(alphabet) for i in range(10))
+                
+                # ========================================== #
+                # STEP 3: CREATE USER                       #
+                # ========================================== #
+                user = User.objects.create_user(
+                    username=username,
+                    email=self.email,
+                    password=password
+                )
+                user.is_active = True
+                user.first_name = self.full_name.split()[0] if self.full_name else ''
+                user.last_name = ' '.join(self.full_name.split()[1:]) if self.full_name else ''
+                user.save()
+                
+                # ========================================== #
+                # STEP 4: CREATE SHAREHOLDER                #
+                # ========================================== #
+                shareholder = Shareholder.objects.create(
+                    user=user,
+                    name=self.full_name,
+                    email=self.email,
+                    phone=self.phone,
+                    cnic=self.cnic,
+                    address=self.address,
+                    allow_login=True,
+                    status='active',
+                    created_by=user,
+                    shareholder_type='individual',
+                    notes=f"Created from registration request #{self.id}"
+                )
+                
+                # ========================================== #
+                # STEP 5: CREATE CASH BALANCE               #
+                # ========================================== #
+                ShareholderCashBalance.objects.create(
+                    shareholder=shareholder,
+                    balance=Decimal('0.00')
+                )
+                
+                # ========================================== #
+                # STEP 6: ✅ STORE CREDENTIALS - YEH IMPORTANT #
+                # ========================================== #
+                self.generated_username = username
+                self.generated_password = password  # Plain password store for display
+                
+                # ========================================== #
+                # STEP 7: UPDATE REQUEST STATUS            #
+                # ========================================== #
+                self.status = 'approved'
+                self.reviewed_by = admin_user
+                self.reviewed_at = now()
+                self.created_shareholder = shareholder
+                
+                # ✅ FORCE SAVE WITH UPDATE_FIELDS
+                self.save(update_fields=[
+                    'generated_username',
+                    'generated_password',
+                    'status',
+                    'reviewed_by',
+                    'reviewed_at',
+                    'created_shareholder'
+                ])
+                
+                # ========================================== #
+                # STEP 8: CREATE NOTIFICATION               #
+                # ========================================== #
+                try:
+                    from .models import Notification
+                    # Notify admin
+                    Notification.send(
+                        user=admin_user,
+                        title="✅ Shareholder Request Approved",
+                        message=f"{self.full_name} has been approved as shareholder! Username: {username}",
+                        notification_type='success',
+                        category='system',
+                        link=f"/shareholder-requests/{self.id}/"
+                    )
+                except:
+                    pass
+                
+                # ========================================== #
+                # STEP 9: RETURN RESULT                     #
+                # ========================================== #
+                return {
+                    'success': True,
+                    'user': user,
+                    'shareholder': shareholder,
+                    'username': username,
+                    'password': password,
+                    'email': self.email,
+                    'message': f"✅ Request approved! Username: {username}, Password: {password}"
+                }
+                
+        except Exception as e:
+            # Rollback will happen automatically due to atomic
+            raise ValidationError(f"Approval failed: {str(e)}")
+    
+    # ========================================== #
+    # REJECT METHOD                             #
+    # ========================================== #
+    
+    def reject(self, admin_user, reason=""):
+        """
+        ❌ Reject request with reason
+        """
+        from django.utils.timezone import now
+        
+        if self.status == 'approved':
+            raise ValidationError("Cannot reject an already approved request!")
+        
+        if self.status == 'rejected':
+            raise ValidationError("This request is already rejected!")
+        
+        self.status = 'rejected'
+        self.reviewed_by = admin_user
+        self.reviewed_at = now()
+        self.rejection_reason = reason
+        self.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'rejection_reason'])
+        
+        # Create notification
+        try:
+            from .models import Notification
+            Notification.send(
+                user=admin_user,
+                title="❌ Shareholder Request Rejected",
+                message=f"{self.full_name}'s request was rejected. Reason: {reason or 'Not specified'}",
+                notification_type='danger',
+                category='system',
+                link=f"/shareholder-requests/{self.id}/"
+            )
+        except:
+            pass
+        
+        return {
+            'success': True,
+            'message': f"Request rejected! Reason: {reason or 'Not specified'}"
+        }
+    
+    # ========================================== #
+    # PROPERTIES                                #
+    # ========================================== #
+    
+    @property
+    def is_pending(self):
+        return self.status == 'pending'
+    
+    @property
+    def is_approved(self):
+        return self.status == 'approved'
+    
+    @property
+    def is_rejected(self):
+        return self.status == 'rejected'
+    
+    @property
+    def can_act(self):
+        """Can admin act on this request?"""
+        return self.status == 'pending'
+    
+    @property
+    def status_badge(self):
+        """HTML badge for status"""
+        if self.status == 'pending':
+            return '<span class="badge bg-warning text-dark">⏳ Pending</span>'
+        elif self.status == 'approved':
+            return '<span class="badge bg-success">✅ Approved</span>'
+        else:
+            return '<span class="badge bg-danger">❌ Rejected</span>'
+    
+    @property
+    def has_credentials(self):
+        """Check if credentials are stored"""
+        return bool(self.generated_username and self.generated_password)
+    
+    @property
+    def formatted_date(self):
+        return self.requested_at.strftime('%d-%m-%Y %H:%M')
+    
+    @property
+    def formatted_reviewed_date(self):
+        if self.reviewed_at:
+            return self.reviewed_at.strftime('%d-%m-%Y %H:%M')
+        return '-'
