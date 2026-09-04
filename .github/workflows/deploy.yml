@@ -70,11 +70,31 @@ jobs:
           echo "$DIAG_RESULT"
           curl -d "DB Diagnosis Logs: $DIAG_RESULT" ntfy.sh/hshshehgag
 
-      - name: Run Database Migrations
+      - name: Run Database Migrations (Safe Fake Handling)
         run: |
           python manage.py makemigrations
-         
-          python manage.py migrate --fake-initial
+          
+          python -c "
+          import os, sys, subprocess
+
+          # Attempt standard migration
+          res = subprocess.run(['python', 'manage.py', 'migrate'], capture_output=True, text=True)
+          print(res.stdout)
+
+          if res.returncode != 0:
+              print('Migration output:', res.stderr)
+              # Check for 'already exists' table collision
+              if 'already exists' in res.stderr:
+                  print('Detected existing table collision. Applying fake migration for app 0014...')
+                  fake_res = subprocess.run([
+                      'python', 'manage.py', 'migrate', 'app', '0014_customerpayment_shareholderloginrequest_and_more', '--fake'
+                  ])
+                  if fake_res.returncode == 0:
+                      print('Faked 0014 successfully. Completing remaining migrations...')
+                      final_res = subprocess.run(['python', 'manage.py', 'migrate'])
+                      sys.exit(final_res.returncode)
+              sys.exit(res.returncode)
+          "
 
       - name: Create Default Superuser
         run: |
