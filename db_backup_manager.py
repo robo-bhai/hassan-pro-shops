@@ -89,10 +89,11 @@ def export_backup(output_filename=None):
             backup_data[table] = rows
 
     json_payload = json.dumps(
-        backup_data, 
-        default=lambda o: o.isoformat() if isinstance(o, (datetime.date, datetime.datetime)) else str(o)
+        backup_data,
+        default=lambda o: o.isoformat() if hasattr(o, "isoformat") else str(o),
     )
     encrypted_content = encrypt_data(json_payload)
+
 
 
     with open(output_filename, "wb") as f:
