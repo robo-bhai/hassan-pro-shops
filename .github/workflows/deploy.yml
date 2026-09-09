@@ -13,6 +13,21 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
+    # GitHub Runner local MySQL container service for ultra-low latency execution
+    services:
+      local-mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: local_django_db
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
     env:
       DB_HOST: ${{ secrets.DB_HOST }}
       DB_NAME: ${{ secrets.DB_NAME }}
@@ -43,8 +58,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install pymysql gunicorn "django-import-export>=3.3.0" "django>=5.2,<5.3" django-dbbackup django-axes reportlab openpyxl pillow python-barcode qrcode cryptography requests django-pwa whitenoise
 
-      - name: Diagnose Database Connection
+      - name: Install MySQL Client CLI Tools
         run: |
+          sudo apt-get update
+          sudo apt-get install -y mysql-client
+
+      - name: Diagnose Cloud DB & Sync Down to Runner Local MySQL
+        run: |
+          echo "=== 1. DIAGNOSING CLOUD AIVEN MYSQL CONNECTION ==="
           python -c "
           import time, pymysql, os
           start = time.time()
@@ -65,19 +86,39 @@ jobs:
               print(f'SUCCESS: Connected to Aiven MySQL in {ms} ms. Version: {db_version[0]}')
               conn.close()
           except Exception as e:
-              print(f'ERROR: Database connection failed: {e}')
+              print(f'ERROR: Cloud database connection failed: {e}')
               exit(1)
           "
 
-      - name: Make Migrations & Apply to Fresh Database
+          echo "=== 2. DUMPING DATA FROM CLOUD MYSQL TO LOCAL RUNNER DB ==="
+          mysqldump -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" \
+            --ssl-mode=REQUIRED --single-transaction --quick "$DB_NAME" > cloud_data_dump.sql
+
+          echo "=== 3. IMPORTING CLOUD DATA INTO LOCAL RUNNER MYSQL ==="
+          mysql -h 127.0.0.1 -P 3306 -u root -proot local_django_db < cloud_data_dump.sql
+          echo "Sync Down Completed Successfully. Django will now use Local MySQL (127.0.0.1)."
+
+      - name: Make Migrations & Apply to Local Runner Database
+        env:
+          DB_HOST: "127.0.0.1"
+          DB_PORT: "3306"
+          DB_USER: "root"
+          DB_PASS: "root"
+          DB_NAME: "local_django_db"
         run: |
           echo "=== 1. GENERATING MIGRATIONS ==="
           python manage.py makemigrations
 
-          echo "=== 2. APPLYING MIGRATIONS TO FRESH DB ==="
+          echo "=== 2. APPLYING MIGRATIONS TO LOCAL DB ==="
           python manage.py migrate
 
       - name: Create Default Superuser
+        env:
+          DB_HOST: "127.0.0.1"
+          DB_PORT: "3306"
+          DB_USER: "root"
+          DB_PASS: "root"
+          DB_NAME: "local_django_db"
         run: |
           python manage.py shell -c "
           import os
@@ -129,6 +170,12 @@ jobs:
           "
 
       - name: Collect Static Files
+        env:
+          DB_HOST: "127.0.0.1"
+          DB_PORT: "3306"
+          DB_USER: "root"
+          DB_PASS: "root"
+          DB_NAME: "local_django_db"
         run: |
           mkdir -p static
           python manage.py collectstatic --noinput
@@ -147,6 +194,12 @@ jobs:
           sleep 2
 
       - name: Start Django Server & Permanent Cloudflare Tunnel
+        env:
+          DB_HOST: "127.0.0.1"
+          DB_PORT: "3306"
+          DB_USER: "root"
+          DB_PASS: "root"
+          DB_NAME: "local_django_db"
         run: |
           touch django.log tunnel.log
 
@@ -161,7 +214,7 @@ jobs:
           PUBLIC_IP=$(curl -s ifconfig.me || curl -s api.ipify.org)
           echo "GitHub Runner Public IP: $PUBLIC_IP"
           
-          MESSAGE="Django App Live! 🚀
+          MESSAGE="Django App Live! 🚀 (Running on Ultra-Fast Local MySQL)
           Domain: https://shops.hadi88.online
           Direct IP: http://$PUBLIC_IP:8000"
           
@@ -183,6 +236,21 @@ jobs:
             grep -i -C 3 "error\|exception\|traceback\|500\|404" django.log || echo "No errors detected."
             echo "------------------------------------------"
           done
+
+      - name: Sync Local Runner MySQL Back to Cloud Aiven MySQL
+        if: always()
+        run: |
+          echo "=========================================="
+          echo " PUSHING UPDATED LOCAL DATA TO CLOUD MYSQL"
+          echo "=========================================="
+          
+          mysqldump -h 127.0.0.1 -P 3306 -u root -proot \
+            --no-create-info --replace local_django_db > runner_updated_data.sql
+            
+          mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" \
+            --ssl-mode=REQUIRED "$DB_NAME" < runner_updated_data.sql
+            
+          echo "Sync Up Back to Cloud Completed Successfully!"
 
       - name: Full Dump of Logs On Workflow Stop or Error
         if: always()
