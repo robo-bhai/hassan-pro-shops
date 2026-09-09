@@ -91,11 +91,15 @@ jobs:
           "
 
           echo "=== 2. DUMPING DATA FROM CLOUD MYSQL TO LOCAL RUNNER DB ==="
-          mysqldump -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" \
-            --ssl-mode=REQUIRED --single-transaction --quick "$DB_NAME" > cloud_data_dump.sql
+          MYSQL_PWD="$DB_PASS" mysqldump -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" \
+            --ssl-mode=REQUIRED \
+            --set-gtid-purged=OFF \
+            --column-statistics=0 \
+            --single-transaction \
+            --quick "$DB_NAME" > cloud_data_dump.sql
 
           echo "=== 3. IMPORTING CLOUD DATA INTO LOCAL RUNNER MYSQL ==="
-          mysql -h 127.0.0.1 -P 3306 -u root -proot local_django_db < cloud_data_dump.sql
+          MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < cloud_data_dump.sql
           echo "Sync Down Completed Successfully. Django will now use Local MySQL (127.0.0.1)."
 
       - name: Make Migrations & Apply to Local Runner Database
@@ -244,10 +248,13 @@ jobs:
           echo " PUSHING UPDATED LOCAL DATA TO CLOUD MYSQL"
           echo "=========================================="
           
-          mysqldump -h 127.0.0.1 -P 3306 -u root -proot \
-            --no-create-info --replace local_django_db > runner_updated_data.sql
+          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
+            --set-gtid-purged=OFF \
+            --column-statistics=0 \
+            --no-create-info \
+            --replace local_django_db > runner_updated_data.sql
             
-          mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" \
+          MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" \
             --ssl-mode=REQUIRED "$DB_NAME" < runner_updated_data.sql
             
           echo "Sync Up Back to Cloud Completed Successfully!"
