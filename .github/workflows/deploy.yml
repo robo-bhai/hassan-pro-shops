@@ -101,13 +101,14 @@ jobs:
               exit(1)
           "
 
-          if [ "${{ steps.db-cache.outputs.cache-hit }}" == "true" ] && [ -s cloud_data_dump.sql.gz ]; then
-            echo "=== CACHE HIT: Restoring DB Dump from GitHub Cache (1-2 Seconds) ==="
+          # Check if file exists AND size is greater than 10KB (valid SQL dump)
+          if [ -f cloud_data_dump.sql.gz ] && [ $(stat -c%s "cloud_data_dump.sql.gz") -gt 10240 ]; then
+            echo "=== CACHE HIT: Restoring Valid DB Dump from GitHub Cache (1-2 Seconds) ==="
             gunzip -c cloud_data_dump.sql.gz > cloud_data_dump.sql
             MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < cloud_data_dump.sql
             echo "Sync Down from Cache Completed Successfully."
           else
-            echo "=== CACHE MISS: Downloading Full Dump from Aiven Cloud MySQL ==="
+            echo "=== CACHE MISS / INVALID CACHE: Downloading Full Dump from Aiven Cloud MySQL ==="
             MYSQL_PWD="$DB_PASS" mysqldump -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" \
               --ssl-mode=REQUIRED \
               --set-gtid-purged=OFF \
@@ -277,25 +278,17 @@ jobs:
 
           gunzip -c runner_updated_data.sql.gz | MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME"
           
-          # Prepare updated compressed dump for cache step
-          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
-            --set-gtid-purged=OFF \
-            --column-statistics=0 \
-            --single-transaction local_django_db | gzip > cloud_data_dump.sql.gz
-            
           echo "Sync Up Back to Cloud Completed Successfully!"
 
       # --- STEP 4: SAVE UPDATED DUMP TO GITHUB CACHE ---
       - name: Prepare Cache Dump File
         if: always()
         run: |
-          if [ ! -s cloud_data_dump.sql.gz ]; then
-            echo "Dump file missing or empty. Generating safety dump..."
-            MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
-              --set-gtid-purged=OFF \
-              --column-statistics=0 \
-              --single-transaction local_django_db | gzip > cloud_data_dump.sql.gz
-          fi
+          echo "Creating high-validity full database dump for cache..."
+          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
+            --set-gtid-purged=OFF \
+            --column-statistics=0 \
+            --single-transaction local_django_db | gzip > cloud_data_dump.sql.gz
 
       - name: Save Updated DB Dump to Cache
         if: always()
