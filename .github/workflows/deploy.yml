@@ -101,7 +101,7 @@ jobs:
               exit(1)
           "
 
-          if [ "${{ steps.db-cache.outputs.cache-hit }}" == "true" ]; then
+          if [ "${{ steps.db-cache.outputs.cache-hit }}" == "true" ] && [ -s cloud_data_dump.sql.gz ]; then
             echo "=== CACHE HIT: Restoring DB Dump from GitHub Cache (1-2 Seconds) ==="
             gunzip -c cloud_data_dump.sql.gz > cloud_data_dump.sql
             MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < cloud_data_dump.sql
@@ -286,6 +286,17 @@ jobs:
           echo "Sync Up Back to Cloud Completed Successfully!"
 
       # --- STEP 4: SAVE UPDATED DUMP TO GITHUB CACHE ---
+      - name: Prepare Cache Dump File
+        if: always()
+        run: |
+          if [ ! -s cloud_data_dump.sql.gz ]; then
+            echo "Dump file missing or empty. Generating safety dump..."
+            MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
+              --set-gtid-purged=OFF \
+              --column-statistics=0 \
+              --single-transaction local_django_db | gzip > cloud_data_dump.sql.gz
+          fi
+
       - name: Save Updated DB Dump to Cache
         if: always()
         uses: actions/cache/save@v4
