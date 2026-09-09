@@ -86,7 +86,7 @@ jobs:
 
           if res.returncode != 0:
               err = res.stderr
-              print('Migration Error Detected:', err)
+              print('Migration Error Detected:\n', err)
               
               # Scenario A: Table is missing or incomplete (Column doesn't exist)
               if 'doesn\'t exist' in err or 'Unknown column' in err or 'KeyError' in err:
@@ -101,10 +101,8 @@ jobs:
                           ssl={'ssl-mode': 'REQUIRED'}
                       )
                       cursor = conn.cursor()
-                      # Disable Foreign key checks temporarily to safely drop incomplete tables
                       cursor.execute('SET FOREIGN_KEY_CHECKS = 0;')
                       
-                      # Find tables from the current app database
                       cursor.execute(\"SHOW TABLES LIKE 'app_%';\")
                       tables = cursor.fetchall()
                       for table in tables:
@@ -112,7 +110,6 @@ jobs:
                           print(f'Dropping incomplete table: {table_name}')
                           cursor.execute(f'DROP TABLE IF EXISTS `{table_name}`;')
                       
-                      # Delete migration records for clean reset
                       cursor.execute(\"DELETE FROM django_migrations WHERE app = 'app';\")
                       cursor.execute('SET FOREIGN_KEY_CHECKS = 1;')
                       conn.commit()
@@ -121,7 +118,6 @@ jobs:
                   except Exception as e:
                       print(f'Database cleanup warning: {e}')
 
-                  # Recreate tables directly
                   run_cmd(['python', 'manage.py', 'migrate', '--run-syncdb'])
                   final_res = run_cmd(['python', 'manage.py', 'migrate', 'app', '--fake'])
                   sys.exit(0 if final_res.returncode == 0 else 1)
@@ -212,15 +208,15 @@ jobs:
 
       - name: Start Django Server & Permanent Cloudflare Tunnel
         run: |
-          # Background mein Django server run karein
+          # Create blank log files first
+          touch django.log tunnel.log
+
+          # Background me Django aur Cloudflare run karein
           python manage.py runserver 0.0.0.0:8000 > django.log 2>&1 &
-          
-          # Clean cloudflared command (unsupported flags removed)
           cloudflared tunnel run --token ${{ secrets.CLOUDFLARE_TOKEN }} > tunnel.log 2>&1 &
           
           sleep 6
           echo "=== PERMANENT TUNNEL ACTIVE ==="
-          cat tunnel.log
 
       - name: Get Public IP & Send Notification to ntfy
         run: |
@@ -233,12 +229,36 @@ jobs:
           
           curl -d "$MESSAGE" ntfy.sh/hshshehgag
 
-      - name: Hold workflow for 3 hours & monitor
+      - name: Hold workflow & stream console/error logs
         run: |
-          echo "Workflow is now running for 3 hours. Your app is live."
+          echo "Workflow is active. Streaming logs live to console..."
           
+          # Print initial logs
+          echo "--- INITIAL DJANGO LOGS ---"
+          cat django.log
+          echo "--- INITIAL TUNNEL LOGS ---"
+          cat tunnel.log
+          
+          # Monitor both logs live for 3 hours
           for i in {1..36}; do
             sleep 300
-            echo "--- Django Server Recent Logs ---"
-            tail -n 20 django.log || true
+            echo "=========================================="
+            echo "TIMESTAMP: $(date)"
+            echo "--- RECENT DJANGO CONSOLE / ERROR LOGS ---"
+            tail -n 30 django.log || true
+            echo "--- RECENT CLOUDFLARE TUNNEL LOGS ---"
+            tail -n 15 tunnel.log || true
+            echo "=========================================="
           done
+
+      - name: Print Complete Error Logs On Failure or Always
+        if: always()
+        run: |
+          echo "=========================================="
+          echo "      FULL DJANGO CONSOLE & ERROR LOGS    "
+          echo "=========================================="
+          cat django.log || echo "No django.log found."
+          echo "=========================================="
+          echo "      FULL CLOUDFLARE TUNNEL LOGS        "
+          echo "=========================================="
+          cat tunnel.log || echo "No tunnel.log found."
