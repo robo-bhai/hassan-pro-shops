@@ -38,7 +38,7 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Install pips
+      - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pymysql gunicorn "django-import-export>=3.3.0" "django>=5.2,<5.3" django-dbbackup django-axes reportlab openpyxl pillow python-barcode qrcode cryptography requests django-pwa whitenoise
@@ -68,27 +68,26 @@ jobs:
               print(f'ERROR: Database connection failed: {e}')
           ")
           echo "$DIAG_RESULT"
-          curl -d "DB Diagnosis Logs: $DIAG_RESULT" ntfy.sh/hshshehgag
+          curl -s -d "DB Diagnosis Logs: $DIAG_RESULT" ntfy.sh/hshshehgag || true
 
-      - name: Auto Create Missing or Recreate Incomplete Tables & Migrate
+      - name: Smart Database Migration & Schema Sync
         run: |
-          python manage.py makemigrations
-          
           python -c "
           import os, sys, subprocess, pymysql
 
           def run_cmd(cmd):
               return subprocess.run(cmd, capture_output=True, text=True)
 
+          print('Executing initial database migration...')
           res = run_cmd(['python', 'manage.py', 'migrate'])
           print(res.stdout)
 
           if res.returncode != 0:
               err = res.stderr
-              print('Migration Error Detected:\n', err)
+              print('Migration Issue Detected:\n', err)
               
               if 'doesn\'t exist' in err or 'Unknown column' in err or 'KeyError' in err:
-                  print('⚠️ Detected incomplete/broken database schema! Recreating missing/incomplete tables...')
+                  print('⚠️ Table mismatch detected! Rebuilding app schema...')
                   try:
                       conn = pymysql.connect(
                           host=os.environ['DB_HOST'],
@@ -105,30 +104,24 @@ jobs:
                       tables = cursor.fetchall()
                       for table in tables:
                           table_name = table[0]
-                          print(f'Dropping incomplete table: {table_name}')
                           cursor.execute(f'DROP TABLE IF EXISTS `{table_name}`;')
                       
                       cursor.execute(\"DELETE FROM django_migrations WHERE app = 'app';\")
                       cursor.execute('SET FOREIGN_KEY_CHECKS = 1;')
                       conn.commit()
                       conn.close()
-                      print('Dropped broken tables successfully. Re-syncing database fresh...')
+                      print('Reset app tables. Re-running migrations...')
                   except Exception as e:
                       print(f'Database cleanup warning: {e}')
 
                   run_cmd(['python', 'manage.py', 'migrate', '--run-syncdb'])
-                  final_res = run_cmd(['python', 'manage.py', 'migrate', 'app', '--fake'])
-                  sys.exit(0 if final_res.returncode == 0 else 1)
+                  final_res = run_cmd(['python', 'manage.py', 'migrate'])
+                  sys.exit(final_res.returncode)
 
               elif 'already exists' in err:
-                  print('⚠️ Detected existing table collision. Applying fake migration for app 0014...')
-                  fake_res = run_cmd([
-                      'python', 'manage.py', 'migrate', 'app', '0014_customerpayment_shareholderloginrequest_and_more', '--fake'
-                  ])
-                  if fake_res.returncode == 0:
-                      print('Faked 0014 successfully. Completing remaining migrations...')
-                      final_res = run_cmd(['python', 'manage.py', 'migrate'])
-                      sys.exit(final_res.returncode)
+                  print('⚠️ Tables exist without record. Faking unapplied migrations...')
+                  fake_res = run_cmd(['python', 'manage.py', 'migrate', '--fake'])
+                  sys.exit(fake_res.returncode)
 
               sys.exit(res.returncode)
           else:
@@ -198,7 +191,7 @@ jobs:
 
       - name: Check and Kill Existing Local Processes
         run: |
-          echo "Cleaning up any old Django or Cloudflared instances on the runner..."
+          echo "Cleaning up any old Django or Cloudflared instances..."
           pkill -f "manage.py runserver" || true
           pkill -f "cloudflared" || true
           sleep 2
@@ -207,7 +200,6 @@ jobs:
         run: |
           touch django.log tunnel.log
 
-          # Unbuffered mode me Django start karein taake har HTTP Access Request instantly log file me write ho
           PYTHONUNBUFFERED=1 python -u manage.py runserver 0.0.0.0:8000 > django.log 2>&1 &
           cloudflared tunnel run --token ${{ secrets.CLOUDFLARE_TOKEN }} > tunnel.log 2>&1 &
           
@@ -223,25 +215,21 @@ jobs:
           Domain: https://shops.hadi88.online
           Direct IP: http://$PUBLIC_IP:8000"
           
-          curl -d "$MESSAGE" ntfy.sh/hshshehgag
+          curl -s -d "$MESSAGE" ntfy.sh/hshshehgag || true
 
-      - name: Realtime HTTP Access Logs & Error Stream
+      - name: Server Sanity & Short Access Log Inspection
         run: |
           echo "=========================================="
-          echo " LIVE HTTP SERVER ACCESS LOGS & ERRORS "
+          echo "       VERIFYING RUNNING PROCESSES        "
           echo "=========================================="
+          sleep 10
+          ps aux | grep -E "manage.py|cloudflared"
           
-          # 3 Hours monitoring loop displaying clean access routes & HTTP status codes
-          for i in {1..36}; do
-            sleep 300
-            echo "------------------------------------------"
-            echo "TIMESTAMP: $(date)"
-            echo "--- SERVER HTTP ACCESS LOGS (Path - Status) ---"
-            grep -E '"GET|POST|PUT|DELETE|HEAD' django.log || echo "No HTTP requests logged yet."
-            echo "--- RECENT EXCEPTIONS / ERROR TRACEBACKS ---"
-            grep -i -C 3 "error\|exception\|traceback\|500\|404" django.log || echo "No errors detected."
-            echo "------------------------------------------"
-          done
+          echo "--- RECENT DJANGO LOGS ---"
+          cat django.log | tail -n 20
+          
+          echo "--- RECENT TUNNEL LOGS ---"
+          cat tunnel.log | tail -n 20
 
       - name: Full Dump of Logs On Workflow Stop or Error
         if: always()
