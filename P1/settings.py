@@ -5,26 +5,33 @@ import sys
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# --- TERMUX DETECTION LOGIC ---
+# --- ENVIRONMENT & SYSTEM DETECTION LOGIC ---
 IS_TERMUX = 'TERMUX_VERSION' in os.environ or os.path.exists('/data/data/com.termux')
+IS_GITHUB_ACTIONS = os.environ.get('GITHUB_ACTIONS') == 'true'
 
-if not IS_TERMUX:
+# Use SQLite for Termux or GitHub Actions CI/CD workflows
+USE_SQLITE = IS_TERMUX or IS_GITHUB_ACTIONS
+
+if not USE_SQLITE:
     import pymysql
     pymysql.install_as_MySQLdb()
 
 # --- KEYS & GENERAL CONFIGURATION ---
-if IS_TERMUX:
-    # Hardcoded fallback values for local Termux environment
-    SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-termux-local-dev-key-1234567890')
-    SALT_KEY = os.environ.get('DJANGO_SALT_KEY', 'termux-salt-key-dev')
+if USE_SQLITE:
+    SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-ci-cd-dev-fallback-key-1234567890')
+    SALT_KEY = os.environ.get('DJANGO_SALT_KEY', 'dev-salt-key')
     DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
     ALLOWED_HOSTS = ['*']
 else:
-    # Production / GitHub Workflow Environment Variables
-    SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
-    SALT_KEY = os.environ.get('DJANGO_SALT_KEY')
-    DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
-    ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
+    SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-production-fallback-key-9988776655')
+    SALT_KEY = os.environ.get('DJANGO_SALT_KEY', 'prod-salt-key')
+    DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
+    
+    env_allowed = os.environ.get('ALLOWED_HOSTS', '')
+    if env_allowed:
+        ALLOWED_HOSTS = [h.strip() for h in env_allowed.split(',') if h.strip()]
+    else:
+        ALLOWED_HOSTS = ['uqn88.store', '*.uqn88.store', 'hadi88.online', '*.hadi88.online', 'localhost', '127.0.0.1', '*']
 
 # Automatic Local IP Resolution
 try:
@@ -38,17 +45,17 @@ try:
 except Exception:
     pass
 
-if not IS_TERMUX:
-    env_allowed = os.environ.get('ALLOWED_HOSTS', '')
-    if env_allowed:
-        ALLOWED_HOSTS = [h.strip() for h in env_allowed.split(',') if h.strip()]
-    else:
-        ALLOWED_HOSTS = []
-
-CSRF_TRUSTED_ORIGINS = []
+CSRF_TRUSTED_ORIGINS = [
+    'https://uqn88.store',
+    'https://*.uqn88.store',
+    'https://hadi88.online',
+    'https://*.hadi88.online',
+    'http://localhost',
+    'http://127.0.0.1'
+]
 env_csrf = os.environ.get('CSRF_TRUSTED_ORIGINS')
 if env_csrf:
-    CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in env_csrf.split(',') if origin.strip()]
+    CSRF_TRUSTED_ORIGINS.extend([origin.strip() for origin in env_csrf.split(',') if origin.strip()])
 
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
@@ -131,7 +138,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'P1.wsgi.application'
 
 # --- DYNAMIC DATABASE CONFIGURATION ---
-if IS_TERMUX:
+if USE_SQLITE:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
