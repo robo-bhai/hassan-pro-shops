@@ -143,7 +143,6 @@
         text-align: center;
     }
     
-    /* ✅ Simple Amount Colors */
     .amount-purchase {
         color: var(--danger);
         font-weight: 700;
@@ -204,7 +203,6 @@
         margin-top: 2px;
     }
     
-    /* ✅ Simple Summary Stats */
     .summary-stats {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -248,6 +246,69 @@
         margin-bottom: 10px;
     }
     
+    /* ✅ Pay Button Styles */
+    .pay-btn {
+        background: #dc3545;
+        color: white;
+        border: none;
+        padding: 8px 20px;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 0.85rem;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .pay-btn:hover {
+        background: #b02a37;
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(220, 53, 69, 0.35);
+    }
+    
+    .pay-btn i {
+        font-size: 1rem;
+    }
+    
+    .pay-btn.success {
+        background: #11998e;
+    }
+    
+    .pay-btn.success:hover {
+        background: #0d7a6f;
+        box-shadow: 0 8px 25px rgba(17, 153, 142, 0.35);
+    }
+    
+    .outstanding-highlight {
+        background: #fef2f2;
+        border: 2px solid #dc3545;
+        border-radius: 12px;
+        padding: 16px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    
+    .outstanding-highlight .label {
+        font-size: 0.8rem;
+        color: #6b7280;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .outstanding-highlight .amount {
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: #dc3545;
+    }
+    
     @media (max-width: 768px) {
         .vendor-info-card {
             grid-template-columns: repeat(2, 1fr);
@@ -258,6 +319,13 @@
         .ledger-table tbody td { padding: 10px 12px; font-size: 0.78rem; }
         .summary-stats {
             grid-template-columns: repeat(2, 1fr);
+        }
+        .outstanding-highlight {
+            flex-direction: column;
+            text-align: center;
+        }
+        .outstanding-highlight .amount {
+            font-size: 1.5rem;
         }
     }
     
@@ -310,6 +378,21 @@
     </div>
 </div>
 
+<!-- ✅ OUTSTANDING HIGHLIGHT WITH PAY BUTTON -->
+{% if total_outstanding > 0 %}
+<div class="outstanding-highlight">
+    <div>
+        <div class="label">⚠️ Outstanding Balance</div>
+        <div class="amount">Rs. {{ total_outstanding|floatformat:2 }}</div>
+    </div>
+    <div>
+        <a href="{% url 'vendor_ledger_pay' vendor.pk %}" class="pay-btn">
+            <i class="bi bi-credit-card"></i> Pay Outstanding
+        </a>
+    </div>
+</div>
+{% endif %}
+
 <!-- ✅ Simple Summary Stats -->
 <div class="summary-stats">
     <div class="summary-stat">
@@ -330,11 +413,16 @@
     </div>
 </div>
 
-<!-- ✅ Super Simple Ledger Table -->
+<!-- ✅ Ledger Table -->
 <div class="ledger-table-card">
     <div class="ledger-table-header">
         <h5>📋 Transactions <span class="badge-count">{{ ledger_entries|length }}</span></h5>
-        <div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            {% if total_outstanding > 0 %}
+            <a href="{% url 'vendor_ledger_pay' vendor.pk %}" class="btn btn-danger btn-sm" style="border-radius:8px; padding:6px 14px; font-weight:600;">
+                <i class="bi bi-credit-card"></i> Pay
+            </a>
+            {% endif %}
             <a href="{% url 'vendor_list' %}" class="btn btn-sm btn-outline-secondary" style="border-radius:8px; padding:6px 14px; font-weight:600;">
                 ← Back
             </a>

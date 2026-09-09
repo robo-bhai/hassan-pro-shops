@@ -13012,25 +13012,55 @@ def profit_loss(request):
 # ============================================
 @login_required
 def company_settings(request):
+    """Company settings with deposit payment details"""
+    
     company = CompanyInfo.objects.first()
+    
     if request.method == 'POST':
-        if company:
-            company.name = request.POST.get('name')
-            company.address = request.POST.get('address')
-            company.contact_number = request.POST.get('contact_number')
-            company.email = request.POST.get('email')
-            company.footer_note = request.POST.get('footer_note', '')
-            company.save()
-        else:
-            company = CompanyInfo.objects.create(
-                name=request.POST.get('name'),
-                address=request.POST.get('address'),
-                contact_number=request.POST.get('contact_number'),
-                email=request.POST.get('email'),
-                footer_note=request.POST.get('footer_note', ''),
-            )
-        messages.success(request, 'Settings updated!')
-        return redirect('company_settings')
+        try:
+            if company:
+                # Basic Info
+                company.name = request.POST.get('name')
+                company.tagline = request.POST.get('tagline', '')
+                company.address = request.POST.get('address')
+                company.contact_number = request.POST.get('contact_number')
+                company.email = request.POST.get('email')
+                company.website = request.POST.get('website', '')
+                company.footer_note = request.POST.get('footer_note', '')
+                
+                # ✅ Deposit Payment Details - YEH ADD KARO
+                company.jazzcash_number = request.POST.get('jazzcash_number', '').strip()
+                company.easypaisa_number = request.POST.get('easypaisa_number', '').strip()
+                company.bank_name = request.POST.get('bank_name', '').strip()
+                company.bank_account_title = request.POST.get('bank_account_title', '').strip()
+                company.bank_account_number = request.POST.get('bank_account_number', '').strip()
+                company.deposit_instructions = request.POST.get('deposit_instructions', '').strip()
+                
+                company.save()
+            else:
+                # Create new company
+                company = CompanyInfo.objects.create(
+                    name=request.POST.get('name'),
+                    tagline=request.POST.get('tagline', ''),
+                    address=request.POST.get('address'),
+                    contact_number=request.POST.get('contact_number'),
+                    email=request.POST.get('email'),
+                    website=request.POST.get('website', ''),
+                    footer_note=request.POST.get('footer_note', ''),
+                    jazzcash_number=request.POST.get('jazzcash_number', '').strip(),
+                    easypaisa_number=request.POST.get('easypaisa_number', '').strip(),
+                    bank_name=request.POST.get('bank_name', '').strip(),
+                    bank_account_title=request.POST.get('bank_account_title', '').strip(),
+                    bank_account_number=request.POST.get('bank_account_number', '').strip(),
+                    deposit_instructions=request.POST.get('deposit_instructions', '').strip(),
+                )
+            
+            messages.success(request, '✅ Settings updated successfully!')
+            return redirect('company_settings')
+            
+        except Exception as e:
+            messages.error(request, f'❌ Error: {str(e)}')
+            return redirect('company_settings')
     
     context = {
         'company_name': company.name if company else 'ERP System',
@@ -18142,6 +18172,9 @@ def shareholder_portal_deposit_request(request):
     
     shareholder = request.user.shareholder_profile
     
+    # ✅ Get company info for deposit details
+    company = CompanyInfo.objects.first()
+    
     if request.method == 'POST':
         try:
             amount = Decimal(request.POST.get('amount', 0))
@@ -18177,13 +18210,12 @@ def shareholder_portal_deposit_request(request):
             # Send notification to admin
             try:
                 from .models import Notification
-                # Notify all superusers and staff
                 admin_users = User.objects.filter(is_superuser=True) | User.objects.filter(is_staff=True)
                 for admin in admin_users:
                     Notification.send(
                         user=admin,
                         title="💰 New Deposit Request",
-                        message=f"{shareholder.name} requested deposit of Rs. {amount:,.2f}. Reference: {reference_no or 'N/A'}",
+                        message=f"{shareholder.name} requested deposit of Rs. {amount:,.2f}. Method: {deposit_request.get_payment_method_display()}",
                         notification_type='payment',
                         category='payments',
                         link=f"/shareholders/deposit-requests/"
@@ -18193,10 +18225,9 @@ def shareholder_portal_deposit_request(request):
             
             messages.success(
                 request, 
-                f'✅ Deposit request of Rs. {amount:,.2f} submitted for approval! '
-                f'You will be notified once approved. Request #: {deposit_request.request_no}'
+                f'✅ Deposit request of Rs. {amount:,.2f} submitted for approval!'
             )
-            return redirect('shareholder_portal_dashboard')
+            return redirect('shareholder_portal_deposit_history')
             
         except Exception as e:
             messages.error(request, f'❌ Error: {str(e)}')
@@ -18204,11 +18235,20 @@ def shareholder_portal_deposit_request(request):
     
     # GET request - show form
     context = {
-        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'company_name': company.name if company else 'ERP System',
         'shareholder': shareholder,
         'payment_methods': ShareholderDepositRequest.PAYMENT_METHODS,
         'current_balance': ShareholderCashBalance.get_balance(shareholder),
         'pending_requests': ShareholderDepositRequest.objects.filter(shareholder=shareholder, status='pending').count(),
+        # ✅ NEW: Deposit details from company
+        'jazzcash_number': company.jazzcash_number if company else '',
+        'easypaisa_number': company.easypaisa_number if company else '',
+        'bank_account_title': company.bank_account_title if company else '',
+        'bank_account_number': company.bank_account_number if company else '',
+        'bank_name': company.bank_name if company else '',
+        'deposit_instructions': company.deposit_instructions if company else '',
+        'company_phone': company.contact_number if company else '',
+        'company_email': company.email if company else '',
     }
     return render(request, 'shareholders/portal/deposit_request.html', context)
     
@@ -30019,7 +30059,8 @@ def terms_create(request):
         try:
             version = request.POST.get('version')
             title = request.POST.get('title', 'Shareholder Terms & Conditions')
-            content = request.POST.get('content')
+            content = request.POST.get('content')  # English
+            urdu_content = request.POST.get('urdu_content')  # ✅ Urdu
             is_active = request.POST.get('is_active') == 'on'
             effective_date = request.POST.get('effective_date')
             
@@ -30028,7 +30069,7 @@ def terms_create(request):
                 return redirect('terms_create')
             
             if not content:
-                messages.error(request, '❌ Content is required!')
+                messages.error(request, '❌ English content is required!')
                 return redirect('terms_create')
             
             if TermsAndConditions.objects.filter(version=version).exists():
@@ -30039,6 +30080,7 @@ def terms_create(request):
                 version=version,
                 title=title,
                 content=content,
+                urdu_content=urdu_content,  # ✅ Save Urdu content
                 is_active=is_active,
                 effective_date=effective_date or date.today(),
                 created_by=request.user
@@ -30076,6 +30118,7 @@ def terms_edit(request, pk):
             version = request.POST.get('version')
             title = request.POST.get('title')
             content = request.POST.get('content')
+            urdu_content = request.POST.get('urdu_content')  # ✅ Urdu content
             is_active = request.POST.get('is_active') == 'on'
             effective_date = request.POST.get('effective_date')
             
@@ -30084,7 +30127,7 @@ def terms_edit(request, pk):
                 return redirect('terms_edit', pk=pk)
             
             if not content:
-                messages.error(request, '❌ Content is required!')
+                messages.error(request, '❌ English content is required!')
                 return redirect('terms_edit', pk=pk)
             
             if TermsAndConditions.objects.filter(version=version).exclude(pk=pk).exists():
@@ -30094,6 +30137,7 @@ def terms_edit(request, pk):
             terms.version = version
             terms.title = title
             terms.content = content
+            terms.urdu_content = urdu_content  # ✅ Update Urdu content
             terms.is_active = is_active
             terms.effective_date = effective_date or date.today()
             terms.save()
@@ -30210,7 +30254,7 @@ def shareholder_terms(request):
     
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
-        'terms': terms,
+        'terms': terms,  # ✅ Both content and urdu_content available
         'shareholder': shareholder,
     }
     return render(request, 'terms/terms.html', context)
@@ -31134,6 +31178,543 @@ def shareholder_requests_stats_api(request):
                 'approved': approved,
                 'rejected': rejected,
                 'trend_data': trend_data,
+            }
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+        
+# ============================================
+# SHAREHOLDER CASH REPORT VIEWS
+# ============================================
+
+from django.db.models import Sum, Q, Count, Avg
+from datetime import datetime, timedelta, date
+from decimal import Decimal
+import csv
+from io import BytesIO
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+
+@login_required
+def shareholder_cash_report(request):
+    """
+    Shareholder Cash Report - Complete Deposit & Withdrawal Report
+    """
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    # Get filters
+    from_date = request.GET.get('from_date', (date.today() - timedelta(days=30)).strftime('%Y-%m-%d'))
+    to_date = request.GET.get('to_date', date.today().strftime('%Y-%m-%d'))
+    shareholder_id = request.GET.get('shareholder', '')
+    transaction_type = request.GET.get('type', '')
+    status = request.GET.get('status', '')
+    
+    try:
+        from_date_obj = datetime.strptime(from_date, '%Y-%m-%d').date()
+        to_date_obj = datetime.strptime(to_date, '%Y-%m-%d').date()
+    except:
+        from_date_obj = date.today() - timedelta(days=30)
+        to_date_obj = date.today()
+    
+    # Get all shareholders
+    shareholders = Shareholder.objects.filter(status='active')
+    
+    # If shareholder selected
+    if shareholder_id:
+        shareholders = shareholders.filter(id=shareholder_id)
+    
+    # Build report data
+    report_data = []
+    total_deposits = Decimal('0.00')
+    total_withdrawals = Decimal('0.00')
+    total_balance = Decimal('0.00')
+    total_transactions = 0
+    
+    for shareholder in shareholders:
+        # Get transactions
+        transactions = ShareholderCashTransaction.objects.filter(
+            shareholder=shareholder,
+            created_at__date__gte=from_date_obj,
+            created_at__date__lte=to_date_obj
+        )
+        
+        # Filter by type
+        if transaction_type:
+            transactions = transactions.filter(transaction_type=transaction_type)
+        
+        # Calculate totals
+        deposits = transactions.filter(
+            transaction_type__in=['deposit', 'dividend', 'balance_dividend', 'transfer_in']
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        
+        withdrawals = transactions.filter(
+            transaction_type__in=['withdraw', 'share_purchase', 'transfer_out']
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        
+        balance = shareholder.get_balance()
+        
+        if deposits > 0 or withdrawals > 0:
+            report_data.append({
+                'shareholder': shareholder,
+                'deposits': deposits,
+                'withdrawals': withdrawals,
+                'balance': balance,
+                'transaction_count': transactions.count(),
+                'transactions': transactions[:10],
+                'latest_transaction': transactions.first(),
+            })
+            
+            total_deposits += deposits
+            total_withdrawals += withdrawals
+            total_balance += balance
+            total_transactions += transactions.count()
+    
+    # Sort by deposits (highest first)
+    report_data.sort(key=lambda x: x['deposits'], reverse=True)
+    
+    # Statistics
+    stats = {
+        'total_shareholders': len(report_data),
+        'total_deposits': total_deposits,
+        'total_withdrawals': total_withdrawals,
+        'total_balance': total_balance,
+        'total_transactions': total_transactions,
+        'net_cash': total_deposits - total_withdrawals,
+        'avg_deposit': total_deposits / len(report_data) if report_data else 0,
+        'avg_withdrawal': total_withdrawals / len(report_data) if report_data else 0,
+    }
+    
+    # Transaction type breakdown
+    type_breakdown = {}
+    for trans_type, label in ShareholderCashTransaction.TRANSACTION_TYPES:
+        count = ShareholderCashTransaction.objects.filter(
+            transaction_type=trans_type,
+            created_at__date__gte=from_date_obj,
+            created_at__date__lte=to_date_obj
+        ).count()
+        if count > 0:
+            amount = ShareholderCashTransaction.objects.filter(
+                transaction_type=trans_type,
+                created_at__date__gte=from_date_obj,
+                created_at__date__lte=to_date_obj
+            ).aggregate(total=Sum('amount'))['total'] or 0
+            type_breakdown[trans_type] = {
+                'label': label,
+                'count': count,
+                'amount': amount
+            }
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'report_data': report_data,
+        'stats': stats,
+        'type_breakdown': type_breakdown,
+        'shareholders': Shareholder.objects.filter(status='active'),
+        'selected_shareholder': shareholder_id,
+        'selected_type': transaction_type,
+        'selected_status': status,
+        'from_date': from_date,
+        'to_date': to_date,
+        'today': date.today().strftime('%Y-%m-%d'),
+        'transaction_types': ShareholderCashTransaction.TRANSACTION_TYPES,
+        'status_choices': [
+            ('all', 'All Transactions'),
+            ('deposit', 'Deposits Only'),
+            ('withdrawal', 'Withdrawals Only'),
+        ],
+    }
+    return render(request, 'shareholders/cash_report.html', context)
+
+
+@login_required
+def shareholder_cash_report_detail(request, pk):
+    """
+    Detailed cash report for a single shareholder
+    """
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    shareholder = get_object_or_404(Shareholder, pk=pk)
+    
+    # Get filters
+    from_date = request.GET.get('from_date', (date.today() - timedelta(days=90)).strftime('%Y-%m-%d'))
+    to_date = request.GET.get('to_date', date.today().strftime('%Y-%m-%d'))
+    transaction_type = request.GET.get('type', '')
+    
+    try:
+        from_date_obj = datetime.strptime(from_date, '%Y-%m-%d').date()
+        to_date_obj = datetime.strptime(to_date, '%Y-%m-%d').date()
+    except:
+        from_date_obj = date.today() - timedelta(days=90)
+        to_date_obj = date.today()
+    
+    # Get transactions
+    transactions = ShareholderCashTransaction.objects.filter(
+        shareholder=shareholder,
+        created_at__date__gte=from_date_obj,
+        created_at__date__lte=to_date_obj
+    ).order_by('-created_at')
+    
+    if transaction_type:
+        transactions = transactions.filter(transaction_type=transaction_type)
+    
+    # Calculate running balance
+    running_balance = shareholder.get_balance()
+    for trans in transactions.reverse():
+        if trans.transaction_type in ['deposit', 'dividend', 'balance_dividend', 'transfer_in']:
+            running_balance -= trans.amount
+        else:
+            running_balance += trans.amount
+        trans.running_balance = running_balance
+    
+    # Summary
+    total_deposits = transactions.filter(
+        transaction_type__in=['deposit', 'dividend', 'balance_dividend', 'transfer_in']
+    ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    
+    total_withdrawals = transactions.filter(
+        transaction_type__in=['withdraw', 'share_purchase', 'transfer_out']
+    ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'shareholder': shareholder,
+        'transactions': transactions,
+        'total_deposits': total_deposits,
+        'total_withdrawals': total_withdrawals,
+        'current_balance': shareholder.get_balance(),
+        'from_date': from_date,
+        'to_date': to_date,
+        'selected_type': transaction_type,
+        'transaction_types': ShareholderCashTransaction.TRANSACTION_TYPES,
+    }
+    return render(request, 'shareholders/cash_report_detail.html', context)
+
+
+@login_required
+def shareholder_cash_report_export(request):
+    """
+    Export shareholder cash report to Excel
+    """
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from_date = request.GET.get('from_date', (date.today() - timedelta(days=30)).strftime('%Y-%m-%d'))
+    to_date = request.GET.get('to_date', date.today().strftime('%Y-%m-%d'))
+    
+    try:
+        from_date_obj = datetime.strptime(from_date, '%Y-%m-%d').date()
+        to_date_obj = datetime.strptime(to_date, '%Y-%m-%d').date()
+    except:
+        from_date_obj = date.today() - timedelta(days=30)
+        to_date_obj = date.today()
+    
+    # Get all transactions
+    transactions = ShareholderCashTransaction.objects.filter(
+        created_at__date__gte=from_date_obj,
+        created_at__date__lte=to_date_obj
+    ).select_related('shareholder').order_by('-created_at')
+    
+    # Create Excel
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from openpyxl.utils import get_column_letter
+    
+    wb = openpyxl.Workbook()
+    
+    # Sheet 1: Summary
+    ws = wb.active
+    ws.title = "Summary"
+    
+    # Title
+    company = CompanyInfo.objects.first()
+    company_name = company.name if company else "ERP SYSTEM"
+    
+    ws.merge_cells('A1:F1')
+    ws['A1'] = company_name
+    ws['A1'].font = Font(bold=True, size=16)
+    ws['A1'].alignment = Alignment(horizontal='center')
+    
+    ws.merge_cells('A2:F2')
+    ws['A2'] = "Shareholder Cash Report"
+    ws['A2'].font = Font(bold=True, size=14)
+    ws['A2'].alignment = Alignment(horizontal='center')
+    
+    ws.merge_cells('A3:F3')
+    ws['A3'] = f"Period: {from_date} to {to_date}"
+    ws['A3'].alignment = Alignment(horizontal='center')
+    
+    # Summary Data
+    total_deposits = transactions.filter(
+        transaction_type__in=['deposit', 'dividend', 'balance_dividend', 'transfer_in']
+    ).aggregate(total=Sum('amount'))['total'] or 0
+    
+    total_withdrawals = transactions.filter(
+        transaction_type__in=['withdraw', 'share_purchase', 'transfer_out']
+    ).aggregate(total=Sum('amount'))['total'] or 0
+    
+    row = 5
+    summary_data = [
+        ['Metric', 'Amount (Rs.)'],
+        ['Total Deposits', float(total_deposits)],
+        ['Total Withdrawals', float(total_withdrawals)],
+        ['Net Cash Flow', float(total_deposits - total_withdrawals)],
+        ['Total Transactions', transactions.count()],
+        ['Unique Shareholders', transactions.values('shareholder').distinct().count()],
+    ]
+    
+    for data in summary_data:
+        ws.cell(row=row, column=1, value=data[0])
+        ws.cell(row=row, column=2, value=data[1])
+        if row == 5:
+            ws.cell(row=row, column=1).font = Font(bold=True)
+            ws.cell(row=row, column=2).font = Font(bold=True)
+        row += 1
+    
+    for r in range(6, 10):
+        cell = ws.cell(row=r, column=2)
+        if isinstance(cell.value, (int, float)):
+            cell.number_format = '#,##0.00'
+            cell.alignment = Alignment(horizontal='right')
+    
+    # Sheet 2: Transaction Details
+    ws2 = wb.create_sheet("Transactions")
+    
+    headers = ['Date', 'Shareholder', 'Type', 'Amount', 'Balance After', 'Description', 'Reference No']
+    for col, header in enumerate(headers, 1):
+        cell = ws2.cell(row=1, column=col, value=header)
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill(start_color="1a1d2e", end_color="1a1d2e", fill_type="solid")
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+    
+    row = 2
+    for trans in transactions[:500]:  # Limit to 500 rows
+        ws2.cell(row=row, column=1, value=trans.created_at.strftime('%d-%m-%Y %H:%M'))
+        ws2.cell(row=row, column=2, value=trans.shareholder.name)
+        ws2.cell(row=row, column=3, value=trans.get_transaction_type_display())
+        ws2.cell(row=row, column=4, value=float(trans.amount))
+        ws2.cell(row=row, column=4).number_format = '#,##0.00'
+        ws2.cell(row=row, column=5, value=float(trans.balance_after))
+        ws2.cell(row=row, column=5).number_format = '#,##0.00'
+        ws2.cell(row=row, column=6, value=trans.description or '')
+        ws2.cell(row=row, column=7, value=trans.reference_no or '')
+        row += 1
+    
+    # Auto-fit columns
+    for ws_sheet in [ws, ws2]:
+        for col in ws_sheet.columns:
+            max_length = 0
+            col_letter = get_column_letter(col[0].column)
+            for cell in col:
+                try:
+                    if cell.value and len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 40)
+            ws_sheet.column_dimensions[col_letter].width = adjusted_width
+    
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    filename = f"Shareholder_Cash_Report_{date.today().strftime('%Y%m%d')}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
+
+
+@login_required
+def shareholder_cash_report_pdf(request, pk):
+    """
+    Generate PDF report for single shareholder cash transactions
+    """
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    shareholder = get_object_or_404(Shareholder, pk=pk)
+    
+    from_date = request.GET.get('from_date', (date.today() - timedelta(days=90)).strftime('%Y-%m-%d'))
+    to_date = request.GET.get('to_date', date.today().strftime('%Y-%m-%d'))
+    
+    try:
+        from_date_obj = datetime.strptime(from_date, '%Y-%m-%d').date()
+        to_date_obj = datetime.strptime(to_date, '%Y-%m-%d').date()
+    except:
+        from_date_obj = date.today() - timedelta(days=90)
+        to_date_obj = date.today()
+    
+    transactions = ShareholderCashTransaction.objects.filter(
+        shareholder=shareholder,
+        created_at__date__gte=from_date_obj,
+        created_at__date__lte=to_date_obj
+    ).order_by('-created_at')
+    
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4))
+    styles = getSampleStyleSheet()
+    story = []
+    
+    company = CompanyInfo.objects.first()
+    company_name = company.name if company else "ERP SYSTEM"
+    
+    # Title
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=16, alignment=TA_CENTER)
+    story.append(Paragraph(company_name, title_style))
+    story.append(Paragraph(f"<b>Shareholder Cash Report</b>", styles['Heading2']))
+    story.append(Paragraph(f"{shareholder.name} ({shareholder.shareholder_code})", styles['Normal']))
+    story.append(Paragraph(f"Period: {from_date} to {to_date}", styles['Normal']))
+    story.append(Spacer(1, 0.2*inch))
+    
+    # Summary
+    total_deposits = transactions.filter(
+        transaction_type__in=['deposit', 'dividend', 'balance_dividend', 'transfer_in']
+    ).aggregate(total=Sum('amount'))['total'] or 0
+    
+    total_withdrawals = transactions.filter(
+        transaction_type__in=['withdraw', 'share_purchase', 'transfer_out']
+    ).aggregate(total=Sum('amount'))['total'] or 0
+    
+    summary_data = [
+        ['Current Balance:', f"Rs. {shareholder.get_balance():,.2f}"],
+        ['Total Deposits:', f"Rs. {total_deposits:,.2f}"],
+        ['Total Withdrawals:', f"Rs. {total_withdrawals:,.2f}"],
+        ['Net Cash Flow:', f"Rs. {total_deposits - total_withdrawals:,.2f}"],
+        ['Total Transactions:', str(transactions.count())],
+    ]
+    
+    summary_table = Table(summary_data, colWidths=[2*inch, 3*inch])
+    summary_table.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+    ]))
+    story.append(summary_table)
+    story.append(Spacer(1, 0.2*inch))
+    
+    # Transactions Table
+    data = [['Date', 'Type', 'Amount', 'Balance After', 'Description']]
+    
+    for trans in transactions[:100]:
+        amount_str = f"+Rs. {trans.amount:,.2f}" if trans.transaction_type in ['deposit', 'dividend', 'balance_dividend', 'transfer_in'] else f"-Rs. {trans.amount:,.2f}"
+        data.append([
+            trans.created_at.strftime('%d-%m-%Y %H:%M'),
+            trans.get_transaction_type_display()[:20],
+            amount_str,
+            f"Rs. {trans.balance_after:,.2f}",
+            (trans.description or '')[:30]
+        ])
+    
+    trans_table = Table(data, repeatRows=1)
+    trans_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a1d2e')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f5f6fa')]),
+        ('ALIGN', (2, 0), (3, -1), 'RIGHT'),
+    ]))
+    
+    story.append(trans_table)
+    story.append(Spacer(1, 0.2*inch))
+    story.append(Paragraph(f"Generated: {now().strftime('%d-%m-%Y %H:%M')}", styles['Normal']))
+    
+    doc.build(story)
+    buffer.seek(0)
+    
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="Cash_Report_{shareholder.shareholder_code}.pdf"'
+    return response
+
+
+@login_required
+def shareholder_cash_stats_api(request):
+    """
+    AJAX API: Get shareholder cash statistics
+    """
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        return JsonResponse({'success': False, 'message': 'Access denied!'})
+    
+    try:
+        from_date = request.GET.get('from_date', (date.today() - timedelta(days=30)).strftime('%Y-%m-%d'))
+        to_date = request.GET.get('to_date', date.today().strftime('%Y-%m-%d'))
+        
+        from_date_obj = datetime.strptime(from_date, '%Y-%m-%d').date()
+        to_date_obj = datetime.strptime(to_date, '%Y-%m-%d').date()
+        
+        transactions = ShareholderCashTransaction.objects.filter(
+            created_at__date__gte=from_date_obj,
+            created_at__date__lte=to_date_obj
+        )
+        
+        total_deposits = transactions.filter(
+            transaction_type__in=['deposit', 'dividend', 'balance_dividend', 'transfer_in']
+        ).aggregate(total=Sum('amount'))['total'] or 0
+        
+        total_withdrawals = transactions.filter(
+            transaction_type__in=['withdraw', 'share_purchase', 'transfer_out']
+        ).aggregate(total=Sum('amount'))['total'] or 0
+        
+        # Daily trend
+        daily_data = []
+        current = from_date_obj
+        while current <= to_date_obj:
+            day_transactions = transactions.filter(created_at__date=current)
+            day_deposits = day_transactions.filter(
+                transaction_type__in=['deposit', 'dividend', 'balance_dividend', 'transfer_in']
+            ).aggregate(total=Sum('amount'))['total'] or 0
+            
+            day_withdrawals = day_transactions.filter(
+                transaction_type__in=['withdraw', 'share_purchase', 'transfer_out']
+            ).aggregate(total=Sum('amount'))['total'] or 0
+            
+            daily_data.append({
+                'date': current.strftime('%d-%b'),
+                'deposits': float(day_deposits),
+                'withdrawals': float(day_withdrawals)
+            })
+            current += timedelta(days=1)
+        
+        # Top shareholders
+        top_depositors = transactions.filter(
+            transaction_type__in=['deposit', 'dividend', 'balance_dividend', 'transfer_in']
+        ).values('shareholder__name').annotate(
+            total=Sum('amount')
+        ).order_by('-total')[:5]
+        
+        top_withdrawers = transactions.filter(
+            transaction_type__in=['withdraw', 'share_purchase', 'transfer_out']
+        ).values('shareholder__name').annotate(
+            total=Sum('amount')
+        ).order_by('-total')[:5]
+        
+        return JsonResponse({
+            'success': True,
+            'stats': {
+                'total_deposits': float(total_deposits),
+                'total_withdrawals': float(total_withdrawals),
+                'net_cash': float(total_deposits - total_withdrawals),
+                'total_transactions': transactions.count(),
+                'unique_shareholders': transactions.values('shareholder').distinct().count(),
+                'daily_data': daily_data,
+                'top_depositors': list(top_depositors),
+                'top_withdrawers': list(top_withdrawers),
             }
         })
         

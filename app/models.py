@@ -23,6 +23,49 @@ class CompanyInfo(models.Model):
     logo = models.ImageField("Company Logo", upload_to="company_logo/", blank=True, null=True)
     footer_note = models.CharField("Footer Note (for reports)", max_length=255, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    # ✅ NEW FIELDS FOR DEPOSIT PAYMENTS
+    jazzcash_number = models.CharField(
+        max_length=20, 
+        blank=True, 
+        null=True, 
+        verbose_name="JazzCash Number",
+        help_text="JazzCash account number for deposits"
+    )
+    easypaisa_number = models.CharField(
+        max_length=20, 
+        blank=True, 
+        null=True, 
+        verbose_name="EasyPaisa Number",
+        help_text="EasyPaisa account number for deposits"
+    )
+    bank_account_title = models.CharField(
+        max_length=200, 
+        blank=True, 
+        null=True, 
+        verbose_name="Bank Account Title",
+        help_text="Bank account title for deposits"
+    )
+    bank_account_number = models.CharField(
+        max_length=50, 
+        blank=True, 
+        null=True, 
+        verbose_name="Bank Account Number",
+        help_text="Bank account number for deposits"
+    )
+    bank_name = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True, 
+        verbose_name="Bank Name",
+        help_text="Bank name for deposits"
+    )
+    deposit_instructions = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Deposit Instructions",
+        help_text="Additional instructions for deposit payments"
+    )
 
     def __str__(self):
         return self.name
@@ -14996,23 +15039,15 @@ class CustomerPayment(models.Model):
 # ========================================== #
 
 class TermsAndConditions(models.Model):
-    """Terms & Conditions for Shareholders"""
-    
     version = models.CharField(max_length=20, unique=True)
     title = models.CharField(max_length=200, default="Shareholder Terms & Conditions")
-    content = models.TextField()
+    content = models.TextField()  # English content
+    urdu_content = models.TextField(blank=True, null=True)  # ✅ Urdu content
     is_active = models.BooleanField(default=True)
     effective_date = models.DateField(default=now)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    
-    class Meta:
-        verbose_name_plural = "Terms & Conditions"
-        ordering = ['-version']
-    
-    def __str__(self):
-        return f"Terms v{self.version} - {self.effective_date}"
 
 
 class ShareholderTermsAcceptance(models.Model):

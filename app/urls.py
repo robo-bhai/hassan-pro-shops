@@ -903,5 +903,9 @@ urlpatterns = [
     path('shareholder-requests/bulk-action/', views_frontend.shareholder_requests_bulk_action, name='shareholder_requests_bulk_action'),
     path('api/shareholder-requests/stats/', views_frontend.shareholder_requests_stats_api, name='shareholder_requests_stats_api'),
     path('register/success/', views_frontend.shareholder_register_success, name='shareholder_register_success'),
-    
+    path('shareholders/cash-report/', views_frontend.shareholder_cash_report, name='shareholder_cash_report'),
+    path('shareholders/cash-report/<int:pk>/', views_frontend.shareholder_cash_report_detail, name='shareholder_cash_report_detail'),
+    path('shareholders/cash-report/export/', views_frontend.shareholder_cash_report_export, name='shareholder_cash_report_export'),
+    path('shareholders/cash-report/pdf/<int:pk>/', views_frontend.shareholder_cash_report_pdf, name='shareholder_cash_report_pdf'),
+    path('api/shareholder-cash-stats/', views_frontend.shareholder_cash_stats_api, name='shareholder_cash_stats_api'),
 ]

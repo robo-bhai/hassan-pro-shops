@@ -479,6 +479,7 @@
             </a>
             <ul class="collapse list-unstyled {% if 'cash' in request.path %}show{% endif %}" id="cashSubmenu">
                 <li><a href="{% url 'cash_dashboard' %}" class="sub-link"><span>📊</span> Main Cash Dashboard</a></li>
+                <li><a href="{% url 'shareholder_cash_report' %}" class="sub-link"><span>💰</span> Cash Report</a></li>
                 <li><a href="{% url 'cash_transactions' %}" class="sub-link"><span>📋</span> Transactions</a></li>
                 <li><a href="{% url 'cash_report' %}" class="sub-link"><span>📈</span> Cash Report</a></li>
                 <li><a href="{% url 'cash_set_opening' %}" class="sub-link"><span>🏁</span> Opening Balance</a></li>
@@ -624,22 +625,71 @@
         </li>
         
         <!-- ========== SYSTEM SECTION ========== -->
-        <li class="has-submenu">
-            <a href="#systemSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'settings' in request.path or 'backup' in request.path or 'users' in request.path %}true{% else %}false{% endif %}">
-                <span class="menu-icon">⚙️</span> System
-                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
-            </a>
-            <ul class="collapse list-unstyled {% if 'settings' in request.path or 'backup' in request.path or 'users' in request.path %}show{% endif %}" id="systemSubmenu">
-                <li><a href="{% url 'user_list' %}" class="sub-link"><span>👥</span> User Management</a></li>
-                <li><a href="{% url 'module_settings' %}" class="sub-link"><span>⚙️</span> Module Settings</a></li>
-                <li><a href="{% url 'company_settings' %}" class="sub-link"><span>🏢</span> Company Settings</a></li>
-                {% if SHOW_BACKUP_MODULE %}
-                <li><a href="{% url 'database_backup' %}" class="sub-link"><span>💾</span> Database Backup</a></li>
+<li class="has-submenu">
+    <a href="#systemSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="{% if 'settings' in request.path or 'backup' in request.path or 'users' in request.path or 'terms' in request.path or 'shareholder-requests' in request.path %}true{% else %}false{% endif %}">
+        <span class="menu-icon">⚙️</span> System
+        <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+    </a>
+    <ul class="collapse list-unstyled {% if 'settings' in request.path or 'backup' in request.path or 'users' in request.path or 'terms' in request.path or 'shareholder-requests' in request.path %}show{% endif %}" id="systemSubmenu">
+        
+        <!-- 👥 User Management -->
+        <li><a href="{% url 'user_list' %}" class="sub-link"><span>👥</span> User Management</a></li>
+        
+        <!-- ⚙️ Module Settings -->
+        <li><a href="{% url 'module_settings' %}" class="sub-link"><span>⚙️</span> Module Settings</a></li>
+        
+        <!-- 🏢 Company Settings -->
+        <li><a href="{% url 'company_settings' %}" class="sub-link"><span>🏢</span> Company Settings</a></li>
+        
+        <!-- ========================================== -->
+        <!-- 📋 SHAREHOLDER REGISTRATION REQUESTS       -->
+        <!-- ========================================== -->
+        {% if user.is_superuser or user.is_staff %}
+        <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📋 SHAREHOLDER REQUESTS</li>
+        
+        <li>
+            <a href="{% url 'shareholder_requests_list' %}" class="sub-link">
+                <span>🆕</span> Registration Requests
+                {% if pending_requests > 0 %}
+                    <span class="badge bg-danger ms-auto">{{ pending_requests }}</span>
                 {% endif %}
-                <li><a href="{% url 'admin:index' %}" target="_blank" class="sub-link"><span>🔒</span> Admin Panel <i class="bi bi-box-arrow-up-right ms-auto" style="font-size:0.6rem;opacity:0.5;"></i></a></li>
-                <li><a href="{% url 'logout' %}" class="sub-link"><span>🚪</span> Logout</a></li>
-            </ul>
+            </a>
         </li>
+        {% endif %}
+        
+        <!-- ========================================== -->
+        <!-- 📋 TERMS & CONDITIONS                      -->
+        <!-- ========================================== -->
+        <li class="ms-2 ps-3" style="font-size:0.65rem; color:#6b7094; padding: 8px 0 0 20px;">📋 TERMS & CONDITIONS</li>
+        
+        <!-- ✅ TERMS ACCEPTANCE -->
+        <li>
+            <a href="{% url 'terms_acceptance_list' %}" class="sub-link">
+                <span>✅</span> Acceptance Status
+                {% if pending_count > 0 %}
+                    <span class="badge bg-danger ms-auto">{{ pending_count }}</span>
+                {% endif %}
+            </a>
+        </li>
+        
+        <li><a href="{% url 'terms_admin' %}" class="sub-link"><span>📋</span> Manage Terms</a></li>
+        <li><a href="{% url 'terms_create' %}" class="sub-link"><span>➕</span> Create New Terms</a></li>
+        <li><a href="{% url 'shareholder_terms' %}" class="sub-link" target="_blank"><span>👁️</span> Shareholder View</a></li>
+        
+        <!-- ========================================== -->
+        <!-- 💾 BACKUP & ADMIN                          -->
+        <!-- ========================================== -->
+        {% if SHOW_BACKUP_MODULE %}
+        <li><a href="{% url 'database_backup' %}" class="sub-link"><span>💾</span> Database Backup</a></li>
+        {% endif %}
+        
+        <li><a href="{% url 'admin:index' %}" target="_blank" class="sub-link"><span>🔒</span> Admin Panel <i class="bi bi-box-arrow-up-right ms-auto" style="font-size:0.6rem;opacity:0.5;"></i></a></li>
+        <li><a href="{% url 'logout' %}" class="sub-link"><span>🚪</span> Logout</a></li>
+        
+    </ul>
+</li>
+
+
         
     </ul>
     
