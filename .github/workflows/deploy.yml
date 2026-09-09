@@ -5,7 +5,6 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-# Purane running workflow ko automatically cancel kar ke new live kar ne ke liye
 concurrency:
   group: django-production-runner
   cancel-in-progress: true
@@ -28,6 +27,7 @@ jobs:
       SUPERUSER_PASSWORD: ${{ secrets.SUPERUSER_PASSWORD }}
       ALLOWED_HOSTS: ${{ secrets.ALLOWED_HOSTS }}
       CSRF_TRUSTED_ORIGINS: ${{ secrets.CSRF_TRUSTED_ORIGINS }}
+      PYTHONUNBUFFERED: "1"
 
     steps:
       - name: Checkout code
@@ -80,7 +80,6 @@ jobs:
           def run_cmd(cmd):
               return subprocess.run(cmd, capture_output=True, text=True)
 
-          # 1. First Attempt standard migration
           res = run_cmd(['python', 'manage.py', 'migrate'])
           print(res.stdout)
 
@@ -88,7 +87,6 @@ jobs:
               err = res.stderr
               print('Migration Error Detected:\n', err)
               
-              # Scenario A: Table is missing or incomplete (Column doesn't exist)
               if 'doesn\'t exist' in err or 'Unknown column' in err or 'KeyError' in err:
                   print('⚠️ Detected incomplete/broken database schema! Recreating missing/incomplete tables...')
                   try:
@@ -122,7 +120,6 @@ jobs:
                   final_res = run_cmd(['python', 'manage.py', 'migrate', 'app', '--fake'])
                   sys.exit(0 if final_res.returncode == 0 else 1)
 
-              # Scenario B: Table exists but migration history missing
               elif 'already exists' in err:
                   print('⚠️ Detected existing table collision. Applying fake migration for app 0014...')
                   fake_res = run_cmd([
@@ -208,15 +205,14 @@ jobs:
 
       - name: Start Django Server & Permanent Cloudflare Tunnel
         run: |
-          # Create blank log files first
           touch django.log tunnel.log
 
-          # Background me Django aur Cloudflare run karein
-          python manage.py runserver 0.0.0.0:8000 > django.log 2>&1 &
+          # Unbuffered mode me Django start karein taake har HTTP Access Request instantly log file me write ho
+          PYTHONUNBUFFERED=1 python -u manage.py runserver 0.0.0.0:8000 > django.log 2>&1 &
           cloudflared tunnel run --token ${{ secrets.CLOUDFLARE_TOKEN }} > tunnel.log 2>&1 &
           
           sleep 6
-          echo "=== PERMANENT TUNNEL ACTIVE ==="
+          echo "=== SERVER & CLOUDFLARE TUNNEL LIVE ==="
 
       - name: Get Public IP & Send Notification to ntfy
         run: |
@@ -229,36 +225,32 @@ jobs:
           
           curl -d "$MESSAGE" ntfy.sh/hshshehgag
 
-      - name: Hold workflow & stream console/error logs
+      - name: Realtime HTTP Access Logs & Error Stream
         run: |
-          echo "Workflow is active. Streaming logs live to console..."
+          echo "=========================================="
+          echo " LIVE HTTP SERVER ACCESS LOGS & ERRORS "
+          echo "=========================================="
           
-          # Print initial logs
-          echo "--- INITIAL DJANGO LOGS ---"
-          cat django.log
-          echo "--- INITIAL TUNNEL LOGS ---"
-          cat tunnel.log
-          
-          # Monitor both logs live for 3 hours
+          # 3 Hours monitoring loop displaying clean access routes & HTTP status codes
           for i in {1..36}; do
             sleep 300
-            echo "=========================================="
+            echo "------------------------------------------"
             echo "TIMESTAMP: $(date)"
-            echo "--- RECENT DJANGO CONSOLE / ERROR LOGS ---"
-            tail -n 30 django.log || true
-            echo "--- RECENT CLOUDFLARE TUNNEL LOGS ---"
-            tail -n 15 tunnel.log || true
-            echo "=========================================="
+            echo "--- SERVER HTTP ACCESS LOGS (Path - Status) ---"
+            grep -E '"GET|POST|PUT|DELETE|HEAD' django.log || echo "No HTTP requests logged yet."
+            echo "--- RECENT EXCEPTIONS / ERROR TRACEBACKS ---"
+            grep -i -C 3 "error\|exception\|traceback\|500\|404" django.log || echo "No errors detected."
+            echo "------------------------------------------"
           done
 
-      - name: Print Complete Error Logs On Failure or Always
+      - name: Full Dump of Logs On Workflow Stop or Error
         if: always()
         run: |
           echo "=========================================="
-          echo "      FULL DJANGO CONSOLE & ERROR LOGS    "
+          echo "       COMPLETE DJANGO SERVER LOGS        "
           echo "=========================================="
-          cat django.log || echo "No django.log found."
+          cat django.log || echo "django.log is empty."
           echo "=========================================="
-          echo "      FULL CLOUDFLARE TUNNEL LOGS        "
+          echo "       COMPLETE CLOUDFLARE TUNNEL LOGS    "
           echo "=========================================="
-          cat tunnel.log || echo "No tunnel.log found."
+          cat tunnel.log || echo "tunnel.log is empty."
