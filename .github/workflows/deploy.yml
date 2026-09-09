@@ -63,7 +63,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y mysql-client
 
-      - name: Diagnose Cloud DB & Sync Down to Runner Local MySQL
+      # --- STEP 1: RESTORE MYSQL DUMP FROM GITHUB CACHE ---
+      - name: Restore Local DB Cache
+        id: db-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: cloud_data_dump.sql.gz
+          key: mysql-db-cache-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            mysql-db-cache-${{ runner.os }}-
+
+      # --- STEP 2: SMART SYNC DOWN (CLOUD -> LOCAL) ---
+      - name: Smart Sync Down Cloud DB to Local MySQL
         run: |
           echo "=== 1. DIAGNOSING CLOUD AIVEN MYSQL CONNECTION ==="
           python -c "
@@ -90,17 +101,24 @@ jobs:
               exit(1)
           "
 
-          echo "=== 2. DUMPING DATA FROM CLOUD MYSQL TO LOCAL RUNNER DB ==="
-          MYSQL_PWD="$DB_PASS" mysqldump -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" \
-            --ssl-mode=REQUIRED \
-            --set-gtid-purged=OFF \
-            --column-statistics=0 \
-            --single-transaction \
-            --quick "$DB_NAME" > cloud_data_dump.sql
+          if [ "${{ steps.db-cache.outputs.cache-hit }}" == "true" ]; then
+            echo "=== CACHE HIT: Restoring DB Dump from GitHub Cache (1-2 Seconds) ==="
+            gunzip -c cloud_data_dump.sql.gz > cloud_data_dump.sql
+            MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < cloud_data_dump.sql
+            echo "Sync Down from Cache Completed Successfully."
+          else
+            echo "=== CACHE MISS: Downloading Full Dump from Aiven Cloud MySQL ==="
+            MYSQL_PWD="$DB_PASS" mysqldump -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" \
+              --ssl-mode=REQUIRED \
+              --set-gtid-purged=OFF \
+              --column-statistics=0 \
+              --single-transaction \
+              --quick "$DB_NAME" > cloud_data_dump.sql
 
-          echo "=== 3. IMPORTING CLOUD DATA INTO LOCAL RUNNER MYSQL ==="
-          MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < cloud_data_dump.sql
-          echo "Sync Down Completed Successfully. Django will now use Local MySQL (127.0.0.1)."
+            MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < cloud_data_dump.sql
+            gzip -c cloud_data_dump.sql > cloud_data_dump.sql.gz
+            echo "Sync Down from Cloud Completed Successfully."
+          fi
 
       - name: Make Migrations & Apply to Local Runner Database
         env:
@@ -218,7 +236,7 @@ jobs:
           PUBLIC_IP=$(curl -s ifconfig.me || curl -s api.ipify.org)
           echo "GitHub Runner Public IP: $PUBLIC_IP"
           
-          MESSAGE="Django App Live! 🚀 (Running on Ultra-Fast Local MySQL)
+          MESSAGE="Django App Live! 🚀 (Running with Fast Local Cache DB)
           Domain: https://shops.hadi88.online
           Direct IP: http://$PUBLIC_IP:8000"
           
@@ -241,6 +259,7 @@ jobs:
             echo "------------------------------------------"
           done
 
+      # --- STEP 3: FAST COMPRESSED SYNC UP TO CLOUD MYSQL ---
       - name: Sync Local Runner MySQL Back to Cloud Aiven MySQL
         if: always()
         run: |
@@ -253,11 +272,26 @@ jobs:
             --column-statistics=0 \
             --no-create-info \
             --replace local_django_db > runner_updated_data.sql
-            
-          MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" \
-            --ssl-mode=REQUIRED "$DB_NAME" < runner_updated_data.sql
+
+          gzip -f runner_updated_data.sql
+
+          gunzip -c runner_updated_data.sql.gz | MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME"
+          
+          # Prepare updated compressed dump for cache step
+          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
+            --set-gtid-purged=OFF \
+            --column-statistics=0 \
+            --single-transaction local_django_db | gzip > cloud_data_dump.sql.gz
             
           echo "Sync Up Back to Cloud Completed Successfully!"
+
+      # --- STEP 4: SAVE UPDATED DUMP TO GITHUB CACHE ---
+      - name: Save Updated DB Dump to Cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: cloud_data_dump.sql.gz
+          key: mysql-db-cache-${{ runner.os }}-${{ github.run_id }}
 
       - name: Full Dump of Logs On Workflow Stop or Error
         if: always()
