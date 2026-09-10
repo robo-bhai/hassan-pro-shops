@@ -6,21 +6,20 @@ import sys
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --- DATABASE DRIVER SETUP ---
-# Always initialize PyMySQL to act as the MySQLdb driver for Django
 import pymysql
 pymysql.install_as_MySQLdb()
 
 # --- KEYS & GENERAL CONFIGURATION ---
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-production-fallback-key-9988776655')
-SALT_KEY = os.environ.get('DJANGO_SALT_KEY', 'prod-salt-key')
-DEBUG = False
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+SALT_KEY = os.environ.get('DJANGO_SALT_KEY')
+DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
-
+# --- ALLOWED HOSTS ---
 env_allowed = os.environ.get('ALLOWED_HOSTS', '')
 if env_allowed:
     ALLOWED_HOSTS = [h.strip() for h in env_allowed.split(',') if h.strip()]
 else:
-    ALLOWED_HOSTS = ['uqn88.store', '*.uqn88.store', 'hadi88.online', '*.hadi88.online', 'localhost', '127.0.0.1', '*']
+    ALLOWED_HOSTS = []
 
 # Automatic Local IP Resolution
 try:
@@ -34,31 +33,27 @@ try:
 except Exception:
     pass
 
-CSRF_TRUSTED_ORIGINS = [
-    'https://uqn88.store',
-    'https://*.uqn88.store',
-    'https://hadi88.online',
-    'https://*.hadi88.online',
-    'http://localhost',
-    'http://127.0.0.1'
-]
-env_csrf = os.environ.get('CSRF_TRUSTED_ORIGINS')
+# --- CSRF TRUSTED ORIGINS ---
+CSRF_TRUSTED_ORIGINS = []
+env_csrf = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
 if env_csrf:
-    CSRF_TRUSTED_ORIGINS.extend([origin.strip() for origin in env_csrf.split(',') if origin.strip()])
+    CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in env_csrf.split(',') if origin.strip()]
 
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
+# --- EMAIL CONFIGURATION ---
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
-EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+EMAIL_HOST = os.environ.get('EMAIL_HOST')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587')) if os.environ.get('EMAIL_PORT') else 587
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() in ('true', '1', 'yes')
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 
 ALERT_FROM_EMAIL = os.environ.get('ALERT_FROM_EMAIL', EMAIL_HOST_USER)
 ALERT_TO_EMAIL = os.environ.get('ALERT_TO_EMAIL', EMAIL_HOST_USER)
 
+# --- SESSION CONFIGURATION ---
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_COOKIE_AGE = 86400
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
@@ -126,14 +121,14 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'P1.wsgi.application'
 
-# --- PERMANENT MYSQL DATABASE CONFIGURATION ---
+# --- MYSQL DATABASE CONFIGURATION ---
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.environ.get('DB_NAME', 'defaultdb'),
-        'USER': os.environ.get('DB_USER', 'avnadmin'),
-        'PASSWORD': os.environ.get('DB_PASS', ''),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'NAME': os.environ.get('DB_NAME'),
+        'USER': os.environ.get('DB_USER'),
+        'PASSWORD': os.environ.get('DB_PASS'),
+        'HOST': os.environ.get('DB_HOST'),
         'PORT': os.environ.get('DB_PORT', '3306'),
         'OPTIONS': {
             'ssl': {
@@ -146,6 +141,7 @@ DATABASES = {
     }
 }
 
+# --- DB BACKUP CONFIGURATION ---
 DBBACKUP_STORAGE = 'django.core.files.storage.FileSystemStorage'
 DBBACKUP_STORAGE_OPTIONS = {
     'location': BASE_DIR / 'dbbackup',
