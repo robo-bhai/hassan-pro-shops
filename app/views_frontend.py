@@ -13407,165 +13407,108 @@ from .models import (
 )
 
 # Configurations (Termux paths and Rclone settings)
-BACKUP_DIR = "/storage/emulated/0/Download/Backups"
-REMOTE_NAME = "gdrive"
-REMOTE_DIR = "TermuxBackups"
+import io
+import os
+import re
+from datetime import datetime
+from django.shortcuts import render, redirect
+from django.http import HttpResponse, JsonResponse
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 
-
-def run_rclone_cmd(cmd):
-    """Utility to execute shell commands securely."""
-    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    return result.returncode == 0, result.stderr
-
-
-def get_remote_backups():
-    """Fetches live remote files from Google Drive using lsjson, sorted newest first."""
-    cmd = ["rclone", "lsjson", f"{REMOTE_NAME}:{REMOTE_DIR}"]
-    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    if result.returncode == 0 and result.stdout:
-        try:
-            files_data = json.loads(result.stdout)
-            # Filter directories, keep only real files
-            files_only = [f for f in files_data if not f.get("IsDir")]
-            # Sort chronologically (Newest first)
-            files_only.sort(key=lambda x: x.get("ModTime", ""), reverse=True)
-            return files_only
-        except Exception:
-            return []
-    return []
+# Direct engine imports replacing external rclone/shell utilities
+from db_backup_manager import export_backup
+from res import execute_restore_from_bytes, get_latest_enc_file
 
 
 @login_required
 def database_backup_view(request):
     """
-    Handles local backup generation, rclone cloud uploads, 
-    rolling 3-file retention, and interactive database restoration.
+    Handles encrypted backup generation (HTTP download) and 
+    schema-validated transactional database restoration using Python modules.
     """
-    restore_file = request.GET.get("restore")
-    delete_file = request.GET.get("delete")
+    restore_latest = request.GET.get("restore_latest")
 
-    # ---- 1. CLOUD RESTORE LOGIC ----
-    if restore_file:
-        os.makedirs(BACKUP_DIR, exist_ok=True)
-        local_path = os.path.join(BACKUP_DIR, restore_file)
-
-        # Download the file from Google Drive to local Backups folder
-        success, err = run_rclone_cmd([
-            "rclone", "copyto", 
-            f"{REMOTE_NAME}:{REMOTE_DIR}/{restore_file}", 
-            local_path
-        ])
-
-        if success:
-            # Check if it's an SQLite backup and replace current database file
-            if restore_file.endswith(".sqlite3") and os.path.exists(local_path):
-                try:
-                    shutil.copy(local_path, "db.sqlite3")
-                    messages.success(request, f"🎉 '{restore_file}' successfully downloaded and database restored!")
-                except Exception as db_err:
-                    messages.error(request, f"❌ Local replacement failed: {db_err}")
-            else:
-                messages.success(request, f"📥 File '{restore_file}' downloaded safely to {BACKUP_DIR}.")
+    # ---- 1. RESTORE LOGIC (VIA DISK / LATEST FILE) ----
+    if restore_latest:
+        latest_file = get_latest_enc_file()
+        if latest_file and os.path.exists(latest_file):
+            try:
+                with open(latest_file, "rb") as f:
+                    file_bytes = f.read()
+                
+                success, msg = execute_restore_from_bytes(file_bytes)
+                if success:
+                    messages.success(request, f"🎉 Database successfully restored! ({msg})")
+                else:
+                    messages.error(request, f"❌ Restore Failed: {msg}")
+            except Exception as e:
+                messages.error(request, f"❌ File read error: {e}")
         else:
-            messages.error(request, f"❌ Cloud restore download failed: {err}")
+            messages.error(request, "❌ No local `.enc` backup file found to restore.")
         return redirect("database_backup")
 
-    # ---- 2. CLOUD DELETE LOGIC ----
-    if delete_file:
-        success, err = run_rclone_cmd([
-            "rclone", "deletefile", 
-            f"{REMOTE_NAME}:{REMOTE_DIR}/{delete_file}"
-        ])
-        if success:
-            messages.success(request, f"🗑️ '{delete_file}' deleted permanently from Google Drive.")
-        else:
-            messages.error(request, f"❌ Cloud delete failed: {err}")
-        return redirect("database_backup")
-
-    # ---- 3. CREATE BACKUP AND SYNC LOGIC (POST) ----
+    # ---- 2. CREATE BACKUP & DOWNLOAD LOGIC (POST) ----
     if request.method == "POST":
         action = request.POST.get("action")
-        os.makedirs(BACKUP_DIR, exist_ok=True)
-        
-        timestamp = int(time.time())
-        filename = ""
 
-        if action == "json_backup":
-            filename = f"backup_full_{timestamp}.json"
-            local_path = os.path.join(BACKUP_DIR, filename)
-            # Execute Django standard dumpdata
-            subprocess.run(f"python manage.py dumpdata > {local_path}", shell=True)
+        # Handles Direct Encrypted File Generation & HTTP Download
+        if action in ["encrypted_backup", "json_backup", "sqlite_backup"]:
+            try:
+                # Generates encrypted bytes dynamically via db_backup_manager
+                encrypted_bytes = export_backup()
+                
+                db_name = os.environ.get('DB_NAME', 'db')
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"backup_{db_name}_{timestamp}.enc"
 
-        elif action == "sqlite_backup":
-            filename = f"backup_{timestamp}.sqlite3"
-            local_path = os.path.join(BACKUP_DIR, filename)
-            # Direct binary copy of db.sqlite3
-            if os.path.exists("db.sqlite3"):
-                shutil.copy("db.sqlite3", local_path)
-            else:
-                messages.error(request, "❌ Central db.sqlite3 file not found.")
+                # Direct stream response triggering browser download
+                response = HttpResponse(encrypted_bytes, content_type='application/octet-stream')
+                response['Content-Disposition'] = f'attachment; filename="{filename}"'
+                return response
+            except Exception as e:
+                messages.error(request, f"❌ Backup Generation Failed: {e}")
                 return redirect("database_backup")
 
-        # Sync/Copy the updated local backups folder to Google Drive
-        success, err = run_rclone_cmd(["rclone", "copy", BACKUP_DIR, f"{REMOTE_NAME}:{REMOTE_DIR}"])
+        # Handles UI File Upload Restoration
+        elif action == "restore_upload" and request.FILES.get("backup_file"):
+            uploaded_file = request.FILES["backup_file"]
+            file_bytes = uploaded_file.read()
 
-        if success:
-            # Active 3-files maximum retention enforcement rules
-            remote_files = get_remote_backups()
-            if len(remote_files) > 3:
-                # Target files older than the top 3 index
-                for old_file in remote_files[3:]:
-                    old_name = old_file["Name"]
-                    run_rclone_cmd(["rclone", "deletefile", f"{REMOTE_NAME}:{REMOTE_DIR}/{old_name}"])
+            success, msg = execute_restore_from_bytes(file_bytes)
+            if success:
+                messages.success(request, f"🎉 Uploaded backup restored successfully!")
+            else:
+                messages.error(request, f"❌ Restore Failed: {msg}")
+            return redirect("database_backup")
 
-            messages.success(request, f"🚀 Backup '{filename}' created and safely synced to Google Drive!")
-        else:
-            messages.error(request, f"❌ Cloud backup sync failed: {err}")
+    # ---- 3. RENDER DATA PROCESSING ----
+    # Inspect local directory for existing .enc files
+    latest_enc = get_latest_enc_file()
+    backup_files = []
+    file_sizes = {}
+    file_dates = {}
 
-        return redirect("database_backup")
-
-    # ---- 4. RENDER DATA PROCESSING ----
-    cloud_files = get_remote_backups()
-    
-    backup_files = [f["Name"] for f in cloud_files]
-    file_sizes = {f["Name"]: f"{round(f['Size'] / 1024, 2)} KB" for f in cloud_files}
-    file_dates = {f["Name"]: f["ModTime"][:19].replace("T", " ") for f in cloud_files}
-
-    # Better & Secure Way: Ask rclone directly about configuration details
-    rclone_email = None
-    try:
-        # Runs 'rclone config show gdrive' to get live configuration parameters securely
-        res = subprocess.run(["rclone", "config", "show", REMOTE_NAME], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        if res.returncode == 0 and res.stdout:
-            # Scan output for any linked email address
-            email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', res.stdout)
-            if email_match:
-                rclone_email = email_match.group(0)
-    except Exception:
-        pass
-
-    # Fallback Option: If rclone command didn't output direct email, read config safely
-    if not rclone_email:
-        rclone_conf_path = '/data/data/com.termux/files/home/.config/rclone/rclone.conf'
-        if os.path.exists(rclone_conf_path):
-            try:
-                with open(rclone_conf_path, 'r') as f:
-                    content = f.read()
-                    email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', content)
-                    if email_match:
-                        rclone_email = email_match.group(0)
-            except Exception:
-                pass
+    if latest_enc and os.path.exists(latest_enc):
+        filename = os.path.basename(latest_enc)
+        stat = os.stat(latest_enc)
+        
+        backup_files.append(filename)
+        file_sizes[filename] = f"{round(stat.st_size / 1024, 2)} KB"
+        file_dates[filename] = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
 
     context = {
-        "backup_dir": f"{REMOTE_NAME}:{REMOTE_DIR} (Cloud)",
+        "backup_dir": "Encrypted Database Storage (MySQL)",
         "backup_files": backup_files,
         "file_sizes": file_sizes,
         "file_dates": file_dates,
-        "rclone_email": rclone_email,
+        "db_name": os.environ.get('DB_NAME', 'MySQL Database'),
     }
     return render(request, "database_backup.html", context)
 
+
+
+#(((((+$+$+$+$+_+$+$+_+++$+$$++)))))
 
 
 @login_required
