@@ -13,7 +13,8 @@ pymysql.install_as_MySQLdb()
 # --- KEYS & GENERAL CONFIGURATION ---
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-production-fallback-key-9988776655')
 SALT_KEY = os.environ.get('DJANGO_SALT_KEY', 'prod-salt-key')
-DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
+DEBUG = False
+
 
 env_allowed = os.environ.get('ALLOWED_HOSTS', '')
 if env_allowed:
