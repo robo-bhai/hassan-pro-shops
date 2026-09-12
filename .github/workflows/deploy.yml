@@ -130,11 +130,15 @@ jobs:
           DB_NAME: "local_django_db"
           BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
         run: |
-          echo "=== 1. GENERATING MIGRATIONS ==="
+          echo "=== 1. RESETTING LOCAL DATABASE SCHEMA ==="
+          MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root -e "DROP DATABASE IF EXISTS local_django_db; CREATE DATABASE local_django_db;"
+
+          echo "=== 2. GENERATING MIGRATIONS ==="
           python manage.py makemigrations
 
-          echo "=== 2. APPLYING MIGRATIONS TO LOCAL DB ==="
+          echo "=== 3. APPLYING MIGRATIONS TO FRESH LOCAL DB ==="
           python manage.py migrate
+
 
       - name: Create Default Superuser
         env:
