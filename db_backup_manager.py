@@ -3,6 +3,7 @@ import io
 import json
 import base64
 import glob
+import sys
 from datetime import datetime
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, inspect, text
@@ -217,7 +218,6 @@ def restore_backup(backup_filepath=None):
 
 # --- 8. CLI INTERFACE ---
 if __name__ == "__main__":
-    import sys
     print("--------------------------------------------------")
     print("      MySQL Secure Backup & Safe Restore          ")
     print("--------------------------------------------------")
@@ -236,6 +236,9 @@ if __name__ == "__main__":
         export_backup(filename)
     elif action == "restore":
         filepath = sys.argv[2] if len(sys.argv) >= 3 else None
-        restore_backup(filepath)
+        success, msg = restore_backup(filepath)
+        if not success:
+            sys.exit(1)
     else:
         print("❌ Invalid command! Use 'backup' or 'restore'.")
+        sys.exit(1)
