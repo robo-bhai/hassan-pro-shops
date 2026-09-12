@@ -89,15 +89,27 @@ jobs:
           fi
 
       # --- CONDITIONAL DATABASE FORCED RESTORE ROUTE FROM GDRIVE ---
+      # --- CONDITIONAL DATABASE FORCED RESTORE ROUTE FROM GDRIVE ---
       - name: Force Restore Database from Google Drive Snapshot
         if: env.RESTORE_REQUESTED == 'true'
+        env:
+          RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
+          BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
         run: |
+          echo "=== SETTING UP RCLONE CONFIGURATION ==="
+          mkdir -p /home/runner/.config/rclone
+          echo "$RCLONE_CONFIG_DATA" > /home/runner/.config/rclone/rclone.conf
+          
+          # Auto-detect remote name from rclone.conf (e.g., gdrive or whatever is defined inside [])
+          RCLONE_REMOTE=$(rclone listremotes | head -n 1)
+          echo "Detected Rclone Remote: $RCLONE_REMOTE"
+
           echo "=== EXECUTING FORCED RESTORE FROM GOOGLE DRIVE ==="
           
           # 1. Fetch file list from Google Drive via rclone
           if [ "$TARGET_RESTORE_FILE" = "r" ] || [ "$TARGET_RESTORE_FILE" = "latest" ]; then
             echo "Locating latest backup snapshot from Google Drive..."
-            RESTORE_FILE=$(rclone lsf gdrive: | grep "^db_snapshot_" | sort | tail -n 1)
+            RESTORE_FILE=$(rclone lsf "${RCLONE_REMOTE}" | grep "^db_snapshot_" | sort | tail -n 1)
           else
             RESTORE_FILE="$TARGET_RESTORE_FILE"
           fi
@@ -105,7 +117,7 @@ jobs:
           echo "Selected Backup File: $RESTORE_FILE"
           
           # 2. Download Encrypted Snapshot
-          rclone copy "gdrive:$RESTORE_FILE" ./
+          rclone copy "${RCLONE_REMOTE}${RESTORE_FILE}" ./
           
           # 3. Decrypt snapshot using BACKUP_SECRET_KEY secret
           python -c "
@@ -142,6 +154,7 @@ jobs:
           MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < restored_snapshot.sql
 
           echo "Forced Database Restoration Completed Successfully!"
+
 
       # --- STEP 1: RESTORE CACHE FILES FROM GITHUB CACHE ---
       - name: Restore Local DB Cache
@@ -406,61 +419,41 @@ jobs:
           done
 
       # --- STEP 5: SAFE CACHE CREATION & SYNC BACK TO CLOUD ---
-      - name: Sync Local Runner MySQL Back to Cloud Aiven MySQL
-        if: always()
-        run: |
-          echo "=========================================="
-          echo " 1. CREATING SAFE CACHE DUMP FOR FUTURE RUNS "
-          echo "=========================================="
-          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
-            --set-gtid-purged=OFF \
-            --column-statistics=0 \
-            --single-transaction \
-            --replace local_django_db | gzip > cloud_data_dump.sql.gz
 
-          python -c "
-          import time
-          with open('cache_time.txt', 'w') as f:
-              f.write(str(time.time()))
-          "
 
-          echo "=========================================="
-          echo " 2. PUSHING UPDATED LOCAL DATA TO CLOUD MYSQL SAFELY "
-          echo "=========================================="
-          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
-            --set-gtid-purged=OFF \
-            --column-statistics=0 \
-            --no-create-info \
-            --replace local_django_db > runner_updated_data.sql
-
-          gzip -f runner_updated_data.sql
-
-          gunzip -c runner_updated_data.sql.gz | MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME"
-          
-          echo "Sync Up Back to Cloud Completed Successfully!"
-
+      # --- STEP 6: ENCRYPTED SNAPSHOT CREATION & RCLONE UPLOAD TO GDRIVE ---
+      
       # --- STEP 6: ENCRYPTED SNAPSHOT CREATION & RCLONE UPLOAD TO GDRIVE ---
       - name: Create Encrypted Database Snapshot & Upload via Rclone
         if: always()
         env:
           BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
+          RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
         run: |
           echo "=========================================="
-          echo " CREATING ENCRYPTED SNAPSHOT FOR GOOGLE DRIVE "
+          echo " SETTING UP RCLONE CONFIG & ENCRYPTING DB "
           echo "=========================================="
 
-          # 1. Format Naming DD-MM-YY_HH-MM
+          # 1. Setup Rclone config file from GitHub Secrets
+          mkdir -p /home/runner/.config/rclone
+          echo "$RCLONE_CONFIG_DATA" > /home/runner/.config/rclone/rclone.conf
+
+          # Auto-detect remote name from rclone.conf
+          RCLONE_REMOTE=$(rclone listremotes | head -n 1)
+          echo "Target Rclone Remote: $RCLONE_REMOTE"
+
+          # 2. Format Naming DD-MM-YY_HH-MM
           TIMESTAMP=$(date +"%d-%m-%y_%H-%M")
           SNAPSHOT_FILENAME="db_snapshot_${TIMESTAMP}.sql.gz.enc"
 
-          # 2. Complete DB Dump & Gzip Compression
+          # 3. Complete DB Dump & Gzip Compression
           MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
             --set-gtid-purged=OFF \
             --column-statistics=0 \
             --single-transaction \
             local_django_db | gzip > raw_snapshot.sql.gz
 
-          # 3. Encrypt file using Python Fernet and BACKUP_SECRET_KEY secret
+          # 4. Encrypt file using Python Fernet and BACKUP_SECRET_KEY secret
           python -c "
           import os, base64
           from cryptography.fernet import Fernet
@@ -483,9 +476,9 @@ jobs:
           print('Snapshot encrypted successfully as $SNAPSHOT_FILENAME')
           "
 
-          # 4. Upload Encrypted File to Google Drive
-          rclone copy "$SNAPSHOT_FILENAME" gdrive:
-          echo "Successfully uploaded $SNAPSHOT_FILENAME to Google Drive!"
+          # 5. Upload Encrypted File to Google Drive
+          rclone copy "$SNAPSHOT_FILENAME" "$RCLONE_REMOTE"
+          echo "Successfully uploaded $SNAPSHOT_FILENAME to Google Drive ($RCLONE_REMOTE)!"
 
       - name: Save Updated DB Dump & Timestamp to GitHub Cache
         if: always()
