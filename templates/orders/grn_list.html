@@ -1,38 +1,306 @@
 {% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
 
-{% block title %}GRN{% endblock %}
+{% block title %}GRN List{% endblock %}
 {% block page_title %}📦 Goods Received Notes{% endblock %}
 
+{% block extra_css %}
+<style>
+    :root { --border: #eef0f5; --text: #1a1a2e; --accent: #0d6efd; }
+    
+    /* Stats Cards */
+    .stats-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:12px; margin-bottom:20px; }
+    .stat-mini {
+        background:white; border-radius:14px; padding:14px 16px; border:1px solid var(--border);
+        display:flex; align-items:center; gap:12px; cursor:pointer; transition:all 0.3s;
+    }
+    .stat-mini:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.06); }
+    .stat-mini .sm-icon { width:42px; height:42px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0; }
+    .stat-mini .sm-value { font-size:1.2rem; font-weight:800; color:var(--text); }
+    .stat-mini .sm-label { font-size:0.68rem; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; }
+    
+    .icon-total{background:#eef2ff;color:#667eea}
+    .icon-pending{background:#fff3cd;color:#f2994a}
+    .icon-converted{background:#e8f5e9;color:#4caf50}
+    .icon-received{background:#e0f7fa;color:#00bcd4}
+    
+    /* Filter Bar */
+    .filter-bar { background:white; border-radius:14px; padding:16px 20px; border:1px solid var(--border); margin-bottom:20px; }
+    .filter-bar .form-control, .filter-bar .form-select { border-radius:10px; border:2px solid #eef0f5; padding:9px 14px; font-size:0.88rem; background:#fafbfc; }
+    .filter-bar .form-control:focus, .filter-bar .form-select:focus { border-color:#667eea; background:white; box-shadow:0 0 0 3px rgba(102,126,234,0.1); }
+    .btn-filter { border-radius:10px; padding:10px 20px; font-weight:700; font-size:0.85rem; border:none; background:linear-gradient(135deg,#667eea,#764ba2); color:white; display:flex; align-items:center; justify-content:center; gap:6px; }
+    .btn-filter:hover { color:white; opacity:0.9; }
+    
+    /* Table Card */
+    .table-card { background:white; border-radius:16px; border:1px solid var(--border); overflow:hidden; }
+    .table-header { display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border); background:#fafbfc; }
+    .table-header h5 { margin:0; font-weight:700; font-size:0.95rem; }
+    .badge-count { background:var(--accent); color:white; padding:4px 12px; border-radius:20px; font-size:0.72rem; font-weight:600; margin-left:8px; }
+    .btn-new { padding:8px 16px; border-radius:10px; font-weight:700; font-size:0.82rem; text-decoration:none; background:linear-gradient(135deg,#667eea,#764ba2); color:white; display:inline-flex; align-items:center; gap:6px; transition:all 0.2s; }
+    .btn-new:hover { color:white; opacity:0.9; }
+    
+    /* Table */
+    .table-responsive-custom { overflow-x:auto; }
+    .grn-table { width:100%; border-collapse:collapse; min-width:900px; }
+    .grn-table thead th { background:#1a1d2e; color:white; padding:12px 14px; font-size:0.68rem; text-transform:uppercase; letter-spacing:1px; font-weight:700; white-space:nowrap; }
+    .grn-table tbody td { padding:12px 14px; border-bottom:1px solid #f0f2f7; font-size:0.85rem; color:var(--text); vertical-align:middle; }
+    .grn-table tbody tr { transition:all 0.2s; cursor:pointer; }
+    .grn-table tbody tr:hover { background:#f8f9ff; }
+    .grn-table tbody tr:nth-child(even) { background:#fafbfd; }
+    .grn-table tbody tr:nth-child(even):hover { background:#f0f4ff; }
+    
+    .text-right{text-align:right}
+    .text-center{text-align:center}
+    
+    /* Status Badges */
+    .status-badge { padding:4px 12px; border-radius:15px; font-size:0.7rem; font-weight:700; white-space:nowrap; display:inline-flex; align-items:center; gap:5px; }
+    .status-dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+    .status-converted{background:#d4edda;color:#155724}
+    .status-converted .status-dot{background:#28a745}
+    .status-pending{background:#fff3cd;color:#856404}
+    .status-pending .status-dot{background:#f2994a}
+    
+    /* GRN Number Link */
+    .grn-link { color:var(--accent); font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:5px; transition:all 0.2s; }
+    .grn-link:hover { color:#0a58ca; text-decoration:underline; }
+    .grn-link i { font-size:0.8rem; }
+    
+    /* Action Buttons */
+    .btn-action-link {
+        padding:5px 12px; border-radius:8px; font-size:0.75rem; font-weight:600;
+        text-decoration:none; display:inline-flex; align-items:center; gap:4px;
+        transition:all 0.2s; border:1px solid;
+    }
+    .btn-view { background:#eef2ff; color:#667eea; border-color:#c7d2fe; }
+    .btn-view:hover { background:#667eea; color:white; border-color:#667eea; }
+    
+    .btn-convert { background:#d4edda; color:#155724; border-color:#a3cfbb; }
+    .btn-convert:hover { background:#28a745; color:white; border-color:#28a745; }
+    
+    /* Empty State */
+    .empty-state { text-align:center; padding:60px 20px; color:#8a8fa0; }
+    .empty-state .empty-icon { font-size:4rem; opacity:0.2; margin-bottom:15px; display:block; }
+    .empty-state h4 { color:#5a6070; font-weight:700; }
+    
+    /* Mobile */
+    @media (max-width:768px) {
+        .stats-row{grid-template-columns:repeat(2,1fr)}
+        .grn-table{min-width:750px}
+        .grn-table thead th,.grn-table tbody td{padding:8px 10px;font-size:0.78rem}
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="content-card">
-    <div class="card-header-custom">
-        <h5 class="mb-0"><i class="bi bi-box-seam"></i> GRN List</h5>
+
+<!-- Stats Cards -->
+<div class="stats-row">
+    <div class="stat-mini">
+        <div class="sm-icon icon-total">📋</div>
+        <div>
+            <div class="sm-value">{{ total_grns|default:'0' }}</div>
+            <div class="sm-label">Total GRNs</div>
+        </div>
+    </div>
+    <div class="stat-mini">
+        <div class="sm-icon icon-converted">✅</div>
+        <div>
+            <div class="sm-value">{{ converted_count|default:'0' }}</div>
+            <div class="sm-label">Converted</div>
+        </div>
+    </div>
+    <div class="stat-mini">
+        <div class="sm-icon icon-pending">⏳</div>
+        <div>
+            <div class="sm-value">{{ pending_count|default:'0' }}</div>
+            <div class="sm-label">Pending</div>
+        </div>
+    </div>
+    <div class="stat-mini">
+        <div class="sm-icon icon-received">📦</div>
+        <div>
+            <div class="sm-value">{{ total_items|default:'0' }}</div>
+            <div class="sm-label">Total Items</div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="filter-bar">
+    <form method="GET" class="row g-2">
+        <div class="col-md-4">
+            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">🔍 Search</label>
+            <input type="text" name="search" class="form-control" placeholder="GRN No, Vendor, Invoice..." value="{{ search|default:'' }}">
+        </div>
+        <div class="col-md-3">
+            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">📊 Status</label>
+            <select name="status" class="form-select">
+                <option value="">All Status</option>
+                <option value="pending" {% if selected_status == 'pending' %}selected{% endif %}>⏳ Pending Conversion</option>
+                <option value="converted" {% if selected_status == 'converted' %}selected{% endif %}>✅ Converted</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">🏭 Warehouse</label>
+            <select name="warehouse" class="form-select">
+                <option value="">All Warehouses</option>
+                {% for wh in warehouses %}
+                <option value="{{ wh.id }}" {% if selected_warehouse == wh.id|stringformat:"s" %}selected{% endif %}>{{ wh.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn-filter w-100">
+                <i class="bi bi-funnel"></i> Filter
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- GRN Table -->
+<div class="table-card">
+    <div class="table-header">
+        <h5>
+            📦 Goods Received Notes 
+            <span class="badge-count">{{ page_obj.paginator.count|default:'0' }}</span>
+        </h5>
+        <a href="{% url 'purchase_order_list' %}" class="btn-new">
+            <i class="bi bi-plus-lg"></i> Create GRN from PO
+        </a>
     </div>
     
-    <div class="table-responsive">
-        <table class="table-custom">
+    <div class="table-responsive-custom">
+        <table class="grn-table">
             <thead>
                 <tr>
                     <th>GRN No</th>
                     <th>Date</th>
                     <th>Vendor</th>
-                    <th>PO</th>
-                    <th>Items</th>
+                    <th>PO Reference</th>
+                    <th class="text-center">Items</th>
                     <th>Invoice</th>
+                    <th>Status</th>
+                    <th class="text-center" style="width:150px;">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for grn in page_obj %}
-                <tr>
-                    <td><strong>{{ grn.grn_no }}</strong></td>
-                    <td>{{ grn.grn_date|date:"d M, Y" }}</td>
-                    <td>{{ grn.vendor.name }}</td>
-                    <td>{{ grn.purchase_order.order_no|default:'-' }}</td>
-                    <td>{{ grn.total_items }}</td>
-                    <td>{{ grn.invoice_no|default:'-' }}</td>
+                <!-- ✅ CLICKABLE ROW - Detail page par le jayega -->
+                <tr onclick="window.location='{% url 'grn_detail' grn.pk %}'">
+                    
+                    <!-- GRN Number - Clickable Link -->
+                    <td>
+                        <a href="{% url 'grn_detail' grn.pk %}" 
+                           class="grn-link"
+                           onclick="event.stopPropagation();">
+                            <i class="bi bi-box-seam"></i>
+                            {{ grn.grn_no }}
+                        </a>
+                    </td>
+                    
+                    <!-- Date -->
+                    <td>
+                        <div style="font-weight:600;">{{ grn.grn_date|date:"d M, Y" }}</div>
+                        <small style="color:#8a8fa0;">{{ grn.grn_date|date:"h:i A" }}</small>
+                    </td>
+                    
+                    <!-- Vendor -->
+                    <td>
+                        <strong>{{ grn.vendor.name|truncatechars:20 }}</strong>
+                        {% if grn.vendor.vendor_code %}
+                        <br><small style="color:#8a8fa0;">{{ grn.vendor.vendor_code }}</small>
+                        {% endif %}
+                    </td>
+                    
+                    <!-- PO Reference -->
+                    <td>
+                        {% if grn.purchase_order %}
+                            <a href="{% url 'purchase_order_detail' grn.purchase_order.pk %}" 
+                               style="color:#667eea;font-weight:600;text-decoration:none;"
+                               onclick="event.stopPropagation();">
+                                {{ grn.purchase_order.order_no }}
+                            </a>
+                        {% else %}
+                            <span style="color:#8a8fa0;">-</span>
+                        {% endif %}
+                    </td>
+                    
+                    <!-- Items Count -->
+                    <td class="text-center">
+                        <span class="badge" style="background:#eef2ff;color:#667eea;font-size:0.75rem;padding:4px 10px;">
+                            {{ grn.total_items }} items
+                        </span>
+                    </td>
+                    
+                    <!-- Invoice -->
+                    <td>
+                        {% if grn.invoice_no %}
+                            {{ grn.invoice_no }}
+                        {% else %}
+                            <span style="color:#8a8fa0;">-</span>
+                        {% endif %}
+                    </td>
+                    
+                    <!-- Status -->
+                    <td>
+                        {% if grn.converted_to_purchase %}
+                            <span class="status-badge status-converted">
+                                <span class="status-dot"></span>✅ Converted
+                            </span>
+                        {% else %}
+                            <span class="status-badge status-pending">
+                                <span class="status-dot"></span>⏳ Pending
+                            </span>
+                        {% endif %}
+                    </td>
+                    
+                    <!-- Actions -->
+                    <td class="text-center" onclick="event.stopPropagation();">
+                        <div class="d-flex gap-1 justify-content-center">
+                            
+                            <!-- View Button -->
+                            <a href="{% url 'grn_detail' grn.pk %}" 
+                               class="btn-action-link btn-view"
+                               title="View Details">
+                                <i class="bi bi-eye"></i> View
+                            </a>
+                            
+                            <!-- Convert Button (if not converted) -->
+                            {% if not grn.converted_to_purchase %}
+                                <a href="{% url 'grn_convert_to_purchase' grn.pk %}" 
+                                   class="btn-action-link btn-convert"
+                                   title="Convert to Purchase"
+                                   onclick="return confirm('GRN {{ grn.grn_no }} ko Purchase mein convert karein?\n\nVendor: {{ grn.vendor.name }}\nItems: {{ grn.total_items }}\n\nYeh action undo nahi ho sakti!')">
+                                    <i class="bi bi-arrow-right-circle"></i> Convert
+                                </a>
+                            {% else %}
+                                <a href="{% url 'purchase_detail' grn.purchase.pk %}" 
+                                   class="btn-action-link btn-view"
+                                   title="View Purchase">
+                                    <i class="bi bi-cart-check"></i> Purchase
+                                </a>
+                            {% endif %}
+                            
+                        </div>
+                    </td>
+                    
                 </tr>
                 {% empty %}
-                <tr><td colspan="6" class="text-center py-4">No GRNs found</td></tr>
+                <tr>
+                    <td colspan="8">
+                        <div class="empty-state">
+                            <i class="bi bi-box-seam empty-icon"></i>
+                            <h4>No GRNs Found</h4>
+                            <p>{% if search %}Try different filters{% else %}Create your first GRN from Purchase Order!{% endif %}</p>
+                            {% if not search %}
+                            <a href="{% url 'purchase_order_list' %}" class="btn-new mt-2">
+                                <i class="bi bi-plus-lg"></i> Go to Purchase Orders
+                            </a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -40,4 +308,5 @@
     
     {% include 'components/pagination.html' %}
 </div>
+
 {% endblock %}

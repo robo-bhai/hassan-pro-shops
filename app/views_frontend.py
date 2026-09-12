@@ -12371,21 +12371,15 @@ def product_list(request):
 # ============================================
 # SALE ORDERS
 # ======================================
-# ✅ NEW CODE
 @login_required
 def sale_order_list(request):
-    orders = SaleOrder.objects.select_related(
-        'customer',
-        'warehouse',
-        'customer__group',
-        'created_by'
-    ).prefetch_related(
-        'items__product',
-        'items__product__unit',
-        'challans',
-        'converted_to_sale'
-    ).order_by('-order_date')
+    """Sale Orders List with filters and stats"""
     
+    orders = SaleOrder.objects.select_related(
+        'customer', 'warehouse', 'created_by'
+    ).prefetch_related('items__product').order_by('-order_date')
+    
+    # Search
     search = request.GET.get('search', '')
     if search:
         orders = orders.filter(
@@ -12394,21 +12388,17 @@ def sale_order_list(request):
             Q(customer__customer_code__icontains=search)
         )
     
-    status = request.GET.get('status', '')
-    if status:
-        orders = orders.filter(status=status)
+    # Status filter
+    selected_status = request.GET.get('status', '')
+    if selected_status:
+        orders = orders.filter(status=selected_status)
     
-    warehouse_id = request.GET.get('warehouse', '')
-    if warehouse_id:
-        orders = orders.filter(warehouse_id=warehouse_id)
+    # Warehouse filter
+    selected_warehouse = request.GET.get('warehouse', '')
+    if selected_warehouse:
+        orders = orders.filter(warehouse_id=selected_warehouse)
     
-    total_orders = orders.count()
-    pending_count = SaleOrder.objects.filter(status='pending').count()
-    confirmed_count = SaleOrder.objects.filter(status='confirmed').count()
-    processing_count = SaleOrder.objects.filter(status='processing').count()
-    delivered_count = SaleOrder.objects.filter(status__in=['delivered', 'partially_delivered']).count()
-    cancelled_count = SaleOrder.objects.filter(status='cancelled').count()
-    
+    # ✅ Calculate delivery percent for each order
     for order in orders:
         items = order.items.all()
         if items:
@@ -12418,6 +12408,15 @@ def sale_order_list(request):
         else:
             order.delivery_percent = 0
     
+    # Stats
+    total_orders = SaleOrder.objects.count()
+    pending_count = SaleOrder.objects.filter(status='pending').count()
+    confirmed_count = SaleOrder.objects.filter(status='confirmed').count()
+    processing_count = SaleOrder.objects.filter(status='processing').count()
+    delivered_count = SaleOrder.objects.filter(status__in=['delivered', 'partially_delivered']).count()
+    invoiced_count = SaleOrder.objects.filter(status='invoiced').count()
+    
+    # Pagination
     paginator = Paginator(orders, 25)
     page = request.GET.get('page', 1)
     page_obj = paginator.get_page(page)
@@ -12426,15 +12425,15 @@ def sale_order_list(request):
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'page_obj': page_obj,
         'search': search,
-        'selected_status': status,
-        'selected_warehouse': warehouse_id,
+        'selected_status': selected_status,
+        'selected_warehouse': selected_warehouse,
         'warehouses': Warehouse.objects.all(),
         'total_orders': total_orders,
         'pending_count': pending_count,
         'confirmed_count': confirmed_count,
         'processing_count': processing_count,
         'delivered_count': delivered_count,
-        'cancelled_count': cancelled_count,
+        'invoiced_count': invoiced_count,
     }
     return render(request, 'orders/sale_order_list.html', context)
 
@@ -12726,15 +12725,43 @@ def purchase_list(request):
 # ============================================
 @login_required
 def challan_list(request):
-    challans = DeliveryChallan.objects.select_related('customer', 'warehouse', 'order').order_by('-challan_date')
+    """Delivery Challan List with filters and stats"""
     
+    challans = DeliveryChallan.objects.select_related(
+        'customer', 'warehouse', 'order', 'created_by'
+    ).prefetch_related('items__product').order_by('-challan_date')
+    
+    # Search
     search = request.GET.get('search', '')
     if search:
         challans = challans.filter(
             Q(challan_no__icontains=search) |
-            Q(customer__name__icontains=search)
+            Q(customer__name__icontains=search) |
+            Q(customer__customer_code__icontains=search) |
+            Q(vehicle_no__icontains=search) |
+            Q(order__order_no__icontains=search)
         )
     
+    # Reason filter
+    selected_reason = request.GET.get('reason', '')
+    if selected_reason:
+        challans = challans.filter(reason=selected_reason)
+    
+    # Status filter
+    selected_status = request.GET.get('status', '')
+    if selected_status == 'converted':
+        challans = challans.filter(converted_to_sale=True)
+    elif selected_status == 'pending':
+        challans = challans.filter(converted_to_sale=False)
+    
+    # Stats
+    total_challans = DeliveryChallan.objects.count()
+    sale_count = DeliveryChallan.objects.filter(reason='sale').count()
+    transfer_count = DeliveryChallan.objects.filter(reason='transfer').count()
+    converted_count = DeliveryChallan.objects.filter(converted_to_sale=True).count()
+    pending_count = DeliveryChallan.objects.filter(converted_to_sale=False).count()
+    
+    # Pagination
     paginator = Paginator(challans, 25)
     page = request.GET.get('page', 1)
     page_obj = paginator.get_page(page)
@@ -12743,8 +12770,113 @@ def challan_list(request):
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'page_obj': page_obj,
         'search': search,
+        'selected_reason': selected_reason,
+        'selected_status': selected_status,
+        'total_challans': total_challans,
+        'sale_count': sale_count,
+        'transfer_count': transfer_count,
+        'converted_count': converted_count,
+        'pending_count': pending_count,
     }
     return render(request, 'orders/challan_list.html', context)
+
+
+# ============================================
+# CHALLAN DETAIL VIEW
+# ============================================
+
+@login_required
+def challan_detail(request, pk):
+    """Delivery Challan Detail View"""
+    challan = get_object_or_404(
+        DeliveryChallan.objects.select_related(
+            'customer', 'warehouse', 'order', 'created_by'
+        ).prefetch_related('items__product'),
+        pk=pk
+    )
+    
+    items = challan.items.all()
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'challan': challan,
+        'items': items,
+    }
+    return render(request, 'orders/challan_detail.html', context)
+
+
+# ============================================
+# CHALLAN CONVERT TO SALE
+# ============================================
+
+@login_required
+@transaction.atomic
+def challan_convert_to_sale(request, pk):
+    """Convert Delivery Challan to Sale/Invoice"""
+    challan = get_object_or_404(DeliveryChallan, pk=pk)
+    
+    if challan.converted_to_sale:
+        messages.warning(request, '⚠️ This challan is already converted to sale!')
+        return redirect('challan_detail', pk=challan.pk)
+    
+    try:
+        # ✅ Create Sale from Challan
+        sale = Sale.objects.create(
+            warehouse=challan.warehouse,
+            customer=challan.customer,
+            bill_no=f"INV-{challan.challan_no}",
+            sale_date=now(),
+            paid=0,
+            discount_value=0,
+            created_by=request.user
+        )
+        
+        # ✅ Copy all items
+        for item in challan.items.all():
+            SaleItem.objects.create(
+                sale=sale,
+                product=item.product,
+                qty=item.qty,
+                price=item.price
+            )
+        
+        # ✅ Mark challan as converted
+        challan.converted_to_sale = True
+        challan.save()
+        
+        messages.success(
+            request, 
+            f'✅ Challan {challan.challan_no} successfully converted to Invoice #{sale.bill_no}!\n'
+            f'Total Amount: Rs. {sale.total_amount():,.2f}'
+        )
+        
+        return redirect('sale_detail', pk=sale.pk)
+        
+    except Exception as e:
+        messages.error(request, f'❌ Conversion failed: {str(e)}')
+        return redirect('challan_detail', pk=challan.pk)
+
+
+# ============================================
+# CHALLAN DELETE
+# ============================================
+
+@login_required
+def challan_delete(request, pk):
+    """Delete Delivery Challan"""
+    challan = get_object_or_404(DeliveryChallan, pk=pk)
+    
+    if challan.converted_to_sale:
+        messages.error(request, '❌ Cannot delete a challan that is already converted to sale!')
+        return redirect('challan_detail', pk=challan.pk)
+    
+    if request.method == 'POST':
+        challan_no = challan.challan_no
+        challan.delete()
+        messages.success(request, f'🗑️ Challan {challan_no} deleted successfully!')
+        return redirect('challan_list')
+    
+    return redirect('challan_detail', pk=challan.pk)
 
 
 # ============================================
@@ -12752,15 +12884,43 @@ def challan_list(request):
 # ============================================
 @login_required
 def grn_list(request):
-    grns = GoodsReceivedNote.objects.select_related('vendor', 'warehouse', 'purchase_order').order_by('-grn_date')
+    """GRN List with filters and stats"""
     
+    grns = GoodsReceivedNote.objects.select_related(
+        'vendor', 'warehouse', 'purchase_order'
+    ).prefetch_related('items').order_by('-grn_date')
+    
+    # Search
     search = request.GET.get('search', '')
     if search:
         grns = grns.filter(
             Q(grn_no__icontains=search) |
-            Q(vendor__name__icontains=search)
+            Q(vendor__name__icontains=search) |
+            Q(invoice_no__icontains=search) |
+            Q(purchase_order__order_no__icontains=search)
         )
     
+    # Status filter
+    selected_status = request.GET.get('status', '')
+    if selected_status == 'converted':
+        grns = grns.filter(converted_to_purchase=True)
+    elif selected_status == 'pending':
+        grns = grns.filter(converted_to_purchase=False)
+    
+    # Warehouse filter
+    selected_warehouse = request.GET.get('warehouse', '')
+    if selected_warehouse:
+        grns = grns.filter(warehouse_id=selected_warehouse)
+    
+    # Stats
+    total_grns = GoodsReceivedNote.objects.count()
+    converted_count = GoodsReceivedNote.objects.filter(converted_to_purchase=True).count()
+    pending_count = GoodsReceivedNote.objects.filter(converted_to_purchase=False).count()
+    
+    # Total items across all GRNs
+    total_items = GoodsReceivedItem.objects.count()
+    
+    # Pagination
     paginator = Paginator(grns, 25)
     page = request.GET.get('page', 1)
     page_obj = paginator.get_page(page)
@@ -12769,6 +12929,13 @@ def grn_list(request):
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'page_obj': page_obj,
         'search': search,
+        'selected_status': selected_status,
+        'selected_warehouse': selected_warehouse,
+        'warehouses': Warehouse.objects.all(),
+        'total_grns': total_grns,
+        'converted_count': converted_count,
+        'pending_count': pending_count,
+        'total_items': total_items,
     }
     return render(request, 'orders/grn_list.html', context)
 
@@ -31896,11 +32063,16 @@ from django.http import JsonResponse
 import json
 
 
+# ============================================
+# MONTHLY PURCHASE PLANNER VIEW
+# ============================================
+
 @login_required
 def monthly_purchase_planner(request):
     """
-    Monthly Purchase & Investor Planner with Inventory Integration
-    Allows planning for any month with version tracking
+    Monthly Purchase & Investor Planner with AUTO-CALCULATE Purchase Qty
+    
+    Formula: Purchase Qty = Expected Sales Qty - Available Stock
     """
     
     # ========================================== #
@@ -31936,49 +32108,48 @@ def monthly_purchase_planner(request):
     warehouses = Warehouse.objects.all()
     
     # ========================================== #
+    # ✅ SAFE CONVERSION FUNCTIONS               #
+    # ========================================== #
+    def safe_decimal(value, default='0.00'):
+        """Safely convert value to Decimal"""
+        try:
+            if not value or str(value).strip() == '':
+                return Decimal(default)
+            cleaned = str(value).replace(',', '').replace(' ', '').replace('Rs.', '').replace('$', '').strip()
+            if cleaned == '':
+                return Decimal(default)
+            return Decimal(cleaned)
+        except:
+            return Decimal(default)
+    
+    def safe_int(value, default=0):
+        """Safely convert value to Integer"""
+        try:
+            if not value or str(value).strip() == '':
+                return default
+            return int(float(str(value).replace(',', '').replace(' ', '').strip()))
+        except:
+            return default
+    
+    def safe_float(value, default=0.0):
+        """Safely convert value to Float"""
+        try:
+            if not value or str(value).strip() == '':
+                return default
+            return float(value)
+        except:
+            return default
+    
+    # ========================================== #
     # ✅ POST REQUEST HANDLING                   #
     # ========================================== #
     if request.method == 'POST':
         try:
             # ========================================== #
-            # SAFE CONVERSION FUNCTIONS                  #
-            # ========================================== #
-            def safe_decimal(value, default='0.00'):
-                """Safely convert value to Decimal"""
-                try:
-                    if not value or str(value).strip() == '':
-                        return Decimal(default)
-                    cleaned = str(value).replace(',', '').replace(' ', '').replace('Rs.', '').replace('$', '').strip()
-                    if cleaned == '':
-                        return Decimal(default)
-                    return Decimal(cleaned)
-                except:
-                    return Decimal(default)
-            
-            def safe_int(value, default=0):
-                """Safely convert value to Integer"""
-                try:
-                    if not value or str(value).strip() == '':
-                        return default
-                    return int(float(str(value).replace(',', '').replace(' ', '').strip()))
-                except:
-                    return default
-            
-            def safe_float(value, default=0.0):
-                """Safely convert value to Float"""
-                try:
-                    if not value or str(value).strip() == '':
-                        return default
-                    return float(value)
-                except:
-                    return default
-            
-            # ========================================== #
-            # ✅ GET FORM DATA                           #
+            # GET FORM DATA                              #
             # ========================================== #
             product_id = request.POST.get('product') or None
             warehouse_id = request.POST.get('warehouse') or None
-            purchase_quantity = safe_int(request.POST.get('purchase_quantity', 0))
             purchase_price = safe_decimal(request.POST.get('purchase_price_per_unit', 0))
             expected_sales_quantity = safe_int(request.POST.get('expected_sales_quantity', 0))
             expected_sales_amount = safe_decimal(request.POST.get('expected_sales_amount', 0))
@@ -31986,7 +32157,7 @@ def monthly_purchase_planner(request):
             action = request.POST.get('action', 'save')
             
             # ========================================== #
-            # ✅ VALIDATION                              #
+            # VALIDATION                                 #
             # ========================================== #
             if not product_id:
                 messages.error(request, '❌ Please select a product!')
@@ -31996,8 +32167,8 @@ def monthly_purchase_planner(request):
                 messages.error(request, '❌ Please select a warehouse!')
                 return redirect(f'/monthly-planner/?month={month_str}')
             
-            if purchase_quantity <= 0:
-                messages.error(request, '❌ Purchase quantity must be greater than zero!')
+            if expected_sales_quantity <= 0:
+                messages.error(request, '❌ Expected Sales Quantity must be greater than zero!')
                 return redirect(f'/monthly-planner/?month={month_str}')
             
             if purchase_price <= 0:
@@ -32005,18 +32176,7 @@ def monthly_purchase_planner(request):
                 return redirect(f'/monthly-planner/?month={month_str}')
             
             # ========================================== #
-            # ✅ CALCULATE EXISTING INVESTMENT           #
-            # ========================================== #
-            existing_investment = Decimal('0.00')
-            for sh in Shareholder.objects.filter(status='active'):
-                balance = sh.get_balance()
-                if balance:
-                    existing_investment += Decimal(str(balance))
-            
-            current_investors = Shareholder.objects.filter(status='active').count()
-            
-            # ========================================== #
-            # ✅ GET INVENTORY DATA                      #
+            # ✅ GET INVENTORY DATA (CRITICAL)           #
             # ========================================== #
             current_stock = 0
             available_stock = 0
@@ -32031,6 +32191,36 @@ def monthly_purchase_planner(request):
                     current_stock = safe_float(inventory.stock)
                     reserved_stock = safe_float(inventory.reserved_stock)
                     available_stock = current_stock - reserved_stock
+            
+            # ========================================== #
+            # ✅ AUTO-CALCULATE PURCHASE QUANTITY        #
+            # ========================================== #
+            # FORMULA: Purchase Qty = Expected Sales - Available Stock
+            purchase_quantity = expected_sales_quantity - available_stock
+            
+            # Negative nahi ho sakta
+            if purchase_quantity < 0:
+                purchase_quantity = 0
+            
+            # Round to nearest whole number
+            purchase_quantity = int(round(purchase_quantity))
+            
+            # ✅ Log the auto-calculation
+            logger.info(
+                f"Auto-calculated Purchase Qty: "
+                f"Sale({expected_sales_quantity}) - Stock({available_stock}) = {purchase_quantity}"
+            )
+            
+            # ========================================== #
+            # ✅ CALCULATE EXISTING INVESTMENT           #
+            # ========================================== #
+            existing_investment = Decimal('0.00')
+            for sh in Shareholder.objects.filter(status='active'):
+                balance = sh.get_balance()
+                if balance:
+                    existing_investment += Decimal(str(balance))
+            
+            current_investors = Shareholder.objects.filter(status='active').count()
             
             # ========================================== #
             # ✅ ACTION: CREATE NEW VERSION              #
@@ -32070,12 +32260,14 @@ def monthly_purchase_planner(request):
                     plan=plan,
                     action='created',
                     performed_by=request.user,
-                    notes=f'New version v{new_version} created'
+                    notes=f'New version v{new_version} created. '
+                          f'Auto Qty: {expected_sales_quantity} - {available_stock} = {purchase_quantity}'
                 )
                 
                 messages.success(
                     request, 
-                    f'✅ New Plan v{new_version} created for {selected_month.strftime("%B %Y")}!'
+                    f'✅ New Plan v{new_version} created for {selected_month.strftime("%B %Y")}!\n'
+                    f'📦 Auto-calculated Purchase Qty: {purchase_quantity} units'
                 )
                 
             # ========================================== #
@@ -32088,7 +32280,7 @@ def monthly_purchase_planner(request):
                     
                     latest_plan.product_id = product_id
                     latest_plan.warehouse_id = warehouse_id
-                    latest_plan.purchase_quantity = purchase_quantity
+                    latest_plan.purchase_quantity = purchase_quantity  # ✅ Auto-calculated
                     latest_plan.purchase_price_per_unit = purchase_price
                     latest_plan.expected_sales_quantity = expected_sales_quantity
                     latest_plan.expected_sales_amount = expected_sales_amount
@@ -32105,12 +32297,14 @@ def monthly_purchase_planner(request):
                         plan=latest_plan,
                         action='updated',
                         performed_by=request.user,
-                        notes=f'Plan v{old_version} updated'
+                        notes=f'Plan v{old_version} updated. '
+                              f'Auto Qty: {expected_sales_quantity} - {available_stock} = {purchase_quantity}'
                     )
                     
                     messages.success(
                         request, 
-                        f'✅ Plan v{old_version} updated for {selected_month.strftime("%B %Y")}!'
+                        f'✅ Plan v{old_version} updated for {selected_month.strftime("%B %Y")}!\n'
+                        f'📦 Auto-calculated Purchase Qty: {purchase_quantity} units'
                     )
                 else:
                     # Create first plan
@@ -32120,7 +32314,7 @@ def monthly_purchase_planner(request):
                         is_latest=True,
                         product_id=product_id,
                         warehouse_id=warehouse_id,
-                        purchase_quantity=purchase_quantity,
+                        purchase_quantity=purchase_quantity,  # ✅ Auto-calculated
                         purchase_price_per_unit=purchase_price,
                         expected_sales_quantity=expected_sales_quantity,
                         expected_sales_amount=expected_sales_amount,
@@ -32139,12 +32333,14 @@ def monthly_purchase_planner(request):
                         plan=plan,
                         action='created',
                         performed_by=request.user,
-                        notes='First plan created'
+                        notes=f'First plan created. '
+                              f'Auto Qty: {expected_sales_quantity} - {available_stock} = {purchase_quantity}'
                     )
                     
                     messages.success(
                         request, 
-                        f'✅ Plan v1 created for {selected_month.strftime("%B %Y")}!'
+                        f'✅ Plan v1 created for {selected_month.strftime("%B %Y")}!\n'
+                        f'📦 Auto-calculated Purchase Qty: {purchase_quantity} units'
                     )
             
             return redirect(f'/monthly-planner/?month={month_str}')
@@ -32156,8 +32352,10 @@ def monthly_purchase_planner(request):
             return redirect(f'/monthly-planner/?month={month_str}')
     
     # ========================================== #
-    # ✅ GET ALL PLANS FOR HISTORY               #
+    # ✅ GET REQUEST - SHOW PAGE                 #
     # ========================================== #
+    
+    # Get all plans for history
     all_plans = MonthlyPurchasePlan.objects.all().order_by('-month', '-version')
     
     status_filter = request.GET.get('status', '')
@@ -32168,14 +32366,10 @@ def monthly_purchase_planner(request):
     page = request.GET.get('page', 1)
     page_obj = paginator.get_page(page)
     
-    # ========================================== #
-    # ✅ GET PRODUCTS                            #
-    # ========================================== #
+    # Get products
     products = Product.objects.filter(is_active=True)
     
-    # ========================================== #
-    # ✅ CALCULATE STATS                         #
-    # ========================================== #
+    # Calculate stats
     total_balance = Decimal('0.00')
     for sh in Shareholder.objects.filter(status='active'):
         balance = sh.get_balance()
@@ -32184,7 +32378,9 @@ def monthly_purchase_planner(request):
     
     total_plans = MonthlyPurchasePlan.objects.count()
     completed_plans = MonthlyPurchasePlan.objects.filter(status='completed').count()
-    pending_plans = MonthlyPurchasePlan.objects.filter(status__in=['draft', 'approved', 'in_progress']).count()
+    pending_plans = MonthlyPurchasePlan.objects.filter(
+        status__in=['draft', 'approved', 'in_progress']
+    ).count()
     
     # ========================================== #
     # ✅ CONTEXT                                 #
@@ -32815,3 +33011,557 @@ def monthly_plan_delete(request, pk):
         'days_since_creation': days_since_creation,
     }
     return render(request, 'shareholders/monthly_plan_delete.html', context)
+    
+# ============================================
+# GRN DETAIL VIEW
+# ============================================
+
+@login_required
+def grn_detail(request, pk):
+    """GRN Detail View"""
+    grn = get_object_or_404(
+        GoodsReceivedNote.objects.select_related(
+            'vendor', 'warehouse', 'purchase_order', 'created_by'
+        ).prefetch_related('items__product'),
+        pk=pk
+    )
+    
+    items = grn.items.all()
+    total_amount = sum(item.total_amt for item in items)
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'grn': grn,
+        'items': items,
+        'total_amount': total_amount,
+    }
+    return render(request, 'orders/grn_detail.html', context)
+
+
+# ============================================
+# GRN CONVERT TO PURCHASE
+# ============================================
+
+@login_required
+@transaction.atomic
+def grn_convert_to_purchase(request, pk):
+    """Convert GRN to Purchase"""
+    grn = get_object_or_404(GoodsReceivedNote, pk=pk)
+    
+    # ✅ Check if already converted
+    if grn.converted_to_purchase:
+        messages.warning(request, '⚠️ This GRN is already converted to purchase!')
+        return redirect('grn_detail', pk=grn.pk)
+    
+    try:
+        # ✅ Create Purchase from GRN
+        purchase = Purchase.objects.create(
+            vendor=grn.vendor,
+            warehouse=grn.warehouse,
+            bill_no=grn.invoice_no or f"BILL-{grn.grn_no}",
+            pur_date=now(),
+            created_by=request.user,
+            paid=0
+        )
+        
+        # ✅ Copy all items
+        for item in grn.items.all():
+            PurchaseItem.objects.create(
+                purchase=purchase,
+                product=item.product,
+                qty=item.qty,
+                price=item.price
+            )
+        
+        # ✅ Mark GRN as converted
+        grn.converted_to_purchase = True
+        grn.save()
+        
+        messages.success(
+            request, 
+            f'✅ GRN {grn.grn_no} successfully converted to Purchase #{purchase.bill_no}!\n'
+            f'Total Amount: Rs. {purchase.total_amount():,.2f}'
+        )
+        
+        return redirect('purchase_detail', pk=purchase.pk)
+        
+    except Exception as e:
+        messages.error(request, f'❌ Conversion failed: {str(e)}')
+        return redirect('grn_detail', pk=grn.pk)
+
+
+# ============================================
+# GRN DELETE
+# ============================================
+
+@login_required
+def grn_delete(request, pk):
+    """Delete GRN"""
+    grn = get_object_or_404(GoodsReceivedNote, pk=pk)
+    
+    if grn.converted_to_purchase:
+        messages.error(request, '❌ Cannot delete a GRN that is already converted to purchase!')
+        return redirect('grn_detail', pk=grn.pk)
+    
+    if request.method == 'POST':
+        grn_no = grn.grn_no
+        grn.delete()
+        messages.success(request, f'🗑️ GRN {grn_no} deleted successfully!')
+        return redirect('grn_list')
+    
+    return redirect('grn_detail', pk=grn.pk)
+
+
+# ============================================
+# GRN PDF
+# ============================================
+
+@login_required
+def grn_pdf(request, pk):
+    """Generate GRN PDF - Simple version"""
+    grn = get_object_or_404(GoodsReceivedNote, pk=pk)
+    items = grn.items.all()
+    
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+    from io import BytesIO
+    
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    styles = getSampleStyleSheet()
+    story = []
+    
+    company = CompanyInfo.objects.first()
+    company_name = company.name if company else "ERP SYSTEM"
+    
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=16, alignment=TA_CENTER)
+    story.append(Paragraph(company_name, title_style))
+    story.append(Paragraph("GOODS RECEIVED NOTE (GRN)", title_style))
+    story.append(Spacer(1, 0.2*inch))
+    
+    # GRN Info
+    info_data = [
+        ['GRN No:', grn.grn_no, 'Date:', grn.grn_date.strftime('%d-%m-%Y')],
+        ['Vendor:', grn.vendor.name, 'Warehouse:', grn.warehouse.name],
+        ['PO No:', grn.purchase_order.order_no if grn.purchase_order else 'N/A', 'Invoice:', grn.invoice_no or 'N/A'],
+    ]
+    
+    info_table = Table(info_data, colWidths=[1*inch, 2.5*inch, 1*inch, 2.5*inch])
+    info_table.setStyle(TableStyle([
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+    ]))
+    story.append(info_table)
+    story.append(Spacer(1, 0.2*inch))
+    
+    # Items Table
+    data = [['#', 'Product', 'Order Qty', 'Received', 'Unit Price', 'Total']]
+    total_amount = 0
+    
+    for idx, item in enumerate(items, 1):
+        data.append([
+            str(idx),
+            item.product.name[:30],
+            f"{item.order_qty:,.2f}",
+            f"{item.qty:,.2f}",
+            f"Rs. {item.price:,.2f}",
+            f"Rs. {item.total_amt:,.2f}"
+        ])
+        total_amount += item.total_amt
+    
+    data.append(['', '', '', '', 'TOTAL:', f"Rs. {total_amount:,.2f}"])
+    
+    table = Table(data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a1d2e')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('ALIGN', (2, 0), (-1, -1), 'RIGHT'),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+    ]))
+    
+    story.append(table)
+    story.append(Spacer(1, 0.5*inch))
+    
+    # Signatures
+    story.append(Paragraph("Received by: _________________    Checked by: _________________", styles['Normal']))
+    story.append(Spacer(1, 0.2*inch))
+    story.append(Paragraph(f"Generated: {now().strftime('%d-%m-%Y %H:%M')}", styles['Normal']))
+    
+    doc.build(story)
+    buffer.seek(0)
+    
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="GRN_{grn.grn_no}.pdf"'
+    return response
+
+
+# ============================================
+# GRN BARCODE LABELS
+# ============================================
+
+@login_required
+def grn_barcode_labels(request, pk):
+    """Generate barcode labels for GRN items"""
+    grn = get_object_or_404(GoodsReceivedNote, pk=pk)
+    items = grn.items.all()
+    
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.units import inch
+    from io import BytesIO
+    
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
+    styles = getSampleStyleSheet()
+    story = []
+    
+    story.append(Paragraph(f"Barcode Labels - GRN {grn.grn_no}", styles['Heading1']))
+    story.append(Spacer(1, 0.2*inch))
+    
+    for item in items:
+        story.append(Paragraph(f"<b>{item.product.name}</b>", styles['Heading3']))
+        story.append(Paragraph(f"Barcode: {item.product.barcode or 'N/A'}", styles['Normal']))
+        story.append(Paragraph(f"Serial: {item.product.serial_no or 'N/A'}", styles['Normal']))
+        story.append(Paragraph(f"Qty: {item.qty}", styles['Normal']))
+        story.append(Spacer(1, 0.3*inch))
+    
+    doc.build(story)
+    buffer.seek(0)
+    
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="GRN_Barcodes_{grn.grn_no}.pdf"'
+    return response
+    
+# ============================================
+# CHALLAN PDF
+# ============================================
+
+@login_required
+def challan_pdf(request, pk):
+    """Generate Delivery Challan PDF"""
+    challan = get_object_or_404(
+        DeliveryChallan.objects.select_related(
+            'customer', 'warehouse', 'order', 'created_by'
+        ).prefetch_related('items__product', 'items__product__unit'),
+        pk=pk
+    )
+    
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+    from io import BytesIO
+    
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=A4, 
+        topMargin=0.3*inch, 
+        bottomMargin=0.5*inch,
+        leftMargin=0.4*inch,
+        rightMargin=0.4*inch
+    )
+    
+    styles = getSampleStyleSheet()
+    story = []
+    
+    company = CompanyInfo.objects.first()
+    company_name = company.name if company else "ERP SYSTEM"
+    company_address = company.address if company else ""
+    company_phone = company.contact_number if company else ""
+    
+    # ========================================== //
+    # TITLE                                      //
+    # ========================================== //
+    title_style = ParagraphStyle(
+        'Title', 
+        parent=styles['Heading1'], 
+        fontSize=16, 
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#1a1a2e')
+    )
+    story.append(Paragraph(company_name, title_style))
+    story.append(Paragraph("DELIVERY CHALLAN", title_style))
+    story.append(Spacer(1, 0.2*inch))
+    
+    # ========================================== //
+    # CHALLAN INFO                               //
+    # ========================================== //
+    info_data = [
+        ['Challan No:', challan.challan_no, 'Date:', challan.challan_date.strftime('%d-%m-%Y')],
+        ['Customer:', challan.customer.name, 'Warehouse:', challan.warehouse.name if challan.warehouse else '-'],
+        ['Order Ref:', challan.order.order_no if challan.order else 'N/A', 'Reason:', challan.get_reason_display()],
+    ]
+    
+    if challan.vehicle_no:
+        info_data.append(['Vehicle No:', challan.vehicle_no, 'Driver:', challan.driver_name or '-'])
+    
+    info_table = Table(info_data, colWidths=[1*inch, 2.5*inch, 1*inch, 2.5*inch])
+    info_table.setStyle(TableStyle([
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (2, 0), (2, -1), 'Helvetica-Bold'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f8f9fa')),
+        ('BACKGROUND', (2, 0), (2, -1), colors.HexColor('#f8f9fa')),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(info_table)
+    story.append(Spacer(1, 0.2*inch))
+    
+    # ========================================== //
+    # CUSTOMER ADDRESS                           //
+    # ========================================== //
+    customer_info = f"""
+    <b>Deliver To:</b><br/>
+    {challan.customer.name}<br/>
+    {challan.customer.address or 'N/A'}<br/>
+    Phone: {challan.customer.contact_number or 'N/A'}
+    """
+    story.append(Paragraph(customer_info, styles['Normal']))
+    story.append(Spacer(1, 0.2*inch))
+    
+    # ========================================== //
+    # ITEMS TABLE                                //
+    # ========================================== //
+    data = [['#', 'Product', 'Order Qty', 'Deliver Qty', 'Pending', 'Unit', 'Remarks']]
+    
+    total_order = 0
+    total_deliver = 0
+    total_pending = 0
+    
+    for idx, item in enumerate(challan.items.all(), 1):
+        data.append([
+            str(idx),
+            item.product.name[:30],
+            f"{item.order_qty:,.2f}",
+            f"{item.qty:,.2f}",
+            f"{item.pending_qty:,.2f}",
+            item.unit or '-',
+            (item.notes or '')[:20]
+        ])
+        total_order += item.order_qty
+        total_deliver += item.qty
+        total_pending += item.pending_qty
+    
+    # Total row
+    data.append([
+        '', 'TOTAL', 
+        f"{total_order:,.2f}", 
+        f"{total_deliver:,.2f}", 
+        f"{total_pending:,.2f}", 
+        '', f"{challan.total_items()} items"
+    ])
+    
+    table = Table(data, repeatRows=1, colWidths=[0.4*inch, 2.5*inch, 0.9*inch, 0.9*inch, 0.9*inch, 0.7*inch, 1.2*inch])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a1d2e')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('FONTSIZE', (0, 1), (-1, -2), 8),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#f5f6fa')]),
+        ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+        ('ALIGN', (2, 1), (4, -1), 'RIGHT'),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e8ecf4')),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    story.append(table)
+    story.append(Spacer(1, 0.4*inch))
+    
+    # ========================================== //
+    # NOTES                                      //
+    # ========================================== //
+    if challan.notes:
+        story.append(Paragraph(f"<b>Remarks:</b> {challan.notes}", styles['Normal']))
+        story.append(Spacer(1, 0.2*inch))
+    
+    # ========================================== //
+    # SIGNATURES                                 //
+    # ========================================== //
+    sign_data = [
+        ['Received By:', 'Dispatched By:'],
+        ['Name: _________________', 'Name: _________________'],
+        ['Sign: _________________', 'Sign: _________________'],
+        ['Date: _________________', 'Date: _________________'],
+    ]
+    
+    sign_table = Table(sign_data, colWidths=[3.5*inch, 3.5*inch])
+    sign_table.setStyle(TableStyle([
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ]))
+    story.append(sign_table)
+    story.append(Spacer(1, 0.3*inch))
+    
+    # ========================================== //
+    # FOOTER                                     //
+    # ========================================== //
+    footer_style = ParagraphStyle(
+        'Footer', 
+        parent=styles['Normal'], 
+        fontSize=8, 
+        textColor=colors.grey,
+        alignment=TA_CENTER
+    )
+    story.append(Paragraph(
+        f"Generated: {now().strftime('%d-%m-%Y %H:%M')} | {company_name}",
+        footer_style
+    ))
+    story.append(Paragraph("This is a computer generated document.", footer_style))
+    
+    # ========================================== //
+    # BUILD PDF                                  //
+    # ========================================== //
+    doc.build(story)
+    buffer.seek(0)
+    
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="Challan_{challan.challan_no}.pdf"'
+    return response
+    
+# ============================================
+# MONTHLY PLAN HISTORY VIEW
+# ============================================
+
+@login_required
+def monthly_plan_history(request):
+    """All Monthly Plans History"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    # Get all plans
+    plans = MonthlyPurchasePlan.objects.all().order_by('-month', '-version')
+    
+    # Filters
+    selected_month = request.GET.get('month', '')
+    if selected_month:
+        try:
+            month_date = datetime.strptime(selected_month + '-01', '%Y-%m-%d').date()
+            plans = plans.filter(month=month_date)
+        except:
+            pass
+    
+    selected_status = request.GET.get('status', '')
+    if selected_status:
+        plans = plans.filter(status=selected_status)
+    
+    search = request.GET.get('search', '')
+    if search:
+        plans = plans.filter(
+            Q(plan_no__icontains=search) |
+            Q(product_name__icontains=search)
+        )
+    
+    # Stats
+    total_plans = MonthlyPurchasePlan.objects.count()
+    completed_count = MonthlyPurchasePlan.objects.filter(status='completed').count()
+    approved_count = MonthlyPurchasePlan.objects.filter(status='approved').count()
+    draft_count = MonthlyPurchasePlan.objects.filter(status='draft').count()
+    in_progress_count = MonthlyPurchasePlan.objects.filter(status='in_progress').count()
+    
+    # Pagination
+    paginator = Paginator(plans, 25)
+    page = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page)
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'page_obj': page_obj,
+        'plans': page_obj,
+        'total_plans': total_plans,
+        'completed_count': completed_count,
+        'approved_count': approved_count,
+        'draft_count': draft_count,
+        'in_progress_count': in_progress_count,
+        'selected_month': selected_month,
+        'selected_status': selected_status,
+        'search': search,
+    }
+    return render(request, 'shareholders/monthly_plan_history.html', context)
+    
+# ============================================
+# RISK ASSESSMENT API
+# ============================================
+
+@login_required
+def risk_assessment_api(request):
+    """API: Calculate risk assessment for a purchase"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        return JsonResponse({'success': False, 'message': 'Access denied!'})
+    
+    try:
+        from .risk_calculator import RiskCalculator
+        
+        product_id = request.GET.get('product_id')
+        warehouse_id = request.GET.get('warehouse_id')
+        sale_qty = int(request.GET.get('sale_qty', 0))
+        purchase_qty = int(request.GET.get('purchase_qty', 0))
+        unit_price = Decimal(request.GET.get('unit_price', 0))
+        
+        if not product_id or not warehouse_id:
+            return JsonResponse({'success': False, 'message': 'Product and Warehouse required!'})
+        
+        if purchase_qty <= 0:
+            return JsonResponse({
+                'success': True,
+                'score': 0,
+                'category': 'NO PURCHASE NEEDED',
+                'color': 'success',
+                'factors': {},
+                'alerts': [],
+                'positives': ['Stock sufficient - no purchase needed'],
+                'recommendation': {
+                    'action': 'SKIP',
+                    'title': '✅ NO PURCHASE NEEDED',
+                    'message': 'Available stock kaafi hai. Kuch kharidne ki zaroorat nahi.',
+                    'suggested_qty': 0,
+                    'steps': ['Stock sufficient hai', 'Monitor karte raho'],
+                },
+            })
+        
+        product = get_object_or_404(Product, pk=product_id)
+        warehouse = get_object_or_404(Warehouse, pk=warehouse_id)
+        
+        # Calculate risk
+        calculator = RiskCalculator(
+            product=product,
+            warehouse=warehouse,
+            sale_qty=sale_qty,
+            purchase_qty=purchase_qty,
+            unit_price=unit_price,
+        )
+        
+        result = calculator.calculate()
+        
+        return JsonResponse(result)
+        
+    except Exception as e:
+        logger.error(f"Risk assessment error: {e}")
+        return JsonResponse({
+            'success': False,
+            'message': str(e),
+        })

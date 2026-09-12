@@ -27,8 +27,8 @@
     .filter-bar .form-control, .filter-bar .form-select { border-radius:10px; border:2px solid #eef0f5; padding:9px 14px; font-size:0.88rem; background:#fafbfc; }
     .btn-filter { border-radius:10px; padding:10px 20px; font-weight:700; font-size:0.85rem; border:none; background:linear-gradient(135deg,#667eea,#764ba2); color:white; display:flex; align-items:center; justify-content:center; gap:6px; }
     
-    .table-card { background:white; border-radius:16px; border:1px solid var(--border); overflow:hidden; }
-    .table-header { display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border); background:#fafbfc; }
+    .table-card { background:white; border-radius:16px; border:1px solid var(--border); }
+    .table-header { display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border); background:#fafbfc; border-radius:16px 16px 0 0; }
     .table-header h5 { margin:0; font-weight:700; font-size:0.95rem; }
     .badge-count { background:var(--accent); color:white; padding:4px 12px; border-radius:20px; font-size:0.72rem; font-weight:600; }
     .btn-new { padding:8px 16px; border-radius:10px; font-weight:700; font-size:0.82rem; text-decoration:none; background:linear-gradient(135deg,#667eea,#764ba2); color:white; display:inline-flex; align-items:center; gap:6px; }
@@ -56,10 +56,56 @@
     .status-completed{background:#cff4fc;color:#055160} .status-completed .status-dot{background:#0dcaf0}
     .status-cancelled{background:#fce4ec;color:#721c24} .status-cancelled .status-dot{background:#dc3545}
     
-    .btn-action { width:30px; height:30px; border-radius:8px; border:1px solid #e0e3eb; background:white; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#5a6070; transition:all 0.2s; }
-    .btn-action:hover { background:#f0f2f7; color:#1a1a2e; }
-    .dropdown-item { font-size:0.82rem; padding:8px 16px; }
-    .dropdown-item i { width:18px; text-align:center; }
+    .btn-action { width:30px; height:30px; border-radius:8px; border:1px solid #e0e3eb; background:white; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#5a6070; transition:all 0.2s; font-size:1.2rem; line-height:1; padding:0; }
+    .btn-action:hover { background:#f0f2f7; color:#1a1a2e; border-color:#667eea; }
+    
+    /* ✅ CUSTOM ACTIONS MENU - NO BOOTSTRAP NEEDED */
+    .actions-menu {
+        display: none;
+        position: fixed;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+        min-width: 230px;
+        padding: 8px 0;
+        z-index: 99999;
+        border: 1px solid #eef0f5;
+    }
+
+    .actions-menu.show { display: block; }
+
+    .actions-menu a {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 16px;
+        color: #1a1a2e;
+        text-decoration: none;
+        font-size: 0.85rem;
+        transition: all 0.15s;
+    }
+
+    .actions-menu a:hover {
+        background: #f5f7ff;
+        color: #667eea;
+    }
+
+    .actions-menu a.text-success:hover { color: #28a745; background: #e8f5e9; }
+    .actions-menu a.text-danger:hover { color: #dc3545; background: #fce4ec; }
+    .actions-menu a.text-info:hover { color: #0dcaf0; background: #e0f7fa; }
+    .actions-menu a.text-primary:hover { color: #667eea; background: #eef2ff; }
+
+    .actions-menu hr {
+        margin: 5px 0;
+        border: none;
+        border-top: 1px solid #eef0f5;
+    }
+
+    .actions-menu i {
+        width: 18px;
+        text-align: center;
+        font-size: 1rem;
+    }
     
     .empty-state { text-align:center; padding:50px 20px; color:#8a8fa0; }
     .empty-state .empty-icon { font-size:4rem; opacity:0.2; margin-bottom:10px; }
@@ -93,14 +139,14 @@
         <div><div class="sm-value">{{ received_count|default:'0' }}</div><div class="sm-label">Received</div></div>
     </div>
     <div class="stat-mini" onclick="window.location='?status=completed'">
-        <div class="sm-icon icon-completed">✅</div>
+        <div class="sm-icon icon-received">🏁</div>
         <div><div class="sm-value">{{ completed_count|default:'0' }}</div><div class="sm-label">Completed</div></div>
     </div>
 </div>
 
-<!-- Filter -->
+<!-- ✅ Filter Form - SIRF GET (Post hata diya) -->
 <div class="filter-bar">
-    <form method="post">{% csrf_token %} method="GET" class="row g-2">
+    <form method="GET" class="row g-2">
         <div class="col-md-4">
             <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">🔍 Search</label>
             <input type="text" name="search" class="form-control" placeholder="PO No, Vendor..." value="{{ search }}">
@@ -152,7 +198,7 @@
                     <th class="text-right">Total</th>
                     <th>Receive</th>
                     <th>Status</th>
-                    <th></th>
+                    <th style="width:60px;">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -190,30 +236,11 @@
                             <span class="status-dot"></span>{{ order.get_status_display }}
                         </span>
                     </td>
-                    <td onclick="event.stopPropagation();">
-                        <div class="dropdown">
-                            <button class="btn-action" data-bs-toggle="dropdown" title="Actions">⋮</button>
-                            <ul class="dropdown-menu dropdown-menu-end shadow">
-                                <li><a class="dropdown-item" href="{% url 'purchase_order_detail' order.pk %}"><i class="bi bi-eye"></i> View Details</a></li>
-                                
-                                {% if order.status == 'confirmed' or order.status == 'processing' or order.status == 'shipped' or order.status == 'partially_received' %}
-                                <li><a class="dropdown-item text-success" href="{% url 'purchase_order_create_grn' order.pk %}"><i class="bi bi-box-seam"></i> 📦 Create GRN</a></li>
-                                {% endif %}
-                                
-                                {% if order.status == 'pending' %}
-                                <li><a class="dropdown-item text-info" href="{% url 'purchase_order_quick_status' order.pk 'confirmed' %}"><i class="bi bi-check-circle"></i> ✅ Confirm Order</a></li>
-                                {% endif %}
-                                
-                                {% if order.status == 'pending' or order.status == 'confirmed' %}
-                                <li><a class="dropdown-item text-primary" href="{% url 'purchase_order_quick_status' order.pk 'processing' %}"><i class="bi bi-arrow-repeat"></i> 🔄 Start Processing</a></li>
-                                {% endif %}
-                                
-                                {% if order.status != 'cancelled' and order.status != 'completed' %}
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item text-danger" href="{% url 'purchase_order_quick_status' order.pk 'cancelled' %}" onclick="return confirm('❌ Cancel PO #{{ order.order_no }}?')"><i class="bi bi-x-circle"></i> ❌ Cancel Order</a></li>
-                                {% endif %}
-                            </ul>
-                        </div>
+                    <td onclick="event.stopPropagation(); event.preventDefault();">
+                        <button type="button" 
+                                class="btn-action" 
+                                onclick="toggleActions({{ order.id }}, event)"
+                                title="Actions">⋮</button>
                     </td>
                 </tr>
                 {% empty %}
@@ -237,4 +264,144 @@
     {% include 'components/pagination.html' %}
 </div>
 
+<!-- ✅ ACTION MENUS - Table ke BAHAR (fix positioning) -->
+{% for order in page_obj %}
+<div class="actions-menu" id="actions-{{ order.id }}">
+    <a href="{% url 'purchase_order_detail' order.pk %}">
+        <i class="bi bi-eye text-primary"></i> View Details
+    </a>
+    
+    {% if order.status == 'pending' %}
+    <a href="{% url 'purchase_order_quick_status' order.pk 'confirmed' %}" class="text-success">
+        <i class="bi bi-check-circle"></i> ✅ Confirm Order
+    </a>
+    {% endif %}
+    
+    {% if order.status == 'confirmed' or order.status == 'processing' or order.status == 'shipped' or order.status == 'partially_received' %}
+    <a href="{% url 'purchase_order_create_grn' order.pk %}" class="text-success">
+        <i class="bi bi-box-seam"></i> 📦 Create GRN
+    </a>
+    {% endif %}
+    
+    {% if order.status == 'pending' or order.status == 'confirmed' %}
+    <a href="{% url 'purchase_order_quick_status' order.pk 'processing' %}" class="text-primary">
+        <i class="bi bi-arrow-repeat"></i> 🔄 Start Processing
+    </a>
+    {% endif %}
+    
+    {% if order.status == 'processing' %}
+    <a href="{% url 'purchase_order_quick_status' order.pk 'shipped' %}" class="text-info">
+        <i class="bi bi-truck"></i> 🚚 Mark Shipped
+    </a>
+    {% endif %}
+    
+    {% if order.status == 'received' %}
+    <a href="{% url 'purchase_order_quick_status' order.pk 'completed' %}" class="text-success">
+        <i class="bi bi-check2-all"></i> 🏁 Mark Completed
+    </a>
+    {% endif %}
+    
+    {% if order.status != 'cancelled' and order.status != 'completed' %}
+    <hr>
+    <a href="{% url 'purchase_order_quick_status' order.pk 'cancelled' %}" 
+       class="text-danger"
+       onclick="return confirm('❌ Cancel PO #{{ order.order_no }}?')">
+        <i class="bi bi-x-circle"></i> ❌ Cancel Order
+    </a>
+    {% endif %}
+</div>
+{% endfor %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ✅ Custom Actions Dropdown
+let currentOpenMenu = null;
+
+function toggleActions(orderId, event) {
+    event.stopPropagation();
+    event.preventDefault();
+    
+    const menu = document.getElementById('actions-' + orderId);
+    if (!menu) {
+        console.log('❌ Menu not found for order:', orderId);
+        return;
+    }
+    
+    // Agar same menu open hai to band karein
+    if (currentOpenMenu === menu) {
+        menu.classList.remove('show');
+        currentOpenMenu = null;
+        return;
+    }
+    
+    // Purana menu band karein
+    if (currentOpenMenu) {
+        currentOpenMenu.classList.remove('show');
+    }
+    
+    // Button ki position calculate karein
+    const btn = event.currentTarget;
+    const rect = btn.getBoundingClientRect();
+    
+    const menuWidth = 230;
+    const menuHeight = 300;
+    
+    // Position calculate karein
+    let top = rect.bottom + 5;
+    let left = rect.right - menuWidth;
+    
+    // Screen boundaries check
+    if (left < 10) left = 10;
+    if (left + menuWidth > window.innerWidth - 10) {
+        left = window.innerWidth - menuWidth - 10;
+    }
+    if (top + menuHeight > window.innerHeight - 10) {
+        top = rect.top - menuHeight - 5;
+        if (top < 10) top = 10;
+    }
+    
+    menu.style.top = top + 'px';
+    menu.style.left = left + 'px';
+    menu.classList.add('show');
+    currentOpenMenu = menu;
+    
+    console.log('✅ Menu opened for order:', orderId);
+}
+
+// ✅ Bahar click par menu band
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.actions-menu') && !e.target.closest('.btn-action')) {
+        document.querySelectorAll('.actions-menu.show').forEach(menu => {
+            menu.classList.remove('show');
+        });
+        currentOpenMenu = null;
+    }
+});
+
+// ✅ Escape key se band
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && currentOpenMenu) {
+        currentOpenMenu.classList.remove('show');
+        currentOpenMenu = null;
+    }
+});
+
+// ✅ Scroll par band
+window.addEventListener('scroll', function() {
+    if (currentOpenMenu) {
+        currentOpenMenu.classList.remove('show');
+        currentOpenMenu = null;
+    }
+}, true);
+
+// ✅ Resize par band
+window.addEventListener('resize', function() {
+    if (currentOpenMenu) {
+        currentOpenMenu.classList.remove('show');
+        currentOpenMenu = null;
+    }
+});
+</script>
 {% endblock %}

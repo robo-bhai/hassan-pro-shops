@@ -1,0 +1,325 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}All Plans History{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root { --border: #eef0f5; --text: #1a1a2e; --accent: #0d6efd; }
+    
+    /* Stats Cards */
+    .stats-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:12px; margin-bottom:20px; }
+    .stat-mini {
+        background:white; border-radius:14px; padding:14px 16px; border:1px solid var(--border);
+        display:flex; align-items:center; gap:12px; transition:all 0.3s;
+    }
+    .stat-mini:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.06); }
+    .stat-mini .sm-icon { width:42px; height:42px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0; }
+    .stat-mini .sm-value { font-size:1.2rem; font-weight:800; color:var(--text); }
+    .stat-mini .sm-label { font-size:0.68rem; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; }
+    
+    .icon-total{background:#eef2ff;color:#667eea}
+    .icon-completed{background:#e8f5e9;color:#4caf50}
+    .icon-draft{background:#e2e3e5;color:#383d41}
+    .icon-approved{background:#cce5ff;color:#004085}
+    .icon-progress{background:#fff3cd;color:#856404}
+    
+    /* Filter Bar */
+    .filter-bar { background:white; border-radius:14px; padding:16px 20px; border:1px solid var(--border); margin-bottom:20px; }
+    .filter-bar .form-control, .filter-bar .form-select { border-radius:10px; border:2px solid #eef0f5; padding:9px 14px; font-size:0.88rem; background:#fafbfc; }
+    .btn-filter { border-radius:10px; padding:10px 20px; font-weight:700; font-size:0.85rem; border:none; background:linear-gradient(135deg,#667eea,#764ba2); color:white; display:flex; align-items:center; justify-content:center; gap:6px; }
+    .btn-filter:hover { color:white; opacity:0.9; }
+    
+    /* Table */
+    .table-card { background:white; border-radius:16px; border:1px solid var(--border); overflow:hidden; }
+    .table-header { display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border); background:#fafbfc; }
+    .table-header h5 { margin:0; font-weight:700; font-size:0.95rem; }
+    .badge-count { background:var(--accent); color:white; padding:4px 12px; border-radius:20px; font-size:0.72rem; font-weight:600; margin-left:8px; }
+    .btn-new { padding:8px 16px; border-radius:10px; font-weight:700; font-size:0.82rem; text-decoration:none; background:linear-gradient(135deg,#667eea,#764ba2); color:white; display:inline-flex; align-items:center; gap:6px; transition:all 0.2s; }
+    .btn-new:hover { color:white; opacity:0.9; }
+    
+    .table-responsive-custom { overflow-x:auto; }
+    .history-table { width:100%; border-collapse:collapse; min-width:1000px; }
+    .history-table thead th { background:#1a1d2e; color:white; padding:12px 14px; font-size:0.68rem; text-transform:uppercase; letter-spacing:1px; font-weight:700; white-space:nowrap; }
+    .history-table tbody td { padding:12px 14px; border-bottom:1px solid #f0f2f7; font-size:0.85rem; color:var(--text); vertical-align:middle; }
+    .history-table tbody tr { transition:all 0.2s; }
+    .history-table tbody tr:hover { background:#f8f9ff; }
+    .history-table tbody tr:nth-child(even) { background:#fafbfd; }
+    .history-table tbody tr:nth-child(even):hover { background:#f0f4ff; }
+    
+    .text-right{text-align:right} 
+    .text-center{text-align:center}
+    
+    /* Status Badges */
+    .status-badge { padding:5px 14px; border-radius:20px; font-size:0.75rem; font-weight:600; display:inline-flex; align-items:center; gap:5px; }
+    .status-dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+    .status-draft{background:#e2e3e5;color:#383d41} .status-draft .status-dot{background:#6c757d}
+    .status-approved{background:#cce5ff;color:#004085} .status-approved .status-dot{background:#0d6efd}
+    .status-in_progress{background:#fff3cd;color:#856404} .status-in_progress .status-dot{background:#ffc107}
+    .status-completed{background:#d4edda;color:#155724} .status-completed .status-dot{background:#28a745}
+    .status-cancelled{background:#f8d7da;color:#721c24} .status-cancelled .status-dot{background:#dc3545}
+    
+    /* Version Badge */
+    .version-badge { padding:5px 12px; border-radius:20px; font-size:0.75rem; font-weight:600; }
+    .version-latest { background:linear-gradient(135deg, #00b894 0%, #00cec9 100%); color:white; }
+    .version-old { background:#e2e3e5; color:#383d41; }
+    
+    /* Achievement Bar */
+    .achievement-bar { height:8px; border-radius:10px; background:#eef0f3; width:60px; display:inline-block; vertical-align:middle; }
+    .achievement-bar .progress-bar { border-radius:10px; }
+    
+    /* Action Buttons */
+    .btn-action { width:32px; height:32px; border-radius:8px; border:1px solid #e0e3eb; background:white; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; color:#5a6070; transition:all 0.2s; text-decoration:none; }
+    .btn-action:hover { background:#f0f2f7; color:#1a1a2e; border-color:#667eea; }
+    
+    /* Empty State */
+    .empty-state { text-align:center; padding:60px 20px; color:#8a8fa0; }
+    .empty-state .empty-icon { font-size:4rem; opacity:0.2; margin-bottom:15px; display:block; }
+    .empty-state h4 { color:#5a6070; font-weight:700; }
+    
+    /* Pagination */
+    .pagination .page-link { border-radius:8px; margin:0 2px; color:#667eea; border:1px solid #eef0f5; padding:8px 14px; font-weight:600; }
+    .pagination .page-item.active .page-link { background:linear-gradient(135deg,#667eea,#764ba2); border-color:#667eea; color:white; }
+    .pagination .page-link:hover { background:#f0f4ff; color:#667eea; }
+    
+    /* Mobile */
+    @media (max-width:768px) {
+        .stats-row{grid-template-columns:repeat(2,1fr)}
+        .history-table{min-width:800px}
+        .history-table thead th,.history-table tbody td{padding:8px 10px;font-size:0.78rem}
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-1 fw-bold">
+                <i class="bi bi-clock-history text-primary me-2"></i>
+                All Plans History
+            </h4>
+            <p class="text-muted small mb-0">
+                Complete history of all monthly purchase plans
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'monthly_purchase_planner' %}" class="btn btn-primary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i> Back to Planner
+            </a>
+            <a href="{% url 'monthly_plan_report_pdf' %}" class="btn btn-danger btn-sm">
+                <i class="bi bi-file-pdf me-1"></i> PDF Report
+            </a>
+        </div>
+    </div>
+    
+    <!-- Stats Cards -->
+    <div class="stats-row">
+        <div class="stat-mini">
+            <div class="sm-icon icon-total">📋</div>
+            <div>
+                <div class="sm-value">{{ total_plans|default:'0' }}</div>
+                <div class="sm-label">Total Plans</div>
+            </div>
+        </div>
+        <div class="stat-mini">
+            <div class="sm-icon icon-completed">✅</div>
+            <div>
+                <div class="sm-value">{{ completed_count|default:'0' }}</div>
+                <div class="sm-label">Completed</div>
+            </div>
+        </div>
+        <div class="stat-mini">
+            <div class="sm-icon icon-approved">👍</div>
+            <div>
+                <div class="sm-value">{{ approved_count|default:'0' }}</div>
+                <div class="sm-label">Approved</div>
+            </div>
+        </div>
+        <div class="stat-mini">
+            <div class="sm-icon icon-draft">📝</div>
+            <div>
+                <div class="sm-value">{{ draft_count|default:'0' }}</div>
+                <div class="sm-label">Draft</div>
+            </div>
+        </div>
+        <div class="stat-mini">
+            <div class="sm-icon icon-progress">🔄</div>
+            <div>
+                <div class="sm-value">{{ in_progress_count|default:'0' }}</div>
+                <div class="sm-label">In Progress</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+        <form method="GET" class="row g-2">
+            <div class="col-md-3">
+                <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">📅 Month</label>
+                <input type="month" name="month" class="form-control" value="{{ selected_month|default:'' }}">
+            </div>
+            <div class="col-md-3">
+                <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">📊 Status</label>
+                <select name="status" class="form-select">
+                    <option value="">All Status</option>
+                    <option value="draft" {% if selected_status == 'draft' %}selected{% endif %}>📝 Draft</option>
+                    <option value="approved" {% if selected_status == 'approved' %}selected{% endif %}>👍 Approved</option>
+                    <option value="in_progress" {% if selected_status == 'in_progress' %}selected{% endif %}>🔄 In Progress</option>
+                    <option value="completed" {% if selected_status == 'completed' %}selected{% endif %}>✅ Completed</option>
+                    <option value="cancelled" {% if selected_status == 'cancelled' %}selected{% endif %}>❌ Cancelled</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">🔍 Search</label>
+                <input type="text" name="search" class="form-control" placeholder="Plan No, Product..." value="{{ search|default:'' }}">
+            </div>
+            <div class="col-md-3">
+                <label style="visibility:hidden;display:block;margin-bottom:4px;">&nbsp;</label>
+                <button type="submit" class="btn-filter w-100">
+                    <i class="bi bi-funnel"></i> Filter
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- History Table -->
+    <div class="table-card">
+        <div class="table-header">
+            <h5>
+                📋 All Plans History
+                <span class="badge-count">{{ page_obj.paginator.count|default:'0' }}</span>
+            </h5>
+            <a href="{% url 'monthly_purchase_planner' %}" class="btn-new">
+                <i class="bi bi-plus-lg"></i> Create New Plan
+            </a>
+        </div>
+        
+        <div class="table-responsive-custom">
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>Month</th>
+                        <th>Plan No</th>
+                        <th>Version</th>
+                        <th>Product</th>
+                        <th>Warehouse</th>
+                        <th class="text-center">Sale Qty</th>
+                        <th class="text-center">Purchase Qty</th>
+                        <th class="text-right">Total Amount</th>
+                        <th class="text-center">Achievement</th>
+                        <th>Status</th>
+                        <th class="text-center" style="width:80px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in plans %}
+                    <tr>
+                        <td>
+                            <strong>{{ p.month|date:"M Y" }}</strong>
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ p.plan_no }}</span>
+                        </td>
+                        <td>
+                            {% if p.is_latest %}
+                            <span class="version-badge version-latest">v{{ p.version }}</span>
+                            {% else %}
+                            <span class="version-badge version-old">v{{ p.version }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ p.product_name|default:"-" }}</td>
+                        <td>
+                            {% if p.warehouse %}
+                            <small>{{ p.warehouse.name }}</small>
+                            {% else %}-{% endif %}
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-primary">{{ p.expected_sales_quantity }} units</span>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-success">{{ p.purchase_quantity }} units</span>
+                        </td>
+                        <td class="text-right">
+                            <strong>Rs. {{ p.total_purchase_amount|floatformat:0|intcomma }}</strong>
+                        </td>
+                        <td class="text-center">
+                            <div class="d-flex align-items-center justify-content-center gap-2">
+                                <div class="achievement-bar">
+                                    <div class="progress-bar bg-{{ p.achievement_color }}" 
+                                         style="width: {{ p.achievement_percentage }}%;"></div>
+                                </div>
+                                <small><strong>{{ p.achievement_percentage|floatformat:0 }}%</strong></small>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="status-badge status-{{ p.status }}">
+                                <span class="status-dot"></span>
+                                {{ p.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            <a href="{% url 'monthly_plan_detail' p.id %}" class="btn-action" title="View Details">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="11">
+                            <div class="empty-state">
+                                <i class="bi bi-inbox empty-icon"></i>
+                                <h4>No Plans Found</h4>
+                                <p>{% if search %}Try different filters{% else %}Create your first plan!{% endif %}</p>
+                                {% if not search %}
+                                <a href="{% url 'monthly_purchase_planner' %}" class="btn-new mt-2">
+                                    <i class="bi bi-plus-lg"></i> Create First Plan
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="card-footer bg-white">
+            <nav>
+                <ul class="pagination pagination-sm mb-0 justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if search %}&search={{ search }}{% endif %}{% if selected_month %}&month={{ selected_month }}{% endif %}">
+                            <i class="bi bi-chevron-left"></i> Previous
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in page_obj.paginator.page_range %}
+                    <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                        <a class="page-link" href="?page={{ num }}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if search %}&search={{ search }}{% endif %}{% if selected_month %}&month={{ selected_month }}{% endif %}">
+                            {{ num }}
+                        </a>
+                    </li>
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if search %}&search={{ search }}{% endif %}{% if selected_month %}&month={{ selected_month }}{% endif %}">
+                            Next <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+    
+</div>
+{% endblock %}

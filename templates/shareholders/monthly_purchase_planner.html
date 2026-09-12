@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load humanize %}
 
 {% block title %}Monthly Purchase Planner{% endblock %}
 
@@ -33,6 +34,7 @@
         letter-spacing: 0.5px;
         opacity: 0.8;
     }
+    
     .table-custom thead {
         background: linear-gradient(135deg, #1a1a2e 0%, #2d3436 100%);
         color: white;
@@ -52,6 +54,7 @@
     .table-custom tbody tr:hover {
         background: #f8f9fc;
     }
+    
     .achievement-bar {
         height: 8px;
         border-radius: 10px;
@@ -60,6 +63,7 @@
     .achievement-bar .progress-bar {
         border-radius: 10px;
     }
+    
     .status-badge {
         padding: 5px 14px;
         border-radius: 20px;
@@ -102,15 +106,238 @@
         color: white;
     }
     
-    .stock-card {
-        border-radius: 12px;
-        padding: 15px;
-        text-align: center;
+    /* Auto-calculated field */
+    .auto-qty-field {
+        background: #f0f9ff !important;
+        border: 2px solid #667eea !important;
+        font-weight: 700 !important;
+        color: #1a1a2e !important;
+        cursor: not-allowed;
     }
     
-    .btn-group-sm .btn {
-        padding: 4px 8px;
-        font-size: 0.75rem;
+    .auto-badge {
+        background: linear-gradient(135deg, #17a2b8, #138496);
+        color: white;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 0.6rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        animation: pulse 2s infinite;
+        margin-left: 4px;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
+    }
+    
+    .calc-hint {
+        font-size: 0.7rem;
+        color: #17a2b8;
+        font-weight: 600;
+        margin-top: 4px;
+        display: block;
+    }
+    
+    .calc-hint b {
+        color: #667eea;
+    }
+    
+    .summary-box {
+        background: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%);
+        border: none;
+        border-radius: 12px;
+    }
+    
+    .summary-item {
+        text-align: center;
+        padding: 8px;
+    }
+    
+    .summary-item small {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #6c757d;
+        font-weight: 600;
+    }
+    
+    .summary-item h5 {
+        font-weight: 800;
+        margin-bottom: 0;
+    }
+    
+    /* Header Buttons */
+    .btn-header {
+        padding: 8px 16px;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 0.82rem;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s;
+        border: none;
+        cursor: pointer;
+    }
+    
+    .btn-header:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        color: white;
+    }
+    
+    .btn-history {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    .btn-history:hover { color: white; }
+    
+    .btn-pdf {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        color: white;
+    }
+    
+    .btn-pdf:hover { color: white; }
+    
+    .btn-back {
+        background: #f0f2f7;
+        color: #1a1a2e;
+        border: 1px solid #e0e3eb;
+    }
+    
+    .btn-back:hover {
+        background: #e0e3eb;
+        color: #1a1a2e;
+    }
+    
+    /* Risk Assessment Circle */
+    .risk-circle-container {
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    
+    .risk-circle {
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.5s;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    .risk-circle-inner {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: white;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .risk-score-value {
+        font-size: 2.5rem;
+        font-weight: 800;
+        color: #1a1a2e;
+        line-height: 1;
+    }
+    
+    .risk-score-label {
+        font-size: 0.8rem;
+        color: #6c757d;
+        font-weight: 600;
+    }
+    
+    .risk-category-badge {
+        display: inline-block;
+        padding: 8px 20px;
+        border-radius: 20px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        color: white;
+        margin-top: 15px;
+    }
+    
+    /* Risk Factor Bars */
+    .risk-factor-row {
+        margin-bottom: 12px;
+    }
+    
+    .risk-factor-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 4px;
+    }
+    
+    .risk-factor-header small {
+        font-weight: 600;
+    }
+    
+    .risk-factor-bar {
+        height: 8px;
+        border-radius: 10px;
+        background: #eef0f3;
+        overflow: hidden;
+    }
+    
+    .risk-factor-bar-fill {
+        height: 100%;
+        border-radius: 10px;
+        transition: width 0.5s;
+    }
+    
+    /* Recommendation Box */
+    .recommendation-box {
+        padding: 20px;
+        border-radius: 12px;
+        border-left: 5px solid;
+        margin-top: 15px;
+    }
+    
+    .recommendation-box.safe {
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        border-color: #28a745;
+    }
+    
+    .recommendation-box.caution {
+        background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
+        border-color: #ffc107;
+    }
+    
+    .recommendation-box.danger {
+        background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+        border-color: #dc3545;
+    }
+    
+    .recommendation-title {
+        font-size: 1.1rem;
+        font-weight: 800;
+        margin-bottom: 8px;
+    }
+    
+    .action-steps {
+        background: white;
+        border-radius: 8px;
+        padding: 12px 15px;
+        margin-top: 12px;
+    }
+    
+    .action-steps ol {
+        margin-bottom: 0;
+        padding-left: 20px;
+    }
+    
+    .action-steps li {
+        padding: 3px 0;
+        font-size: 0.85rem;
     }
 </style>
 {% endblock %}
@@ -118,8 +345,10 @@
 {% block content %}
 <div class="container-fluid py-4">
     
-    <!-- ✅ Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <!-- ========================================== -->
+    <!-- HEADER                                      -->
+    <!-- ========================================== -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
         <div>
             <h4 class="mb-1 fw-bold">
                 <i class="bi bi-calendar-check text-primary me-2"></i>
@@ -133,17 +362,23 @@
                 {% endif %}
             </p>
         </div>
-        <div class="d-flex gap-2">
-            <a href="{% url 'monthly_plan_report_pdf' %}" class="btn btn-danger btn-sm">
-                <i class="bi bi-file-pdf me-1"></i> PDF Report
+        
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{% url 'monthly_plan_history' %}" class="btn-header btn-history">
+                <i class="bi bi-clock-history"></i> All Plans History
             </a>
-            <a href="{% url 'dashboard' %}" class="btn btn-secondary btn-sm">
+            <a href="{% url 'monthly_plan_report_pdf' %}" class="btn-header btn-pdf">
+                <i class="bi bi-file-pdf"></i> PDF Report
+            </a>
+            <a href="{% url 'dashboard' %}" class="btn-header btn-back">
                 <i class="bi bi-arrow-left"></i> Back
             </a>
         </div>
     </div>
     
-    <!-- ✅ Month Selector -->
+    <!-- ========================================== -->
+    <!-- MONTH SELECTOR                              -->
+    <!-- ========================================== -->
     <div class="month-selector mb-4">
         <form method="get" class="row g-3 align-items-end">
             <div class="col-md-4">
@@ -170,7 +405,9 @@
         </form>
     </div>
     
-    <!-- ✅ Stats Cards -->
+    <!-- ========================================== -->
+    <!-- STATS CARDS                                 -->
+    <!-- ========================================== -->
     <div class="row g-3 mb-4">
         <div class="col-md-3 col-6">
             <div class="stats-card bg-primary text-white">
@@ -206,10 +443,12 @@
         </div>
     </div>
     
-    <!-- ✅ Plans for Selected Month -->
+    <!-- ========================================== -->
+    <!-- PLANS FOR SELECTED MONTH                    -->
+    <!-- ========================================== -->
     {% if plans_this_month %}
     <div class="card shadow-sm mb-4">
-        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+        <div class="card-header bg-dark text-white">
             <h6 class="mb-0">
                 <i class="bi bi-list-check me-2"></i>
                 Plans for {{ selected_month|date:"F Y" }}
@@ -225,7 +464,7 @@
                             <th>Plan No</th>
                             <th>Product</th>
                             <th>Warehouse</th>
-                            <th>Quantity</th>
+                            <th>Purchase Qty</th>
                             <th>Stock</th>
                             <th>Total</th>
                             <th>Status</th>
@@ -247,11 +486,11 @@
                             <td>
                                 {% if p.warehouse %}
                                 <span class="badge bg-secondary">{{ p.warehouse.name }}</span>
-                                {% else %}
-                                <span class="text-muted">-</span>
-                                {% endif %}
+                                {% else %}-{% endif %}
                             </td>
-                            <td>{{ p.purchase_quantity }} units</td>
+                            <td>
+                                <span class="badge bg-primary">{{ p.purchase_quantity }} units</span>
+                            </td>
                             <td>
                                 <span class="badge bg-{% if p.stock_status == 'sufficient' %}success{% elif p.stock_status == 'low' %}warning{% else %}danger{% endif %}">
                                     {{ p.available_stock|floatformat:0 }}
@@ -273,21 +512,6 @@
                                         <i class="bi bi-pencil"></i>
                                     </a>
                                     {% endif %}
-                                    {% if p.status == 'draft' and p.is_latest %}
-                                    <a href="{% url 'monthly_plan_approve' p.id %}" class="btn btn-outline-success" title="Approve">
-                                        <i class="bi bi-check-circle"></i>
-                                    </a>
-                                    {% endif %}
-                                    {% if p.status == 'approved' and p.is_latest %}
-                                    <a href="{% url 'monthly_plan_complete' p.id %}" class="btn btn-outline-info" title="Complete">
-                                        <i class="bi bi-check2-all"></i>
-                                    </a>
-                                    {% endif %}
-                                    {% if user.is_superuser and p.status == 'draft' %}
-                                    <a href="{% url 'monthly_plan_delete' p.id %}" class="btn btn-outline-danger" title="Delete">
-                                        <i class="bi bi-trash"></i>
-                                    </a>
-                                    {% endif %}
                                 </div>
                             </td>
                         </tr>
@@ -299,7 +523,9 @@
     </div>
     {% endif %}
     
-    <!-- ✅ Plan Form -->
+    <!-- ========================================== -->
+    <!-- PLAN FORM                                   -->
+    <!-- ========================================== -->
     <div class="card shadow-sm mb-4">
         <div class="card-header bg-dark text-white">
             <h6 class="mb-0">
@@ -330,10 +556,11 @@
                 {% csrf_token %}
                 
                 <div class="row g-3">
+                    
                     <!-- Warehouse -->
                     <div class="col-md-3">
-                        <label class="form-label fw-bold">Warehouse</label>
-                        <select name="warehouse" class="form-select" id="warehouseSelect" onchange="checkStock()">
+                        <label class="form-label fw-bold">🏭 Warehouse</label>
+                        <select name="warehouse" class="form-select" id="warehouseSelect">
                             <option value="">Select Warehouse</option>
                             {% for w in warehouses %}
                             <option value="{{ w.id }}" {% if latest_plan and latest_plan.warehouse_id == w.id %}selected{% endif %}>
@@ -345,8 +572,8 @@
                     
                     <!-- Product -->
                     <div class="col-md-3">
-                        <label class="form-label fw-bold">Product</label>
-                        <select name="product" class="form-select" id="productSelect" onchange="checkStock()">
+                        <label class="form-label fw-bold">📦 Product</label>
+                        <select name="product" class="form-select" id="productSelect">
                             <option value="">Select Product</option>
                             {% for p in products %}
                             <option value="{{ p.id }}" {% if latest_plan and latest_plan.product_id == p.id %}selected{% endif %}>
@@ -356,220 +583,215 @@
                         </select>
                     </div>
                     
-                    <!-- Purchase Qty -->
-                    <div class="col-md-2">
-                        <label class="form-label fw-bold">Purchase Qty</label>
-                        <input type="number" name="purchase_quantity" class="form-control" 
-                               value="{{ latest_plan.purchase_quantity|default:0 }}" 
-                               id="purchaseQty" onchange="checkStock()">
-                    </div>
-                    
-                    <!-- Expected Sale Qty -->
-                    <div class="col-md-2">
-                        <label class="form-label fw-bold">Expected Sale Qty</label>
-                        <input type="number" name="expected_sales_quantity" class="form-control" 
+                    <!-- Sale Qty -->
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">
+                            🎯 Sale Qty
+                        </label>
+                        <input type="number" 
+                               name="expected_sales_quantity" 
+                               class="form-control form-control-lg" 
                                value="{{ latest_plan.expected_sales_quantity|default:0 }}" 
-                               id="expectedQty" onchange="checkStock()">
+                               id="expectedQty" 
+                               placeholder="e.g., 100">
+                        <small class="text-muted" style="font-size:0.7rem;">
+                            Itni sale karni hai
+                        </small>
                     </div>
                     
+                    <!-- Purchase Qty - AUTO -->
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">
+                            🛒 Purchase Qty
+                            <span class="auto-badge">AUTO</span>
+                        </label>
+                        <input type="number" 
+                               name="purchase_quantity" 
+                               class="form-control form-control-lg auto-qty-field" 
+                               value="{{ latest_plan.purchase_quantity|default:0 }}" 
+                               id="purchaseQty"
+                               readonly>
+                        <small class="calc-hint" id="purchaseQtyHint">
+                            = Sale Qty - Available Stock
+                        </small>
+                    </div>
+                </div>
+                
+                <div class="row g-3 mt-2">
                     <!-- Unit Price -->
-                    <div class="col-md-2">
-                        <label class="form-label fw-bold">Unit Price</label>
-                        <input type="number" name="purchase_price_per_unit" class="form-control" 
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">💰 Unit Price</label>
+                        <input type="number" 
+                               name="purchase_price_per_unit" 
+                               class="form-control form-control-lg" 
                                value="{{ latest_plan.purchase_price_per_unit|default:0 }}" 
-                               id="purchasePrice" onchange="calculateRequirements()">
-                    </div>
-                    
-                    <!-- Expected Sale Amount -->
-                    <div class="col-md-6">
-                        <label class="form-label fw-bold">Expected Sale Amount</label>
-                        <input type="number" name="expected_sales_amount" class="form-control" 
-                               value="{{ latest_plan.expected_sales_amount|default:0 }}">
+                               id="purchasePrice" 
+                               placeholder="e.g., 5000">
+                        <small class="text-muted" style="font-size:0.7rem;">
+                            Per unit price
+                        </small>
                     </div>
                     
                     <!-- Notes -->
-                    <div class="col-md-6">
-                        <label class="form-label fw-bold">Notes</label>
-                        <input type="text" name="notes" class="form-control" 
-                               value="{{ latest_plan.notes|default:'' }}">
+                    <div class="col-md-8">
+                        <label class="form-label fw-bold">📝 Notes</label>
+                        <input type="text" 
+                               name="notes" 
+                               class="form-control form-control-lg" 
+                               value="{{ latest_plan.notes|default:'' }}"
+                               placeholder="Additional notes...">
                     </div>
                 </div>
                 
-                <!-- ✅ Stock Info Card -->
-                <div class="card mt-3" id="stockInfoCard" style="display:none;">
-                    <div class="card-header bg-info text-white">
-                        <h6 class="mb-0"><i class="bi bi-box-seam me-2"></i> Stock Information</h6>
+                <!-- ========================================== -->
+                <!-- LIVE CALCULATION SUMMARY BOX                -->
+                <!-- ========================================== -->
+                <div class="summary-box mt-4 p-3">
+                    <div class="row align-items-center">
+                        <div class="col-md-3 summary-item">
+                            <small>🎯 Sale Qty</small>
+                            <h5 class="text-primary" id="summarySaleQty">0</h5>
+                        </div>
+                        <div class="col-md-1 text-center">
+                            <i class="bi bi-dash-circle fs-3 text-secondary"></i>
+                        </div>
+                        <div class="col-md-3 summary-item">
+                            <small>📦 Available Stock</small>
+                            <h5 class="text-success" id="summaryStock">0</h5>
+                        </div>
+                        <div class="col-md-1 text-center">
+                            <i class="bi bi-equals fs-3 text-secondary"></i>
+                        </div>
+                        <div class="col-md-2 summary-item">
+                            <small>🛒 Purchase Qty</small>
+                            <h5 class="text-danger" id="summaryPurchase">0</h5>
+                        </div>
+                        <div class="col-md-2 summary-item">
+                            <small>💰 Total Amount</small>
+                            <h5 class="text-dark" id="summaryAmount">Rs. 0</h5>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- ========================================== -->
+                <!-- INVESTOR REQUIREMENTS - LIVE                -->
+                <!-- ========================================== -->
+                <div class="card mt-3" id="investorCard" style="display:none;background:linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);border:none;">
+                    <div class="card-header" style="background:transparent;border-bottom:2px solid rgba(0,0,0,0.1);">
+                        <h6 class="mb-0 fw-bold">
+                            <i class="bi bi-people me-2"></i> Investor Requirements (Live)
+                        </h6>
                     </div>
                     <div class="card-body">
-                        <div class="row g-3" id="stockInfoContent"></div>
+                        <div class="row g-3" id="investorContent">
+                            <div class="col-md-3 text-center">
+                                <small class="text-muted d-block">Total Purchase</small>
+                                <h5 class="text-primary mb-0" id="investTotalPurchase">Rs. 0</h5>
+                            </div>
+                            <div class="col-md-3 text-center">
+                                <small class="text-muted d-block">Existing Investment</small>
+                                <h5 class="text-info mb-0" id="investExisting">Rs. 0</h5>
+                            </div>
+                            <div class="col-md-3 text-center">
+                                <small class="text-muted d-block">Additional Needed</small>
+                                <h5 class="text-warning mb-0" id="investAdditional">Rs. 0</h5>
+                            </div>
+                            <div class="col-md-3 text-center">
+                                <small class="text-muted d-block">Additional Investors</small>
+                                <h5 class="text-success mb-0" id="investInvestors">0</h5>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
-                <!-- ✅ Action Buttons -->
-                <div class="mt-3 d-flex gap-2 flex-wrap">
-                    <button type="submit" name="action" value="save" class="btn btn-primary">
+                <!-- ========================================== -->
+                <!-- ✅ RISK ASSESSMENT CARD (NEW)               -->
+                <!-- ========================================== -->
+                <div class="card mt-3" id="riskCard" style="display:none;border:none;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+                    <div class="card-header" style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;border:none;">
+                        <h6 class="mb-0 fw-bold">
+                            <i class="bi bi-shield-check me-2"></i> 🎯 Risk Assessment (Live)
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        
+                        <!-- Risk Score Circle -->
+                        <div class="risk-circle-container">
+                            <div id="riskCircle" class="risk-circle" style="background:linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                                <div class="risk-circle-inner">
+                                    <div id="riskScore" class="risk-score-value">0</div>
+                                    <div class="risk-score-label">/ 100</div>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <span id="riskCategory" class="risk-category-badge" style="background:#10b981;">-</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Factors Breakdown -->
+                        <div class="mb-3">
+                            <h6 class="fw-bold mb-3">
+                                <i class="bi bi-bar-chart me-2"></i> Risk Factors
+                            </h6>
+                            <div id="riskFactors"></div>
+                        </div>
+                        
+                        <!-- Positives -->
+                        <div id="riskPositives" class="mb-3"></div>
+                        
+                        <!-- Alerts -->
+                        <div id="riskAlerts" class="mb-3"></div>
+                        
+                        <!-- Recommendation -->
+                        <div id="riskRecommendation"></div>
+                        
+                    </div>
+                </div>
+                
+                <!-- Hidden field for available stock -->
+                <input type="hidden" id="availableStock" value="{{ latest_plan.available_stock|default:0 }}">
+                
+                <!-- ACTION BUTTONS -->
+                <div class="mt-4 d-flex gap-2 flex-wrap">
+                    <button type="submit" name="action" value="save" class="btn btn-primary btn-lg">
                         <i class="bi bi-save"></i> 
                         {% if latest_plan %}Update Plan v{{ latest_plan.version }}{% else %}Save Plan{% endif %}
                     </button>
                     
                     {% if latest_plan %}
-                    <button type="submit" name="action" value="create_new" class="btn btn-success" 
+                    <button type="submit" name="action" value="create_new" class="btn btn-success btn-lg" 
                             onclick="return confirm('Create new version?')">
-                        <i class="bi bi-plus-circle"></i> Create New Version (v{{ latest_plan.version|add:1 }})
+                        <i class="bi bi-plus-circle"></i> Create New Version
                     </button>
                     {% endif %}
-                    
-                    <button type="button" class="btn btn-info" onclick="checkStock()">
-                        <i class="bi bi-box-seam"></i> Check Stock
-                    </button>
-                    
-                    <button type="button" class="btn btn-warning" onclick="calculateRequirements()">
-                        <i class="bi bi-calculator"></i> Calculate
-                    </button>
                 </div>
             </form>
         </div>
     </div>
     
-    <!-- ✅ Calculation Result -->
-    <div class="card shadow-sm mb-4" id="resultCard" style="display:none;">
-        <div class="card-header bg-info text-white">
-            <h6 class="mb-0"><i class="bi bi-calculator me-2"></i> Investment & Investor Requirements</h6>
-        </div>
-        <div class="card-body">
-            <div class="row g-3" id="resultContent"></div>
-        </div>
-    </div>
-    
-    <!-- ✅ All Plans History -->
-    <div class="card shadow-sm">
-        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-            <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i> All Plans History</h6>
-            <form method="get" class="d-flex gap-2">
-                <input type="hidden" name="month" value="{{ month_str }}">
-                <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
-                    <option value="">All Status</option>
-                    {% for code, label in status_choices %}
-                    <option value="{{ code }}" {% if status_filter == code %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
-            </form>
-        </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-custom mb-0">
-                    <thead>
-                        <tr>
-                            <th>Month</th>
-                            <th>Plan No</th>
-                            <th>Version</th>
-                            <th>Product</th>
-                            <th>Warehouse</th>
-                            <th>Planned</th>
-                            <th>Actual</th>
-                            <th>Achievement</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for p in plans %}
-                        <tr>
-                            <td><strong>{{ p.month|date:"M Y" }}</strong></td>
-                            <td><span class="badge bg-secondary">{{ p.plan_no }}</span></td>
-                            <td>
-                                {% if p.is_latest %}
-                                <span class="version-badge version-latest">v{{ p.version }}</span>
-                                {% else %}
-                                <span class="version-badge version-old">v{{ p.version }}</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ p.product_name|default:"-" }}</td>
-                            <td>
-                                {% if p.warehouse %}
-                                <small>{{ p.warehouse.name }}</small>
-                                {% else %}
-                                -
-                                {% endif %}
-                            </td>
-                            <td>
-                                <div>{{ p.purchase_quantity }} units</div>
-                                <small class="text-muted">Rs. {{ p.total_purchase_amount|floatformat:0 }}</small>
-                            </td>
-                            <td>
-                                <div>{{ p.actual_purchase_quantity }} units</div>
-                                <small class="text-muted">Rs. {{ p.actual_purchase_amount|floatformat:0 }}</small>
-                            </td>
-                            <td>
-                                <div class="d-flex align-items-center gap-2">
-                                    <div class="achievement-bar flex-grow-1" style="width: 60px;">
-                                        <div class="progress-bar bg-{{ p.achievement_color }}" 
-                                             style="width: {{ p.achievement_percentage }}%;"></div>
-                                    </div>
-                                    <small>{{ p.achievement_percentage|floatformat:0 }}%</small>
-                                </div>
-                            </td>
-                            <td>
-                                <span class="status-badge status-{{ p.status }}">
-                                    {{ p.get_status_display }}
-                                </span>
-                            </td>
-                            <td>
-                                <div class="btn-group btn-group-sm">
-                                    <a href="{% url 'monthly_plan_detail' p.id %}" class="btn btn-outline-primary" title="View">
-                                        <i class="bi bi-eye"></i>
-                                    </a>
-                                </div>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="10" class="text-center py-4">
-                                <i class="bi bi-inbox fs-2 d-block text-muted"></i>
-                                <p class="text-muted mt-2">No plans yet</p>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        
-        {% if page_obj.has_other_pages %}
-        <div class="card-footer">
-            <nav>
-                <ul class="pagination pagination-sm mb-0 justify-content-center">
-                    {% if page_obj.has_previous %}
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}&month={{ month_str }}{% if status_filter %}&status={{ status_filter }}{% endif %}">Previous</a>
-                    </li>
-                    {% endif %}
-                    {% for num in page_obj.paginator.page_range %}
-                    <li class="page-item {% if page_obj.number == num %}active{% endif %}">
-                        <a class="page-link" href="?page={{ num }}&month={{ month_str }}{% if status_filter %}&status={{ status_filter }}{% endif %}">{{ num }}</a>
-                    </li>
-                    {% endfor %}
-                    {% if page_obj.has_next %}
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.next_page_number }}&month={{ month_str }}{% if status_filter %}&status={{ status_filter }}{% endif %}">Next</a>
-                    </li>
-                    {% endif %}
-                </ul>
-            </nav>
-        </div>
-        {% endif %}
-    </div>
-    
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
-// ✅ Check Stock Function
+// ============================================
+// CONSTANTS FROM BACKEND
+// ============================================
+const EXISTING_INVESTMENT = {{ total_balance|default:0 }};
+const CURRENT_INVESTORS = {{ total_investors|default:0 }};
+const AVG_INVESTMENT = 10000;
+
+// ============================================
+// CHECK STOCK
+// ============================================
 function checkStock() {
     const productId = document.getElementById('productSelect').value;
     const warehouseId = document.getElementById('warehouseSelect').value;
-    const requiredQty = document.getElementById('expectedQty').value;
+    const requiredQty = parseFloat(document.getElementById('expectedQty').value) || 0;
     
-    if (!productId || !warehouseId || !requiredQty) {
+    if (!productId || !warehouseId) {
+        document.getElementById('availableStock').value = 0;
+        autoCalculatePurchaseQty();
         return;
     }
     
@@ -577,108 +799,255 @@ function checkStock() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                document.getElementById('stockInfoCard').style.display = 'block';
-                document.getElementById('stockInfoContent').innerHTML = `
-                    <div class="col-md-3">
-                        <div class="card bg-light">
-                            <div class="card-body text-center">
-                                <small class="text-muted">Current Stock</small>
-                                <h5>${data.current_stock.toFixed(2)}</h5>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card bg-light">
-                            <div class="card-body text-center">
-                                <small class="text-muted">Available Stock</small>
-                                <h5>${data.available_stock.toFixed(2)}</h5>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card bg-warning">
-                            <div class="card-body text-center">
-                                <small>Stock to Purchase</small>
-                                <h5>${data.stock_to_purchase.toFixed(2)}</h5>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card bg-${data.status_color} text-white">
-                            <div class="card-body text-center">
-                                <small>Status</small>
-                                <h5>${data.status_text}</h5>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12">
-                        <div class="alert alert-${data.status_color} mb-0">
-                            <i class="bi bi-info-circle me-2"></i>
-                            ${data.message}
-                        </div>
-                    </div>
-                `;
+                document.getElementById('availableStock').value = data.available_stock;
+                autoCalculatePurchaseQty();
             }
+        })
+        .catch(error => {
+            console.error('Stock check error:', error);
+            document.getElementById('availableStock').value = 0;
+            autoCalculatePurchaseQty();
         });
 }
 
-// ✅ Calculate Requirements Function
-function calculateRequirements() {
-    const qty = document.getElementById('purchaseQty').value;
-    const price = document.getElementById('purchasePrice').value;
+// ============================================
+// AUTO CALCULATE PURCHASE QUANTITY
+// ============================================
+function autoCalculatePurchaseQty() {
+    const expectedQty = parseFloat(document.getElementById('expectedQty').value) || 0;
+    const availableStock = parseFloat(document.getElementById('availableStock').value) || 0;
     
-    if (!qty || !price) {
-        alert('Please enter quantity and price');
+    let purchaseQty = expectedQty - availableStock;
+    if (purchaseQty < 0) purchaseQty = 0;
+    purchaseQty = Math.round(purchaseQty);
+    
+    document.getElementById('purchaseQty').value = purchaseQty;
+    
+    const hint = document.getElementById('purchaseQtyHint');
+    if (hint) {
+        hint.innerHTML = `${expectedQty} - ${availableStock.toFixed(0)} = <b>${purchaseQty}</b>`;
+    }
+    
+    document.getElementById('summarySaleQty').textContent = expectedQty;
+    document.getElementById('summaryStock').textContent = availableStock.toFixed(0);
+    document.getElementById('summaryPurchase').textContent = purchaseQty;
+    
+    updateAmount();
+    updateInvestorRequirements(purchaseQty);
+    
+    // ✅ Risk Assessment Calculate
+    setTimeout(calculateRiskAssessment, 500);
+    
+    return purchaseQty;
+}
+
+// ============================================
+// UPDATE AMOUNT
+// ============================================
+function updateAmount() {
+    const purchaseQty = parseFloat(document.getElementById('purchaseQty').value) || 0;
+    const price = parseFloat(document.getElementById('purchasePrice').value) || 0;
+    const total = purchaseQty * price;
+    
+    document.getElementById('summaryAmount').textContent = 'Rs. ' + total.toLocaleString('en-PK', {maximumFractionDigits: 0});
+}
+
+// ============================================
+// UPDATE INVESTOR REQUIREMENTS
+// ============================================
+function updateInvestorRequirements(purchaseQty) {
+    const price = parseFloat(document.getElementById('purchasePrice').value) || 0;
+    
+    if (purchaseQty <= 0 || price <= 0) {
+        document.getElementById('investorCard').style.display = 'none';
         return;
     }
     
-    fetch(`/api/investor-requirement/?purchase_quantity=${qty}&purchase_price=${price}`)
+    const totalPurchase = purchaseQty * price;
+    const additionalNeeded = Math.max(0, totalPurchase - EXISTING_INVESTMENT);
+    const requiredInvestors = Math.ceil(totalPurchase / AVG_INVESTMENT);
+    const additionalInvestors = Math.max(0, requiredInvestors - CURRENT_INVESTORS);
+    
+    document.getElementById('investTotalPurchase').textContent = 'Rs. ' + totalPurchase.toLocaleString('en-PK', {maximumFractionDigits: 0});
+    document.getElementById('investExisting').textContent = 'Rs. ' + EXISTING_INVESTMENT.toLocaleString('en-PK', {maximumFractionDigits: 0});
+    document.getElementById('investAdditional').textContent = 'Rs. ' + additionalNeeded.toLocaleString('en-PK', {maximumFractionDigits: 0});
+    document.getElementById('investInvestors').textContent = additionalInvestors;
+    
+    document.getElementById('investorCard').style.display = 'block';
+}
+
+// ============================================
+// ✅ RISK ASSESSMENT
+// ============================================
+function calculateRiskAssessment() {
+    const productId = document.getElementById('productSelect').value;
+    const warehouseId = document.getElementById('warehouseSelect').value;
+    const saleQty = parseFloat(document.getElementById('expectedQty').value) || 0;
+    const purchaseQty = parseFloat(document.getElementById('purchaseQty').value) || 0;
+    const unitPrice = parseFloat(document.getElementById('purchasePrice').value) || 0;
+    
+    if (!productId || !warehouseId || purchaseQty <= 0 || unitPrice <= 0) {
+        document.getElementById('riskCard').style.display = 'none';
+        return;
+    }
+    
+    // Show loading
+    document.getElementById('riskScore').textContent = '...';
+    document.getElementById('riskCard').style.display = 'block';
+    
+    fetch(`/api/risk-assessment/?product_id=${productId}&warehouse_id=${warehouseId}&sale_qty=${saleQty}&purchase_qty=${purchaseQty}&unit_price=${unitPrice}`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                document.getElementById('resultCard').style.display = 'block';
-                document.getElementById('resultContent').innerHTML = `
-                    <div class="col-md-3">
-                        <div class="card bg-light">
-                            <div class="card-body text-center">
-                                <small class="text-muted">Total Purchase</small>
-                                <h5>Rs. ${data.total_purchase.toLocaleString()}</h5>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card bg-light">
-                            <div class="card-body text-center">
-                                <small class="text-muted">Existing Investment</small>
-                                <h5>Rs. ${data.existing_investment.toLocaleString()}</h5>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card bg-warning">
-                            <div class="card-body text-center">
-                                <small>Additional Investment Needed</small>
-                                <h5>Rs. ${data.additional_needed.toLocaleString()}</h5>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card bg-info text-white">
-                            <div class="card-body text-center">
-                                <small>Additional Investors Needed</small>
-                                <h5>${data.additional_investors}</h5>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12">
-                        <div class="alert alert-success mb-0">
-                            <i class="bi bi-info-circle me-2"></i>
-                            ${data.message}
-                        </div>
-                    </div>
-                `;
+                displayRiskAssessment(data);
+            } else {
+                document.getElementById('riskCard').style.display = 'none';
             }
+        })
+        .catch(error => {
+            console.error('Risk assessment error:', error);
+            document.getElementById('riskCard').style.display = 'none';
         });
 }
+
+function displayRiskAssessment(data) {
+    const circle = document.getElementById('riskCircle');
+    const score = document.getElementById('riskScore');
+    const category = document.getElementById('riskCategory');
+    
+    // Update score
+    score.textContent = data.score;
+    
+    // Colors
+    const colors = {
+        'success': 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+        'warning': 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+        'danger': 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+        'info': 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+    };
+    
+    const bgColors = {
+        'success': '#10b981',
+        'warning': '#f59e0b',
+        'danger': '#ef4444',
+        'info': '#3b82f6',
+    };
+    
+    circle.style.background = colors[data.color] || colors['info'];
+    
+    // Update category
+    category.textContent = data.category;
+    category.style.background = bgColors[data.color] || '#3b82f6';
+    
+    // Display factors
+    let factorsHtml = '';
+    if (data.factors) {
+        for (const [key, factor] of Object.entries(data.factors)) {
+            const percent = (factor.score / factor.max_score) * 100;
+            const barColor = factor.color === 'success' ? '#10b981' :
+                            factor.color === 'warning' ? '#f59e0b' :
+                            factor.color === 'danger' ? '#ef4444' : '#3b82f6';
+            
+            factorsHtml += `
+                <div class="risk-factor-row">
+                    <div class="risk-factor-header">
+                        <small class="fw-bold">${factor.name}</small>
+                        <small class="text-muted">${factor.value} - ${factor.status}</small>
+                    </div>
+                    <div class="risk-factor-bar">
+                        <div class="risk-factor-bar-fill" style="width:${percent}%;background:${barColor};"></div>
+                    </div>
+                </div>
+            `;
+        }
+    }
+    document.getElementById('riskFactors').innerHTML = factorsHtml;
+    
+    // Display positives
+    if (data.positives && data.positives.length > 0) {
+        let positivesHtml = '<div class="alert alert-success py-2 mb-0">';
+        positivesHtml += '<strong>✅ Good Points:</strong><ul class="mb-0 mt-1" style="font-size:0.85rem;">';
+        data.positives.forEach(p => {
+            positivesHtml += `<li>${p}</li>`;
+        });
+        positivesHtml += '</ul></div>';
+        document.getElementById('riskPositives').innerHTML = positivesHtml;
+    } else {
+        document.getElementById('riskPositives').innerHTML = '';
+    }
+    
+    // Display alerts
+    if (data.alerts && data.alerts.length > 0) {
+        let alertsHtml = '<div class="alert alert-warning py-2 mb-0">';
+        alertsHtml += '<strong>⚠️ Watch Out:</strong><ul class="mb-0 mt-1" style="font-size:0.85rem;">';
+        data.alerts.forEach(a => {
+            alertsHtml += `<li>${a}</li>`;
+        });
+        alertsHtml += '</ul></div>';
+        document.getElementById('riskAlerts').innerHTML = alertsHtml;
+    } else {
+        document.getElementById('riskAlerts').innerHTML = '';
+    }
+    
+    // Display recommendation
+    if (data.recommendation) {
+        const action = data.recommendation.action;
+        let boxClass = 'safe';
+        if (action === 'SPLIT_PURCHASE' || action === 'PURCHASE_CAUTION') {
+            boxClass = 'caution';
+        } else if (action === 'WAIT' || action === 'DO_NOT_PURCHASE') {
+            boxClass = 'danger';
+        }
+        
+        let recHtml = `
+            <div class="recommendation-box ${boxClass}">
+                <div class="recommendation-title">${data.recommendation.title}</div>
+                <p class="mb-0 small">${data.recommendation.message}</p>
+                <div class="action-steps">
+                    <strong class="small">📋 Action Steps:</strong>
+                    <ol class="mb-0">
+        `;
+        data.recommendation.steps.forEach(step => {
+            recHtml += `<li>${step}</li>`;
+        });
+        recHtml += '</ol></div></div>';
+        document.getElementById('riskRecommendation').innerHTML = recHtml;
+    }
+}
+
+// ============================================
+// EVENT LISTENERS
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    const productSelect = document.getElementById('productSelect');
+    const warehouseSelect = document.getElementById('warehouseSelect');
+    const expectedQty = document.getElementById('expectedQty');
+    const purchasePrice = document.getElementById('purchasePrice');
+    
+    // Product/Warehouse change → Stock check
+    productSelect.addEventListener('change', checkStock);
+    warehouseSelect.addEventListener('change', checkStock);
+    
+    // Sale Qty change → Auto calculate
+    expectedQty.addEventListener('input', function() {
+        autoCalculatePurchaseQty();
+    });
+    
+    // Price change → Update amount + investor + risk
+    purchasePrice.addEventListener('input', function() {
+        updateAmount();
+        const purchaseQty = parseFloat(document.getElementById('purchaseQty').value) || 0;
+        updateInvestorRequirements(purchaseQty);
+        setTimeout(calculateRiskAssessment, 500);
+    });
+    
+    // Initial calculation
+    const initialStock = parseFloat(document.getElementById('availableStock').value) || 0;
+    const initialSaleQty = parseFloat(expectedQty.value) || 0;
+    
+    if (initialStock > 0 || initialSaleQty > 0) {
+        autoCalculatePurchaseQty();
+    }
+});
 </script>
 {% endblock %}

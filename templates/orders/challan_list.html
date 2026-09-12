@@ -1,366 +1,224 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load humanize %}
 
 {% block title %}Delivery Challans{% endblock %}
 {% block page_title %}🚚 Delivery Challans{% endblock %}
 
 {% block extra_css %}
 <style>
-    :root {
-        --card-bg: #ffffff;
-        --border: #eef0f5;
-        --text: #1a1a2e;
-        --text-light: #6b7280;
-        --accent: #0d6efd;
-        --success: #11998e;
-        --danger: #dc3545;
-        --warning: #f2994a;
-        --info: #00bcd4;
-    }
+    :root { --border: #eef0f5; --text: #1a1a2e; --accent: #0d6efd; }
     
-    .filter-bar {
+    /* ========================================= */
+    /* STATS CARDS                                */
+    /* ========================================= */
+    .stats-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:12px; margin-bottom:20px; }
+    .stat-mini {
+        background:white; border-radius:14px; padding:14px 16px; border:1px solid var(--border);
+        display:flex; align-items:center; gap:12px; cursor:pointer; transition:all 0.3s;
+    }
+    .stat-mini:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.06); }
+    .stat-mini .sm-icon { width:42px; height:42px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0; }
+    .stat-mini .sm-value { font-size:1.2rem; font-weight:800; color:var(--text); }
+    .stat-mini .sm-label { font-size:0.68rem; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; }
+    
+    .icon-total{background:#eef2ff;color:#667eea}
+    .icon-sale{background:#e0f7fa;color:#00bcd4}
+    .icon-transfer{background:#ede7f6;color:#7c4dff}
+    .icon-return{background:#fff3cd;color:#f2994a}
+    .icon-converted{background:#e8f5e9;color:#4caf50}
+    .icon-pending{background:#fce4ec;color:#dc3545}
+    
+    /* ========================================= */
+    /* FILTER BAR                                 */
+    /* ========================================= */
+    .filter-bar { background:white; border-radius:14px; padding:16px 20px; border:1px solid var(--border); margin-bottom:20px; }
+    .filter-bar .form-control, .filter-bar .form-select { border-radius:10px; border:2px solid #eef0f5; padding:9px 14px; font-size:0.88rem; background:#fafbfc; }
+    .filter-bar .form-control:focus, .filter-bar .form-select:focus { border-color:#667eea; background:white; box-shadow:0 0 0 3px rgba(102,126,234,0.1); }
+    .btn-filter { border-radius:10px; padding:10px 20px; font-weight:700; font-size:0.85rem; border:none; background:linear-gradient(135deg,#667eea,#764ba2); color:white; display:flex; align-items:center; justify-content:center; gap:6px; }
+    .btn-filter:hover { color:white; opacity:0.9; }
+    
+    /* ========================================= */
+    /* TABLE CARD                                 */
+    /* ========================================= */
+    .table-card { background:white; border-radius:16px; border:1px solid var(--border); }
+    .table-header { display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border); background:#fafbfc; border-radius:16px 16px 0 0; }
+    .table-header h5 { margin:0; font-weight:700; font-size:0.95rem; }
+    .badge-count { background:var(--accent); color:white; padding:4px 12px; border-radius:20px; font-size:0.72rem; font-weight:600; margin-left:8px; }
+    .btn-new { padding:8px 16px; border-radius:10px; font-weight:700; font-size:0.82rem; text-decoration:none; background:linear-gradient(135deg,#667eea,#764ba2); color:white; display:inline-flex; align-items:center; gap:6px; transition:all 0.2s; }
+    .btn-new:hover { color:white; opacity:0.9; }
+    
+    /* ========================================= */
+    /* TABLE                                      */
+    /* ========================================= */
+    .table-responsive-custom { overflow-x:auto; }
+    .challan-table { width:100%; border-collapse:collapse; min-width:1000px; }
+    .challan-table thead th { background:#1a1d2e; color:white; padding:12px 14px; font-size:0.68rem; text-transform:uppercase; letter-spacing:1px; font-weight:700; white-space:nowrap; }
+    .challan-table tbody td { padding:12px 14px; border-bottom:1px solid #f0f2f7; font-size:0.85rem; color:var(--text); vertical-align:middle; }
+    .challan-table tbody tr { transition:all 0.2s; cursor:pointer; }
+    .challan-table tbody tr:hover { background:#f8f9ff; }
+    .challan-table tbody tr:nth-child(even) { background:#fafbfd; }
+    .challan-table tbody tr:nth-child(even):hover { background:#f0f4ff; }
+    
+    .text-right{text-align:right}
+    .text-center{text-align:center}
+    
+    /* ========================================= */
+    /* STATUS BADGES                              */
+    /* ========================================= */
+    .status-badge { padding:4px 12px; border-radius:15px; font-size:0.7rem; font-weight:700; white-space:nowrap; display:inline-flex; align-items:center; gap:5px; }
+    .status-dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+    .status-converted{background:#d4edda;color:#155724} .status-converted .status-dot{background:#28a745}
+    .status-pending{background:#fff3cd;color:#856404} .status-pending .status-dot{background:#f2994a}
+    
+    /* Reason Badges */
+    .reason-badge { padding:3px 10px; border-radius:12px; font-size:0.7rem; font-weight:600; display:inline-flex; align-items:center; gap:4px; }
+    .reason-sale{background:#e0f7fa;color:#055160}
+    .reason-transfer{background:#ede7f6;color:#4a148c}
+    .reason-job_work{background:#fff3cd;color:#856404}
+    .reason-approval{background:#e8f0fe;color:#084298}
+    .reason-return{background:#fce4ec;color:#721c24}
+    .reason-other{background:#e2e3e5;color:#383d41}
+    
+    /* ========================================= */
+    /* CHALLAN NUMBER LINK                        */
+    /* ========================================= */
+    .challan-link { color:var(--accent); font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:5px; transition:all 0.2s; }
+    .challan-link:hover { color:#0a58ca; text-decoration:underline; }
+    .challan-link i { font-size:0.8rem; }
+    
+    /* ========================================= */
+    /* ACTION BUTTONS                             */
+    /* ========================================= */
+    .btn-action { width:30px; height:30px; border-radius:8px; border:1px solid #e0e3eb; background:white; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#5a6070; transition:all 0.2s; font-size:1.2rem; line-height:1; padding:0; }
+    .btn-action:hover { background:#f0f2f7; color:#1a1a2e; border-color:#667eea; }
+    
+    /* ========================================= */
+    /* CUSTOM ACTIONS MENU                        */
+    /* ========================================= */
+    .actions-menu {
+        display: none;
+        position: fixed;
         background: white;
-        border-radius: 14px;
-        padding: 18px 20px;
-        border: 1px solid var(--border);
-        margin-bottom: 20px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-    }
-    
-    .filter-bar .form-control,
-    .filter-bar .form-select {
         border-radius: 10px;
-        border: 2px solid #eef0f5;
-        padding: 10px 14px;
-        font-size: 0.9rem;
-        transition: all 0.2s;
-        background: #fafbfc;
-        font-weight: 500;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+        min-width: 240px;
+        padding: 8px 0;
+        z-index: 99999;
+        border: 1px solid #eef0f5;
     }
-    
-    .filter-bar .form-control:focus,
-    .filter-bar .form-select:focus {
-        border-color: var(--accent);
-        box-shadow: 0 0 0 3px rgba(13,110,253,0.1);
-        background: white;
-        outline: none;
-    }
-    
-    .filter-bar .form-label-mini {
-        font-weight: 700;
-        font-size: 0.68rem;
-        text-transform: uppercase;
-        letter-spacing: 1.5px;
-        color: #8a8fa0;
-        margin-bottom: 4px;
-        display: block;
-    }
-    
-    .btn-filter {
-        border-radius: 10px;
-        padding: 10px 20px;
-        font-weight: 700;
-        font-size: 0.85rem;
-        border: none;
-        cursor: pointer;
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        color: white;
-        transition: all 0.3s;
+
+    .actions-menu.show { display: block; }
+
+    .actions-menu a {
         display: flex;
         align-items: center;
-        justify-content: center;
-        gap: 6px;
-    }
-    
-    .btn-filter:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(102,126,234,0.4);
-    }
-    
-    .table-card {
-        background: white;
-        border-radius: 16px;
-        border: 1px solid var(--border);
-        overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-    }
-    
-    .table-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 18px 22px;
-        border-bottom: 1px solid var(--border);
-        background: #fafbfc;
-        flex-wrap: wrap;
-        gap: 12px;
-    }
-    
-    .table-header h5 {
-        margin: 0;
-        font-weight: 700;
-        font-size: 1rem;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    
-    .badge-count {
-        background: var(--accent);
-        color: white;
-        padding: 5px 14px;
-        border-radius: 20px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-    
-    .table-responsive-custom {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-    
-    .challan-table {
-        width: 100%;
-        border-collapse: collapse;
-        min-width: 850px;
-    }
-    
-    .challan-table thead th {
-        background: #1a1d2e;
-        color: white;
-        padding: 14px 16px;
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        letter-spacing: 1.5px;
-        font-weight: 700;
-        white-space: nowrap;
-        border: none;
-    }
-    
-    .challan-table tbody td {
-        padding: 12px 16px;
-        border-bottom: 1px solid #f0f2f7;
-        font-size: 0.88rem;
-        color: var(--text);
-        vertical-align: middle;
-    }
-    
-    .challan-table tbody tr {
-        transition: all 0.2s;
-        cursor: pointer;
-    }
-    
-    .challan-table tbody tr:hover {
-        background: #f8f9ff;
-    }
-    
-    .challan-table tbody tr:nth-child(even) {
-        background: #fafbfd;
-    }
-    
-    .challan-table tbody tr:nth-child(even):hover {
-        background: #f0f4ff;
-    }
-    
-    .challan-link {
-        color: var(--accent);
-        font-weight: 700;
-        text-decoration: none;
-        font-size: 0.9rem;
-    }
-    
-    .challan-link:hover {
-        text-decoration: underline;
-        color: #0b5ed7;
-    }
-    
-    .text-right { text-align: right; }
-    .text-center { text-align: center; }
-    
-    .reason-badge {
-        padding: 5px 14px;
-        border-radius: 20px;
-        font-size: 0.72rem;
-        font-weight: 700;
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        white-space: nowrap;
-    }
-    
-    .reason-sale { background: #e8f0fe; color: #084298; }
-    .reason-transfer { background: #ede7f6; color: #4a148c; }
-    .reason-job_work { background: #fff3cd; color: #856404; }
-    .reason-approval { background: #e0f7fa; color: #055160; }
-    .reason-return { background: #fce4ec; color: #721c24; }
-    .reason-other { background: #f5f5f5; color: #555; }
-    
-    .status-badge {
-        padding: 5px 14px;
-        border-radius: 20px;
-        font-size: 0.72rem;
-        font-weight: 700;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-    }
-    
-    .status-dot {
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-        display: inline-block;
-    }
-    
-    .status-converted {
-        background: #d4edda;
-        color: #155724;
-    }
-    
-    .status-converted .status-dot {
-        background: #28a745;
-    }
-    
-    .status-pending {
-        background: #fff3cd;
-        color: #856404;
-    }
-    
-    .status-pending .status-dot {
-        background: #f2994a;
-    }
-    
-    .order-link {
-        color: #667eea;
-        text-decoration: none;
-        font-weight: 600;
-        font-size: 0.82rem;
-    }
-    
-    .order-link:hover {
-        text-decoration: underline;
-        color: #0d6efd;
-    }
-    
-    /* Action Buttons */
-    .action-btns {
-        display: flex;
-        gap: 4px;
-        justify-content: center;
-    }
-    
-    .btn-icon-action {
-        width: 32px;
-        height: 32px;
-        border-radius: 8px;
-        border: 1px solid #e0e3eb;
-        background: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: all 0.2s;
+        gap: 10px;
+        padding: 10px 16px;
+        color: #1a1a2e;
         text-decoration: none;
         font-size: 0.85rem;
+        transition: all 0.15s;
     }
+
+    .actions-menu a:hover { background: #f5f7ff; color: #667eea; }
+    .actions-menu a.text-success:hover { color: #28a745; background: #e8f5e9; }
+    .actions-menu a.text-danger:hover { color: #dc3545; background: #fce4ec; }
+    .actions-menu a.text-info:hover { color: #0dcaf0; background: #e0f7fa; }
+    .actions-menu a.text-primary:hover { color: #667eea; background: #eef2ff; }
+    .actions-menu a.text-warning:hover { color: #f2994a; background: #fff8e1; }
+
+    .actions-menu hr { margin: 5px 0; border: none; border-top: 1px solid #eef0f5; }
+    .actions-menu i { width: 18px; text-align: center; font-size: 1rem; }
     
-    .btn-icon-action:hover {
-        transform: scale(1.1);
-    }
+    /* ========================================= */
+    /* EMPTY STATE                                */
+    /* ========================================= */
+    .empty-state { text-align:center; padding:60px 20px; color:#8a8fa0; }
+    .empty-state .empty-icon { font-size:4rem; opacity:0.2; margin-bottom:15px; display:block; }
+    .empty-state h4 { color:#5a6070; font-weight:700; }
     
-    .btn-view {
-        color: #0d6efd;
-        border-color: #cfe2ff;
-    }
-    
-    .btn-view:hover {
-        background: #e8f0fe;
-        color: #084298;
-        border-color: #0d6efd;
-    }
-    
-    .btn-pdf {
-        color: #dc3545;
-        border-color: #f5c6cb;
-    }
-    
-    .btn-pdf:hover {
-        background: #fce4ec;
-        color: #721c24;
-        border-color: #dc3545;
-    }
-    
-    .btn-print {
-        color: #198754;
-        border-color: #badbcc;
-    }
-    
-    .btn-print:hover {
-        background: #d4edda;
-        color: #0f5132;
-        border-color: #198754;
-    }
-    
-    .empty-state {
-        text-align: center;
-        padding: 60px 20px;
-    }
-    
-    .empty-state .empty-icon {
-        font-size: 5rem;
-        opacity: 0.2;
-        margin-bottom: 15px;
-    }
-    
-    .empty-state h4 {
-        color: #8a8fa0;
-        font-weight: 700;
-    }
-    
-    .empty-state p {
-        color: #b0b5c0;
-        font-size: 0.9rem;
-    }
-    
-    @media (max-width: 768px) {
-        .filter-bar { padding: 14px 16px; }
-        .challan-table { min-width: 700px; }
-        .challan-table thead th,
-        .challan-table tbody td { padding: 10px 12px; font-size: 0.8rem; }
-        .table-header { padding: 14px 16px; }
-        .btn-icon-action { width: 28px; height: 28px; font-size: 0.75rem; }
+    /* ========================================= */
+    /* MOBILE                                     */
+    /* ========================================= */
+    @media (max-width:768px) {
+        .stats-row{grid-template-columns:repeat(2,1fr)}
+        .challan-table{min-width:800px}
+        .challan-table thead th,.challan-table tbody td{padding:8px 10px;font-size:0.78rem}
     }
 </style>
 {% endblock %}
 
 {% block content %}
 
-<!-- Filter Bar -->
+<!-- ========================================== -->
+<!-- STATS CARDS                                 -->
+<!-- ========================================== -->
+<div class="stats-row">
+    <div class="stat-mini">
+        <div class="sm-icon icon-total">🚚</div>
+        <div>
+            <div class="sm-value">{{ total_challans|default:'0' }}</div>
+            <div class="sm-label">Total Challans</div>
+        </div>
+    </div>
+    <div class="stat-mini">
+        <div class="sm-icon icon-sale">🛒</div>
+        <div>
+            <div class="sm-value">{{ sale_count|default:'0' }}</div>
+            <div class="sm-label">Sale Challans</div>
+        </div>
+    </div>
+    <div class="stat-mini">
+        <div class="sm-icon icon-transfer">🔄</div>
+        <div>
+            <div class="sm-value">{{ transfer_count|default:'0' }}</div>
+            <div class="sm-label">Transfers</div>
+        </div>
+    </div>
+    <div class="stat-mini">
+        <div class="sm-icon icon-converted">✅</div>
+        <div>
+            <div class="sm-value">{{ converted_count|default:'0' }}</div>
+            <div class="sm-label">Converted</div>
+        </div>
+    </div>
+    <div class="stat-mini">
+        <div class="sm-icon icon-pending">⏳</div>
+        <div>
+            <div class="sm-value">{{ pending_count|default:'0' }}</div>
+            <div class="sm-label">Pending</div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- FILTER BAR                                  -->
+<!-- ========================================== -->
 <div class="filter-bar">
-    <form method="post">{% csrf_token %} method="GET" class="row g-2 align-items-end">
+    <form method="GET" class="row g-2">
         <div class="col-md-4">
-            <label class="form-label-mini">🔍 Search</label>
-            <input type="text" name="search" class="form-control" 
-                   placeholder="Challan No, Customer Name..." value="{{ search }}">
+            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">🔍 Search</label>
+            <input type="text" name="search" class="form-control" placeholder="Challan No, Customer, Vehicle..." value="{{ search|default:'' }}">
         </div>
         <div class="col-md-3">
-            <label class="form-label-mini">📋 Reason</label>
+            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">📋 Reason</label>
             <select name="reason" class="form-select">
                 <option value="">All Reasons</option>
                 <option value="sale" {% if selected_reason == 'sale' %}selected{% endif %}>🛒 Sale</option>
-                <option value="transfer" {% if selected_reason == 'transfer' %}selected{% endif %}>🔄 Transfer</option>
-                <option value="job_work" {% if selected_reason == 'job_work' %}selected{% endif %}>🔧 Job Work</option>
-                <option value="approval" {% if selected_reason == 'approval' %}selected{% endif %}>✅ Approval</option>
-                <option value="return" {% if selected_reason == 'return' %}selected{% endif %}>↩️ Return</option>
-                <option value="other" {% if selected_reason == 'other' %}selected{% endif %}>📌 Other</option>
+                <option value="transfer" {% if selected_reason == 'transfer' %}selected{% endif %}>🔄 Stock Transfer</option>
+                <option value="job_work" {% if selected_reason == 'job_work' %}selected{% endif %}>⚙️ Job Work</option>
+                <option value="approval" {% if selected_reason == 'approval' %}selected{% endif %}>📋 On Approval</option>
+                <option value="return" {% if selected_reason == 'return' %}selected{% endif %}>↩️ Return to Vendor</option>
+                <option value="other" {% if selected_reason == 'other' %}selected{% endif %}>📦 Other</option>
             </select>
         </div>
         <div class="col-md-3">
-            <label class="form-label-mini">📊 Status</label>
+            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">✅ Status</label>
             <select name="status" class="form-select">
-                <option value="">All</option>
-                <option value="converted" {% if selected_status == 'converted' %}selected{% endif %}>✅ Converted</option>
-                <option value="pending" {% if selected_status == 'pending' %}selected{% endif %}>⏳ Pending</option>
+                <option value="">All Status</option>
+                <option value="converted" {% if selected_status == 'converted' %}selected{% endif %}>✅ Converted to Sale</option>
+                <option value="pending" {% if selected_status == 'pending' %}selected{% endif %}>⏳ Pending Conversion</option>
             </select>
         </div>
         <div class="col-md-2">
@@ -371,21 +229,18 @@
     </form>
 </div>
 
-<!-- Table Card -->
+<!-- ========================================== -->
+<!-- TABLE                                       -->
+<!-- ========================================== -->
 <div class="table-card">
     <div class="table-header">
         <h5>
-            🚚 Delivery Challans
-            <span class="badge-count">{{ page_obj.paginator.count|default:'0' }} challans</span>
+            🚚 Delivery Challans 
+            <span class="badge-count">{{ page_obj.paginator.count|default:'0' }}</span>
         </h5>
-        <div class="d-flex gap-2">
-            <a href="{% url 'sale_order_list' %}" class="btn btn-sm btn-outline-primary" style="border-radius:10px; padding:8px 16px; font-weight:600;">
-                📝 View Orders
-            </a>
-            <a href="{% url 'sale_create' %}" class="btn btn-sm btn-primary" style="border-radius:10px; padding:8px 16px; font-weight:600; background:linear-gradient(135deg,#667eea,#764ba2); border:none;">
-                ➕ New Sale
-            </a>
-        </div>
+        <a href="{% url 'sale_order_list' %}" class="btn-new">
+            <i class="bi bi-plus-lg"></i> Create Challan from Order
+        </a>
     </div>
     
     <div class="table-responsive-custom">
@@ -395,106 +250,111 @@
                     <th>Challan No</th>
                     <th>Date</th>
                     <th>Customer</th>
-                    <th>Order</th>
-                    <th>Reason</th>
+                    <th>Order Ref</th>
+                    <th class="text-center">Reason</th>
                     <th class="text-center">Items</th>
-                    <th class="text-right">Total Qty</th>
+                    <th>Vehicle</th>
                     <th>Status</th>
-                    <th class="text-center" style="width:120px;">Actions</th>
+                    <th style="width:60px;">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for challan in page_obj %}
-                <tr>
+                <!-- Clickable Row -->
+                <tr onclick="window.location='{% url 'challan_detail' challan.pk %}'">
+                    
+                    <!-- Challan No -->
                     <td>
-                        <span class="challan-link">{{ challan.challan_no }}</span>
+                        <a href="{% url 'challan_detail' challan.pk %}" 
+                           class="challan-link"
+                           onclick="event.stopPropagation();">
+                            <i class="bi bi-truck"></i>
+                            {{ challan.challan_no }}
+                        </a>
                     </td>
+                    
+                    <!-- Date -->
                     <td>
-                        <div style="font-weight:600;font-size:0.85rem;">{{ challan.challan_date|date:"d M, Y" }}</div>
-                        <small style="color:#8a8fa0;font-size:0.72rem;">{{ challan.challan_date|date:"h:i A" }}</small>
+                        <div style="font-weight:600;">{{ challan.challan_date|date:"d M, Y" }}</div>
+                        <small style="color:#8a8fa0;">{{ challan.challan_date|date:"h:i A" }}</small>
                     </td>
+                    
+                    <!-- Customer -->
                     <td>
                         <strong>{{ challan.customer.name|truncatechars:20 }}</strong>
                         {% if challan.customer.customer_code %}
-                        <br><small style="color:#8a8fa0;font-size:0.72rem;">{{ challan.customer.customer_code }}</small>
+                        <br><small style="color:#8a8fa0;">{{ challan.customer.customer_code }}</small>
                         {% endif %}
                     </td>
+                    
+                    <!-- Order Reference -->
                     <td>
                         {% if challan.order %}
-                        <a href="{% url 'sale_order_detail' challan.order.pk %}" class="order-link">
-                            {{ challan.order.order_no }}
-                        </a>
+                            <a href="{% url 'sale_order_detail' challan.order.pk %}" 
+                               style="color:#667eea;font-weight:600;text-decoration:none;"
+                               onclick="event.stopPropagation();">
+                                {{ challan.order.order_no }}
+                            </a>
                         {% else %}
-                        <span style="color:#ccc;">-</span>
+                            <span style="color:#8a8fa0;">-</span>
                         {% endif %}
                     </td>
-                    <td>
+                    
+                    <!-- Reason -->
+                    <td class="text-center">
                         <span class="reason-badge reason-{{ challan.reason }}">
                             {{ challan.get_reason_display }}
                         </span>
                     </td>
+                    
+                    <!-- Items Count -->
                     <td class="text-center">
-                        <span class="fw-bold">{{ challan.total_items }}</span>
+                        <span class="badge" style="background:#eef2ff;color:#667eea;font-size:0.75rem;padding:4px 10px;">
+                            {{ challan.total_items }} items
+                        </span>
                     </td>
-                    <td class="text-right">
-                        <strong>{{ challan.total_qty|floatformat:2 }}</strong>
-                    </td>
+                    
+                    <!-- Vehicle -->
                     <td>
-                        {% if challan.converted_to_sale %}
-                        <span class="status-badge status-converted">
-                            <span class="status-dot"></span> Invoiced
-                        </span>
+                        {% if challan.vehicle_no %}
+                            <i class="bi bi-truck"></i> {{ challan.vehicle_no }}
                         {% else %}
-                        <span class="status-badge status-pending">
-                            <span class="status-dot"></span> Pending
-                        </span>
+                            <span style="color:#8a8fa0;">-</span>
                         {% endif %}
                     </td>
-                    <td class="text-center">
-                        <div class="action-btns">
-                            <!-- View Button -->
-                            <button class="btn-icon-action btn-view" 
-                                    onclick="showChallanDetail(this)" 
-                                    data-no="{{ challan.challan_no }}"
-                                    data-date="{{ challan.challan_date|date:'d M, Y h:i A' }}"
-                                    data-customer="{{ challan.customer.name }}"
-                                    data-order="{{ challan.order.order_no|default:'N/A' }}"
-                                    data-warehouse="{{ challan.warehouse.name|default:'N/A' }}"
-                                    data-reason="{{ challan.get_reason_display }}"
-                                    data-items="{{ challan.total_items }}"
-                                    data-qty="{{ challan.total_qty|floatformat:2 }}"
-                                    data-vehicle="{{ challan.vehicle_no|default:'N/A' }}"
-                                    data-transport="{{ challan.transport_name|default:'N/A' }}"
-                                    data-status="{{ challan.converted_to_sale|yesno:'Converted,Pending' }}"
-                                    title="Quick View">
-                                👁
-                            </button>
-                            
-                            <!-- PDF Button -->
-                            <a href="/admin/challan-pdf/{{ challan.pk }}/" target="_blank" 
-                               class="btn-icon-action btn-pdf" title="Download PDF">
-                                📄
-                            </a>
-                            
-                            <!-- Print Button -->
-                            <button class="btn-icon-action btn-print" 
-                                    onclick="printChallan('{{ challan.pk }}')" 
-                                    title="Print Challan">
-                                🖨
-                            </button>
-                        </div>
+                    
+                    <!-- Status -->
+                    <td>
+                        {% if challan.converted_to_sale %}
+                            <span class="status-badge status-converted">
+                                <span class="status-dot"></span>✅ Converted
+                            </span>
+                        {% else %}
+                            <span class="status-badge status-pending">
+                                <span class="status-dot"></span>⏳ Pending
+                            </span>
+                        {% endif %}
                     </td>
+                    
+                    <!-- Actions - 3 Dots -->
+                    <td class="text-center" onclick="event.stopPropagation(); event.preventDefault();">
+                        <button type="button" 
+                                class="btn-action" 
+                                onclick="toggleActions({{ challan.id }}, event)"
+                                title="Actions">⋮</button>
+                    </td>
+                    
                 </tr>
                 {% empty %}
                 <tr>
                     <td colspan="9">
                         <div class="empty-state">
-                            <div class="empty-icon">📭</div>
-                            <h4>No Challans Found</h4>
-                            <p>{% if search %}Try different search filters{% else %}No delivery challans created yet{% endif %}</p>
+                            <i class="bi bi-truck empty-icon"></i>
+                            <h4>No Delivery Challans Found</h4>
+                            <p>{% if search %}Try different filters{% else %}Create your first challan from Sale Order!{% endif %}</p>
                             {% if not search %}
-                            <a href="{% url 'sale_order_list' %}" class="btn btn-primary mt-2" style="border-radius:10px; padding:10px 20px; font-weight:600;">
-                                📝 Go to Sale Orders
+                            <a href="{% url 'sale_order_list' %}" class="btn-new mt-2">
+                                <i class="bi bi-plus-lg"></i> Go to Sale Orders
                             </a>
                             {% endif %}
                         </div>
@@ -508,104 +368,148 @@
     {% include 'components/pagination.html' %}
 </div>
 
-<!-- Detail Modal -->
-<div class="modal fade" id="challanModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content" style="border-radius:16px; border:none; box-shadow:0 20px 60px rgba(0,0,0,0.2);">
-            <div class="modal-header" style="background:linear-gradient(135deg,#1a1a2e,#16213e); color:white; border-radius:16px 16px 0 0; padding:18px 22px; border:none;">
-                <h5 class="modal-title">🚚 <span id="modalChallanNo"></span></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" style="filter:brightness(0) invert(1);"></button>
-            </div>
-            <div class="modal-body p-4">
-                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f2f7;font-size:0.9rem;">
-                    <span style="color:#8a8fa0;">📅 Date</span>
-                    <span style="font-weight:600;" id="modalDate"></span>
-                </div>
-                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f2f7;font-size:0.9rem;">
-                    <span style="color:#8a8fa0;">👤 Customer</span>
-                    <span style="font-weight:600;" id="modalCustomer"></span>
-                </div>
-                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f2f7;font-size:0.9rem;">
-                    <span style="color:#8a8fa0;">📝 Order</span>
-                    <span style="font-weight:600;" id="modalOrder"></span>
-                </div>
-                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f2f7;font-size:0.9rem;">
-                    <span style="color:#8a8fa0;">🏭 Warehouse</span>
-                    <span style="font-weight:600;" id="modalWarehouse"></span>
-                </div>
-                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f2f7;font-size:0.9rem;">
-                    <span style="color:#8a8fa0;">📋 Reason</span>
-                    <span style="font-weight:600;" id="modalReason"></span>
-                </div>
-                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f2f7;font-size:0.9rem;">
-                    <span style="color:#8a8fa0;">📦 Items</span>
-                    <span style="font-weight:600;" id="modalItems"></span>
-                </div>
-                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f2f7;font-size:0.9rem;">
-                    <span style="color:#8a8fa0;">📊 Total Qty</span>
-                    <span style="font-weight:600;" id="modalQty"></span>
-                </div>
-                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f2f7;font-size:0.9rem;">
-                    <span style="color:#8a8fa0;">🚛 Vehicle</span>
-                    <span style="font-weight:600;" id="modalVehicle"></span>
-                </div>
-                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f2f7;font-size:0.9rem;">
-                    <span style="color:#8a8fa0;">🏢 Transport</span>
-                    <span style="font-weight:600;" id="modalTransport"></span>
-                </div>
-                <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:0.9rem;">
-                    <span style="color:#8a8fa0;">📊 Status</span>
-                    <span style="font-weight:600;" id="modalStatus"></span>
-                </div>
-            </div>
-            <div class="modal-footer border-0 pt-0">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="border-radius:10px;">Close</button>
-            </div>
-        </div>
-    </div>
+<!-- ========================================== -->
+<!-- ACTION MENUS - Table ke BAHAR               -->
+<!-- ========================================== -->
+{% for challan in page_obj %}
+<div class="actions-menu" id="actions-{{ challan.id }}">
+    
+    <!-- View Details -->
+    <a href="{% url 'challan_detail' challan.pk %}">
+        <i class="bi bi-eye text-primary"></i> View Details
+    </a>
+    
+    <!-- Print Challan -->
+    <a href="{% url 'generate_challan_pdf' challan.pk %}" target="_blank">
+        <i class="bi bi-printer text-info"></i> Print Challan
+    </a>
+    
+    <!-- View Sale Order -->
+    {% if challan.order %}
+    <a href="{% url 'sale_order_detail' challan.order.pk %}">
+        <i class="bi bi-cart text-primary"></i> View Sale Order
+    </a>
+    {% endif %}
+    
+    <!-- Convert to Sale -->
+    {% if not challan.converted_to_sale %}
+    <hr>
+    <a href="{% url 'challan_convert_to_sale' challan.pk %}" 
+       class="text-success"
+       onclick="return confirm('🚚 Challan {{ challan.challan_no }} ko Sale mein convert karein?\n\nCustomer: {{ challan.customer.name }}\nItems: {{ challan.total_items }}\n\nYeh action undo nahi ho sakti!')">
+        <i class="bi bi-receipt"></i> 🧾 Convert to Sale/Invoice
+    </a>
+    {% else %}
+    <hr>
+    <a href="{% url 'sale_detail' challan.sale.pk %}" class="text-success">
+        <i class="bi bi-check-circle"></i> View Invoice
+    </a>
+    {% endif %}
+    
+    <!-- Delete Challan -->
+    {% if not challan.converted_to_sale %}
+    <hr>
+    <a href="{% url 'challan_delete' challan.pk %}" 
+       class="text-danger"
+       onclick="return confirm('⚠️ Challan {{ challan.challan_no }} ko delete karein?\n\nYeh action undo nahi ho sakti!')">
+        <i class="bi bi-trash"></i> Delete Challan
+    </a>
+    {% endif %}
+    
 </div>
+{% endfor %}
 
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    // Quick View Modal
-    function showChallanDetail(btn) {
-        document.getElementById('modalChallanNo').textContent = btn.dataset.no;
-        document.getElementById('modalDate').textContent = btn.dataset.date;
-        document.getElementById('modalCustomer').textContent = btn.dataset.customer;
-        document.getElementById('modalOrder').textContent = btn.dataset.order;
-        document.getElementById('modalWarehouse').textContent = btn.dataset.warehouse;
-        document.getElementById('modalReason').textContent = btn.dataset.reason;
-        document.getElementById('modalItems').textContent = btn.dataset.items;
-        document.getElementById('modalQty').textContent = btn.dataset.qty;
-        document.getElementById('modalVehicle').textContent = btn.dataset.vehicle;
-        document.getElementById('modalTransport').textContent = btn.dataset.transport;
-        
-        const statusEl = document.getElementById('modalStatus');
-        if (btn.dataset.status === 'Converted') {
-            statusEl.innerHTML = '<span style="color:#28a745;font-weight:700;">✅ Converted to Invoice</span>';
-        } else {
-            statusEl.innerHTML = '<span style="color:#f2994a;font-weight:700;">⏳ Pending</span>';
-        }
-        
-        new bootstrap.Modal(document.getElementById('challanModal')).show();
+// ========================================== //
+// CUSTOM ACTIONS DROPDOWN                     //
+// ========================================== //
+let currentOpenMenu = null;
+
+function toggleActions(challanId, event) {
+    event.stopPropagation();
+    event.preventDefault();
+    
+    const menu = document.getElementById('actions-' + challanId);
+    if (!menu) {
+        console.log('❌ Menu not found for challan:', challanId);
+        return;
     }
     
-    // Print Challan
-    function printChallan(challanId) {
-        const pdfUrl = '/admin/challan-pdf/' + challanId + '/';
-        const printWindow = window.open(pdfUrl, '_blank');
-        
-        if (printWindow) {
-            printWindow.addEventListener('load', function() {
-                setTimeout(function() {
-                    printWindow.print();
-                }, 1000);
-            });
-        } else {
-            alert('⚠️ Popup blocked! Please allow popups for this site.\n\nOr click PDF button to download manually.');
-        }
+    // Same menu open hai to band karein
+    if (currentOpenMenu === menu) {
+        menu.classList.remove('show');
+        currentOpenMenu = null;
+        return;
     }
+    
+    // Purana menu band karein
+    if (currentOpenMenu) {
+        currentOpenMenu.classList.remove('show');
+    }
+    
+    // Position calculate
+    const btn = event.currentTarget;
+    const rect = btn.getBoundingClientRect();
+    
+    const menuWidth = 240;
+    const menuHeight = 350;
+    
+    let top = rect.bottom + 5;
+    let left = rect.right - menuWidth;
+    
+    // Screen boundaries
+    if (left < 10) left = 10;
+    if (left + menuWidth > window.innerWidth - 10) {
+        left = window.innerWidth - menuWidth - 10;
+    }
+    if (top + menuHeight > window.innerHeight - 10) {
+        top = rect.top - menuHeight - 5;
+        if (top < 10) top = 10;
+    }
+    
+    menu.style.top = top + 'px';
+    menu.style.left = left + 'px';
+    menu.classList.add('show');
+    currentOpenMenu = menu;
+    
+    console.log('✅ Menu opened for challan:', challanId);
+}
+
+// Bahar click par band
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.actions-menu') && !e.target.closest('.btn-action')) {
+        document.querySelectorAll('.actions-menu.show').forEach(menu => {
+            menu.classList.remove('show');
+        });
+        currentOpenMenu = null;
+    }
+});
+
+// Escape key se band
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && currentOpenMenu) {
+        currentOpenMenu.classList.remove('show');
+        currentOpenMenu = null;
+    }
+});
+
+// Scroll par band
+window.addEventListener('scroll', function() {
+    if (currentOpenMenu) {
+        currentOpenMenu.classList.remove('show');
+        currentOpenMenu = null;
+    }
+}, true);
+
+// Resize par band
+window.addEventListener('resize', function() {
+    if (currentOpenMenu) {
+        currentOpenMenu.classList.remove('show');
+        currentOpenMenu = null;
+    }
+});
 </script>
 {% endblock %}
