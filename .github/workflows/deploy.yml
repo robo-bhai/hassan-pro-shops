@@ -6,9 +6,11 @@ on:
   workflow_dispatch:
     inputs:
       restore_action:
-        description: 'Type "r" or "latest" or specific file name within 10s to force restore. Default runs standard pipeline.'
+        description: 'Type "latest" or specific backup file name to restore (10s window).'
         required: false
         default: ''
+  repository_dispatch:
+    types: [ backup_now, restore_now ]
 
 concurrency:
   group: django-production-runner
@@ -47,6 +49,7 @@ jobs:
       SUPERUSER_PASSWORD: ${{ secrets.SUPERUSER_PASSWORD }}
       ALLOWED_HOSTS: ${{ secrets.ALLOWED_HOSTS }}
       CSRF_TRUSTED_ORIGINS: ${{ secrets.CSRF_TRUSTED_ORIGINS }}
+      RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
       PYTHONUNBUFFERED: "1"
 
     steps:
@@ -65,30 +68,43 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y mysql-client rclone
 
-      # --- 10-SECOND RESTORE PROMPT & INTERACTION ---
-      - name: Check Restore Input with 10s Delay
-        id: restore-check
+      # --- ROUTE EVALUATION (TERMUX CURL VS WEB DISPATCH) ---
+      - name: Parse Trigger Source & Inputs
+        id: trigger-router
         env:
+          EVENT_NAME: ${{ github.event_name }}
           INPUT_VAL: ${{ github.event.inputs.restore_action }}
+          CLIENT_PAYLOAD_FILE: ${{ github.event.client_payload.file }}
         run: |
           echo "=================================================="
-          echo "         RESTORE INPUT CHECK (10s TIMEOUT)        "
+          echo "             TRIGGER ROUTER EVALUATION            "
           echo "=================================================="
-          echo "Provided Input: '$INPUT_VAL'"
           
-          # Wait 10 seconds timeout buffer
-          sleep 10
-          
-          if [ -n "$INPUT_VAL" ]; then
-            echo "RESTORE_REQUESTED=true" >> $GITHUB_ENV
-            echo "TARGET_RESTORE_FILE=$INPUT_VAL" >> $GITHUB_ENV
-            echo "Restore Signal Detected! Overriding standard pipeline..."
-          else
-            echo "RESTORE_REQUESTED=false" >> $GITHUB_ENV
-            echo "No restore input received within 10s. Proceeding with standard run..."
+          RESTORE_REQ="false"
+          TARGET_FILE=""
+
+          if [ "$EVENT_NAME" = "repository_dispatch" ]; then
+            ACTION_TYPE="${{ github.event.action }}"
+            if [ "$ACTION_TYPE" = "restore_now" ]; then
+              RESTORE_REQ="true"
+              TARGET_FILE="${CLIENT_PAYLOAD_FILE:-latest}"
+              echo "Termux Trigger: Forced Restore Request Received for file '$TARGET_FILE'."
+            elif [ "$ACTION_TYPE" = "backup_now" ]; then
+              echo "Termux Trigger: Backup execution requested."
+            fi
+          elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "Web Interface Trigger Detected. Waiting 10 seconds timeout buffer..."
+            sleep 10
+            if [ -n "$INPUT_VAL" ]; then
+              RESTORE_REQ="true"
+              TARGET_FILE="$INPUT_VAL"
+              echo "Manual Web Restore Request: '$TARGET_FILE'"
+            fi
           fi
 
-      # --- CONDITIONAL DATABASE FORCED RESTORE ROUTE FROM GDRIVE ---
+          echo "RESTORE_REQUESTED=$RESTORE_REQ" >> $GITHUB_ENV
+          echo "TARGET_RESTORE_FILE=$TARGET_FILE" >> $GITHUB_ENV
+
       # --- CONDITIONAL DATABASE FORCED RESTORE ROUTE FROM GDRIVE ---
       - name: Force Restore Database from Google Drive Snapshot
         if: env.RESTORE_REQUESTED == 'true'
@@ -100,13 +116,11 @@ jobs:
           mkdir -p /home/runner/.config/rclone
           echo "$RCLONE_CONFIG_DATA" > /home/runner/.config/rclone/rclone.conf
           
-          # Auto-detect remote name from rclone.conf (e.g., gdrive or whatever is defined inside [])
           RCLONE_REMOTE=$(rclone listremotes | head -n 1)
           echo "Detected Rclone Remote: $RCLONE_REMOTE"
 
           echo "=== EXECUTING FORCED RESTORE FROM GOOGLE DRIVE ==="
           
-          # 1. Fetch file list from Google Drive via rclone
           if [ "$TARGET_RESTORE_FILE" = "r" ] || [ "$TARGET_RESTORE_FILE" = "latest" ]; then
             echo "Locating latest backup snapshot from Google Drive..."
             RESTORE_FILE=$(rclone lsf "${RCLONE_REMOTE}" | grep "^db_snapshot_" | sort | tail -n 1)
@@ -116,10 +130,8 @@ jobs:
 
           echo "Selected Backup File: $RESTORE_FILE"
           
-          # 2. Download Encrypted Snapshot
           rclone copy "${RCLONE_REMOTE}${RESTORE_FILE}" ./
           
-          # 3. Decrypt snapshot using BACKUP_SECRET_KEY secret
           python -c "
           import os, base64
           from cryptography.fernet import Fernet
@@ -142,7 +154,6 @@ jobs:
           print('Snapshot Decryption Successful!')
           "
 
-          # 4. Wipe Cloud & Local Tables and Apply Restored Backup
           gunzip -c restored_snapshot.sql.gz > restored_snapshot.sql
           
           echo "Wiping and applying data to Cloud DB..."
@@ -154,7 +165,6 @@ jobs:
           MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < restored_snapshot.sql
 
           echo "Forced Database Restoration Completed Successfully!"
-
 
       # --- STEP 1: RESTORE CACHE FILES FROM GITHUB CACHE ---
       - name: Restore Local DB Cache
@@ -419,10 +429,39 @@ jobs:
           done
 
       # --- STEP 5: SAFE CACHE CREATION & SYNC BACK TO CLOUD ---
+      - name: Sync Local Runner MySQL Back to Cloud Aiven MySQL
+        if: always()
+        run: |
+          echo "=========================================="
+          echo " 1. CREATING SAFE CACHE DUMP FOR FUTURE RUNS "
+          echo "=========================================="
+          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
+            --set-gtid-purged=OFF \
+            --column-statistics=0 \
+            --single-transaction \
+            --replace local_django_db | gzip > cloud_data_dump.sql.gz
 
+          python -c "
+          import time
+          with open('cache_time.txt', 'w') as f:
+              f.write(str(time.time()))
+          "
 
-      # --- STEP 6: ENCRYPTED SNAPSHOT CREATION & RCLONE UPLOAD TO GDRIVE ---
-      
+          echo "=========================================="
+          echo " 2. PUSHING UPDATED LOCAL DATA TO CLOUD MYSQL SAFELY "
+          echo "=========================================="
+          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
+            --set-gtid-purged=OFF \
+            --column-statistics=0 \
+            --no-create-info \
+            --replace local_django_db > runner_updated_data.sql
+
+          gzip -f runner_updated_data.sql
+
+          gunzip -c runner_updated_data.sql.gz | MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME"
+          
+          echo "Sync Up Back to Cloud Completed Successfully!"
+
       # --- STEP 6: ENCRYPTED SNAPSHOT CREATION & RCLONE UPLOAD TO GDRIVE ---
       - name: Create Encrypted Database Snapshot & Upload via Rclone
         if: always()
@@ -434,26 +473,21 @@ jobs:
           echo " SETTING UP RCLONE CONFIG & ENCRYPTING DB "
           echo "=========================================="
 
-          # 1. Setup Rclone config file from GitHub Secrets
           mkdir -p /home/runner/.config/rclone
           echo "$RCLONE_CONFIG_DATA" > /home/runner/.config/rclone/rclone.conf
 
-          # Auto-detect remote name from rclone.conf
           RCLONE_REMOTE=$(rclone listremotes | head -n 1)
           echo "Target Rclone Remote: $RCLONE_REMOTE"
 
-          # 2. Format Naming DD-MM-YY_HH-MM
           TIMESTAMP=$(date +"%d-%m-%y_%H-%M")
           SNAPSHOT_FILENAME="db_snapshot_${TIMESTAMP}.sql.gz.enc"
 
-          # 3. Complete DB Dump & Gzip Compression
           MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
             --set-gtid-purged=OFF \
             --column-statistics=0 \
             --single-transaction \
             local_django_db | gzip > raw_snapshot.sql.gz
 
-          # 4. Encrypt file using Python Fernet and BACKUP_SECRET_KEY secret
           python -c "
           import os, base64
           from cryptography.fernet import Fernet
@@ -476,7 +510,6 @@ jobs:
           print('Snapshot encrypted successfully as $SNAPSHOT_FILENAME')
           "
 
-          # 5. Upload Encrypted File to Google Drive
           rclone copy "$SNAPSHOT_FILENAME" "$RCLONE_REMOTE"
           echo "Successfully uploaded $SNAPSHOT_FILENAME to Google Drive ($RCLONE_REMOTE)!"
 
