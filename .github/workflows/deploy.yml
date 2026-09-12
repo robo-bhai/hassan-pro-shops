@@ -463,8 +463,9 @@ jobs:
           echo "Sync Up Back to Cloud Completed Successfully!"
 
       # --- STEP 6: ENCRYPTED SNAPSHOT CREATION & RCLONE UPLOAD TO GDRIVE ---
+      # --- STEP 6: ENCRYPTED SNAPSHOT CREATION & RCLONE UPLOAD TO GDRIVE (ONLY VIA TERMUX DISPATCH) ---
       - name: Create Encrypted Database Snapshot & Upload via Rclone
-        if: always()
+        if: github.event.action == 'backup_now'
         env:
           BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
           RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
@@ -512,6 +513,7 @@ jobs:
 
           rclone copy "$SNAPSHOT_FILENAME" "$RCLONE_REMOTE"
           echo "Successfully uploaded $SNAPSHOT_FILENAME to Google Drive ($RCLONE_REMOTE)!"
+
 
       - name: Save Updated DB Dump & Timestamp to GitHub Cache
         if: always()
