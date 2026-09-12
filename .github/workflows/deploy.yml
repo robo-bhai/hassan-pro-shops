@@ -63,25 +63,19 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y mysql-client
 
-      # --- STEP 1: RESTORE MYSQL DUMP FROM GITHUB CACHE ---
-      - name: Restore Local DB Cache
-        id: db-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            cloud_data_dump.sql.gz
-            cache_meta.json
-          key: mysql-db-cache-${{ runner.os }}-${{ github.run_id }}
-          restore-keys: |
-            mysql-db-cache-${{ runner.os }}-
-
-      # --- STEP 2: VERIFY SYNC & SMART SYNC DOWN ---
-      - name: Verify Sync Status & Restore Database
+      # --- STEP 1: APPLY MIGRATIONS TO CLOUD DB FIRST ---
+      - name: Apply Migrations to Cloud Aiven MySQL
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASS: ${{ secrets.DB_PASS }}
+          DB_NAME: ${{ secrets.DB_NAME }}
         run: |
-          echo "=== 1. CHECKING CLOUD DATABASE SYNC STATE ==="
+          echo "=== 1. DIAGNOSING CLOUD MYSQL CONNECTION ==="
           python -c "
-          import pymysql, os, json, sys
-
+          import time, pymysql, os
+          start = time.time()
           try:
               conn = pymysql.connect(
                   host=os.environ['DB_HOST'],
@@ -92,81 +86,50 @@ jobs:
                   ssl={'ssl-mode': 'REQUIRED'}
               )
               cursor = conn.cursor()
-              
-              # Execute checksum / update metadata check across all tables
-              cursor.execute('''
-                  SELECT SUM(UPDATE_TIME), SUM(TABLE_ROWS), SUM(DATA_LENGTH) 
-                  FROM information_schema.TABLES 
-                  WHERE TABLE_SCHEMA = %s;
-              ''', (os.environ['DB_NAME'],))
-              
-              row = cursor.fetchone()
-              cloud_state = {'update_time': str(row[0]), 'table_rows': str(row[1]), 'data_length': str(row[2])}
+              cursor.execute('SELECT VERSION();')
+              db_version = cursor.fetchone()
+              print(f'SUCCESS: Connected to Cloud MySQL in {round((time.time() - start)*1000, 2)} ms. Version: {db_version[0]}')
               conn.close()
-
-              is_synced = False
-              if os.path.exists('cache_meta.json') and os.path.exists('cloud_data_dump.sql.gz'):
-                  with open('cache_meta.json', 'r') as f:
-                      cached_state = json.load(f)
-                  if cached_state == cloud_state:
-                      is_synced = True
-
-              # Save live state
-              with open('live_cloud_state.json', 'w') as f:
-                  json.dump(cloud_state, f)
-
-              if is_synced:
-                  print('CACHE STATUS: SYNCED (Cloud and Cache are Identical)')
-                  with open('sync_status.txt', 'w') as f:
-                      f.write('SYNCED')
-              else:
-                  print('CACHE STATUS: OUT OF SYNC (Cloud updated or Cache missing)')
-                  with open('sync_status.txt', 'w') as f:
-                      f.write('OUT_OF_SYNC')
-
           except Exception as e:
-              print(f'ERROR Cloud Sync Check Failed: {e}')
-              sys.exit(1)
+              print(f'ERROR: Cloud database connection failed: {e}')
+              exit(1)
           "
 
-          SYNC_STATUS=$(cat sync_status.txt)
+          echo "=== 2. GENERATING MIGRATIONS ==="
+          python manage.py makemigrations
 
-          if [ "$SYNC_STATUS" = "SYNCED" ] && [ -f cloud_data_dump.sql.gz ] && [ $(stat -c%s "cloud_data_dump.sql.gz") -gt 10240 ]; then
-            echo "=== CACHE MATCH: Restoring Fast DB Dump from Cache ==="
-            gunzip -c cloud_data_dump.sql.gz > cloud_data_dump.sql
-            MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < cloud_data_dump.sql
-            echo "Local DB Restored from Valid Cache Successfully."
-          else
-            echo "=== CACHE MISMATCH / DESYNC: Fetching Fresh Dump from Cloud MySQL ==="
-            MYSQL_PWD="$DB_PASS" mysqldump -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" \
-              --ssl-mode=REQUIRED \
-              --set-gtid-purged=OFF \
-              --column-statistics=0 \
-              --single-transaction \
-              --quick "$DB_NAME" > cloud_data_dump.sql
+          echo "=== 3. APPLYING MIGRATIONS DIRECTLY TO CLOUD MYSQL ==="
+          python manage.py migrate
 
-            MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < cloud_data_dump.sql
-            gzip -c cloud_data_dump.sql > cloud_data_dump.sql.gz
-            cp live_cloud_state.json cache_meta.json
-            echo "Full Fresh Cloud Database Applied to Local MySQL Successfully."
-          fi
+      # --- STEP 2: DOWNLOAD FRESH DATA (CLOUD -> LOCAL RUNNER) ---
+      - name: Download Data from Cloud MySQL to Local Runner MySQL
+        run: |
+          echo "=== RESETTING LOCAL RUNNER DATABASE SCHEMA ==="
+          MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root -e "DROP DATABASE IF EXISTS local_django_db; CREATE DATABASE local_django_db;"
 
-      - name: Make Migrations & Apply to Local Runner Database
+          echo "=== DOWNLOADING FRESH FULL DUMP FROM CLOUD MYSQL ==="
+          MYSQL_PWD="$DB_PASS" mysqldump -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" \
+            --ssl-mode=REQUIRED \
+            --set-gtid-purged=OFF \
+            --column-statistics=0 \
+            --single-transaction \
+            --quick "$DB_NAME" > cloud_fresh_dump.sql
+
+          echo "=== RESTORING FRESH CLOUD DATA INTO LOCAL RUNNER DB ==="
+          MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < cloud_fresh_dump.sql
+          rm -f cloud_fresh_dump.sql
+          echo "Cloud to Local Data Transfer Completed Successfully!"
+
+      # --- STEP 3: MIGRATION & SCHEMAS CHECK FOR LOCAL DB ---
+      - name: Sync Migrations to Local DB
         env:
           DB_HOST: "127.0.0.1"
           DB_PORT: "3306"
           DB_USER: "root"
           DB_PASS: "root"
           DB_NAME: "local_django_db"
-          BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
         run: |
-          echo "=== 1. RESETTING LOCAL DATABASE SCHEMA ==="
-          MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root -e "DROP DATABASE IF EXISTS local_django_db; CREATE DATABASE local_django_db;"
-
-          echo "=== 2. GENERATING MIGRATIONS ==="
-          python manage.py makemigrations
-
-          echo "=== 3. APPLYING MIGRATIONS TO FRESH LOCAL DB ==="
+          echo "=== APPLYING MIGRATIONS TO LOCAL DB ==="
           python manage.py migrate
 
       - name: Create Default Superuser
@@ -274,7 +237,7 @@ jobs:
           PUBLIC_IP=$(curl -s ifconfig.me || curl -s api.ipify.org)
           echo "GitHub Runner Public IP: $PUBLIC_IP"
           
-          MESSAGE="Django App Live! 🚀 (Running with Fast Verified DB Cache)
+          MESSAGE="Django App Live! 🚀 (Running with Fresh Direct Cloud Sync)
           Domain: https://shops.hadi88.online
           Direct IP: http://$PUBLIC_IP:8000"
           
@@ -297,7 +260,7 @@ jobs:
             echo "------------------------------------------"
           done
 
-      # --- STEP 3: FAST COMPRESSED SYNC UP TO CLOUD MYSQL ---
+      # --- STEP 4: SAFELY UPDATE LOCAL DATA BACK TO CLOUD MYSQL ---
       - name: Sync Local Runner MySQL Back to Cloud Aiven MySQL
         if: always()
         run: |
@@ -316,52 +279,6 @@ jobs:
           gunzip -c runner_updated_data.sql.gz | MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME"
           
           echo "Sync Up Back to Cloud Completed Successfully!"
-
-      # --- STEP 4: SAVE UPDATED DUMP & METADATA TO GITHUB CACHE ---
-      - name: Prepare Cache Dump File & Metadata
-        if: always()
-        run: |
-          echo "Creating high-validity full database dump for cache..."
-          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
-            --set-gtid-purged=OFF \
-            --column-statistics=0 \
-            --single-transaction local_django_db | gzip > cloud_data_dump.sql.gz
-
-          # Update metadata for next run validation
-          python -c "
-          import pymysql, os, json
-          try:
-              conn = pymysql.connect(
-                  host=os.environ['DB_HOST'],
-                  user=os.environ['DB_USER'],
-                  password=os.environ['DB_PASS'],
-                  database=os.environ['DB_NAME'],
-                  port=int(os.environ['DB_PORT']),
-                  ssl={'ssl-mode': 'REQUIRED'}
-              )
-              cursor = conn.cursor()
-              cursor.execute('''
-                  SELECT SUM(UPDATE_TIME), SUM(TABLE_ROWS), SUM(DATA_LENGTH) 
-                  FROM information_schema.TABLES 
-                  WHERE TABLE_SCHEMA = %s;
-              ''', (os.environ['DB_NAME'],))
-              row = cursor.fetchone()
-              cloud_state = {'update_time': str(row[0]), 'table_rows': str(row[1]), 'data_length': str(row[2])}
-              conn.close()
-              with open('cache_meta.json', 'w') as f:
-                  json.dump(cloud_state, f)
-          except Exception as e:
-              print(f'Metadata extraction error: {e}')
-          "
-
-      - name: Save Updated DB Dump & Metadata to Cache
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            cloud_data_dump.sql.gz
-            cache_meta.json
-          key: mysql-db-cache-${{ runner.os }}-${{ github.run_id }}
 
       - name: Full Dump of Logs On Workflow Stop or Error
         if: always()
