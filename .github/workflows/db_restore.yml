@@ -4,13 +4,28 @@ on:
   workflow_dispatch:
     inputs:
       backup_file_name:
-        description: 'Backup file name (e.g. backup_dbname_20260912_153000.enc). Leave empty for LATEST backup.'
+        description: 'Backup file name (e.g. backup_local_20260912_153000.enc). Leave empty for LATEST backup.'
         required: false
         default: ''
 
 jobs:
   restore-from-gdrive:
     runs-on: ubuntu-latest
+
+    # GitHub Runner local MySQL container service for ultra-low latency execution & sync
+    services:
+      local-mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: local_django_db
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
 
     steps:
     - name: Checkout Code
@@ -19,7 +34,7 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: '3.13'
 
     - name: Install Python Dependencies
       run: |
@@ -63,18 +78,25 @@ jobs:
         echo "SELECTED_FILE=$FILE_TO_DOWNLOAD" >> $GITHUB_ENV
         echo "✅ Download completed: $FILE_TO_DOWNLOAD"
 
-    - name: Execute Database Restore
+    - name: Execute Database Restore (Local & Cloud Sync)
       env:
+        # Cloud Database Credentials
         DB_USER: ${{ secrets.DB_USER }}
         DB_PASS: ${{ secrets.DB_PASS }}
         DB_HOST: ${{ secrets.DB_HOST }}
         DB_PORT: ${{ secrets.DB_PORT }}
         DB_NAME: ${{ secrets.DB_NAME }}
+        # Local Database Credentials (Fallback to GitHub Runner MySQL container)
+        LOCAL_DB_USER: "root"
+        LOCAL_DB_PASS: "root"
+        LOCAL_DB_HOST: "127.0.0.1"
+        LOCAL_DB_PORT: "3306"
+        LOCAL_DB_NAME: "local_django_db"
         BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
       run: |
-        echo "🔓 Starting Database Restore for file: $SELECTED_FILE"
+        echo "🔓 Starting Dual Database Restore for file: $SELECTED_FILE"
         python db_backup_manager.py restore "$SELECTED_FILE"
 
     - name: Workflow Status Summary
       run: |
-        echo "🎉 Database Restore Process Finished Successfully!"
+        echo "🎉 Database Restore Process (Local & Cloud) Finished Successfully!"
