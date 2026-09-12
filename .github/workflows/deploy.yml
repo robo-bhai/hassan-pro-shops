@@ -63,7 +63,19 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y mysql-client
 
-      # --- STEP 1: APPLY MIGRATIONS TO CLOUD DB FIRST ---
+      # --- STEP 1: RESTORE MYSQL DUMP FROM GITHUB CACHE ---
+      - name: Restore Local DB Cache
+        id: db-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            cloud_data_dump.sql.gz
+            cache_time.txt
+          key: mysql-db-cache-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            mysql-db-cache-${{ runner.os }}-
+
+      # --- STEP 2: APPLY MIGRATIONS TO CLOUD DB FIRST ---
       - name: Apply Migrations to Cloud Aiven MySQL
         env:
           DB_HOST: ${{ secrets.DB_HOST }}
@@ -101,26 +113,63 @@ jobs:
           echo "=== 3. APPLYING MIGRATIONS DIRECTLY TO CLOUD MYSQL ==="
           python manage.py migrate
 
-      # --- STEP 2: DOWNLOAD FRESH DATA (CLOUD -> LOCAL RUNNER) ---
-      - name: Download Data from Cloud MySQL to Local Runner MySQL
+      # --- STEP 3: CHECK CACHE AGE (15 MINS) & RESTORE / DOWNLOAD FRESH ---
+      - name: Smart Cache Validation & Database Restore
         run: |
-          echo "=== RESETTING LOCAL RUNNER DATABASE SCHEMA ==="
-          MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root -e "DROP DATABASE IF EXISTS local_django_db; CREATE DATABASE local_django_db;"
+          echo "=== CHECKING CACHE AGE & VALIDITY ==="
+          python -c "
+          import os, time
 
-          echo "=== DOWNLOADING FRESH FULL DUMP FROM CLOUD MYSQL ==="
-          MYSQL_PWD="$DB_PASS" mysqldump -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" \
-            --ssl-mode=REQUIRED \
-            --set-gtid-purged=OFF \
-            --column-statistics=0 \
-            --single-transaction \
-            --quick "$DB_NAME" > cloud_fresh_dump.sql
+          CACHE_FILE = 'cloud_data_dump.sql.gz'
+          TIME_FILE = 'cache_time.txt'
+          MAX_AGE = 15 * 60  # 15 minutes in seconds
 
-          echo "=== RESTORING FRESH CLOUD DATA INTO LOCAL RUNNER DB ==="
-          MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < cloud_fresh_dump.sql
-          rm -f cloud_fresh_dump.sql
-          echo "Cloud to Local Data Transfer Completed Successfully!"
+          use_cache = False
 
-      # --- STEP 3: MIGRATION & SCHEMAS CHECK FOR LOCAL DB ---
+          if os.path.exists(CACHE_FILE) and os.path.exists(TIME_FILE):
+              try:
+                  with open(TIME_FILE, 'r') as f:
+                      cached_timestamp = float(f.read().strip())
+                  
+                  current_time = time.time()
+                  age = current_time - cached_timestamp
+                  
+                  if age <= MAX_AGE and os.path.getsize(CACHE_FILE) > 10240:
+                      print(f'VALID CACHE DETECTED: Cache age is {round(age/60, 2)} minutes (Under 15 mins limit).')
+                      use_cache = True
+                  else:
+                      print(f'EXPIRED CACHE: Cache age is {round(age/60, 2)} minutes (Exceeds 15 mins limit).')
+              except Exception as e:
+                  print(f'Cache validation error: {e}')
+
+          with open('cache_decision.txt', 'w') as f:
+              f.write('USE_CACHE' if use_cache else 'DOWNLOAD_FRESH')
+          "
+
+          DECISION=$(cat cache_decision.txt)
+
+          if [ "$DECISION" = "USE_CACHE" ]; then
+            echo "=== RESTORING FROM LOCAL CACHE (1-2 SECONDS) ==="
+            gunzip -c cloud_data_dump.sql.gz > cloud_data_dump.sql
+            MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < cloud_data_dump.sql
+            echo "Local DB Restored from Valid Cache Successfully."
+          else
+            echo "=== CACHE MISS / EXPIRED (>15 MINS): DOWNLOADING FRESH DUMP FROM CLOUD MYSQL ==="
+            MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root -e "DROP DATABASE IF EXISTS local_django_db; CREATE DATABASE local_django_db;"
+            
+            MYSQL_PWD="$DB_PASS" mysqldump -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" \
+              --ssl-mode=REQUIRED \
+              --set-gtid-purged=OFF \
+              --column-statistics=0 \
+              --single-transaction \
+              --quick "$DB_NAME" > cloud_fresh_dump.sql
+
+            MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < cloud_fresh_dump.sql
+            rm -f cloud_fresh_dump.sql
+            echo "Fresh Cloud Data Applied to Local MySQL Successfully."
+          fi
+
+      # --- STEP 4: SYNC MIGRATIONS TO LOCAL DB ---
       - name: Sync Migrations to Local DB
         env:
           DB_HOST: "127.0.0.1"
@@ -237,7 +286,7 @@ jobs:
           PUBLIC_IP=$(curl -s ifconfig.me || curl -s api.ipify.org)
           echo "GitHub Runner Public IP: $PUBLIC_IP"
           
-          MESSAGE="Django App Live! 🚀 (Running with Fresh Direct Cloud Sync)
+          MESSAGE="Django App Live! 🚀 (Running with 15-Min Smart Cache)
           Domain: https://shops.hadi88.online
           Direct IP: http://$PUBLIC_IP:8000"
           
@@ -260,14 +309,27 @@ jobs:
             echo "------------------------------------------"
           done
 
-      # --- STEP 4: SAFELY UPDATE LOCAL DATA BACK TO CLOUD MYSQL ---
+      # --- STEP 5: SAVE NEW CACHE & PUSH LOCAL DATA TO CLOUD MYSQL ---
       - name: Sync Local Runner MySQL Back to Cloud Aiven MySQL
         if: always()
         run: |
           echo "=========================================="
-          echo " PUSHING UPDATED LOCAL DATA TO CLOUD MYSQL"
+          echo " 1. CREATING NEW DB DUMP & TIMESTAMP FOR CACHE "
           echo "=========================================="
-          
+          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
+            --set-gtid-purged=OFF \
+            --column-statistics=0 \
+            --single-transaction local_django_db | gzip > cloud_data_dump.sql.gz
+
+          python -c "
+          import time
+          with open('cache_time.txt', 'w') as f:
+              f.write(str(time.time()))
+          "
+
+          echo "=========================================="
+          echo " 2. PUSHING UPDATED LOCAL DATA TO CLOUD MYSQL "
+          echo "=========================================="
           MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
             --set-gtid-purged=OFF \
             --column-statistics=0 \
@@ -279,6 +341,15 @@ jobs:
           gunzip -c runner_updated_data.sql.gz | MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME"
           
           echo "Sync Up Back to Cloud Completed Successfully!"
+
+      - name: Save Updated DB Dump & Timestamp to GitHub Cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            cloud_data_dump.sql.gz
+            cache_time.txt
+          key: mysql-db-cache-${{ runner.os }}-${{ github.run_id }}
 
       - name: Full Dump of Logs On Workflow Stop or Error
         if: always()
