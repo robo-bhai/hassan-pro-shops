@@ -4,6 +4,11 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      restore_action:
+        description: 'Type "r" or "latest" or specific file name within 10s to force restore. Default runs standard pipeline.'
+        required: false
+        default: ''
 
 concurrency:
   group: django-production-runner
@@ -53,18 +58,94 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Install pips
+      - name: Install pips & Tools
         run: |
           python -m pip install --upgrade pip
           pip install pymysql gunicorn "django-import-export>=3.3.0" "django>=5.2,<5.3" django-dbbackup django-axes reportlab openpyxl pillow python-barcode qrcode cryptography sqlalchemy python-dotenv requests django-pwa whitenoise
-
-      - name: Install MySQL Client CLI Tools
-        run: |
           sudo apt-get update
-          sudo apt-get install -y mysql-client
+          sudo apt-get install -y mysql-client rclone
+
+      # --- 10-SECOND RESTORE PROMPT & INTERACTION ---
+      - name: Check Restore Input with 10s Delay
+        id: restore-check
+        env:
+          INPUT_VAL: ${{ github.event.inputs.restore_action }}
+        run: |
+          echo "=================================================="
+          echo "         RESTORE INPUT CHECK (10s TIMEOUT)        "
+          echo "=================================================="
+          echo "Provided Input: '$INPUT_VAL'"
+          
+          # Wait 10 seconds timeout buffer
+          sleep 10
+          
+          if [ -n "$INPUT_VAL" ]; then
+            echo "RESTORE_REQUESTED=true" >> $GITHUB_ENV
+            echo "TARGET_RESTORE_FILE=$INPUT_VAL" >> $GITHUB_ENV
+            echo "Restore Signal Detected! Overriding standard pipeline..."
+          else
+            echo "RESTORE_REQUESTED=false" >> $GITHUB_ENV
+            echo "No restore input received within 10s. Proceeding with standard run..."
+          fi
+
+      # --- CONDITIONAL DATABASE FORCED RESTORE ROUTE FROM GDRIVE ---
+      - name: Force Restore Database from Google Drive Snapshot
+        if: env.RESTORE_REQUESTED == 'true'
+        run: |
+          echo "=== EXECUTING FORCED RESTORE FROM GOOGLE DRIVE ==="
+          
+          # 1. Fetch file list from Google Drive via rclone
+          if [ "$TARGET_RESTORE_FILE" = "r" ] || [ "$TARGET_RESTORE_FILE" = "latest" ]; then
+            echo "Locating latest backup snapshot from Google Drive..."
+            RESTORE_FILE=$(rclone lsf gdrive: | grep "^db_snapshot_" | sort | tail -n 1)
+          else
+            RESTORE_FILE="$TARGET_RESTORE_FILE"
+          fi
+
+          echo "Selected Backup File: $RESTORE_FILE"
+          
+          # 2. Download Encrypted Snapshot
+          rclone copy "gdrive:$RESTORE_FILE" ./
+          
+          # 3. Decrypt snapshot using BACKUP_SECRET_KEY secret
+          python -c "
+          import os, base64
+          from cryptography.fernet import Fernet
+          from cryptography.hazmat.primitives import hashes
+          from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+          secret = os.environ['BACKUP_SECRET_KEY'].encode()
+          salt = b'django_backup_salt_2026'
+          kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
+          key = base64.urlsafe_b64encode(kdf.derive(secret))
+          fernet = Fernet(key)
+
+          with open('$RESTORE_FILE', 'rb') as f:
+              encrypted_data = f.read()
+
+          decrypted_data = fernet.decrypt(encrypted_data)
+
+          with open('restored_snapshot.sql.gz', 'wb') as f:
+              f.write(decrypted_data)
+          print('Snapshot Decryption Successful!')
+          "
+
+          # 4. Wipe Cloud & Local Tables and Apply Restored Backup
+          gunzip -c restored_snapshot.sql.gz > restored_snapshot.sql
+          
+          echo "Wiping and applying data to Cloud DB..."
+          MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED -e "DROP DATABASE IF EXISTS \`$DB_NAME\`; CREATE DATABASE \`$DB_NAME\`;"
+          MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME" < restored_snapshot.sql
+          
+          echo "Wiping and applying data to Local DB..."
+          MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root -e "DROP DATABASE IF EXISTS local_django_db; CREATE DATABASE local_django_db;"
+          MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < restored_snapshot.sql
+
+          echo "Forced Database Restoration Completed Successfully!"
 
       # --- STEP 1: RESTORE CACHE FILES FROM GITHUB CACHE ---
       - name: Restore Local DB Cache
+        if: env.RESTORE_REQUESTED != 'true'
         id: db-cache
         uses: actions/cache/restore@v4
         with:
@@ -77,6 +158,7 @@ jobs:
 
       # --- STEP 2: APPLY MIGRATIONS & CREATE SUPERUSER ON CLOUD DB FIRST ---
       - name: Apply Migrations & Create Superuser on Cloud Aiven MySQL
+        if: env.RESTORE_REQUESTED != 'true'
         env:
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_PORT: ${{ secrets.DB_PORT }}
@@ -135,6 +217,7 @@ jobs:
 
       # --- STEP 3: SMART CACHE VALIDATION & SAFE DATA RESTORE ---
       - name: Smart Cache Validation & Safe Database Restore
+        if: env.RESTORE_REQUESTED != 'true'
         run: |
           echo "=== CHECKING CACHE AGE & VALIDITY ==="
           python -c "
@@ -355,6 +438,54 @@ jobs:
           gunzip -c runner_updated_data.sql.gz | MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME"
           
           echo "Sync Up Back to Cloud Completed Successfully!"
+
+      # --- STEP 6: ENCRYPTED SNAPSHOT CREATION & RCLONE UPLOAD TO GDRIVE ---
+      - name: Create Encrypted Database Snapshot & Upload via Rclone
+        if: always()
+        env:
+          BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
+        run: |
+          echo "=========================================="
+          echo " CREATING ENCRYPTED SNAPSHOT FOR GOOGLE DRIVE "
+          echo "=========================================="
+
+          # 1. Format Naming DD-MM-YY_HH-MM
+          TIMESTAMP=$(date +"%d-%m-%y_%H-%M")
+          SNAPSHOT_FILENAME="db_snapshot_${TIMESTAMP}.sql.gz.enc"
+
+          # 2. Complete DB Dump & Gzip Compression
+          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
+            --set-gtid-purged=OFF \
+            --column-statistics=0 \
+            --single-transaction \
+            local_django_db | gzip > raw_snapshot.sql.gz
+
+          # 3. Encrypt file using Python Fernet and BACKUP_SECRET_KEY secret
+          python -c "
+          import os, base64
+          from cryptography.fernet import Fernet
+          from cryptography.hazmat.primitives import hashes
+          from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+          secret = os.environ['BACKUP_SECRET_KEY'].encode()
+          salt = b'django_backup_salt_2026'
+          kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
+          key = base64.urlsafe_b64encode(kdf.derive(secret))
+          fernet = Fernet(key)
+
+          with open('raw_snapshot.sql.gz', 'rb') as f:
+              data = f.read()
+
+          encrypted = fernet.encrypt(data)
+
+          with open('$SNAPSHOT_FILENAME', 'wb') as f:
+              f.write(encrypted)
+          print('Snapshot encrypted successfully as $SNAPSHOT_FILENAME')
+          "
+
+          # 4. Upload Encrypted File to Google Drive
+          rclone copy "$SNAPSHOT_FILENAME" gdrive:
+          echo "Successfully uploaded $SNAPSHOT_FILENAME to Google Drive!"
 
       - name: Save Updated DB Dump & Timestamp to GitHub Cache
         if: always()
