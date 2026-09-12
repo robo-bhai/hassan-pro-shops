@@ -63,7 +63,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y mysql-client
 
-      # --- STEP 1: RESTORE MYSQL DUMP FROM GITHUB CACHE ---
+      # --- STEP 1: RESTORE CACHE FILES FROM GITHUB CACHE ---
       - name: Restore Local DB Cache
         id: db-cache
         uses: actions/cache/restore@v4
@@ -75,14 +75,15 @@ jobs:
           restore-keys: |
             mysql-db-cache-${{ runner.os }}-
 
-      # --- STEP 2: APPLY MIGRATIONS TO CLOUD DB FIRST ---
-      - name: Apply Migrations to Cloud Aiven MySQL
+      # --- STEP 2: APPLY MIGRATIONS & CREATE SUPERUSER ON CLOUD DB FIRST ---
+      - name: Apply Migrations & Create Superuser on Cloud Aiven MySQL
         env:
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_PORT: ${{ secrets.DB_PORT }}
           DB_USER: ${{ secrets.DB_USER }}
           DB_PASS: ${{ secrets.DB_PASS }}
           DB_NAME: ${{ secrets.DB_NAME }}
+          BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
         run: |
           echo "=== 1. DIAGNOSING CLOUD MYSQL CONNECTION ==="
           python -c "
@@ -113,8 +114,27 @@ jobs:
           echo "=== 3. APPLYING MIGRATIONS DIRECTLY TO CLOUD MYSQL ==="
           python manage.py migrate
 
-      # --- STEP 3: CHECK CACHE AGE (15 MINS) & RESTORE / DOWNLOAD FRESH ---
-      - name: Smart Cache Validation & Database Restore
+          echo "=== 4. ENSURING SUPERUSER CREATION ON CLOUD MYSQL ==="
+          python manage.py shell -c "
+          import os
+          from django.contrib.auth import get_user_model
+          User = get_user_model()
+          username = os.environ.get('SUPERUSER_NAME')
+          email = os.environ.get('SUPERUSER_EMAIL')
+          password = os.environ.get('SUPERUSER_PASSWORD')
+          if username and password:
+              user, created = User.objects.get_or_create(username=username, defaults={'email': email})
+              user.set_password(password)
+              user.is_staff = True
+              user.is_superuser = True
+              user.save()
+              print(f'CLOUD DB: Superuser \'{username}\' verified and saved successfully.')
+          else:
+              print('CLOUD DB: Skipping superuser creation (Credentials not set in secrets).')
+          "
+
+      # --- STEP 3: SMART CACHE VALIDATION & SAFE DATA RESTORE ---
+      - name: Smart Cache Validation & Safe Database Restore
         run: |
           echo "=== CHECKING CACHE AGE & VALIDITY ==="
           python -c "
@@ -122,7 +142,7 @@ jobs:
 
           CACHE_FILE = 'cloud_data_dump.sql.gz'
           TIME_FILE = 'cache_time.txt'
-          MAX_AGE = 15 * 60  # 15 minutes in seconds
+          MAX_AGE = 15 * 60  # 15 minutes
 
           use_cache = False
 
@@ -131,14 +151,13 @@ jobs:
                   with open(TIME_FILE, 'r') as f:
                       cached_timestamp = float(f.read().strip())
                   
-                  current_time = time.time()
-                  age = current_time - cached_timestamp
+                  age = time.time() - cached_timestamp
                   
                   if age <= MAX_AGE and os.path.getsize(CACHE_FILE) > 10240:
-                      print(f'VALID CACHE DETECTED: Cache age is {round(age/60, 2)} minutes (Under 15 mins limit).')
+                      print(f'VALID CACHE: Cache age is {round(age/60, 2)} mins (Under 15 mins).')
                       use_cache = True
                   else:
-                      print(f'EXPIRED CACHE: Cache age is {round(age/60, 2)} minutes (Exceeds 15 mins limit).')
+                      print(f'EXPIRED CACHE: Cache age is {round(age/60, 2)} mins (Exceeds 15 mins).')
               except Exception as e:
                   print(f'Cache validation error: {e}')
 
@@ -149,39 +168,27 @@ jobs:
           DECISION=$(cat cache_decision.txt)
 
           if [ "$DECISION" = "USE_CACHE" ]; then
-            echo "=== RESTORING FROM LOCAL CACHE (1-2 SECONDS) ==="
+            echo "=== SAFE RESTORE: Loading Valid Cache into Local MySQL ==="
             gunzip -c cloud_data_dump.sql.gz > cloud_data_dump.sql
             MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < cloud_data_dump.sql
-            echo "Local DB Restored from Valid Cache Successfully."
+            echo "Safe Cache Restoration Completed."
           else
-            echo "=== CACHE MISS / EXPIRED (>15 MINS): DOWNLOADING FRESH DUMP FROM CLOUD MYSQL ==="
-            MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root -e "DROP DATABASE IF EXISTS local_django_db; CREATE DATABASE local_django_db;"
-            
+            echo "=== DOWNLOADING FRESH SAFE DUMP FROM CLOUD MYSQL ==="
             MYSQL_PWD="$DB_PASS" mysqldump -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" \
               --ssl-mode=REQUIRED \
               --set-gtid-purged=OFF \
               --column-statistics=0 \
               --single-transaction \
+              --replace \
               --quick "$DB_NAME" > cloud_fresh_dump.sql
 
             MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < cloud_fresh_dump.sql
             rm -f cloud_fresh_dump.sql
-            echo "Fresh Cloud Data Applied to Local MySQL Successfully."
+            echo "Fresh Safe Cloud Data Applied to Local MySQL Successfully."
           fi
 
-      # --- STEP 4: SYNC MIGRATIONS TO LOCAL DB ---
-      - name: Sync Migrations to Local DB
-        env:
-          DB_HOST: "127.0.0.1"
-          DB_PORT: "3306"
-          DB_USER: "root"
-          DB_PASS: "root"
-          DB_NAME: "local_django_db"
-        run: |
-          echo "=== APPLYING MIGRATIONS TO LOCAL DB ==="
-          python manage.py migrate
-
-      - name: Create Default Superuser
+      # --- STEP 4: APPLY MIGRATIONS & CREATE SUPERUSER ON LOCAL DB ---
+      - name: Sync Migrations & Ensure Superuser on Local DB
         env:
           DB_HOST: "127.0.0.1"
           DB_PORT: "3306"
@@ -190,20 +197,26 @@ jobs:
           DB_NAME: "local_django_db"
           BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
         run: |
+          echo "=== 1. APPLYING MIGRATIONS TO LOCAL DB ==="
+          python manage.py migrate
+
+          echo "=== 2. ENSURING SUPERUSER CREATION ON LOCAL DB ==="
           python manage.py shell -c "
           import os
-          from django.contrib.auth.models import User
+          from django.contrib.auth import get_user_model
+          User = get_user_model()
           username = os.environ.get('SUPERUSER_NAME')
           email = os.environ.get('SUPERUSER_EMAIL')
           password = os.environ.get('SUPERUSER_PASSWORD')
           if username and password:
-              if not User.objects.filter(username=username).exists():
-                  User.objects.create_superuser(username, email, password)
-                  print('Superuser created successfully.')
-              else:
-                  print('Superuser already exists.')
+              user, created = User.objects.get_or_create(username=username, defaults={'email': email})
+              user.set_password(password)
+              user.is_staff = True
+              user.is_superuser = True
+              user.save()
+              print(f'LOCAL DB: Superuser \'{username}\' verified and saved successfully.')
           else:
-              print('Skipping superuser creation: Credentials not provided in secrets.')
+              print('LOCAL DB: Skipping superuser creation (Credentials not set in secrets).')
           "
 
       - name: Process & Place PWA Icons from Project Root
@@ -286,7 +299,7 @@ jobs:
           PUBLIC_IP=$(curl -s ifconfig.me || curl -s api.ipify.org)
           echo "GitHub Runner Public IP: $PUBLIC_IP"
           
-          MESSAGE="Django App Live! 🚀 (Running with 15-Min Smart Cache)
+          MESSAGE="Django App Live! 🚀 (Superuser Verified on Cloud & Local DBs)
           Domain: https://shops.hadi88.online
           Direct IP: http://$PUBLIC_IP:8000"
           
@@ -309,17 +322,18 @@ jobs:
             echo "------------------------------------------"
           done
 
-      # --- STEP 5: SAVE NEW CACHE & PUSH LOCAL DATA TO CLOUD MYSQL ---
+      # --- STEP 5: SAFE CACHE CREATION & SYNC BACK TO CLOUD ---
       - name: Sync Local Runner MySQL Back to Cloud Aiven MySQL
         if: always()
         run: |
           echo "=========================================="
-          echo " 1. CREATING NEW DB DUMP & TIMESTAMP FOR CACHE "
+          echo " 1. CREATING SAFE CACHE DUMP FOR FUTURE RUNS "
           echo "=========================================="
           MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
             --set-gtid-purged=OFF \
             --column-statistics=0 \
-            --single-transaction local_django_db | gzip > cloud_data_dump.sql.gz
+            --single-transaction \
+            --replace local_django_db | gzip > cloud_data_dump.sql.gz
 
           python -c "
           import time
@@ -328,7 +342,7 @@ jobs:
           "
 
           echo "=========================================="
-          echo " 2. PUSHING UPDATED LOCAL DATA TO CLOUD MYSQL "
+          echo " 2. PUSHING UPDATED LOCAL DATA TO CLOUD MYSQL SAFELY "
           echo "=========================================="
           MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
             --set-gtid-purged=OFF \
