@@ -1,7 +1,7 @@
 name: Database Backup to Google Drive (Latest 7 Rotated)
 
 on:
-  workflow_dispatch: # Sirf Manual Trigger active hai
+  workflow_dispatch: # Manual trigger enabled
 
 jobs:
   backup-to-gdrive:
@@ -44,7 +44,7 @@ jobs:
         DB_HOST: ${{ secrets.DB_HOST }}
         DB_PORT: ${{ secrets.DB_PORT }}
         DB_NAME: ${{ secrets.DB_NAME }}
-        # Local Database Credentials (Fallback to GitHub Runner MySQL container)
+        # Local Database Credentials (Maps to Runner MySQL service)
         LOCAL_DB_USER: "root"
         LOCAL_DB_PASS: "root"
         LOCAL_DB_HOST: "127.0.0.1"
@@ -81,13 +81,13 @@ jobs:
         TARGET_DIR="gdrive:DB_Backups"
 
         echo "🚀 Uploading new backup files to Google Drive folder: DB_Backups..."
-        # Multiple files upload fix: Use current dir '.' with --include pattern
-        rclone copy . $TARGET_DIR --include "*.enc" --verbose
+        # Sync current directory files matching *.enc
+        rclone copy . "$TARGET_DIR" --include "*.enc" --verbose
 
         echo "🧹 Checking and rotating backups (Keeping only latest 7)..."
         
-        # Google Drive se sabhi .enc files ki sorted list nikalna
-        ALL_FILES=$(rclone lsjson $TARGET_DIR --include "*.enc" | jq -r 'sort_by(.ModTime) | .[].Name' | grep -v '^$' || true)
+        # Fetch sorted list of encrypted backup files by modification time
+        ALL_FILES=$(rclone lsjson "$TARGET_DIR" --include "*.enc" | jq -r 'sort_by(.ModTime) | .[].Name' | grep -v '^$' || true)
         
         if [ -z "$ALL_FILES" ]; then
           FILE_COUNT=0
@@ -97,7 +97,7 @@ jobs:
 
         echo "📊 Total backups currently in Drive: $FILE_COUNT"
 
-        # Agar 7 se zyada files hain to oldest files delete karna
+        # Prune oldest backups if exceeding 7 files
         if [ "$FILE_COUNT" -gt 7 ]; then
           DELETE_COUNT=$((FILE_COUNT - 7))
           echo "⚠️ Found $FILE_COUNT backups. Deleting oldest $DELETE_COUNT backup(s)..."

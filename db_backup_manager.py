@@ -16,12 +16,14 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 load_dotenv()
 
 # --- 1. ENV CONFIGURATION ---
+# Cloud Database Credentials
 CLOUD_DB_USER = os.environ.get('DB_USER')
 CLOUD_DB_PASS = os.environ.get('DB_PASS')
 CLOUD_DB_HOST = os.environ.get('DB_HOST')
 CLOUD_DB_PORT = int(os.environ.get('DB_PORT', '3306'))
 CLOUD_DB_NAME = os.environ.get('DB_NAME')
 
+# Local Database Credentials (Explicit LOCAL_DB_* mapped directly)
 LOCAL_DB_USER = os.environ.get('LOCAL_DB_USER', 'root')
 LOCAL_DB_PASS = os.environ.get('LOCAL_DB_PASS', 'root')
 LOCAL_DB_HOST = os.environ.get('LOCAL_DB_HOST', '127.0.0.1')
@@ -38,27 +40,33 @@ if not ENCRYPTION_SECRET:
 
 # --- 2. ENGINE BUILDER ---
 def get_db_engine(target="local"):
+    """
+    target: 'local' or 'cloud'
+    Ensures 'local' target strictly binds to 127.0.0.1:3306/local_django_db
+    and 'cloud' target applies SSL mode.
+    """
     if target == "local":
         user, password, host, port, db_name = (
             LOCAL_DB_USER, LOCAL_DB_PASS, LOCAL_DB_HOST, LOCAL_DB_PORT, LOCAL_DB_NAME
         )
+        engine_options = {
+            'pool_recycle': 280,
+            'pool_pre_ping': True
+        }
     else:
         user, password, host, port, db_name = (
             CLOUD_DB_USER, CLOUD_DB_PASS, CLOUD_DB_HOST, CLOUD_DB_PORT, CLOUD_DB_NAME
         )
+        engine_options = {
+            'pool_recycle': 280,
+            'pool_pre_ping': True,
+            'connect_args': {'ssl': {'ssl_mode': 'REQUIRED'}}
+        }
 
     if not all([user, password, host, db_name]):
         raise ValueError(f"Credentials for [{target.upper()}] DB are incomplete or missing!")
 
     db_uri = f"mysql+pymysql://{user}:{password}@{host}:{port}/{db_name}"
-    engine_options = {
-        'pool_recycle': 280,
-        'pool_pre_ping': True
-    }
-    
-    if host and host not in ['127.0.0.1', 'localhost']:
-        engine_options['connect_args'] = {'ssl': {'ssl_mode': 'REQUIRED'}}
-    
     return create_engine(db_uri, **engine_options), db_name
 
 

@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       backup_file_name:
-        description: 'Backup file name (e.g. backup_local_20260912_153000.enc). Leave empty for LATEST backup.'
+        description: 'Backup file name (e.g. snapshot_local_20260912_153000.enc). Leave empty for LATEST backup.'
         required: false
         default: ''
 
@@ -47,7 +47,13 @@ jobs:
       run: |
         sudo apt-get update && sudo apt-get install -y rclone jq
         mkdir -p ~/.config/rclone
+        
+        # Safely output Rclone configuration block
         echo "$RCLONE_CONFIG_DATA" > ~/.config/rclone/rclone.conf
+        
+        # Verify remote connectivity
+        echo "📋 Available Rclone Remotes:"
+        rclone listremotes
 
     - name: Download Backup File from Google Drive
       run: |
@@ -59,7 +65,7 @@ jobs:
           FILE_TO_DOWNLOAD="$INPUT_FILE"
         else
           echo "🔍 Searching for the LATEST backup file in Google Drive..."
-          FILE_TO_DOWNLOAD=$(rclone lsjson $TARGET_DIR --include "*.enc" | jq -r 'sort_by(.ModTime) | .[-1].Name')
+          FILE_TO_DOWNLOAD=$(rclone lsjson "$TARGET_DIR" --include "*.enc" | jq -r 'sort_by(.ModTime) | .[-1].Name' || true)
         fi
 
         if [ -z "$FILE_TO_DOWNLOAD" ] || [ "$FILE_TO_DOWNLOAD" == "null" ]; then
@@ -86,7 +92,7 @@ jobs:
         DB_HOST: ${{ secrets.DB_HOST }}
         DB_PORT: ${{ secrets.DB_PORT }}
         DB_NAME: ${{ secrets.DB_NAME }}
-        # Local Database Credentials (Fallback to GitHub Runner MySQL container)
+        # Local Database Credentials (Maps directly to Runner MySQL service)
         LOCAL_DB_USER: "root"
         LOCAL_DB_PASS: "root"
         LOCAL_DB_HOST: "127.0.0.1"
