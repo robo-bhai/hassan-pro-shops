@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Edit Service Request - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>✏️ Edit Request #{{ request.request_no }}</h2>
+                <a href="{% url 'service_request_detail' request.id %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+            </div>
+            
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <!-- Customer & Service -->
+                        <h5 class="mb-3">👤 Customer & Service</h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Customer <span class="text-danger">*</span></label>
+                                <select name="customer" class="form-select" required>
+                                    <option value="">Select Customer</option>
+                                    {% for customer in customers %}
+                                    <option value="{{ customer.id }}" {% if customer.id == request.customer_id %}selected{% endif %}>
+                                        {{ customer.customer_code }} - {{ customer.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Service <span class="text-danger">*</span></label>
+                                <select name="service" class="form-select" required id="serviceSelect">
+                                    <option value="">Select Service</option>
+                                    {% for service in services %}
+                                    <option value="{{ service.id }}" {% if service.id == request.service_id %}selected{% endif %} 
+                                            data-price="{{ service.price }}" data-hours="{{ service.estimated_hours }}">
+                                        {{ service.service_code }} - {{ service.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <!-- Service Details -->
+                        <h5 class="mb-3">📝 Service Details</h5>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">Description <span class="text-danger">*</span></label>
+                                <textarea name="description" class="form-control" rows="3" required>{{ request.description }}</textarea>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Priority <span class="text-danger">*</span></label>
+                                <select name="priority" class="form-select" required>
+                                    {% for key, value in priority_choices %}
+                                    <option value="{{ key }}" {% if key == request.priority %}selected{% endif %}>{{ value|safe }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Requested Date <span class="text-danger">*</span></label>
+                                <input type="date" name="requested_date" class="form-control" required value="{{ request.requested_date|date:'Y-m-d' }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Scheduled Date</label>
+                                <input type="date" name="scheduled_date" class="form-control" value="{{ request.scheduled_date|date:'Y-m-d' }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Appointment Time</label>
+                                <input type="time" name="appointment_time" class="form-control" value="{{ request.appointment_time|time:'H:i' }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Quoted Price (Rs.)</label>
+                                <input type="number" name="quoted_price" class="form-control" step="0.01" id="quotedPrice" value="{{ request.quoted_price }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Estimated Hours</label>
+                                <input type="number" name="estimated_hours" class="form-control" step="0.5" id="estimatedHours" value="{{ request.estimated_hours }}">
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <!-- Location & Contact -->
+                        <h5 class="mb-3">📍 Location & Contact</h5>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">Service Address</label>
+                                <textarea name="service_address" class="form-control" rows="2">{{ request.service_address }}</textarea>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Contact Person</label>
+                                <input type="text" name="contact_person" class="form-control" value="{{ request.contact_person }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Contact Phone</label>
+                                <input type="text" name="contact_phone" class="form-control" value="{{ request.contact_phone }}">
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <!-- Technician Assignment -->
+                        <h5 class="mb-3">👤 Technician Assignment</h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Assign Technician</label>
+                                <select name="technician" class="form-select">
+                                    <option value="">Select Technician</option>
+                                    {% for tech in technicians %}
+                                    <option value="{{ tech.id }}" {% if tech.id == request.technician_id %}selected{% endif %}>
+                                        {{ tech.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Status</label>
+                                <select name="status" class="form-select">
+                                    {% for key, value in status_choices %}
+                                    <option value="{{ key }}" {% if key == request.status %}selected{% endif %}>{{ value|safe }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <!-- Follow-up -->
+                        <h5 class="mb-3">📌 Follow-up</h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="form-check mt-2">
+                                    <input type="checkbox" name="follow_up_required" class="form-check-input" id="followUpRequired" {% if request.follow_up_required %}checked{% endif %}>
+                                    <label class="form-check-label" for="followUpRequired">Follow-up Required</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Follow-up Date</label>
+                                <input type="date" name="follow_up_date" class="form-control" value="{{ request.follow_up_date|date:'Y-m-d' }}">
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <!-- Notes -->
+                        <h5 class="mb-3">📝 Notes</h5>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <textarea name="notes" class="form-control" rows="2">{{ request.notes }}</textarea>
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="{% url 'service_request_detail' request.id %}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> Update Request
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const serviceSelect = document.getElementById('serviceSelect');
+        const quotedPrice = document.getElementById('quotedPrice');
+        const estimatedHours = document.getElementById('estimatedHours');
+        
+        serviceSelect.addEventListener('change', function() {
+            const selected = this.options[this.selectedIndex];
+            const price = selected.getAttribute('data-price');
+            const hours = selected.getAttribute('data-hours');
+            
+            if (price && !quotedPrice.value) {
+                quotedPrice.value = parseFloat(price).toFixed(2);
+            }
+            
+            if (hours && !estimatedHours.value) {
+                estimatedHours.value = parseFloat(hours).toFixed(1);
+            }
+        });
+    });
+</script>
+{% endblock %}

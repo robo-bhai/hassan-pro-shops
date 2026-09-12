@@ -1,0 +1,389 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}User Roles{% endblock %}
+{% block page_title %}👥 User Role Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary: #4361ee;
+        --success: #4cc9f0;
+        --danger: #f72585;
+        --warning: #f8961e;
+        --dark: #1a1a2e;
+        --gray: #6c757d;
+        --border: #e9ecef;
+        --light-gray: #f8f9fa;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 20px;
+        padding: 20px;
+        border: 1px solid var(--border);
+        transition: all 0.3s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    }
+    
+    .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+        margin-bottom: 15px;
+    }
+    
+    .stat-icon.admin { background: rgba(67, 97, 238, 0.1); color: #4361ee; }
+    .stat-icon.owner { background: rgba(248, 150, 30, 0.1); color: #f8961e; }
+    .stat-icon.salesman { background: rgba(76, 201, 240, 0.1); color: #4cc9f0; }
+    .stat-icon.accountant { background: rgba(76, 201, 240, 0.1); color: #00b4d8; }
+    .stat-icon.manager { background: rgba(114, 9, 183, 0.1); color: #7209b7; }
+    .stat-icon.warehouse { background: rgba(76, 201, 240, 0.1); color: #00b4d8; }
+    
+    .stat-value {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: var(--dark);
+    }
+    
+    .stat-label {
+        font-size: 0.7rem;
+        color: var(--gray);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .filter-card {
+        background: white;
+        border-radius: 20px;
+        padding: 20px;
+        margin-bottom: 25px;
+        border: 1px solid var(--border);
+    }
+    
+    .btn-search {
+        background: linear-gradient(135deg, var(--primary), #3a0ca3);
+        border: none;
+        border-radius: 12px;
+        padding: 10px 24px;
+        font-weight: 600;
+        color: white;
+        height: 48px;
+    }
+    
+    .table-card {
+        background: white;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        overflow: hidden;
+    }
+    
+    .table-header {
+        padding: 18px 24px;
+        background: var(--light-gray);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .btn-add {
+        background: linear-gradient(135deg, var(--success), #00b4d8);
+        padding: 8px 18px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.8rem;
+        color: white;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .user-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .user-table thead th {
+        background: var(--dark);
+        color: white;
+        padding: 12px 16px;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .user-table tbody td {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.85rem;
+        vertical-align: middle;
+    }
+    
+    .user-table tbody tr:hover {
+        background: var(--light-gray);
+    }
+    
+    .role-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .role-admin { background: #eef2ff; color: #4361ee; }
+    .role-owner { background: #fff3cd; color: #f8961e; }
+    .role-salesman { background: #d1fae5; color: #059669; }
+    .role-accountant { background: #d1fae5; color: #00b4d8; }
+    .role-manager { background: #f3e8ff; color: #7209b7; }
+    .role-warehouse { background: #e0f7fa; color: #00bcd4; }
+    
+    .status-active {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #059669;
+        margin-right: 6px;
+    }
+    
+    .status-inactive {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #dc2626;
+        margin-right: 6px;
+    }
+    
+    .btn-action {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--border);
+        background: white;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+    
+    .btn-action:hover { transform: scale(1.1); }
+    .btn-action.edit { color: var(--warning); }
+    .btn-action.reset { color: var(--primary); }
+    .btn-action.delete { color: var(--danger); }
+    
+    .avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1rem;
+    }
+    
+    .avatar.admin { background: #eef2ff; color: #4361ee; }
+    .avatar.owner { background: #fff3cd; color: #f8961e; }
+    .avatar.salesman { background: #d1fae5; color: #059669; }
+    
+    @media (max-width: 768px) {
+        .user-table { min-width: 700px; }
+        .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon admin"><i class="bi bi-shield-lock"></i></div>
+            <div class="stat-value">{{ admin_count|default:0 }}</div>
+            <div class="stat-label">Administrators</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon owner"><i class="bi bi-building"></i></div>
+            <div class="stat-value">{{ owner_count|default:0 }}</div>
+            <div class="stat-label">Owners</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon salesman"><i class="bi bi-person-badge"></i></div>
+            <div class="stat-value">{{ salesman_count|default:0 }}</div>
+            <div class="stat-label">Salesmen</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon accountant"><i class="bi bi-calculator"></i></div>
+            <div class="stat-value">{{ accountant_count|default:0 }}</div>
+            <div class="stat-label">Accountants</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon manager"><i class="bi bi-people"></i></div>
+            <div class="stat-value">{{ manager_count|default:0 }}</div>
+            <div class="stat-label">Store Managers</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon warehouse"><i class="bi bi-building"></i></div>
+            <div class="stat-value">{{ warehouse_count|default:0 }}</div>
+            <div class="stat-label">Warehouse Staff</div>
+        </div>
+    </div>
+    
+    <!-- Filter -->
+    <div class="filter-card">
+        <form method="post">{% csrf_token %} method="GET" class="row g-3">
+            <div class="col-md-4">
+                <input type="text" name="search" class="form-control" placeholder="Search by username, email..." value="{{ search }}">
+            </div>
+            <div class="col-md-3">
+                <select name="role" class="form-select">
+                    <option value="">All Roles</option>
+                    <option value="admin" {% if role_filter == 'admin' %}selected{% endif %}>Administrator</option>
+                    <option value="owner" {% if role_filter == 'owner' %}selected{% endif %}>Owner</option>
+                    <option value="salesman" {% if role_filter == 'salesman' %}selected{% endif %}>Salesman</option>
+                    <option value="accountant" {% if role_filter == 'accountant' %}selected{% endif %}>Accountant</option>
+                    <option value="manager" {% if role_filter == 'manager' %}selected{% endif %}>Store Manager</option>
+                    <option value="warehouse" {% if role_filter == 'warehouse' %}selected{% endif %}>Warehouse Staff</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select name="status" class="form-select">
+                    <option value="">All Status</option>
+                    <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+                    <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn-search w-100"><i class="bi bi-search"></i> Filter</button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Table -->
+    <div class="table-card">
+        <div class="table-header">
+            <h5><i class="bi bi-people"></i> System Users <span class="badge-count">{{ page_obj.paginator.count|default:0 }}</span></h5>
+            <a href="{% url 'user_create' %}" class="btn-add"><i class="bi bi-plus-lg"></i> Add User</a>
+        </div>
+        
+        <div style="overflow-x: auto;">
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Last Login</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in page_obj %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="avatar {{ user.role|default:'admin' }}">
+                                    {{ user.username|first|upper }}
+                                </div>
+                                <div>
+                                    <strong>{{ user.get_full_name|default:user.username }}</strong>
+                                    <br>
+                                    <small class="text-muted">ID: {{ user.id }}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ user.username }}</td>
+                        <td>{{ user.email|default:'—' }}</td>
+                        <td>
+                            <span class="role-badge role-{{ user.role|default:'admin' }}">
+                                <i class="bi {{ user.role_icon }}"></i> {{ user.role_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if user.is_active %}
+                            <span class="text-success"><span class="status-active"></span> Active</span>
+                            {% else %}
+                            <span class="text-danger"><span class="status-inactive"></span> Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ user.last_login|date:"d M Y"|default:'Never' }}</td>
+                        <td>
+                            <div class="d-flex gap-2">
+                                <a href="{% url 'user_edit' user.pk %}" class="btn-action edit" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <a href="{% url 'user_reset_password' user.pk %}" class="btn-action reset" title="Reset Password">
+                                    <i class="bi bi-key"></i>
+                                </a>
+                                {% if user.is_active %}
+                                <a href="#" onclick="toggleStatus({{ user.pk }})" class="btn-action" title="Deactivate" style="color: #dc2626;">
+                                    <i class="bi bi-ban"></i>
+                                </a>
+                                {% else %}
+                                <a href="#" onclick="toggleStatus({{ user.pk }})" class="btn-action" title="Activate" style="color: #059669;">
+                                    <i class="bi bi-check-circle"></i>
+                                </a>
+                                {% endif %}
+                                {% if user.pk != request.user.pk %}
+                                <a href="#" onclick="confirmDelete({{ user.pk }})" class="btn-action delete" title="Delete">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                         </td>
+                     </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5">
+                            <i class="bi bi-people" style="font-size: 3rem; opacity: 0.3;"></i>
+                            <p class="mt-2">No users found</p>
+                            <a href="{% url 'user_create' %}" class="btn-add mt-2">Add First User</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% include 'components/pagination.html' %}
+    </div>
+</div>
+
+<script>
+function toggleStatus(userId) {
+    if(confirm('Are you sure you want to change user status?')) {
+        window.location.href = '/users/' + userId + '/toggle-status/';
+    }
+}
+
+function confirmDelete(userId) {
+    if(confirm('⚠️ Are you sure you want to delete this user? This action cannot be undone!')) {
+        window.location.href = '/users/' + userId + '/delete/';
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,723 @@
+{% extends 'base_clean.html' %}
+{% load static %}
+
+{% block title %}Terms & Conditions - {{ company_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ✅ Reset & Base */
+    .terms-wrapper {
+        width: 100%;
+        max-width: 100%;
+        overflow: hidden;
+    }
+    
+    /* ✅ Tabs - Mobile First */
+    .terms-tabs {
+        display: flex;
+        gap: 0;
+        margin-bottom: 0;
+        border-bottom: 2px solid #e2e8f0;
+        background: #f8f9fc;
+        overflow: hidden;
+        flex-wrap: nowrap;
+    }
+    
+    .terms-tab {
+        padding: 12px 16px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        cursor: pointer;
+        border: none;
+        background: transparent;
+        transition: all 0.3s ease;
+        color: #6b7280;
+        position: relative;
+        flex: 1;
+        text-align: center;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .terms-tab:hover {
+        background: rgba(102, 126, 234, 0.05);
+        color: #1a1a2e;
+    }
+    
+    .terms-tab.active {
+        color: #1a1a2e;
+        background: white;
+        border-bottom: 3px solid #667eea;
+    }
+    
+    .terms-tab i {
+        margin-right: 6px;
+        font-size: 0.9rem;
+    }
+    
+    .terms-tab .badge-tab {
+        background: #667eea;
+        color: white;
+        font-size: 0.55rem;
+        padding: 1px 8px;
+        border-radius: 20px;
+        margin-left: 4px;
+    }
+    
+    .terms-tab.active .badge-tab {
+        background: #28a745;
+    }
+    
+    /* ✅ Tab Content */
+    .tab-content {
+        display: none;
+        padding: 15px 18px;
+        background: white;
+        animation: fadeIn 0.3s ease;
+    }
+    
+    .tab-content.active {
+        display: block;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* ✅ Terms Content */
+    .terms-content {
+        font-size: 13px;
+        line-height: 1.8;
+        color: #4a5568;
+        max-height: 400px;
+        overflow-y: auto;
+        padding-right: 8px;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+    
+    .terms-content::-webkit-scrollbar {
+        width: 4px;
+    }
+    
+    .terms-content::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+    
+    .terms-content::-webkit-scrollbar-thumb {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 10px;
+    }
+    
+    .terms-content h1 {
+        font-size: 1.3rem;
+        color: #1a1a2e;
+        margin-top: 20px;
+        margin-bottom: 10px;
+        font-weight: 700;
+        word-wrap: break-word;
+    }
+    
+    .terms-content h1:first-child {
+        margin-top: 0;
+    }
+    
+    .terms-content h2 {
+        font-size: 1.1rem;
+        color: #2d3748;
+        margin-top: 18px;
+        margin-bottom: 8px;
+        font-weight: 600;
+        border-bottom: 2px solid #667eea;
+        padding-bottom: 6px;
+        word-wrap: break-word;
+    }
+    
+    .terms-content h3 {
+        font-size: 0.95rem;
+        color: #4a5568;
+        margin-top: 14px;
+        margin-bottom: 6px;
+        font-weight: 600;
+        word-wrap: break-word;
+    }
+    
+    .terms-content p {
+        line-height: 1.8;
+        color: #4a5568;
+        margin-bottom: 10px;
+        word-wrap: break-word;
+    }
+    
+    .terms-content ul, .terms-content ol {
+        padding-left: 20px;
+        margin-bottom: 12px;
+        word-wrap: break-word;
+    }
+    
+    .terms-content ul li, .terms-content ol li {
+        line-height: 1.8;
+        color: #4a5568;
+        margin-bottom: 4px;
+        word-wrap: break-word;
+    }
+    
+    .terms-content ul li::marker {
+        color: #667eea;
+    }
+    
+    .terms-content ol li::marker {
+        color: #667eea;
+        font-weight: 600;
+    }
+    
+    .terms-content strong {
+        color: #1a1a2e;
+    }
+    
+    .terms-content table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0;
+        font-size: 12px;
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+    
+    .terms-content table th,
+    .terms-content table td {
+        border: 1px solid #e2e8f0;
+        padding: 6px 10px;
+        text-align: left;
+        word-wrap: break-word;
+    }
+    
+    .terms-content table th {
+        background: #f1f4f9;
+        font-weight: 600;
+    }
+    
+    .business-model-box {
+        background: linear-gradient(135deg, #f8f9fc 0%, #eef0f3 100%);
+        border-left: 4px solid #28a745;
+        border-radius: 8px;
+        padding: 14px 16px;
+        margin: 12px 0;
+        word-wrap: break-word;
+    }
+    
+    .business-model-box h4 {
+        color: #1a1a2e;
+        font-weight: 700;
+        margin-bottom: 6px;
+        font-size: 1rem;
+    }
+    
+    .business-model-box ul {
+        margin-bottom: 0;
+        padding-left: 18px;
+    }
+    
+    .business-model-box ul li {
+        font-size: 0.9rem;
+    }
+    
+    /* ✅ Urdu Styles */
+    .urdu-text {
+        font-family: 'Noto Naskh Arabic', 'Amiri', 'Scheherazade', serif;
+        direction: rtl;
+        text-align: right;
+    }
+    
+    .urdu-text ul {
+        padding-right: 20px;
+        padding-left: 0;
+    }
+    
+    .urdu-text h1,
+    .urdu-text h2,
+    .urdu-text h3,
+    .urdu-text h4,
+    .urdu-text p,
+    .urdu-text li {
+        direction: rtl;
+        text-align: right;
+    }
+    
+    .urdu-text table th,
+    .urdu-text table td {
+        text-align: right;
+        direction: rtl;
+    }
+    
+    .urdu-text .business-model-box {
+        border-left: none;
+        border-right: 4px solid #28a745;
+    }
+    
+    /* ✅ Header - Mobile First (No Version/Date) */
+    .terms-header-custom {
+        padding: 18px 20px;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        color: white;
+    }
+    
+    .terms-header-custom .header-icon {
+        width: 45px;
+        height: 45px;
+        font-size: 20px;
+        flex-shrink: 0;
+        background: rgba(255,255,255,0.15);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .terms-header-custom h1 {
+        font-size: 1.2rem;
+        margin-bottom: 4px;
+        word-wrap: break-word;
+        font-weight: 700;
+    }
+    
+    /* ✅ Footer - Mobile First */
+    .terms-footer-custom {
+        padding: 16px 18px;
+        background: #ffffff;
+        border-top: 1px solid #eef0f3;
+    }
+    
+    /* ✅ Buttons - Mobile First */
+    .btn-agree {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border: none;
+        padding: 12px 30px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        color: white;
+        border-radius: 50px;
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .btn-agree:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(40, 167, 69, 0.35);
+        color: white;
+    }
+    
+    .btn-agree:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        background: #6c757d;
+    }
+    
+    .btn-decline {
+        padding: 12px 30px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        border-radius: 50px;
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+    }
+    
+    .btn-decline:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(220, 53, 69, 0.15);
+    }
+    
+    .checkbox-custom {
+        width: 20px;
+        height: 20px;
+        margin-right: 10px;
+        cursor: pointer;
+        accent-color: #28a745;
+        flex-shrink: 0;
+    }
+    
+    .checkbox-label {
+        font-size: 0.9rem;
+        cursor: pointer;
+        color: #1a1a2e;
+        word-wrap: break-word;
+    }
+    
+    .checkbox-label strong {
+        color: #1a1a2e;
+    }
+    
+    .terms-alert {
+        background: linear-gradient(135deg, #e8f0fe 0%, #d4e4f7 100%);
+        border: none;
+        border-radius: 10px;
+        padding: 14px 16px;
+        font-size: 0.85rem;
+    }
+    
+    .terms-alert i {
+        font-size: 1.2rem;
+        margin-right: 10px;
+        flex-shrink: 0;
+    }
+    
+    .terms-alert hr {
+        margin: 8px 0;
+    }
+    
+    .footer-note {
+        font-size: 0.75rem;
+        color: #6b7280;
+    }
+    
+    /* ✅ Responsive Breakpoints */
+    
+    /* Small devices (phones, 576px and down) */
+    @media (max-width: 576px) {
+        .terms-tab {
+            padding: 10px 8px;
+            font-size: 0.7rem;
+        }
+        
+        .terms-tab i {
+            font-size: 0.75rem;
+            margin-right: 3px;
+        }
+        
+        .terms-tab .badge-tab {
+            font-size: 0.5rem;
+            padding: 1px 5px;
+        }
+        
+        .tab-content {
+            padding: 12px 14px;
+        }
+        
+        .terms-content {
+            font-size: 12px;
+            max-height: 300px;
+        }
+        
+        .terms-content h1 {
+            font-size: 1.1rem;
+        }
+        
+        .terms-content h2 {
+            font-size: 0.95rem;
+        }
+        
+        .terms-content h3 {
+            font-size: 0.85rem;
+        }
+        
+        .terms-content table {
+            font-size: 10px;
+        }
+        
+        .terms-content table th,
+        .terms-content table td {
+            padding: 4px 6px;
+        }
+        
+        .terms-header-custom {
+            padding: 14px 16px;
+        }
+        
+        .terms-header-custom .header-icon {
+            width: 38px;
+            height: 38px;
+            font-size: 16px;
+        }
+        
+        .terms-header-custom h1 {
+            font-size: 1rem;
+        }
+        
+        .terms-footer-custom {
+            padding: 14px 16px;
+        }
+        
+        .btn-agree, .btn-decline {
+            font-size: 0.85rem;
+            padding: 10px 20px;
+        }
+        
+        .checkbox-label {
+            font-size: 0.8rem;
+        }
+        
+        .checkbox-custom {
+            width: 18px;
+            height: 18px;
+        }
+        
+        .terms-alert {
+            font-size: 0.75rem;
+            padding: 12px 14px;
+        }
+        
+        .terms-alert i {
+            font-size: 1rem;
+        }
+        
+        .business-model-box {
+            padding: 10px 12px;
+        }
+        
+        .business-model-box h4 {
+            font-size: 0.85rem;
+        }
+        
+        .business-model-box ul li {
+            font-size: 0.8rem;
+        }
+        
+        .footer-note {
+            font-size: 0.65rem;
+        }
+    }
+    
+    /* Medium devices (tablets, 577px - 768px) */
+    @media (min-width: 577px) and (max-width: 768px) {
+        .terms-tab {
+            padding: 12px 20px;
+            font-size: 0.8rem;
+        }
+        
+        .tab-content {
+            padding: 18px 22px;
+        }
+        
+        .terms-content {
+            font-size: 13px;
+            max-height: 400px;
+        }
+        
+        .terms-header-custom {
+            padding: 20px 24px;
+        }
+        
+        .terms-header-custom h1 {
+            font-size: 1.3rem;
+        }
+        
+        .btn-agree, .btn-decline {
+            width: auto;
+            min-width: 200px;
+        }
+        
+        .d-flex.gap-3 {
+            flex-direction: row !important;
+        }
+    }
+    
+    /* Large devices (desktops, 769px and up) */
+    @media (min-width: 769px) {
+        .terms-tab {
+            padding: 14px 30px;
+            font-size: 1rem;
+        }
+        
+        .tab-content {
+            padding: 25px 30px;
+        }
+        
+        .terms-content {
+            font-size: 14px;
+            max-height: 500px;
+        }
+        
+        .terms-header-custom {
+            padding: 32px 35px;
+        }
+        
+        .terms-header-custom h1 {
+            font-size: 1.6rem;
+        }
+        
+        .btn-agree, .btn-decline {
+            width: auto;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="terms-wrapper">
+    <div class="clean-card">
+        
+        <!-- ✅ Header - No Version/Date -->
+        <div class="terms-header-custom">
+            <div class="d-flex align-items-center gap-3">
+                <div class="header-icon">
+                    <i class="bi bi-file-text"></i>
+                </div>
+                <div style="min-width: 0;">
+                    <h1 class="mb-0">{{ terms.title }}</h1>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ✅ Tabs - Mobile Responsive -->
+        <div class="terms-tabs">
+            <button class="terms-tab active" data-tab="english" onclick="switchTab('english')">
+                <i class="bi bi-translate"></i> EN
+                <span class="badge-tab">EN</span>
+            </button>
+            <button class="terms-tab" data-tab="urdu" onclick="switchTab('urdu')">
+                <i class="bi bi-translate"></i> UR
+                <span class="badge-tab">UR</span>
+            </button>
+        </div>
+        
+        <!-- ✅ English Tab Content -->
+        <div id="tab-english" class="tab-content active">
+            <div class="terms-content">
+                {{ terms.content|linebreaks|safe }}
+            </div>
+        </div>
+        
+        <!-- ✅ Urdu Tab Content -->
+        <div id="tab-urdu" class="tab-content urdu-text">
+            <div class="terms-content">
+                {% if terms.urdu_content %}
+                    {{ terms.urdu_content|linebreaks|safe }}
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        Urdu version is not available. Please check the English version.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- ✅ Footer - Mobile Responsive -->
+        <div class="terms-footer-custom">
+            <form method="POST" action="{% url 'shareholder_terms' %}">
+                {% csrf_token %}
+                
+                <input type="hidden" name="agree" value="yes" id="agreeHidden">
+                
+                <!-- ✅ Important Alert - English + Urdu -->
+                <div class="alert terms-alert d-flex align-items-start">
+                    <i class="bi bi-info-circle flex-shrink-0"></i>
+                    <div>
+                        <strong>Important:</strong> By accepting these terms, you confirm that you have read, 
+                        understood, and agree to be bound by all terms and conditions.
+                        <br>
+                        <small class="text-muted">
+                            <i class="bi bi-shield-lock"></i> Your acceptance will be recorded for compliance purposes.
+                        </small>
+                        
+                        <hr>
+                        <strong>اہم:</strong> ان شرائط کو قبول کرتے ہوئے، آپ تصدیق کرتے ہیں کہ آپ نے تمام شرائط 
+                        پڑھ لی ہیں، سمجھ لی ہیں، اور ان پر عمل کرنے کے لیے متفق ہیں۔
+                        <br>
+                        <small class="text-muted">
+                            <i class="bi bi-shield-lock"></i> آپ کی قبولیت تعمیل کے مقاصد کے لیے ریکارڈ کی جائے گی۔
+                        </small>
+                    </div>
+                </div>
+                
+                <div class="form-check mb-4 d-flex align-items-start">
+                    <input class="form-check-input checkbox-custom mt-1" 
+                           type="checkbox" 
+                           id="agreeCheck" 
+                           required>
+                    <label class="form-check-label checkbox-label" for="agreeCheck">
+                        <strong>I have read and agree to the Terms & Conditions</strong>
+                    </label>
+                </div>
+                
+                <div class="d-flex gap-3 align-items-center flex-wrap">
+                    <button type="submit" 
+                            name="action" 
+                            value="agree" 
+                            class="btn btn-agree btn-lg px-5" 
+                            id="agreeBtn" 
+                            disabled>
+                        <i class="bi bi-check-circle me-2"></i> I Agree
+                    </button>
+                    
+                    <a href="{% url 'shareholder_logout' %}" 
+                       class="btn btn-decline btn-outline-danger btn-lg px-5">
+                        <i class="bi bi-x-circle me-2"></i> Decline & Logout
+                    </a>
+                </div>
+                
+                <div class="mt-3 text-center footer-note">
+                    <i class="bi bi-clock"></i> You can review these terms anytime from your profile.
+                    <br>
+                    <span class="text-muted">آپ کسی بھی وقت اپنے پروفائل سے ان شرائط کا جائزہ لے سکتے ہیں۔</span>
+                </div>
+            </form>
+        </div>
+        
+    </div>
+</div>
+
+<script>
+function switchTab(tab) {
+    // Hide all tabs
+    document.querySelectorAll('.tab-content').forEach(function(el) {
+        el.classList.remove('active');
+    });
+    
+    // Remove active class from all tab buttons
+    document.querySelectorAll('.terms-tab').forEach(function(el) {
+        el.classList.remove('active');
+    });
+    
+    // Show selected tab
+    document.getElementById('tab-' + tab).classList.add('active');
+    
+    // Add active class to selected tab button
+    document.querySelector('.terms-tab[data-tab="' + tab + '"]').classList.add('active');
+}
+
+// Checkbox logic
+document.addEventListener('DOMContentLoaded', function() {
+    const agreeCheck = document.getElementById('agreeCheck');
+    const agreeBtn = document.getElementById('agreeBtn');
+    const agreeHidden = document.getElementById('agreeHidden');
+    
+    agreeCheck.addEventListener('change', function() {
+        agreeBtn.disabled = !this.checked;
+        if (this.checked) {
+            agreeBtn.style.opacity = '1';
+        } else {
+            agreeBtn.style.opacity = '0.5';
+        }
+    });
+    
+    agreeBtn.disabled = true;
+    agreeBtn.style.opacity = '0.5';
+    
+    document.querySelector('form').addEventListener('submit', function(e) {
+        const btn = document.getElementById('agreeBtn');
+        if (!btn.disabled) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i> Processing...';
+            document.getElementById('agreeHidden').value = 'yes';
+        } else {
+            e.preventDefault();
+            const checkbox = document.getElementById('agreeCheck');
+            checkbox.style.borderColor = '#dc3545';
+            checkbox.style.boxShadow = '0 0 0 3px rgba(220, 53, 69, 0.25)';
+            setTimeout(function() {
+                checkbox.style.borderColor = '';
+                checkbox.style.boxShadow = '';
+            }, 2000);
+        }
+    });
+});
+</script>
+{% endblock %}

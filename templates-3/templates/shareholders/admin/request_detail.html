@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Request Detail - {{ request.full_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card">
+                <div class="card-header {% if request.status == 'approved' %}bg-success{% elif request.status == 'rejected' %}bg-danger{% else %}bg-primary{% endif %} text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-person-badge"></i> Request Detail
+                    </h4>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- ========================================== -->
+                    <!-- ✅ CREDENTIALS SECTION - YEH ADD KARO     -->
+                    <!-- ========================================== -->
+                    {% if show_credentials %}
+                    <div class="alert alert-success border-2">
+                        <h5 class="alert-heading">
+                            <i class="bi bi-check-circle-fill"></i> Account Created Successfully!
+                        </h5>
+                        <hr>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="bg-light p-3 rounded">
+                                    <label class="text-muted small">Username</label>
+                                    <h5 class="mb-0">
+                                        <code>{{ username }}</code>
+                                    </h5>
+                                    <button class="btn btn-sm btn-outline-secondary mt-2" onclick="copyText('{{ username }}')">
+                                        <i class="bi bi-clipboard"></i> Copy
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="bg-light p-3 rounded">
+                                    <label class="text-muted small">Password</label>
+                                    <h5 class="mb-0">
+                                        <code>{{ password }}</code>
+                                    </h5>
+                                    <button class="btn btn-sm btn-outline-secondary mt-2" onclick="copyText('{{ password }}')">
+                                        <i class="bi bi-clipboard"></i> Copy
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="alert alert-info mt-3 mb-0">
+                            <i class="bi bi-info-circle"></i>
+                            <small>
+                                These credentials have been sent to <strong>{{ request.email }}</strong>
+                                <br>
+                                Login URL: <a href="{% url 'shareholder_login' %}" target="_blank">
+                                    {{ request.get_host }}{% url 'shareholder_login' %}
+                                </a>
+                            </small>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- ========================================== -->
+                    <!-- PERSONAL INFORMATION                       -->
+                    <!-- ========================================== -->
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Personal Information</h6>
+                            <table class="table table-sm table-borderless">
+                                <tr>
+                                    <td><strong>Name:</strong></td>
+                                    <td>{{ request.full_name }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Email:</strong></td>
+                                    <td>{{ request.email }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Phone:</strong></td>
+                                    <td>{{ request.phone }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>CNIC:</strong></td>
+                                    <td>{{ request.cnic|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Address:</strong></td>
+                                    <td>{{ request.address|default:"-"|linebreaks }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Request Information</h6>
+                            <table class="table table-sm table-borderless">
+                                <tr>
+                                    <td><strong>Status:</strong></td>
+                                    <td>
+                                        {% if request.status == 'pending' %}
+                                            <span class="badge bg-warning text-dark">⏳ Pending</span>
+                                        {% elif request.status == 'approved' %}
+                                            <span class="badge bg-success">✅ Approved</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">❌ Rejected</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Requested:</strong></td>
+                                    <td>{{ request.requested_at|date:"d-m-Y H:i:s" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>IP Address:</strong></td>
+                                    <td>{{ request.ip_address|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Notes:</strong></td>
+                                    <td>{{ request.notes|default:"-" }}</td>
+                                </tr>
+                                {% if request.reviewed_at %}
+                                <tr>
+                                    <td><strong>Reviewed:</strong></td>
+                                    <td>{{ request.reviewed_at|date:"d-m-Y H:i:s" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Reviewed By:</strong></td>
+                                    <td>{{ request.reviewed_by.username|default:"-" }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if request.rejection_reason %}
+                                <tr>
+                                    <td><strong>Rejection Reason:</strong></td>
+                                    <td class="text-danger">{{ request.rejection_reason }}</td>
+                                </tr>
+                                {% endif %}
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- ========================================== -->
+                    <!-- ACTIONS                                   -->
+                    <!-- ========================================== -->
+                    <div class="mt-4">
+                        <div class="d-flex gap-2 flex-wrap">
+                            <a href="{% url 'shareholder_requests_list' %}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Back to List
+                            </a>
+                            
+                            {% if can_act %}
+                                <a href="{% url 'shareholder_request_approve' request.id %}" class="btn btn-success">
+                                    <i class="bi bi-check-circle"></i> Approve
+                                </a>
+                                <a href="{% url 'shareholder_request_reject' request.id %}" class="btn btn-danger">
+                                    <i class="bi bi-x-circle"></i> Reject
+                                </a>
+                            {% endif %}
+                            
+                            {% if request.status == 'approved' and request.created_shareholder %}
+                                <a href="{% url 'shareholder_detail' request.created_shareholder.id %}" 
+                                   class="btn btn-info">
+                                    <i class="bi bi-person"></i> View Shareholder
+                                </a>
+                            {% endif %}
+                            
+                            {% if user.is_superuser %}
+                                <a href="{% url 'shareholder_request_delete' request.id %}" 
+                                   class="btn btn-dark" 
+                                   onclick="return confirm('Delete this request?')">
+                                    <i class="bi bi-trash"></i> Delete
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- COPY TO CLIPBOARD JAVASCRIPT               -->
+<!-- ========================================== -->
+<script>
+function copyText(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        // Show temporary success message
+        alert('✅ Copied: ' + text);
+    }).catch(function() {
+        // Fallback
+        var input = document.createElement('input');
+        input.value = text;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        alert('✅ Copied: ' + text);
+    });
+}
+</script>
+
+<style>
+code {
+    background: #f4f4f4;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 1.1rem;
+    display: inline-block;
+    word-break: break-all;
+}
+.alert-success {
+    border-left: 4px solid #28a745;
+}
+</style>
+{% endblock %}

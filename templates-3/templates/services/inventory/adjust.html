@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Adjust Stock - Service Inventory{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>📊 Adjust Stock: {{ item.name }}</h2>
+                <a href="{% url 'service_inventory_detail' item.id %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <form method="POST">
+                                {% csrf_token %}
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Current Stock</label>
+                                    <input type="number" class="form-control" value="{{ item.current_stock }}" readonly style="background:#f0f0f0;">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Adjustment Type <span class="text-danger">*</span></label>
+                                    <select name="adjustment_type" class="form-select" required>
+                                        <option value="increase">📈 Increase Stock</option>
+                                        <option value="decrease">📉 Decrease Stock</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Quantity <span class="text-danger">*</span></label>
+                                    <input type="number" name="quantity" class="form-control" step="0.01" required placeholder="Enter quantity">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Reason <span class="text-danger">*</span></label>
+                                    <textarea name="reason" class="form-control" rows="3" required placeholder="Why are you adjusting stock?"></textarea>
+                                </div>
+                                
+                                <hr>
+                                
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle"></i>
+                                    <strong>New Stock:</strong> <span id="newStock">{{ item.current_stock }}</span>
+                                </div>
+                                
+                                <div class="d-flex justify-content-end gap-2">
+                                    <a href="{% url 'service_inventory_detail' item.id %}" class="btn btn-secondary">Cancel</a>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-check-circle"></i> Apply Adjustment
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">📋 Item Info</h5>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-bordered">
+                                <tr><th>Code</th><td>{{ item.item_code }}</td></tr>
+                                <tr><th>Name</th><td>{{ item.name }}</td></tr>
+                                <tr><th>Type</th><td>{{ item.get_item_type_display }}</td></tr>
+                                <tr><th>Unit Cost</th><td>Rs. {{ item.unit_cost|floatformat:2 }}</td></tr>
+                                <tr><th>Min Stock</th><td>{{ item.min_stock }}</td></tr>
+                                <tr><th>Reorder Level</th><td>{{ item.reorder_level }}</td></tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const typeSelect = document.querySelector('select[name="adjustment_type"]');
+        const qtyInput = document.querySelector('input[name="quantity"]');
+        const newStockSpan = document.getElementById('newStock');
+        const currentStock = {{ item.current_stock }};
+        
+        function updateNewStock() {
+            const type = typeSelect.value;
+            const qty = parseFloat(qtyInput.value) || 0;
+            let newStock = currentStock;
+            
+            if (type === 'increase') {
+                newStock = currentStock + qty;
+            } else {
+                newStock = currentStock - qty;
+            }
+            
+            newStockSpan.textContent = newStock.toFixed(2);
+            
+            if (newStock < 0) {
+                newStockSpan.style.color = 'red';
+            } else {
+                newStockSpan.style.color = 'green';
+            }
+        }
+        
+        typeSelect.addEventListener('change', updateNewStock);
+        qtyInput.addEventListener('input', updateNewStock);
+    });
+</script>
+{% endblock %}

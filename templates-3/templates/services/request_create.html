@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}New Service Request - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>📋 New Service Request</h2>
+                <a href="{% url 'service_request_list' %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Back to Requests
+                </a>
+            </div>
+            
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <!-- Customer & Service -->
+                        <h5 class="mb-3">👤 Customer & Service</h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Customer <span class="text-danger">*</span></label>
+                                <select name="customer" class="form-select" required>
+                                    <option value="">Select Customer</option>
+                                    {% for customer in customers %}
+                                    <option value="{{ customer.id }}">{{ customer.customer_code }} - {{ customer.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Service <span class="text-danger">*</span></label>
+                                <select name="service" class="form-select" required id="serviceSelect">
+                                    <option value="">Select Service</option>
+                                    {% for service in services %}
+                                    <option value="{{ service.id }}" data-price="{{ service.price }}" data-hours="{{ service.estimated_hours }}">
+                                        {{ service.service_code }} - {{ service.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <!-- Service Details -->
+                        <h5 class="mb-3">📝 Service Details</h5>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">Description <span class="text-danger">*</span></label>
+                                <textarea name="description" class="form-control" rows="3" required placeholder="Describe the service required..."></textarea>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Priority <span class="text-danger">*</span></label>
+                                <select name="priority" class="form-select" required>
+                                    {% for key, value in priority_choices %}
+                                    <option value="{{ key }}">{{ value|safe }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Requested Date <span class="text-danger">*</span></label>
+                                <input type="date" name="requested_date" class="form-control" required value="{% now 'Y-m-d' %}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Scheduled Date</label>
+                                <input type="date" name="scheduled_date" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Appointment Time</label>
+                                <input type="time" name="appointment_time" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Quoted Price (Rs.)</label>
+                                <input type="number" name="quoted_price" class="form-control" step="0.01" id="quotedPrice" placeholder="0.00">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Estimated Hours</label>
+                                <input type="number" name="estimated_hours" class="form-control" step="0.5" id="estimatedHours" placeholder="0.0">
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <!-- Location & Contact -->
+                        <h5 class="mb-3">📍 Location & Contact</h5>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">Service Address</label>
+                                <textarea name="service_address" class="form-control" rows="2" placeholder="Service address (if different from customer address)"></textarea>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Contact Person</label>
+                                <input type="text" name="contact_person" class="form-control" placeholder="Contact person name">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Contact Phone</label>
+                                <input type="text" name="contact_phone" class="form-control" placeholder="Contact phone number">
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <!-- Technician Assignment -->
+                        <h5 class="mb-3">👤 Technician Assignment</h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Assign Technician</label>
+                                <select name="technician" class="form-select">
+                                    <option value="">Select Technician</option>
+                                    {% for tech in technicians %}
+                                    <option value="{{ tech.id }}">{{ tech.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check mt-2">
+                                    <input type="checkbox" name="auto_assign" class="form-check-input" id="autoAssign">
+                                    <label class="form-check-label" for="autoAssign">Auto-assign available technician</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <!-- Notes -->
+                        <h5 class="mb-3">📝 Notes</h5>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <textarea name="notes" class="form-control" rows="2" placeholder="Additional notes..."></textarea>
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="{% url 'service_request_list' %}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> Create Request
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const serviceSelect = document.getElementById('serviceSelect');
+        const quotedPrice = document.getElementById('quotedPrice');
+        const estimatedHours = document.getElementById('estimatedHours');
+        
+        serviceSelect.addEventListener('change', function() {
+            const selected = this.options[this.selectedIndex];
+            const price = selected.getAttribute('data-price');
+            const hours = selected.getAttribute('data-hours');
+            
+            if (price) {
+                quotedPrice.value = parseFloat(price).toFixed(2);
+            } else {
+                quotedPrice.value = '';
+            }
+            
+            if (hours) {
+                estimatedHours.value = parseFloat(hours).toFixed(1);
+            } else {
+                estimatedHours.value = '';
+            }
+        });
+    });
+</script>
+{% endblock %}

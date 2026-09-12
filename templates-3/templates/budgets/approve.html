@@ -1,0 +1,179 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Approve Budget{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb" class="mt-3">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'budget_dashboard' %}">📊 Budget</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'budget_list' %}">All Budgets</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'budget_detail' budget.id %}">{{ budget.budget_no }}</a></li>
+                    <li class="breadcrumb-item active">Approve</li>
+                </ol>
+            </nav>
+
+            <div class="card shadow-sm border-0">
+                <div class="card-header" style="background: linear-gradient(135deg, #28a745, #20c997);">
+                    <h5 class="mb-0 text-white">
+                        <i class="bi bi-check-circle"></i> Approve Budget
+                    </h5>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- Budget Summary -->
+                    <div class="alert alert-info border-0 shadow-sm">
+                        <h6 class="mb-3"><i class="bi bi-info-circle"></i> Budget Summary</h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Budget Name</small>
+                                <p class="fw-bold fs-5">{{ budget.name }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Budget No</small>
+                                <p><code>{{ budget.budget_no }}</code></p>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Amount</small>
+                                <p class="fw-bold text-primary fs-4">Rs. {{ budget.allocated_amount|floatformat:0|intcomma }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Status</small>
+                                <p>
+                                    {% if budget.status == 'pending' %}
+                                        <span class="badge bg-warning text-dark">⏳ Pending</span>
+                                    {% elif budget.status == 'draft' %}
+                                        <span class="badge bg-secondary">📝 Draft</span>
+                                    {% elif budget.status == 'approved' %}
+                                        <span class="badge bg-primary">✅ Approved</span>
+                                    {% elif budget.status == 'active' %}
+                                        <span class="badge bg-success">✅ Active</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ budget.get_status_display }}</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Department</small>
+                                <p>{{ budget.department.name|default:"N/A" }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Project</small>
+                                <p>{{ budget.project.name|default:"N/A" }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Category</small>
+                                <p>{{ budget.category.name|default:"N/A" }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Period</small>
+                                <p>{{ budget.period_start|date:"d-m-Y" }} to {{ budget.period_end|date:"d-m-Y" }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Frequency</small>
+                                <p>{{ budget.get_frequency_display }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Budget Type</small>
+                                <p>{{ budget.get_budget_type_display }}</p>
+                            </div>
+                            {% if budget.description %}
+                            <div class="col-12">
+                                <small class="text-muted d-block">Description</small>
+                                <p>{{ budget.description }}</p>
+                            </div>
+                            {% endif %}
+                            {% if budget.notes %}
+                            <div class="col-12">
+                                <small class="text-muted d-block">Notes</small>
+                                <p>{{ budget.notes }}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Utilization Preview -->
+                    <div class="alert alert-secondary border-0 shadow-sm">
+                        <h6 class="mb-3"><i class="bi bi-graph-up"></i> Utilization Preview</h6>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <small class="text-muted d-block">Allocated</small>
+                                <p class="fw-bold">Rs. {{ budget.allocated_amount|floatformat:0|intcomma }}</p>
+                            </div>
+                            <div class="col-md-4">
+                                <small class="text-muted d-block">Used</small>
+                                <p class="fw-bold text-warning">Rs. {{ budget.used_amount|floatformat:0|intcomma }}</p>
+                            </div>
+                            <div class="col-md-4">
+                                <small class="text-muted d-block">Remaining</small>
+                                <p class="fw-bold text-success">Rs. {{ budget.remaining_amount|floatformat:0|intcomma }}</p>
+                            </div>
+                            <div class="col-12">
+                                <small class="text-muted d-block">Utilization</small>
+                                <div class="progress" style="height:8px;">
+                                    <div class="progress-bar {% if budget.utilization_percent >= 90 %}bg-danger{% elif budget.utilization_percent >= 70 %}bg-warning{% else %}bg-success{% endif %}" 
+                                         style="width: {{ budget.utilization_percent|floatformat:1 }}%;">
+                                    </div>
+                                </div>
+                                <small class="text-muted">{{ budget.utilization_percent|floatformat:1 }}% utilized</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Approval Form -->
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Remarks (Optional)</label>
+                            <textarea name="remarks" class="form-control" rows="3" 
+                                      placeholder="Add any remarks or notes for this approval..."></textarea>
+                            <small class="text-muted">These remarks will be saved with the approval history</small>
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <strong>Before Approving:</strong>
+                            <ul class="mb-0 mt-1">
+                                <li>Verify the budget amount is correct</li>
+                                <li>Check the department and project are valid</li>
+                                <li>Ensure the period dates are appropriate</li>
+                                <li>Review the budget type and frequency</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle"></i>
+                            <strong>After Approval:</strong>
+                            <ul class="mb-0 mt-1">
+                                <li>Budget status will change to <strong>Approved</strong></li>
+                                <li>You can activate it from the detail page</li>
+                                <li>Expenses can be linked to this budget</li>
+                                <li>Notifications will be sent to stakeholders</li>
+                            </ul>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="bi bi-check-circle"></i> Confirm Approve
+                            </button>
+                            <a href="{% url 'budget_detail' budget.id %}" class="btn btn-secondary btn-lg">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+{% endblock %}

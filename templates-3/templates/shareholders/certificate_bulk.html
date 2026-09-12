@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Bulk Certificates{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>📦 Bulk Share Certificates</h1>
+        <a href="{% url 'share_list' %}" class="btn btn-secondary">← Back</a>
+    </div>
+    
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h6 class="mb-0">Select shares for certificate generation</h6>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+                
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="selectAll"></th>
+                                <th>Shareholder</th>
+                                <th>Shares</th>
+                                <th>Share Type</th>
+                                <th>Purchase Price</th>
+                                <th>Certificate</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for share in shares %}
+                            <tr>
+                                <td><input type="checkbox" name="share_ids[]" value="{{ share.id }}" class="share-checkbox"></td>
+                                <td>{{ share.shareholder.name }}</td>
+                                <td>{{ share.quantity|floatformat:0 }}</td>
+                                <td>{{ share.get_share_type_display }}</td>
+                                <td>Rs. {{ share.purchase_price|floatformat:2 }}</td>
+                                <td>
+                                    {% if share.certificate_printed %}
+                                        <span class="badge bg-success">✅ Printed</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">⏳ Pending</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="6" class="text-center">No shares found</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="text-end mt-3">
+                    <button type="submit" class="btn btn-success btn-lg">
+                        📄 Generate Certificates
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('selectAll').addEventListener('change', function() {
+        document.querySelectorAll('.share-checkbox').forEach(cb => cb.checked = this.checked);
+    });
+</script>
+{% endblock %}

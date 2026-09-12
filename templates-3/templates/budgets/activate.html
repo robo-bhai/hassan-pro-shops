@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Activate Budget{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb" class="mt-3">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'budget_dashboard' %}">📊 Budget</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'budget_list' %}">All Budgets</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'budget_detail' budget.id %}">{{ budget.budget_no }}</a></li>
+                    <li class="breadcrumb-item active">Activate</li>
+                </ol>
+            </nav>
+
+            <div class="card shadow-sm border-0">
+                <div class="card-header" style="background: linear-gradient(135deg, #17a2b8, #0dcaf0);">
+                    <h5 class="mb-0 text-white">
+                        <i class="bi bi-play-circle"></i> Activate Budget
+                    </h5>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- Budget Summary -->
+                    <div class="alert alert-info border-0 shadow-sm">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Budget</small>
+                                <p class="fw-bold">{{ budget.name }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Amount</small>
+                                <p class="fw-bold text-primary">Rs. {{ budget.allocated_amount|floatformat:0|intcomma }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Status</small>
+                                <p>
+                                    {% if budget.status == 'approved' %}
+                                        <span class="badge bg-primary">✅ Approved</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ budget.get_status_display }}</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Department</small>
+                                <p>{{ budget.department.name|default:"N/A" }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Project</small>
+                                <p>{{ budget.project.name|default:"N/A" }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Period</small>
+                                <p>{{ budget.period_start|date:"d-m-Y" }} to {{ budget.period_end|date:"d-m-Y" }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Activation Form -->
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle"></i>
+                            <h5>Ready to Activate?</h5>
+                            <p>This budget will become <strong>Active</strong> and can be used for expenses.</p>
+                            <hr>
+                            <ul class="mb-0">
+                                <li>✅ Budget will be available for expense allocation</li>
+                                <li>✅ Alerts will be triggered based on utilization</li>
+                                <li>✅ Expenses can be linked to this budget</li>
+                                <li>✅ Reports will include this budget</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="bi bi-play-circle"></i> Confirm Activate
+                            </button>
+                            <a href="{% url 'budget_detail' budget.id %}" class="btn btn-secondary btn-lg">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+{% endblock %}

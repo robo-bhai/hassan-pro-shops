@@ -1,0 +1,228 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}💸 Withdrawal Requests - {{ shareholder.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- ============================================ -->
+    <!-- HEADER                                      -->
+    <!-- ============================================ -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-cash-stack"></i> Withdrawal Requests</h2>
+            <p class="text-muted">
+                <i class="bi bi-person"></i> {{ shareholder.name }} 
+                <span class="badge bg-secondary ms-2">{{ shareholder.shareholder_code }}</span>
+            </p>
+        </div>
+        <div>
+            <span class="badge bg-warning me-2 fs-6">⏳ Pending: {{ pending_requests }}</span>
+            <span class="badge bg-success me-2 fs-6">✅ Approved: {{ approved_requests }}</span>
+            <span class="badge bg-danger me-2 fs-6">❌ Rejected: {{ rejected_requests }}</span>
+            <span class="badge bg-secondary fs-6">📊 Total: {{ total_requests }}</span>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- SUMMARY CARDS                               -->
+    <!-- ============================================ -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="card-title text-uppercase small">Total Requests</h6>
+                    <h2 class="mb-0">{{ total_requests }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="card-title text-uppercase small">Total Withdrawn</h6>
+                    <h2 class="mb-0">Rs. {{ total_amount|floatformat:0 }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="card-title text-uppercase small">Pending</h6>
+                    <h2 class="mb-0">{{ pending_requests }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="card-title text-uppercase small">Pending Amount</h6>
+                    <h2 class="mb-0">Rs. {{ pending_amount|floatformat:0 }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- REQUESTS TABLE                              -->
+    <!-- ============================================ -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center">
+            <h6 class="mb-0"><i class="bi bi-list"></i> All Withdrawal Requests</h6>
+            <div>
+                <span class="badge bg-warning">Pending: {{ pending_requests }}</span>
+                <span class="badge bg-success">Approved: {{ approved_requests }}</span>
+                <span class="badge bg-danger">Rejected: {{ rejected_requests }}</span>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Request No</th>
+                            <th>Amount</th>
+                            <th>Method</th>
+                            <th>Account Details</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for req in withdrawal_requests %}
+                        <tr>
+                            <td>
+                                <code>{{ req.request_no }}</code>
+                                <br>
+                                <small class="text-muted">{{ req.created_at|timesince }} ago</small>
+                            </td>
+                            <td class="fw-bold text-danger">
+                                Rs. {{ req.amount|floatformat:2 }}
+                            </td>
+                            <td>
+                                <span class="badge bg-info text-dark">
+                                    {{ req.get_payment_method_display|truncatechars:15 }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="small" title="{{ req.account_details }}">
+                                    {{ req.account_details|truncatechars:30|default:"N/A" }}
+                                </span>
+                            </td>
+                            <td>{{ req.created_at|date:"d-m-Y H:i" }}</td>
+                            <td>
+                                {% if req.status == 'pending' %}
+                                    <span class="badge bg-warning">⏳ Pending</span>
+                                {% elif req.status == 'approved' %}
+                                    <span class="badge bg-success">✅ Approved</span>
+                                {% elif req.status == 'rejected' %}
+                                    <span class="badge bg-danger">❌ Rejected</span>
+                                {% elif req.status == 'cancelled' %}
+                                    <span class="badge bg-secondary">❌ Cancelled</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'shareholder_withdrawal_request_detail' req.id %}" 
+                                       class="btn btn-primary" title="View Details">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    {% if req.status == 'pending' %}
+                                    <a href="{% url 'shareholder_withdrawal_request_notification' req.id %}" 
+                                       class="btn btn-warning" title="Resend Notification"
+                                       onclick="return confirm('Send reminder to admins?')">
+                                        <i class="bi bi-bell"></i>
+                                    </a>
+                                    {% endif %}
+                                    {% if req.attachment %}
+                                    <a href="{{ req.attachment.url }}" target="_blank" 
+                                       class="btn btn-info" title="View Attachment">
+                                        <i class="bi bi-paperclip"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox fs-1 d-block"></i>
+                                <p class="mt-2">No withdrawal requests from this shareholder</p>
+                                <a href="{% url 'shareholder_detail' shareholder.id %}" class="btn btn-outline-primary btn-sm">
+                                    <i class="bi bi-arrow-left"></i> Back to Shareholder
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer">
+            <div class="d-flex flex-wrap justify-content-between align-items-center">
+                <span class="text-muted">
+                    <i class="bi bi-info-circle"></i> 
+                    Showing {{ withdrawal_requests|length }} request(s)
+                </span>
+                <div>
+                    <a href="{% url 'shareholder_detail' shareholder.id %}" class="btn btn-secondary btn-sm">
+                        <i class="bi bi-arrow-left"></i> Back to Shareholder
+                    </a>
+                    <a href="{% url 'shareholder_withdrawal_requests' %}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-list"></i> All Withdrawals
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- QUICK STATISTICS                           -->
+    <!-- ============================================ -->
+    <div class="row g-3 mt-3">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted"><i class="bi bi-pie-chart"></i> Status Breakdown</h6>
+                    <div class="progress" style="height:25px;">
+                        {% if total_requests > 0 %}
+                        <div class="progress-bar bg-warning" style="width: {% widthratio pending_requests total_requests 100 %}%;">
+                            Pending {{ pending_requests }}
+                        </div>
+                        <div class="progress-bar bg-success" style="width: {% widthratio approved_requests total_requests 100 %}%;">
+                            Approved {{ approved_requests }}
+                        </div>
+                        <div class="progress-bar bg-danger" style="width: {% widthratio rejected_requests total_requests 100 %}%;">
+                            Rejected {{ rejected_requests }}
+                        </div>
+                        {% else %}
+                        <div class="progress-bar bg-secondary" style="width:100%;">No Requests</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted"><i class="bi bi-cash"></i> Amount Summary</h6>
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <small class="text-muted d-block">Total</small>
+                            <strong>Rs. {{ total_amount|floatformat:0 }}</strong>
+                        </div>
+                        <div class="col-4">
+                            <small class="text-muted d-block">Approved</small>
+                            <strong class="text-success">Rs. {{ approved_amount|floatformat:0 }}</strong>
+                        </div>
+                        <div class="col-4">
+                            <small class="text-muted d-block">Pending</small>
+                            <strong class="text-warning">Rs. {{ pending_amount|floatformat:0 }}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

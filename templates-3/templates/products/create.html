@@ -1,0 +1,806 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Add Product{% endblock %}
+{% block page_title %}➕ Add Product{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --border: #eef0f5;
+        --text: #1a1a2e;
+        --text-light: #6b7280;
+        --accent: #0d6efd;
+    }
+    
+    .form-container { max-width: 800px; margin: 0 auto; }
+    
+    .form-card {
+        background: white;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        padding: 30px 35px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    }
+    
+    .form-card .form-header { margin-bottom: 25px; }
+    
+    .form-card .form-header h4 {
+        font-weight: 800;
+        font-size: 1.2rem;
+        color: var(--text);
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .form-card .form-header p {
+        color: var(--text-light);
+        font-size: 0.85rem;
+        margin: 5px 0 0;
+    }
+    
+    .form-section { margin-bottom: 25px; }
+    
+    .form-section-title {
+        font-weight: 700;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        color: #8a8fa0;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #f0f2f7;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .section-icon {
+        width: 28px; height: 28px;
+        border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.85rem;
+    }
+    
+    .icon-basic { background: #eef2ff; color: #667eea; }
+    .icon-barcode { background: #e8f5e9; color: #4caf50; }
+    .icon-category { background: #fff3cd; color: #f2994a; }
+    .icon-stock { background: #fce4ec; color: #e91e63; }
+    
+    .form-label-custom {
+        font-weight: 700; font-size: 0.72rem;
+        text-transform: uppercase; letter-spacing: 1px;
+        color: #5a6070; margin-bottom: 5px;
+        display: flex; align-items: center; gap: 5px;
+    }
+    
+    .form-label-custom .required { color: #dc3545; }
+    
+    .form-control-custom, .form-select-custom {
+        border-radius: 10px; border: 2px solid #eef0f5;
+        padding: 11px 15px; font-size: 0.9rem; font-weight: 500;
+        background: #fafbfc; width: 100%; transition: all 0.2s;
+        margin-bottom: 14px; color: var(--text);
+    }
+    
+    .form-control-custom:focus, .form-select-custom:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 4px rgba(13,110,253,0.08);
+        background: white; outline: none;
+    }
+    
+    textarea.form-control-custom { resize: vertical; min-height: 80px; }
+    
+    .help-text {
+        font-size: 0.72rem; color: #8a8fa0;
+        margin-top: -8px; margin-bottom: 14px;
+        display: flex; align-items: center; gap: 4px;
+    }
+    
+    /* Toggle */
+    .toggle-option {
+        display: flex; align-items: center; gap: 10px;
+        padding: 12px 16px; border-radius: 10px;
+        border: 2px solid #eef0f5; cursor: pointer;
+        transition: all 0.2s; margin-bottom: 14px; background: #fafbfc;
+    }
+    
+    .toggle-option:hover { border-color: #d0d5e0; }
+    
+    .toggle-option.selected {
+        border-color: var(--accent); background: #f0f4ff;
+    }
+    
+    .toggle-option .toggle-radio {
+        width: 20px; height: 20px; border-radius: 50%;
+        border: 2px solid #c0c5d0;
+        display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    
+    .toggle-option.selected .toggle-radio {
+        border-color: var(--accent); background: var(--accent);
+    }
+    
+    .toggle-option.selected .toggle-radio::after {
+        content: ''; width: 8px; height: 8px;
+        background: white; border-radius: 50%;
+    }
+    
+    .toggle-option .toggle-label { font-weight: 600; font-size: 0.88rem; color: var(--text); }
+    .toggle-option .toggle-desc { font-size: 0.75rem; color: #8a8fa0; }
+    
+    /* Barcode Preview */
+    .barcode-preview {
+        background: white; border: 2px dashed #e0e3eb;
+        border-radius: 12px; padding: 15px; text-align: center;
+        min-height: 60px; display: flex; align-items: center;
+        justify-content: center; color: #c0c5d0;
+        font-size: 0.85rem; margin-bottom: 14px; transition: all 0.3s;
+    }
+    
+    .barcode-preview.has-barcode {
+        border-color: #4caf50; background: #f0fff4;
+        color: #2e7d32; font-weight: 700;
+        font-family: 'Courier New', monospace;
+        font-size: 1rem; letter-spacing: 2px;
+    }
+    
+    .btn-submit {
+        width: 100%; padding: 15px; border-radius: 12px;
+        font-weight: 700; font-size: 1rem; border: none; cursor: pointer;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white; display: flex; align-items: center;
+        justify-content: center; gap: 8px; transition: all 0.3s;
+        box-shadow: 0 4px 15px rgba(102,126,234,0.25);
+    }
+    
+    .btn-submit:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(102,126,234,0.4);
+    }
+    
+    .btn-back {
+        width: 100%; padding: 12px; border-radius: 10px;
+        font-weight: 600; font-size: 0.9rem;
+        border: 2px solid #e0e3eb; background: white;
+        color: #5a6070; cursor: pointer; margin-top: 10px;
+        display: flex; align-items: center; justify-content: center;
+        gap: 6px; text-decoration: none; transition: all 0.2s;
+    }
+    
+    .btn-back:hover { background: #f8f9fc; border-color: #c0c5d0; color: #333; }
+    
+    #scannerContainer {
+        border: 2px solid #f0a500; border-radius: 12px;
+        overflow: hidden; max-width: 400px;
+    }
+    
+    /* Inline Add Styles */
+    .inline-add-group {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .inline-add-group .form-select-custom {
+        flex: 1;
+        margin-bottom: 0;
+    }
+    
+    .inline-add-btn {
+        background: #f0f2f7;
+        border: none;
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        font-size: 1.2rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        color: #667eea;
+        flex-shrink: 0;
+    }
+    
+    .inline-add-btn:hover {
+        background: #eef2ff;
+        transform: scale(1.02);
+    }
+    
+    /* Modal Styles */
+    .modal-custom {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .modal-custom.show {
+        display: flex;
+    }
+    
+    .modal-content-custom {
+        background: white;
+        border-radius: 16px;
+        width: 90%;
+        max-width: 450px;
+        overflow: hidden;
+        animation: modalSlideIn 0.3s ease;
+    }
+    
+    @keyframes modalSlideIn {
+        from {
+            transform: translateY(-30px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+    
+    .modal-header-custom {
+        padding: 18px 22px;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .modal-header-custom h5 {
+        margin: 0;
+        font-weight: 700;
+        font-size: 1rem;
+    }
+    
+    .modal-close {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 1.5rem;
+        cursor: pointer;
+        opacity: 0.8;
+        transition: opacity 0.2s;
+    }
+    
+    .modal-close:hover {
+        opacity: 1;
+    }
+    
+    .modal-body-custom {
+        padding: 22px;
+    }
+    
+    .modal-footer-custom {
+        padding: 16px 22px;
+        border-top: 1px solid #eef0f5;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+    
+    .btn-modal-submit {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        border: none;
+        padding: 10px 24px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    
+    .btn-modal-cancel {
+        background: #f0f2f7;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        color: #5a6070;
+    }
+    
+    .toast-message {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: #28a745;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        z-index: 1001;
+        animation: slideIn 0.3s ease;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .toast-message.error {
+        background: #dc3545;
+    }
+    
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .form-card { padding: 20px 16px; border-radius: 12px; }
+        .form-card .form-header h4 { font-size: 1rem; }
+        .form-control-custom, .form-select-custom { padding: 10px 12px; font-size: 0.85rem; }
+        .btn-submit { padding: 13px; }
+        .inline-add-btn { width: 38px; height: 38px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="form-container">
+    
+    <form method="POST" id="productForm">
+        {% csrf_token %}
+        
+        <div class="form-card">
+            
+            <div class="form-header">
+                <h4>🏷️ Add New Product</h4>
+                <p>Fill in the details to add a new product to your inventory</p>
+            </div>
+            
+            <!-- Section 1: Basic Information -->
+            <div class="form-section">
+                <div class="form-section-title">
+                    <span class="section-icon icon-basic">📋</span> Basic Information
+                </div>
+                
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label-custom">Product Name <span class="required">*</span></label>
+                        <input type="text" name="name" class="form-control-custom" placeholder="Enter product name" required autofocus>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label-custom">Serial Number</label>
+                        <input type="text" name="serial_no" class="form-control-custom" placeholder="e.g., PRD-001 (auto if blank)">
+                        <div class="help-text"><i class="bi bi-info-circle"></i> Leave blank to auto-generate</div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label-custom">Description</label>
+                        <textarea name="description" class="form-control-custom" placeholder="Product description..."></textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label-custom">Used For</label>
+                        <input type="text" name="used" class="form-control-custom" placeholder="e.g., Raw Material, Finished Good">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Section 2: Barcode -->
+            <div class="form-section">
+                <div class="form-section-title">
+                    <span class="section-icon icon-barcode">🔢</span> Barcode Settings
+                </div>
+                
+                <div class="toggle-option selected" id="toggleAuto" onclick="selectBarcodeMode('auto')">
+                    <div class="toggle-radio"></div>
+                    <div>
+                        <div class="toggle-label">🤖 Auto-Generate Barcode</div>
+                        <div class="toggle-desc">System will automatically create a unique EAN-13 barcode</div>
+                    </div>
+                </div>
+                
+                <div class="toggle-option" id="toggleManual" onclick="selectBarcodeMode('manual')">
+                    <div class="toggle-radio"></div>
+                    <div>
+                        <div class="toggle-label">✏️ Custom / Supplier Barcode</div>
+                        <div class="toggle-desc">Scan or manually enter supplier's barcode</div>
+                    </div>
+                </div>
+                
+                <div id="manualBarcodeSection" style="display:none;">
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <button class="btn btn-success w-100" type="button" onclick="startBarcodeScanner()" id="scanBtn" style="border-radius:10px; padding:12px; font-weight:700;">
+                                <i class="bi bi-camera-video"></i> Scan Supplier Barcode
+                            </button>
+                            <button class="btn btn-danger w-100 d-none" type="button" onclick="stopBarcodeScanner()" id="stopBtn" style="border-radius:10px; padding:12px; font-weight:700;">
+                                <i class="bi bi-stop-circle"></i> Stop Camera
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="d-none mb-3" id="scannerContainer">
+                        <div id="barcodeReader" style="width:100%;"></div>
+                    </div>
+                    
+                    <label class="form-label-custom">Enter Barcode</label>
+                    <input type="text" name="barcode" id="barcodeInput" class="form-control-custom" placeholder="Scan or type barcode number...">
+                    <div class="barcode-preview" id="barcodePreview">
+                        <i class="bi bi-upc-scan"></i> Barcode preview will appear here
+                    </div>
+                </div>
+                
+                <input type="hidden" name="barcode_mode" id="barcodeMode" value="auto">
+            </div>
+            
+            <!-- Section 3: Categorization (WITH ALL INLINE ADD BUTTONS) -->
+            <div class="form-section">
+                <div class="form-section-title">
+                    <span class="section-icon icon-category">📂</span> Categorization
+                </div>
+                
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label-custom">Category</label>
+                        <div class="inline-add-group">
+                            <select name="category" id="categorySelect" class="form-select-custom">
+                                <option value="">Select Category</option>
+                                {% for c in categories %}
+                                <option value="{{ c.id }}">{{ c.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="inline-add-btn" onclick="openModal('category')" title="Add New Category">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label-custom">Brand</label>
+                        <div class="inline-add-group">
+                            <select name="brand" id="brandSelect" class="form-select-custom">
+                                <option value="">Select Brand</option>
+                                {% for b in brands %}
+                                <option value="{{ b.id }}">{{ b.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="inline-add-btn" onclick="openModal('brand')" title="Add New Brand">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label-custom">Unit</label>
+                        <div class="inline-add-group">
+                            <select name="unit" id="unitSelect" class="form-select-custom">
+                                <option value="">Select Unit</option>
+                                {% for u in units %}
+                                <option value="{{ u.id }}">{{ u.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="inline-add-btn" onclick="openModal('unit')" title="Add New Unit">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label-custom">Location</label>
+                        <div class="inline-add-group">
+                            <select name="location" id="locationSelect" class="form-select-custom">
+                                <option value="">Select Location</option>
+                                {% for l in locations %}
+                                <option value="{{ l.id }}">{{ l.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="inline-add-btn" onclick="openModal('location')" title="Add New Location">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label-custom">Type</label>
+                        <div class="inline-add-group">
+                            <select name="types" id="typeSelect" class="form-select-custom">
+                                <option value="">Select Type</option>
+                                {% for t in types %}
+                                <option value="{{ t.id }}">{{ t.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="inline-add-btn" onclick="openModal('type')" title="Add New Type">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Section 4: Stock Settings -->
+            <div class="form-section">
+                <div class="form-section-title">
+                    <span class="section-icon icon-stock">⚠️</span> Stock Alert Settings
+                </div>
+                
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label-custom">Low Stock Threshold</label>
+                        <input type="number" name="low_stock_threshold" class="form-control-custom" value="10" min="0" step="1">
+                        <div class="help-text"><i class="bi bi-exclamation-triangle"></i> Alert when stock goes below this level</div>
+                    </div>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn-submit"><i class="bi bi-check-circle"></i> Save Product</button>
+            <a href="{% url 'product_list' %}" class="btn-back"><i class="bi bi-arrow-left"></i> Back to Products</a>
+        </div>
+    </form>
+</div>
+
+<!-- MODAL FOR ADDING CATEGORY/BRAND/UNIT/LOCATION/TYPE -->
+<div id="inlineModal" class="modal-custom">
+    <div class="modal-content-custom">
+        <div class="modal-header-custom">
+            <h5 id="modalTitle">Add New</h5>
+            <button type="button" class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body-custom">
+            <div class="mb-3">
+                <label class="form-label-custom" id="modalFieldLabel">Name</label>
+                <input type="text" id="modalFieldInput" class="form-control-custom" placeholder="Enter name..." autocomplete="off">
+            </div>
+            <div id="modalError" class="text-danger" style="font-size: 0.75rem; display: none;"></div>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn-modal-cancel" onclick="closeModal()">Cancel</button>
+            <button type="button" class="btn-modal-submit" onclick="submitInlineAdd()">Add & Select</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script>
+    // ============================================
+    // BARCODE MODE TOGGLE
+    // ============================================
+    function selectBarcodeMode(mode) {
+        document.getElementById('barcodeMode').value = mode;
+        document.getElementById('toggleAuto').classList.remove('selected');
+        document.getElementById('toggleManual').classList.remove('selected');
+        
+        if (mode === 'auto') {
+            document.getElementById('toggleAuto').classList.add('selected');
+            document.getElementById('manualBarcodeSection').style.display = 'none';
+            document.getElementById('barcodeInput').value = '';
+            document.getElementById('barcodePreview').className = 'barcode-preview';
+            document.getElementById('barcodePreview').innerHTML = '<i class="bi bi-robot"></i> Barcode will auto-generate on save';
+            stopBarcodeScanner();
+        } else {
+            document.getElementById('toggleManual').classList.add('selected');
+            document.getElementById('manualBarcodeSection').style.display = 'block';
+        }
+    }
+    
+    // Live barcode preview
+    document.getElementById('barcodeInput').addEventListener('input', function() {
+        const preview = document.getElementById('barcodePreview');
+        const value = this.value.trim();
+        if (value) {
+            preview.className = 'barcode-preview has-barcode';
+            preview.innerHTML = '🔢 ' + value;
+        } else {
+            preview.className = 'barcode-preview';
+            preview.innerHTML = '<i class="bi bi-upc-scan"></i> Barcode preview will appear here';
+        }
+    });
+    
+    // ============================================
+    // CAMERA SCANNER
+    // ============================================
+    let html5QrCode = null;
+    
+    function startBarcodeScanner() {
+        document.getElementById('scannerContainer').classList.remove('d-none');
+        document.getElementById('scanBtn').classList.add('d-none');
+        document.getElementById('stopBtn').classList.remove('d-none');
+        
+        html5QrCode = new Html5Qrcode("barcodeReader");
+        html5QrCode.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 250, height: 120 } },
+            onScanSuccess,
+            onScanFailure
+        ).catch(err => {
+            alert("❌ Camera access denied!");
+            stopBarcodeScanner();
+        });
+    }
+    
+    function stopBarcodeScanner() {
+        if (html5QrCode) {
+            html5QrCode.stop().then(() => {
+                html5QrCode.clear();
+                document.getElementById('scannerContainer').classList.add('d-none');
+                document.getElementById('scanBtn').classList.remove('d-none');
+                document.getElementById('stopBtn').classList.add('d-none');
+            }).catch(err => {});
+        }
+    }
+    
+    function onScanSuccess(decodedText) {
+        document.getElementById('barcodeInput').value = decodedText;
+        document.getElementById('barcodePreview').className = 'barcode-preview has-barcode';
+        document.getElementById('barcodePreview').innerHTML = '🔢 ' + decodedText;
+        stopBarcodeScanner();
+        try { new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACAf39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f3+Af39/gH9/f3+Af39/gH9/f3+Af39/gH9/f3+Af39/gH9/f3+Af39/gH9/f3+Af39/gH9/f3+Af39/gH9/f3+Af39/gA==').play().catch(()=>{}); } catch(e) {}
+    }
+    
+    function onScanFailure(error) {}
+    
+    // ============================================
+    // TOAST NOTIFICATION
+    // ============================================
+    function showToast(message, isError = false) {
+        const toast = document.createElement('div');
+        toast.className = 'toast-message' + (isError ? ' error' : '');
+        toast.innerHTML = isError ? '❌ ' + message : '✅ ' + message;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    }
+    
+    // ============================================
+    // INLINE ADD FUNCTIONALITY
+    // ============================================
+    let currentAddType = '';
+    
+    function openModal(type) {
+        currentAddType = type;
+        const modal = document.getElementById('inlineModal');
+        const title = document.getElementById('modalTitle');
+        const fieldLabel = document.getElementById('modalFieldLabel');
+        
+        const titles = {
+            'category': { title: '📁 Add New Category', label: 'Category Name', placeholder: 'e.g., Electronics, Clothing, Food' },
+            'brand': { title: '🏷️ Add New Brand', label: 'Brand Name', placeholder: 'e.g., Nike, Samsung, Apple' },
+            'unit': { title: '📦 Add New Unit', label: 'Unit Name', placeholder: 'e.g., Piece, Kg, Meter, Liter' },
+            'location': { title: '📍 Add New Location', label: 'Location Name', placeholder: 'e.g., Warehouse A, Shelf B, Rack 1' },
+            'type': { title: '🔖 Add New Type', label: 'Type Name', placeholder: 'e.g., Raw Material, Finished Good' }
+        };
+        
+        const config = titles[type] || { title: 'Add New', label: 'Name', placeholder: 'Enter name...' };
+        
+        title.innerHTML = config.title;
+        fieldLabel.innerHTML = config.label;
+        document.getElementById('modalFieldInput').placeholder = config.placeholder;
+        document.getElementById('modalFieldInput').value = '';
+        document.getElementById('modalError').style.display = 'none';
+        modal.classList.add('show');
+        
+        // Focus on input field
+        setTimeout(() => {
+            document.getElementById('modalFieldInput').focus();
+        }, 100);
+    }
+    
+    function closeModal() {
+        document.getElementById('inlineModal').classList.remove('show');
+        currentAddType = '';
+    }
+    
+    function submitInlineAdd() {
+        const name = document.getElementById('modalFieldInput').value.trim();
+        const errorDiv = document.getElementById('modalError');
+        
+        if (!name) {
+            errorDiv.innerHTML = '❌ Please enter a name!';
+            errorDiv.style.display = 'block';
+            return;
+        }
+        
+        // Show loading state
+        const submitBtn = document.querySelector('.btn-modal-submit');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '⏳ Saving...';
+        submitBtn.disabled = true;
+        
+        // Map type to API endpoint and select element
+        const config = {
+            'category': { url: '/api/create-category/', selectId: 'categorySelect', name: 'Category' },
+            'brand': { url: '/api/create-brand/', selectId: 'brandSelect', name: 'Brand' },
+            'unit': { url: '/api/create-unit/', selectId: 'unitSelect', name: 'Unit' },
+            'location': { url: '/api/create-location/', selectId: 'locationSelect', name: 'Location' },
+            'type': { url: '/api/create-type/', selectId: 'typeSelect', name: 'Type' }
+        };
+        
+        const cfg = config[currentAddType];
+        
+        fetch(cfg.url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ name: name })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const select = document.getElementById(cfg.selectId);
+                const newOption = document.createElement('option');
+                newOption.value = data.id;
+                newOption.text = name;
+                select.appendChild(newOption);
+                select.value = data.id;
+                
+                closeModal();
+                showToast(`${cfg.name} "${name}" added and selected!`);
+            } else {
+                errorDiv.innerHTML = `❌ ${data.message || 'Something went wrong!'}`;
+                errorDiv.style.display = 'block';
+            }
+        })
+        .catch(error => {
+            errorDiv.innerHTML = `❌ Error: ${error.message}`;
+            errorDiv.style.display = 'block';
+        })
+        .finally(() => {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        });
+    }
+    
+    // CSRF Token helper function
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    // Close modal on ESC key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeModal();
+        }
+    });
+    
+    // Close modal when clicking outside
+    document.getElementById('inlineModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeModal();
+        }
+    });
+    
+    // Enter key in modal input submits
+    document.getElementById('modalFieldInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            submitInlineAdd();
+        }
+    });
+    
+    // Form validation
+    document.getElementById('productForm').addEventListener('submit', function(e) {
+        if (!this.querySelector('input[name="name"]').value.trim()) {
+            e.preventDefault();
+            showToast('Please enter a product name!', true);
+        }
+    });
+</script>
+{% endblock %}

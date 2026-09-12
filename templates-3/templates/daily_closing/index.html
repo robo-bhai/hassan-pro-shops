@@ -1,0 +1,194 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Daily Closing{% endblock %}
+{% block page_title %}📊 Daily Closing Report{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header" style="background: linear-gradient(135deg, #1a1a2e, #16213e); color: white;">
+                    <h5 class="mb-0">📊 Daily Closing - {{ today|date:"d-m-Y" }}</h5>
+                </div>
+                <div class="card-body">
+                    {% if is_closed %}
+                        <div class="alert alert-success">
+                            <strong>✅ Today is already closed!</strong>
+                            <a href="{% url 'daily_closing_detail' closing.id %}" class="btn btn-sm btn-primary ms-3">View Report</a>
+                            <a href="{% url 'daily_closing_pdf' closing.id %}" class="btn btn-sm btn-secondary">Download PDF</a>
+                        </div>
+                    {% else %}
+                        <form method="POST" action="{% url 'daily_closing_create' %}">
+                            {% csrf_token %}
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">💰 Opening Cash (Start of day)</label>
+                                        <input type="number" name="opening_cash" class="form-control form-control-lg" value="0" step="100" min="0" required>
+                                        <small class="text-muted">Din ki shuruaat mein cash drawer mein kitna cash tha?</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">💰 Closing Cash (End of day)</label>
+                                        <input type="number" name="closing_cash" class="form-control form-control-lg" value="0" step="100" min="0" required>
+                                        <small class="text-muted">Din ke end mein cash drawer mein kitna cash hai?</small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="card mb-3">
+                                <div class="card-header bg-primary text-white">
+                                    <strong>💰 Today's Sales Summary</strong>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <div class="border rounded p-2 text-center">
+                                                <div class="text-muted small">💵 Cash Sales</div>
+                                                <div class="h5 text-success">Rs. {{ cash_sales|floatformat:2 }}</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="border rounded p-2 text-center">
+                                                <div class="text-muted small">💳 Card Sales</div>
+                                                <div class="h5">Rs. 0.00</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="border rounded p-2 text-center">
+                                                <div class="text-muted small">📱 Digital Sales</div>
+                                                <div class="h5">Rs. 0.00</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="border rounded p-2 text-center bg-light">
+                                                <div class="text-muted small">💰 Total Sales</div>
+                                                <div class="h5 text-primary">Rs. {{ total_sales|floatformat:2 }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="card mb-3">
+                                <div class="card-header bg-warning">
+                                    <strong>📝 Today's Expenses</strong>
+                                </div>
+                                <div class="card-body">
+                                    {% if today_expenses %}
+                                        <table class="table table-sm">
+                                            <thead>
+                                                <tr><th>Description</th><th>Amount</th><th></th></tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for expense in today_expenses %}
+                                                <tr>
+                                                    <td>{{ expense.description }}</div>
+                                                    <td>Rs. {{ expense.amount|floatformat:2 }}</div>
+                                                    <td class="text-end">-</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                            <tfoot>
+                                                <tr class="table-danger">
+                                                    <td><strong>Total Expenses</strong></div>
+                                                    <td><strong>Rs. {{ expenses_total|floatformat:2 }}</strong></div>
+                                                    <td></td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    {% else %}
+                                        <div class="text-muted">No expenses recorded today</div>
+                                    {% endif %}
+                                    <input type="hidden" name="total_expenses" value="{{ expenses_total|default:0 }}">
+                                </div>
+                            </div>
+                            
+                            <div class="card mb-3 bg-light">
+                                <div class="card-header bg-success text-white">
+                                    <strong>📊 Expected Calculation</strong>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="text-center">
+                                                <div class="small text-muted">Opening Cash</div>
+                                                <div class="h5" id="previewOpening">Rs. 0</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="text-center">
+                                                <div class="small text-muted">+ Cash Sales</div>
+                                                <div class="h5 text-success">+ Rs. {{ cash_sales|floatformat:2 }}</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="text-center">
+                                                <div class="small text-muted">- Expenses</div>
+                                                <div class="h5 text-danger">- Rs. {{ expenses_total|floatformat:2 }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <hr>
+                                    <div class="row">
+                                        <div class="col-md-6 text-center">
+                                            <div class="small text-muted">Expected Cash</div>
+                                            <div class="h4" id="previewExpected">Rs. 0</div>
+                                        </div>
+                                        <div class="col-md-6 text-center">
+                                            <div class="small text-muted">Difference (Actual - Expected)</div>
+                                            <div class="h4" id="previewDifference">Rs. 0</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">📝 Notes (Optional)</label>
+                                <textarea name="notes" class="form-control" rows="2" placeholder="Any remarks about today's closing..."></textarea>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary btn-lg">✅ Confirm & Close Day</button>
+                            <a href="{% url 'daily_closing_list' %}" class="btn btn-secondary btn-lg">📋 View History</a>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Live preview of expected cash
+    const openingInput = document.querySelector('input[name="opening_cash"]');
+    const closingInput = document.querySelector('input[name="closing_cash"]');
+    const previewOpening = document.getElementById('previewOpening');
+    const previewExpected = document.getElementById('previewExpected');
+    const previewDifference = document.getElementById('previewDifference');
+    
+    function updatePreview() {
+        const opening = parseFloat(openingInput?.value) || 0;
+        const closing = parseFloat(closingInput?.value) || 0;
+        const cashSales = {{ cash_sales|default:0 }};
+        const expenses = {{ expenses_total|default:0 }};
+        
+        const expected = opening + cashSales - expenses;
+        const difference = closing - expected;
+        
+        if (previewOpening) previewOpening.innerHTML = `Rs. ${opening.toFixed(2)}`;
+        if (previewExpected) previewExpected.innerHTML = `Rs. ${expected.toFixed(2)}`;
+        if (previewDifference) {
+            previewDifference.innerHTML = difference >= 0 ? `+ Rs. ${difference.toFixed(2)}` : `- Rs. ${Math.abs(difference).toFixed(2)}`;
+            previewDifference.style.color = difference >= 0 ? '#28a745' : '#dc3545';
+        }
+    }
+    
+    openingInput?.addEventListener('input', updatePreview);
+    closingInput?.addEventListener('input', updatePreview);
+    updatePreview();
+</script>
+{% endblock %}

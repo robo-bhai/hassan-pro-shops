@@ -1,0 +1,403 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Stock Batches{% endblock %}
+{% block page_title %}📦 Stock Batches{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --border: #eef0f5;
+        --text: #1a1a2e;
+        --text-light: #6b7280;
+        --accent: #0d6efd;
+        --success: #11998e;
+        --danger: #dc3545;
+        --warning: #f2994a;
+    }
+    
+    .stats-bar {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    
+    .stat-card-mini {
+        background: white;
+        border-radius: 14px;
+        padding: 16px 18px;
+        border: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        transition: all 0.3s;
+    }
+    
+    .stat-card-mini:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+    }
+    
+    .stat-card-mini .stat-icon {
+        width: 44px; height: 44px;
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.2rem; flex-shrink: 0;
+    }
+    
+    .stat-card-mini .stat-value {
+        font-size: 1.2rem; font-weight: 800; color: var(--text); line-height: 1;
+    }
+    
+    .stat-card-mini .stat-label {
+        font-size: 0.7rem; color: var(--text-light); margin-top: 3px;
+        text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    
+    .icon-total { background: #eef2ff; color: #667eea; }
+    .icon-value { background: #e8f5e9; color: #4caf50; }
+    .icon-profit { background: #fff3cd; color: #f2994a; }
+    .icon-batches { background: #e0f7fa; color: #00bcd4; }
+    
+    .filter-bar {
+        background: white;
+        border-radius: 14px;
+        padding: 16px 20px;
+        border: 1px solid var(--border);
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+    
+    .filter-bar .form-control,
+    .filter-bar .form-select {
+        border-radius: 10px;
+        border: 2px solid #eef0f5;
+        padding: 10px 14px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        background: #fafbfc;
+        transition: all 0.2s;
+    }
+    
+    .filter-bar .form-control:focus,
+    .filter-bar .form-select:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(13,110,253,0.1);
+        background: white;
+        outline: none;
+    }
+    
+    .btn-filter {
+        border-radius: 10px; padding: 10px 20px;
+        font-weight: 700; font-size: 0.85rem; border: none; cursor: pointer;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white; display: flex; align-items: center;
+        justify-content: center; gap: 6px; transition: all 0.3s;
+    }
+    
+    .btn-filter:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(102,126,234,0.4);
+    }
+    
+    .table-card {
+        background: white;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+    
+    .table-header {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 18px 22px; border-bottom: 1px solid var(--border);
+        background: #fafbfc; flex-wrap: wrap; gap: 12px;
+    }
+    
+    .table-header h5 { margin: 0; font-weight: 700; font-size: 1rem; }
+    
+    .badge-count {
+        background: var(--accent); color: white;
+        padding: 5px 14px; border-radius: 20px;
+        font-size: 0.75rem; font-weight: 600;
+    }
+    
+    .table-responsive-custom {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .batch-table {
+        width: 100%; border-collapse: collapse; min-width: 1000px;
+    }
+    
+    .batch-table thead th {
+        background: #1a1d2e; color: white;
+        padding: 14px 16px; font-size: 0.7rem;
+        text-transform: uppercase; letter-spacing: 1.5px;
+        font-weight: 700; white-space: nowrap; border: none;
+    }
+    
+    .batch-table tbody td {
+        padding: 12px 16px; border-bottom: 1px solid #f0f2f7;
+        font-size: 0.88rem; color: var(--text); vertical-align: middle;
+    }
+    
+    .batch-table tbody tr { transition: all 0.2s; }
+    .batch-table tbody tr:hover { background: #f8f9ff; }
+    .batch-table tbody tr:nth-child(even) { background: #fafbfd; }
+    .batch-table tbody tr:nth-child(even):hover { background: #f0f4ff; }
+    
+    .batch-table tbody tr.row-sold { opacity: 0.6; }
+    .batch-table tbody tr.row-profitable { border-left: 3px solid #4caf50; }
+    
+    .text-right { text-align: right; }
+    .text-center { text-align: center; }
+    
+    .selling-price-input {
+        width: 90px; border-radius: 6px; border: 2px solid #e0e3eb;
+        padding: 5px 8px; font-weight: 600; text-align: right;
+        font-size: 0.8rem; transition: all 0.2s;
+    }
+    
+    .selling-price-input:focus {
+        border-color: #f2994a; outline: none;
+        box-shadow: 0 0 0 3px rgba(242,153,74,0.15);
+    }
+    
+    .profit-badge {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 4px 12px; border-radius: 15px;
+        font-size: 0.78rem; font-weight: 700;
+    }
+    
+    .profit-positive { background: #d4edda; color: #155724; }
+    .profit-zero { background: #fff3cd; color: #856404; }
+    .profit-negative { background: #fce4ec; color: #721c24; }
+    
+    .price-cell { font-weight: 600; }
+    .price-cell.cost { color: #6b7280; }
+    .price-cell.selling { color: var(--accent); }
+    
+    .empty-state { text-align: center; padding: 60px 20px; }
+    .empty-state .empty-icon { font-size: 5rem; opacity: 0.2; margin-bottom: 15px; }
+    .empty-state h4 { color: #8a8fa0; font-weight: 700; }
+    
+    @media (max-width: 768px) {
+        .stats-bar { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+        .stat-card-mini { padding: 12px 14px; gap: 8px; }
+        .stat-card-mini .stat-icon { width: 36px; height: 36px; font-size: 1rem; }
+        .stat-card-mini .stat-value { font-size: 1rem; }
+        .filter-bar { padding: 14px 16px; }
+        .batch-table { min-width: 800px; }
+        .batch-table thead th, .batch-table tbody td { padding: 10px 12px; font-size: 0.78rem; }
+        .table-header { padding: 14px 16px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Stats -->
+<div class="stats-bar">
+    <div class="stat-card-mini">
+        <div class="stat-icon icon-total">📦</div>
+        <div class="stat-info">
+            <div class="stat-value">{{ total_batches|default:'0' }}</div>
+            <div class="stat-label">Total Batches</div>
+        </div>
+    </div>
+    <div class="stat-card-mini">
+        <div class="stat-icon icon-value">💰</div>
+        <div class="stat-info">
+            <div class="stat-value">Rs. {{ total_stock_value|floatformat:0|default:'0' }}</div>
+            <div class="stat-label">Stock Value</div>
+        </div>
+    </div>
+    <div class="stat-card-mini">
+        <div class="stat-icon icon-profit">📈</div>
+        <div class="stat-info">
+            <div class="stat-value">Rs. {{ total_potential_profit|floatformat:0|default:'0' }}</div>
+            <div class="stat-label">Potential Profit</div>
+        </div>
+    </div>
+    <div class="stat-card-mini">
+        <div class="stat-icon icon-batches">🏷️</div>
+        <div class="stat-info">
+            <div class="stat-value">{{ active_batches|default:'0' }}</div>
+            <div class="stat-label">Active Batches</div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter -->
+<div class="filter-bar">
+    <form method="post">{% csrf_token %} method="GET" class="row g-2 align-items-end">
+        <div class="col-md-4">
+            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">🔍 Search</label>
+            <input type="text" name="search" class="form-control" placeholder="Product name, bill no..." value="{{ search }}">
+        </div>
+        <div class="col-md-3">
+            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">🏭 Warehouse</label>
+            <select name="warehouse" class="form-select">
+                <option value="">All</option>
+                {% for wh in warehouses %}
+                <option value="{{ wh.id }}" {% if selected_warehouse == wh.id|stringformat:"s" %}selected{% endif %}>{{ wh.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">📊 Stock</label>
+            <select name="stock_status" class="form-select">
+                <option value="">All</option>
+                <option value="in_stock" {% if stock_status == 'in_stock' %}selected{% endif %}>✅ In Stock</option>
+                <option value="sold" {% if stock_status == 'sold' %}selected{% endif %}>🛒 Sold Out</option>
+                <option value="has_sp" {% if stock_status == 'has_sp' %}selected{% endif %}>💰 Has Selling Price</option>
+                <option value="no_sp" {% if stock_status == 'no_sp' %}selected{% endif %}>⚠️ No Selling Price</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn-filter w-100"><i class="bi bi-funnel"></i> Filter</button>
+        </div>
+    </form>
+</div>
+
+<!-- Table -->
+<div class="table-card">
+    <div class="table-header">
+        <h5>📦 Stock Batches <span class="badge-count">{{ page_obj.paginator.count|default:'0' }} batches</span></h5>
+        <div class="d-flex gap-2">
+            <a href="{% url 'inventory_list' %}" class="btn btn-sm btn-outline-success" style="border-radius:10px; padding:8px 16px; font-weight:600;">📊 View Stock</a>
+        </div>
+    </div>
+    
+    <div class="table-responsive-custom">
+        <table class="batch-table">
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Warehouse</th>
+                    <th>Purchase Bill</th>
+                    <th class="text-right">Qty</th>
+                    <th class="text-right">Remaining</th>
+                    <th class="text-right">Cost Price</th>
+                    <th class="text-right">Selling Price</th>
+                    <th class="text-right">Profit/Unit</th>
+                    <th class="text-right">Total Value</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for batch in page_obj %}
+                <tr class="{% if batch.remaining_qty <= 0 %}row-sold{% endif %} {% if batch.profit_per_unit > 0 %}row-profitable{% endif %}">
+                    <td>
+                        <strong>{{ batch.product.name|truncatechars:25 }}</strong>
+                        {% if batch.product.serial_no %}
+                        <br><small style="color:#8a8fa0;">{{ batch.product.serial_no }}</small>
+                        {% endif %}
+                    </td>
+                    <td>{{ batch.warehouse.name }}</td>
+                    <td>
+                        {% if batch.purchase_item and batch.purchase_item.purchase %}
+                        <span style="font-size:0.82rem;">{{ batch.purchase_item.purchase.bill_no|default:'Pending' }}</span>
+                        {% else %}
+                        <span style="color:#ccc;">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-right">{{ batch.qty|floatformat:2 }}</td>
+                    <td class="text-right">
+                        {% if batch.remaining_qty <= 0 %}
+                        <span class="text-danger fw-bold">0</span>
+                        {% else %}
+                        <strong>{{ batch.remaining_qty|floatformat:2 }}</strong>
+                        {% endif %}
+                    </td>
+                    <td class="text-right price-cell cost">Rs. {{ batch.price|floatformat:2 }}</td>
+                    <td class="text-right">
+                        <input type="number" class="selling-price-input" 
+                               value="{{ batch.selling_price|floatformat:2 }}" 
+                               step="0.01" min="{{ batch.price|floatformat:2 }}"
+                               onchange="updateSellingPrice('{{ batch.id }}', this.value)"
+                               title="Enter selling price">
+                    </td>
+                    <td class="text-right">
+                        {% with profit=batch.profit_per_unit %}
+                        {% if profit > 0 %}
+                        <span class="profit-badge profit-positive">+Rs. {{ profit|floatformat:2 }}</span>
+                        {% elif profit == 0 and batch.selling_price > 0 %}
+                        <span class="profit-badge profit-zero">Rs. 0</span>
+                        {% else %}
+                        <span style="color:#ccc;">-</span>
+                        {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td class="text-right">
+                        <strong>Rs. {{ batch.selling_value|floatformat:0 }}</strong>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-warning" style="border-radius:8px; padding:5px 12px; font-size:0.75rem;"
+                                onclick="quickSetSP('{{ batch.id }}', '{{ batch.price }}')" title="Quick Set 20% Margin">
+                            💰 +20%
+                        </button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="10">
+                        <div class="empty-state">
+                            <div class="empty-icon">📦</div>
+                            <h4>No Batches Found</h4>
+                            <p>{% if search %}Try different filters{% else %}No stock batches available{% endif %}</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    {% include 'components/pagination.html' %}
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function updateSellingPrice(batchId, newPrice) {
+        fetch('/ajax/update-batch-selling-price/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                batch_id: batchId,
+                selling_price: newPrice
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                // Show brief success
+                const input = document.querySelector(`input[onchange*="${batchId}"]`);
+                input.style.backgroundColor = '#d4edda';
+                setTimeout(() => { input.style.backgroundColor = ''; }, 1000);
+                // Reload to show updated profit
+                setTimeout(() => { location.reload(); }, 500);
+            } else {
+                alert('❌ Error: ' + data.message);
+                location.reload();
+            }
+        })
+        .catch(err => {
+            alert('❌ Error updating price');
+        });
+    }
+    
+    function quickSetSP(batchId, costPrice) {
+        const sp = (parseFloat(costPrice) * 1.2).toFixed(2);
+        updateSellingPrice(batchId, sp);
+    }
+</script>
+{% endblock %}

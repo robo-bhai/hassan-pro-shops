@@ -1,0 +1,494 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}💰 Cash Transactions - Debit/Credit/Balance{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 class="text-primary mb-0" style="font-size: 1.5rem;">
+                        <i class="fas fa-money-bill-wave"></i> Cash Transactions
+                    </h3>
+                    <span class="text-muted" style="font-size: 0.85rem;">Debit/Credit/Balance format</span>
+                </div>
+                <div>
+                    <a href="{% url 'cash_dashboard' %}" class="btn btn-outline-primary" style="font-size: 0.85rem; padding: 6px 16px;">
+                        <i class="fas fa-arrow-left"></i> Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SUMMARY CARDS (Larger Font)               -->
+    <!-- ========================================== -->
+    <div class="row g-3 mb-4">
+        <!-- Opening Balance -->
+        <div class="col-6 col-md-3">
+            <div class="card h-100 bg-primary text-white shadow-sm" style="border-radius: 10px;">
+                <div class="card-body py-3 px-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-white-50" style="font-size: 0.75rem;">
+                                <i class="fas fa-wallet"></i> Opening Balance
+                            </small>
+                            <h5 class="mb-0" style="font-size: 1.1rem;">Rs. {{ opening_balance|floatformat:0 }}</h5>
+                        </div>
+                        <i class="fas fa-arrow-right text-white-50" style="font-size: 1.2rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Total Debit -->
+        <div class="col-6 col-md-3">
+            <div class="card h-100 bg-success text-white shadow-sm" style="border-radius: 10px;">
+                <div class="card-body py-3 px-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-white-50" style="font-size: 0.75rem;">
+                                <i class="fas fa-arrow-down"></i> Total Debit (Inflow)
+                            </small>
+                            <h5 class="mb-0" style="font-size: 1.1rem;">Rs. {{ total_debit|floatformat:0 }}</h5>
+                            <small class="text-white-50" style="font-size: 0.7rem;">{{ debit_count }} transactions</small>
+                        </div>
+                        <i class="fas fa-arrow-circle-down text-white-50" style="font-size: 1.2rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Total Credit -->
+        <div class="col-6 col-md-3">
+            <div class="card h-100 bg-danger text-white shadow-sm" style="border-radius: 10px;">
+                <div class="card-body py-3 px-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-white-50" style="font-size: 0.75rem;">
+                                <i class="fas fa-arrow-up"></i> Total Credit (Outflow)
+                            </small>
+                            <h5 class="mb-0" style="font-size: 1.1rem;">Rs. {{ total_credit|floatformat:0 }}</h5>
+                            <small class="text-white-50" style="font-size: 0.7rem;">{{ credit_count }} transactions</small>
+                        </div>
+                        <i class="fas fa-arrow-circle-up text-white-50" style="font-size: 1.2rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Closing Balance -->
+        <div class="col-6 col-md-3">
+            <div class="card h-100 {% if net_balance >= 0 %}bg-info{% else %}bg-warning{% endif %} text-white shadow-sm" style="border-radius: 10px;">
+                <div class="card-body py-3 px-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-white-50" style="font-size: 0.75rem;">
+                                <i class="fas fa-coins"></i> Closing Balance
+                            </small>
+                            <h5 class="mb-0" style="font-size: 1.1rem;">Rs. {{ net_balance|floatformat:0 }}</h5>
+                            <small class="text-white-50" style="font-size: 0.7rem;">{{ total_count }} total transactions</small>
+                        </div>
+                        <i class="fas fa-calculator text-white-50" style="font-size: 1.2rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- FILTERS (Larger Font)                     -->
+    <!-- ========================================== -->
+    <div class="card shadow-sm mb-4" style="border-radius: 10px;">
+        <div class="card-header bg-light py-2 px-4">
+            <span style="font-size: 0.85rem;"><i class="fas fa-filter"></i> Filters</span>
+        </div>
+        <div class="card-body py-3 px-4">
+            <form method="GET" class="row g-3">
+                <div class="col-4 col-md-3">
+                    <label class="form-label" style="font-size: 0.8rem; font-weight: 500;">From Date</label>
+                    <input type="date" name="from_date" class="form-control" value="{{ from_date }}" style="font-size: 0.9rem; padding: 8px 12px;">
+                </div>
+                <div class="col-4 col-md-3">
+                    <label class="form-label" style="font-size: 0.8rem; font-weight: 500;">To Date</label>
+                    <input type="date" name="to_date" class="form-control" value="{{ to_date }}" style="font-size: 0.9rem; padding: 8px 12px;">
+                </div>
+                <div class="col-4 col-md-3">
+                    <label class="form-label" style="font-size: 0.8rem; font-weight: 500;">Transaction Type</label>
+                    <select name="type" class="form-select" style="font-size: 0.9rem; padding: 8px 12px;">
+                        <option value="">All Types</option>
+                        {% for key, label in transaction_types %}
+                        <option value="{{ key }}" {% if selected_type == key %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12 col-md-3 d-flex align-items-end gap-2">
+                    <button type="submit" class="btn btn-primary" style="font-size: 0.85rem; padding: 8px 20px;">
+                        <i class="fas fa-search"></i> Apply
+                    </button>
+                    <a href="{% url 'cash_transactions' %}" class="btn btn-outline-secondary" style="font-size: 0.85rem; padding: 8px 20px;">
+                        <i class="fas fa-undo"></i> Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TRANSACTIONS TABLE (Larger Font)          -->
+    <!-- ========================================== -->
+    <div class="card shadow-sm" style="border-radius: 10px;">
+        <div class="card-header bg-white border-bottom-0 py-2 px-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="fw-bold" style="font-size: 0.9rem;">
+                    <i class="fas fa-list text-primary"></i> Transaction Details
+                </span>
+                <span class="badge bg-secondary" style="font-size: 0.75rem; padding: 5px 12px;">{{ page_obj|length }} of {{ total_count }}</span>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped mb-0" id="transactionTable" style="font-size: 0.88rem;">
+                    <!-- Table Header -->
+                    <thead class="table-dark">
+                        <tr>
+                            <th style="width: 50px; font-size: 0.8rem; padding: 10px 12px;">#</th>
+                            <th style="width: 150px; font-size: 0.8rem; padding: 10px 12px;">Date & Time</th>
+                            <th style="width: 250px; font-size: 0.8rem; padding: 10px 12px;">Description</th>
+                            <th style="width: 150px; font-size: 0.8rem; padding: 10px 12px;">Type</th>
+                            <th style="width: 120px; font-size: 0.8rem; padding: 10px 12px;">Reference</th>
+                            <th style="width: 140px; font-size: 0.8rem; padding: 10px 12px;" class="text-end">Debit (Dr)</th>
+                            <th style="width: 140px; font-size: 0.8rem; padding: 10px 12px;" class="text-end">Credit (Cr)</th>
+                            <th style="width: 150px; font-size: 0.8rem; padding: 10px 12px;" class="text-end">Balance</th>
+                            <th style="width: 100px; font-size: 0.8rem; padding: 10px 12px;">Created By</th>
+                        </tr>
+                    </thead>
+                    
+                    <!-- Table Body -->
+                    <tbody>
+                        {% for trans in page_obj %}
+                        <tr class="{% if trans.is_inflow %}table-success-light{% else %}table-danger-light{% endif %}" style="font-size: 0.88rem;">
+                            <td style="padding: 8px 12px; font-weight: 600;">{{ page_obj.start_index|add:forloop.counter0 }}</td>
+                            <td style="padding: 8px 12px;">
+                                <span class="fw-bold" style="font-size: 0.8rem;">{{ trans.date|date:"d-m-Y" }}</span>
+                                <br>
+                                <span class="text-muted" style="font-size: 0.7rem;">{{ trans.date|date:"H:i" }}</span>
+                            </td>
+                            <td style="padding: 8px 12px;">
+                                <span style="font-size: 0.82rem;">{{ trans.description|truncatechars:45 }}</span>
+                                {% if trans.reference_no %}
+                                <br>
+                                <small class="text-muted" style="font-size: 0.65rem;">
+                                    <i class="fas fa-hashtag"></i> {{ trans.reference_no }}
+                                </small>
+                                {% endif %}
+                            </td>
+                            <td style="padding: 8px 12px;">
+                                <span class="badge {% if trans.is_inflow %}bg-success{% else %}bg-danger{% endif %}" style="font-size: 0.7rem; padding: 5px 12px;">
+                                    <i class="fas {% if trans.is_inflow %}fa-arrow-down{% else %}fa-arrow-up{% endif %}"></i>
+                                    {{ trans.type_display|truncatechars:15 }}
+                                </span>
+                            </td>
+                            <td style="padding: 8px 12px;">
+                                <span class="text-muted" style="font-size: 0.75rem;">{{ trans.reference_no|default:"-" }}</span>
+                            </td>
+                            <td class="text-end fw-bold text-success" style="padding: 8px 12px; font-size: 0.85rem;">
+                                {% if trans.debit > 0 %}
+                                    <i class="fas fa-plus-circle text-success" style="font-size: 0.65rem;"></i>
+                                    Rs. {{ trans.debit|floatformat:0 }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end fw-bold text-danger" style="padding: 8px 12px; font-size: 0.85rem;">
+                                {% if trans.credit > 0 %}
+                                    <i class="fas fa-minus-circle text-danger" style="font-size: 0.65rem;"></i>
+                                    Rs. {{ trans.credit|floatformat:0 }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end fw-bold" style="padding: 8px 12px; font-size: 0.85rem;">
+                                <span class="{% if trans.balance >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    Rs. {{ trans.balance|floatformat:0 }}
+                                </span>
+                            </td>
+                            <td style="padding: 8px 12px;">
+                                <span style="font-size: 0.7rem;">{{ trans.created_by|default:"System" }}</span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center py-5 text-muted" style="font-size: 0.9rem;">
+                                <i class="fas fa-inbox d-block mb-2" style="font-size: 2.5rem;"></i>
+                                <h6>No transactions found</h6>
+                                <p class="mb-0" style="font-size: 0.8rem;">Try adjusting your filters or create a new transaction</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    
+                    <!-- Table Footer -->
+                    <tfoot class="table-secondary fw-bold">
+                        <tr style="font-size: 0.88rem;">
+                            <td colspan="5" class="text-end" style="padding: 10px 12px; font-size: 0.8rem;">TOTALS:</td>
+                            <td class="text-end text-success" style="padding: 10px 12px; font-size: 0.9rem;">
+                                <i class="fas fa-arrow-down" style="font-size: 0.65rem;"></i>
+                                Rs. {{ total_debit|floatformat:0 }}
+                            </td>
+                            <td class="text-end text-danger" style="padding: 10px 12px; font-size: 0.9rem;">
+                                <i class="fas fa-arrow-up" style="font-size: 0.65rem;"></i>
+                                Rs. {{ total_credit|floatformat:0 }}
+                            </td>
+                            <td class="text-end" style="padding: 10px 12px; font-size: 0.9rem;">
+                                <span class="{% if net_balance >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    Rs. {{ net_balance|floatformat:0 }}
+                                </span>
+                            </td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Card Footer with Pagination -->
+        <div class="card-footer bg-light py-2 px-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap">
+                <div>
+                    <span class="text-muted" style="font-size: 0.75rem;">
+                        Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ total_count }} transactions
+                    </span>
+                </div>
+                <nav>
+                    <ul class="pagination mb-0" style="font-size: 0.8rem;">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" style="padding: 5px 14px; font-size: 0.75rem;" href="?page={{ page_obj.previous_page_number }}{% if request.GET.from_date %}&from_date={{ request.GET.from_date }}{% endif %}{% if request.GET.to_date %}&to_date={{ request.GET.to_date }}{% endif %}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}">
+                                <i class="fas fa-chevron-left" style="font-size: 0.65rem;"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if num == page_obj.number %}
+                            <li class="page-item active"><span class="page-link" style="padding: 5px 14px; font-size: 0.75rem;">{{ num }}</span></li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" style="padding: 5px 14px; font-size: 0.75rem;" href="?page={{ num }}{% if request.GET.from_date %}&from_date={{ request.GET.from_date }}{% endif %}{% if request.GET.to_date %}&to_date={{ request.GET.to_date }}{% endif %}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}">
+                                    {{ num }}
+                                </a>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" style="padding: 5px 14px; font-size: 0.75rem;" href="?page={{ page_obj.next_page_number }}{% if request.GET.from_date %}&from_date={{ request.GET.from_date }}{% endif %}{% if request.GET.to_date %}&to_date={{ request.GET.to_date }}{% endif %}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}">
+                                <i class="fas fa-chevron-right" style="font-size: 0.65rem;"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- EXPORT BUTTONS                            -->
+    <!-- ========================================== -->
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="d-flex gap-3 flex-wrap">
+                <a href="{% url 'cash_report' %}" class="btn btn-outline-info" style="font-size: 0.8rem; padding: 6px 18px;">
+                    <i class="fas fa-chart-bar"></i> View Report
+                </a>
+                <button class="btn btn-outline-success" onclick="exportToCSV()" style="font-size: 0.8rem; padding: 6px 18px;">
+                    <i class="fas fa-file-csv"></i> Export CSV
+                </button>
+                <button class="btn btn-outline-danger" onclick="window.print()" style="font-size: 0.8rem; padding: 6px 18px;">
+                    <i class="fas fa-print"></i> Print
+                </button>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Card styling */
+    .card {
+        border-radius: 10px !important;
+        border: 1px solid rgba(0,0,0,0.08);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .card .card-body {
+        padding: 0.8rem 1.2rem !important;
+    }
+    .card .card-header {
+        padding: 0.5rem 1.2rem !important;
+        border-radius: 10px 10px 0 0 !important;
+    }
+    .card .card-footer {
+        padding: 0.5rem 1.2rem !important;
+        border-radius: 0 0 10px 10px !important;
+    }
+    
+    /* Row highlighting */
+    .table-success-light {
+        background-color: rgba(40, 167, 69, 0.05) !important;
+    }
+    .table-danger-light {
+        background-color: rgba(220, 53, 69, 0.05) !important;
+    }
+    .table-success-light:hover {
+        background-color: rgba(40, 167, 69, 0.1) !important;
+    }
+    .table-danger-light:hover {
+        background-color: rgba(220, 53, 69, 0.1) !important;
+    }
+    
+    /* Table styling */
+    .table > :not(caption) > * > * {
+        padding: 0.4rem 0.6rem !important;
+    }
+    .table thead th {
+        border-bottom: 2px solid #1a1d2e;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    
+    /* Badge styling */
+    .badge {
+        font-weight: 500 !important;
+        border-radius: 6px !important;
+    }
+    
+    /* Button styling */
+    .btn {
+        border-radius: 6px !important;
+        font-weight: 500 !important;
+    }
+    .btn-sm {
+        padding: 0.3rem 0.8rem !important;
+        font-size: 0.75rem !important;
+    }
+    
+    /* Pagination */
+    .pagination .page-link {
+        border-radius: 6px !important;
+        margin: 0 2px;
+        color: #1a1d2e;
+        border: 1px solid #dee2e6;
+    }
+    .pagination .page-item.active .page-link {
+        background-color: #1a1d2e;
+        border-color: #1a1d2e;
+        color: white;
+    }
+    .pagination .page-link:hover {
+        background-color: #f0f0f0;
+    }
+    
+    /* Form styling */
+    .form-control, .form-select {
+        border-radius: 6px !important;
+        border: 1px solid #ced4da;
+    }
+    .form-control:focus, .form-select:focus {
+        border-color: #1a1d2e;
+        box-shadow: 0 0 0 0.2rem rgba(26, 29, 46, 0.15);
+    }
+    .form-label {
+        font-weight: 500;
+        color: #495057;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .table { font-size: 0.7rem !important; }
+        th, td { padding: 0.25rem 0.4rem !important; }
+        .badge { font-size: 0.55rem !important; }
+        .btn { font-size: 0.65rem !important; }
+        .card-body { padding: 0.5rem 0.8rem !important; }
+        h3 { font-size: 1.1rem !important; }
+        h5 { font-size: 0.85rem !important; }
+        .form-control, .form-select { font-size: 0.8rem !important; }
+    }
+    
+    /* Scrollbar styling */
+    .table-responsive::-webkit-scrollbar {
+        height: 6px;
+    }
+    .table-responsive::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: #1a1d2e;
+        border-radius: 10px;
+    }
+    .table-responsive::-webkit-scrollbar-thumb:hover {
+        background: #2d3050;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // ========================================== //
+    // EXPORT TO CSV                             //
+    // ========================================== //
+    function exportToCSV() {
+        const table = document.getElementById('transactionTable');
+        const rows = table.querySelectorAll('tr');
+        let csv = [];
+        
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('td, th');
+            const rowData = [];
+            cells.forEach(cell => {
+                let text = cell.innerText.trim();
+                text = text.replace(/[₹,]/g, '').trim();
+                if (text.includes(',')) {
+                    text = `"${text}"`;
+                }
+                rowData.push(text);
+            });
+            csv.push(rowData.join(','));
+        });
+        
+        const csvContent = csv.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `cash_transactions_${new Date().toISOString().slice(0,10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    }
+
+    // ========================================== //
+    // AUTO-REFRESH FILTERS                      //
+    // ========================================== //
+    document.querySelectorAll('select[name="type"], input[name="from_date"], input[name="to_date"]').forEach(element => {
+        element.addEventListener('change', function() {
+            this.closest('form').submit();
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Sales by Hour{% endblock %}
+{% block page_title %}⏰ Sales by Hour Analysis{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filter-bar { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e9ecef; }
+    .peak-hour { background: linear-gradient(135deg, #f59e0b, #ea580c); color: white; border-radius: 12px; padding: 20px; text-align: center; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="filter-bar">
+        <form method="post">{% csrf_token %} method="GET" class="row g-3 align-items-end">
+            <div class="col-md-4"><label class="form-label small">From Date</label><input type="date" name="from_date" class="form-control" value="{{ from_date }}"></div>
+            <div class="col-md-4"><label class="form-label small">To Date</label><input type="date" name="to_date" class="form-control" value="{{ to_date }}"></div>
+            <div class="col-md-4"><button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> Show Report</button></div>
+        </form>
+    </div>
+
+    {% if peak_hour %}
+    <div class="row mb-3">
+        <div class="col-md-4 mx-auto">
+            <div class="peak-hour">
+                <div class="small">PEAK BUSINESS HOUR</div>
+                <div class="display-4 fw-bold">{{ peak_hour.hour }}:00 - {{ peak_hour.hour|add:1 }}:00</div>
+                <div>PKR {{ peak_hour.total|floatformat:0 }} sales</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <div class="card-header bg-white"><strong><i class="bi bi-clock"></i> Hourly Sales Distribution</strong></div>
+        <div class="card-body"><canvas id="hourlyChart" height="120"></canvas></div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-white"><strong>Hourly Breakdown</strong></div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light"><tr><th>Time</th><th>Sales (PKR)</th><th>Transactions</th><th>Avg per Transaction</th></tr></thead>
+                            <tbody>
+                                {% for hour in hourly_sales %}
+                                <tr class="{% if hour.hour == peak_hour.hour %}table-warning{% endif %}">
+                                    <td><strong>{{ hour.hour }}:00 - {{ hour.hour|add:1 }}:00</strong></td>
+                                    <td>PKR {{ hour.total|floatformat:0 }}</td>
+                                    <td>{{ hour.count }}</td>
+                                    <td>PKR {% widthratio hour.total hour.count 1 %}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const hourlyData = {{ hourly_sales|safe }};
+    new Chart(document.getElementById('hourlyChart'), {
+        type: 'bar',
+        data: { labels: hourlyData.map(h => h.hour + ':00'), datasets: [{ label: 'Sales (PKR)', data: hourlyData.map(h => h.total), backgroundColor: '#4361ee' }] },
+        options: { responsive: true, maintainAspectRatio: true, scales: { y: { beginAtZero: true } } }
+    });
+</script>
+{% endblock %}

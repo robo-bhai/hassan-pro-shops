@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Sales Forecast{% endblock %}
+{% block page_title %}📈 Sales Forecast Report{% endblock %}
+
+{% block extra_css %}
+<style>
+    .forecast-card {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .forecast-value {
+        font-size: 32px;
+        font-weight: 800;
+    }
+    .filter-bar {
+        background: white;
+        padding: 15px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        border: 1px solid #e9ecef;
+    }
+    .growth-positive { color: #10b981; }
+    .growth-negative { color: #ef4444; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="filter-bar">
+        <form method="post">{% csrf_token %} method="GET" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small">Forecast Months</label>
+                <select name="months" class="form-select">
+                    <option value="3" {% if months == 3 %}selected{% endif %}>3 Months</option>
+                    <option value="6" {% if months == 6 %}selected{% endif %}>6 Months</option>
+                    <option value="12" {% if months == 12 %}selected{% endif %}>12 Months</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-primary w-100"><i class="bi bi-calculator"></i> Generate Forecast</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-white"><strong><i class="bi bi-clock-history"></i> Historical Sales (Last 6 Months)</strong></div>
+                <div class="card-body">
+                    <canvas id="historicalChart" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="forecast-card">
+                <div class="small text-center">PREDICTED SALES FOR NEXT {{ months }} MONTHS</div>
+                <div class="forecast-value text-center mt-2">PKR {{ forecast.0.amount|floatformat:0|default:0 }}</div>
+                <div class="text-center small">Expected for {{ forecast.0.month|default:'Next Month' }}</div>
+                <hr class="my-3" style="border-color: rgba(255,255,255,0.2);">
+                <div class="row">
+                    {% for f in forecast %}
+                    <div class="col-md-4 text-center">
+                        <div class="small">{{ f.month|slice:":3" }}</div>
+                        <div class="fw-bold">PKR {{ f.amount|floatformat:0 }}</div>
+                        <small class="{% if f.growth >= 0 %}growth-positive{% else %}growth-negative{% endif %}">
+                            {{ f.growth|floatformat:1 }}%
+                        </small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-white"><strong>Forecast Details</strong></div>
+                <div class="card-body">
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr><th>Month</th><th>Forecasted Sales (PKR)</th><th>Expected Growth</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for f in forecast %}
+                            <tr><td><strong>{{ f.month }}</strong></td><td>PKR {{ f.amount|floatformat:0 }}</td><td class="{% if f.growth >= 0 %}text-success{% else %}text-danger{% endif %}">{{ f.growth|floatformat:1 }}%</td></tr>
+                            {% empty %}<tr><td colspan="3" class="text-center">Insufficient data for forecast</td></tr>{% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const historicalData = {{ historical_sales|safe }};
+    const forecastData = {{ forecast|safe }};
+    
+    if(historicalData.length > 0) {
+        new Chart(document.getElementById('historicalChart'), {
+            type: 'bar',
+            data: {
+                labels: historicalData.map(d => d.month ? new Date(d.month).toLocaleDateString('en', {month:'short', year:'numeric'}) : ''),
+                datasets: [{ label: 'Sales (PKR)', data: historicalData.map(d => d.total), backgroundColor: '#4361ee' }]
+            },
+            options: { responsive: true, maintainAspectRatio: true }
+        });
+    }
+</script>
+{% endblock %}

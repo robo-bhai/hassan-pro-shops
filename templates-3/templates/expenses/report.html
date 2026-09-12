@@ -1,0 +1,350 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Expense Reports - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>📊 Expense Reports</h2>
+                <div>
+                    <button onclick="window.print()" class="btn btn-primary">
+                        <i class="bi bi-printer"></i> Print
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Date Filter -->
+            <div class="card mb-3">
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">From Date</label>
+                            <input type="date" name="from_date" class="form-control" value="{{ from_date }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">To Date</label>
+                            <input type="date" name="to_date" class="form-control" value="{{ to_date }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Report Type</label>
+                            <select name="report_type" class="form-select">
+                                <option value="summary" {% if report_type == 'summary' %}selected{% endif %}>Summary</option>
+                                <option value="category" {% if report_type == 'category' %}selected{% endif %}>Category Wise</option>
+                                <option value="department" {% if report_type == 'department' %}selected{% endif %}>Department Wise</option>
+                                <option value="vendor" {% if report_type == 'vendor' %}selected{% endif %}>Vendor Wise</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">Apply Filter</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Summary -->
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <div class="card text-white bg-primary">
+                        <div class="card-body">
+                            <h6>Total Expenses</h6>
+                            <h3>Rs. {{ total_expenses|floatformat:0|intcomma }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-info">
+                        <div class="card-body">
+                            <h6>Total Tax</h6>
+                            <h3>Rs. {{ total_tax|floatformat:0|intcomma }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-success">
+                        <div class="card-body">
+                            <h6>With Tax</h6>
+                            <h3>Rs. {{ total_expenses_with_tax|floatformat:0|intcomma }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-warning">
+                        <div class="card-body">
+                            <h6>Avg Expense</h6>
+                            <h3>Rs. {{ avg_expense|floatformat:0|intcomma }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            {% if report_type == 'summary' %}
+            <!-- Status Breakdown -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">📊 Status Breakdown</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Status</th>
+                                            <th>Count</th>
+                                            <th>Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for item in status_breakdown %}
+                                        <tr>
+                                            <td>{{ item.status }}</td>
+                                            <td>{{ item.count }}</td>
+                                            <td>Rs. {{ item.total|floatformat:0|intcomma }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr><td colspan="3" class="text-center">No data</td></tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">💳 Payment Method Breakdown</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Method</th>
+                                            <th>Count</th>
+                                            <th>Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for item in payment_method_data %}
+                                        <tr>
+                                            <td>{{ item.payment_method }}</td>
+                                            <td>{{ item.count }}</td>
+                                            <td>Rs. {{ item.total|floatformat:0|intcomma }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr><td colspan="3" class="text-center">No data</td></tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if report_type == 'category' or report_type == 'summary' %}
+            <!-- Category Breakdown -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0">📁 Category Breakdown</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th>Count</th>
+                                    <th>Amount</th>
+                                    <th>% of Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in category_data %}
+                                <tr>
+                                    <td>{{ item.category__name }}</td>
+                                    <td>{{ item.count }}</td>
+                                    <td><strong>Rs. {{ item.total|floatformat:0|intcomma }}</strong></td>
+                                    <td>
+                                        <div class="progress">
+                                            <div class="progress-bar" role="progressbar" 
+                                                 style="width: {% widthratio item.total total_expenses 100 %}%;">
+                                                {% widthratio item.total total_expenses 100 %}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="4" class="text-center">No data</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if report_type == 'department' and department_data %}
+            <!-- Department Breakdown -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0">🏢 Department Breakdown</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Department</th>
+                                    <th>Count</th>
+                                    <th>Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in department_data %}
+                                <tr>
+                                    <td>{{ item.department__name|default:"Unassigned" }}</td>
+                                    <td>{{ item.count }}</td>
+                                    <td><strong>Rs. {{ item.total|floatformat:0|intcomma }}</strong></td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="3" class="text-center">No data</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if report_type == 'vendor' %}
+            <!-- Vendor Breakdown -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0">🏢 Vendor Breakdown</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Vendor</th>
+                                    <th>Count</th>
+                                    <th>Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in vendor_data %}
+                                <tr>
+                                    <td>{{ item.vendor__name|default:"Unassigned" }}</td>
+                                    <td>{{ item.count }}</td>
+                                    <td><strong>Rs. {{ item.total|floatformat:0|intcomma }}</strong></td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="3" class="text-center">No data</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Monthly Trend -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0">📈 Monthly Trend</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="trendChart" height="200"></canvas>
+                </div>
+            </div>
+            
+            <!-- Recent Expenses -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📋 Recent Expenses</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Description</th>
+                                    <th>Category</th>
+                                    <th>Amount</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for expense in expenses|slice:":20" %}
+                                <tr>
+                                    <td>{{ expense.expense_no }}</td>
+                                    <td>{{ expense.description|truncatechars:30 }}</td>
+                                    <td>{{ expense.category.name }}</td>
+                                    <td><strong>Rs. {{ expense.amount|floatformat:2|intcomma }}</strong></td>
+                                    <td>{{ expense.expense_date|date:"d-m-Y" }}</td>
+                                    <td>{{ expense.get_status_badge|safe }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="6" class="text-center">No expenses in this period.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('trendChart').getContext('2d');
+        const monthlyData = {{ monthly_data|safe }};
+        
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: monthlyData.map(d => d.month),
+                datasets: [{
+                    label: 'Monthly Expenses (Rs.)',
+                    data: monthlyData.map(d => d.total),
+                    backgroundColor: 'rgba(102, 126, 234, 0.7)',
+                    borderColor: '#667eea',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'Rs. ' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

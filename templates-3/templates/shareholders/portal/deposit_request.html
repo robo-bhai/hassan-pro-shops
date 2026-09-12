@@ -1,0 +1,289 @@
+{% extends 'shareholders/portal/base.html' %}
+{% load static %}
+
+{% block title %}Deposit Request{% endblock %}
+
+{% block portal_content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-8 offset-lg-2">
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb" class="mt-2">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'shareholder_portal_dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Deposit Request</li>
+                </ol>
+            </nav>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="bi bi-plus-circle"></i> Deposit Request</h4>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- ========================================== -->
+                    <!-- ✅ DEPOSIT INSTRUCTIONS - YEH ADD KARO    -->
+                    <!-- ========================================== -->
+                    <div class="alert alert-info border-0 bg-light">
+                        <h6 class="fw-bold mb-3">
+                            <i class="bi bi-info-circle text-primary"></i> Deposit Instructions
+                        </h6>
+                        
+                        <div class="row g-3">
+                            <!-- JazzCash -->
+                            {% if jazzcash_number %}
+                            <div class="col-md-6">
+                                <div class="card border border-2 border-warning h-100">
+                                    <div class="card-body text-center">
+                                        <div class="mb-2">
+                                            <i class="bi bi-phone" style="font-size: 2rem; color: #f7931a;"></i>
+                                            <span class="badge bg-warning text-dark ms-2">JazzCash</span>
+                                        </div>
+                                        <h5 class="fw-bold text-dark">{{ jazzcash_number }}</h5>
+                                        <small class="text-muted">Send payment to this JazzCash number</small>
+                                        <br>
+                                        <button class="btn btn-sm btn-outline-primary mt-2" 
+                                                onclick="copyText('{{ jazzcash_number }}')">
+                                            <i class="bi bi-clipboard"></i> Copy Number
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            <!-- EasyPaisa -->
+                            {% if easypaisa_number %}
+                            <div class="col-md-6">
+                                <div class="card border border-2 border-success h-100">
+                                    <div class="card-body text-center">
+                                        <div class="mb-2">
+                                            <i class="bi bi-phone" style="font-size: 2rem; color: #00a651;"></i>
+                                            <span class="badge bg-success ms-2">EasyPaisa</span>
+                                        </div>
+                                        <h5 class="fw-bold text-dark">{{ easypaisa_number }}</h5>
+                                        <small class="text-muted">Send payment to this EasyPaisa number</small>
+                                        <br>
+                                        <button class="btn btn-sm btn-outline-primary mt-2" 
+                                                onclick="copyText('{{ easypaisa_number }}')">
+                                            <i class="bi bi-clipboard"></i> Copy Number
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Bank Details -->
+                        {% if bank_name and bank_account_number %}
+                        <div class="mt-3">
+                            <div class="card border border-2 border-primary">
+                                <div class="card-body">
+                                    <h6 class="fw-bold">
+                                        <i class="bi bi-bank text-primary"></i> Bank Transfer
+                                    </h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <small class="text-muted">Bank Name</small>
+                                            <p class="fw-bold">{{ bank_name }}</p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <small class="text-muted">Account Title</small>
+                                            <p class="fw-bold">{{ bank_account_title|default:"-" }}</p>
+                                        </div>
+                                        <div class="col-md-12">
+                                            <small class="text-muted">Account Number</small>
+                                            <p class="fw-bold">{{ bank_account_number }}</p>
+                                            <button class="btn btn-sm btn-outline-primary" 
+                                                    onclick="copyText('{{ bank_account_number }}')">
+                                                <i class="bi bi-clipboard"></i> Copy Account Number
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Additional Instructions -->
+                        {% if deposit_instructions %}
+                        <div class="mt-3">
+                            <div class="alert alert-secondary">
+                                <i class="bi bi-info-circle"></i>
+                                {{ deposit_instructions|linebreaks }}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- ========================================== -->
+                    <!-- INFO ALERT                                -->
+                    <!-- ========================================== -->
+                    <div class="alert alert-info mt-3">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>How it works:</strong>
+                        <ol class="mb-0 mt-2">
+                            <li>Send payment to the above number(s)</li>
+                            <li>Fill the form below with payment details</li>
+                            <li>Submit request for admin approval</li>
+                            <li>Your balance will be updated after approval</li>
+                        </ol>
+                    </div>
+
+                    <!-- Current Balance -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h6 class="text-muted">Current Balance</h6>
+                                    <h3 class="text-success">Rs. {{ current_balance|floatformat:2 }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card bg-warning">
+                                <div class="card-body text-center">
+                                    <h6 class="text-dark">Pending Requests</h6>
+                                    <h3 class="text-dark">{{ pending_requests }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form method="POST" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <!-- Amount -->
+                        <div class="mb-3">
+                            <label class="form-label">Amount (Rs.) <span class="text-danger">*</span></label>
+                            <input type="number" name="amount" class="form-control form-control-lg" 
+                                   step="0.01" min="100" required
+                                   placeholder="Enter amount to deposit"
+                                   id="depositAmount">
+                            <small class="text-muted">Minimum: Rs. 100 | Maximum: Rs. 10,000,000</small>
+                        </div>
+
+                        <!-- Payment Method -->
+                        <div class="mb-3">
+                            <label class="form-label">Payment Method <span class="text-danger">*</span></label>
+                            <select name="payment_method" class="form-select" required>
+                                <option value="">Select Payment Method</option>
+                                {% for code, label in payment_methods %}
+                                <option value="{{ code }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Reference Number -->
+                        <div class="mb-3">
+                            <label class="form-label">Reference Number <span class="text-danger">*</span></label>
+                            <input type="text" name="reference_no" class="form-control" 
+                                   placeholder="JazzCash/EasyPaisa transaction ID, Cheque Number, etc."
+                                   required>
+                            <small class="text-muted">Required for verification</small>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="mb-3">
+                            <label class="form-label">Description / Notes</label>
+                            <textarea name="description" class="form-control" rows="3"
+                                      placeholder="Any additional information..."></textarea>
+                        </div>
+
+                        <!-- Attachment -->
+                        <div class="mb-3">
+                            <label class="form-label">Payment Screenshot (Optional)</label>
+                            <input type="file" name="attachment" class="form-control" 
+                                   accept=".jpg,.jpeg,.png,.pdf,.doc,.docx">
+                            <small class="text-muted">Upload payment proof (screenshot, receipt, etc.)</small>
+                        </div>
+
+                        <!-- Note -->
+                        <div class="alert alert-warning">
+                            <i class="bi bi-shield-check"></i>
+                            <strong>Note:</strong> Your request will be reviewed by admin. 
+                            Balance will be updated after approval.
+                            <br>
+                            <small>Estimated approval time: 24-48 hours</small>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'shareholder_portal_dashboard' %}" class="btn btn-secondary me-md-2">
+                                <i class="bi bi-arrow-left"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-send"></i> Submit Request
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Quick Links -->
+            <div class="row mt-3">
+                <div class="col-6">
+                    <a href="{% url 'shareholder_portal_deposit_history' %}" class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-clock-history"></i> View History
+                    </a>
+                </div>
+                <div class="col-6">
+                    <a href="{% url 'shareholder_portal_dashboard' %}" class="btn btn-outline-primary w-100">
+                        <i class="bi bi-house"></i> Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Copy text function
+    function copyText(text) {
+        navigator.clipboard.writeText(text).then(function() {
+            alert('✅ Copied: ' + text);
+        }).catch(function() {
+            var input = document.createElement('input');
+            input.value = text;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            document.body.removeChild(input);
+            alert('✅ Copied: ' + text);
+        });
+    }
+
+    // Live amount formatting
+    document.getElementById('depositAmount')?.addEventListener('input', function() {
+        const val = this.value;
+        if (val) {
+            const num = parseFloat(val);
+            if (num > 10000000) {
+                this.classList.add('is-invalid');
+                this.setCustomValidity('Amount exceeds maximum limit!');
+            } else {
+                this.classList.remove('is-invalid');
+                this.setCustomValidity('');
+            }
+        }
+    });
+</script>
+
+<style>
+.copy-btn {
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.copy-btn:hover {
+    background-color: #e9ecef;
+}
+.border-warning {
+    border-color: #f7931a !important;
+}
+.border-success {
+    border-color: #00a651 !important;
+}
+.border-primary {
+    border-color: #0d6efd !important;
+}
+</style>
+{% endblock %}

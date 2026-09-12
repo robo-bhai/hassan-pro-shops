@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% block title %}PO #{{ order.order_no }}{% endblock %}
+{% block page_title %}📑 PO #{{ order.order_no }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .detail-card { background:white; border-radius:16px; border:1px solid #eef0f5; overflow:hidden; margin-bottom:20px; }
+    .detail-header { background:linear-gradient(135deg,#1a1a2e,#16213e); color:white; padding:22px 28px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px; }
+    .detail-body { padding:25px 28px; }
+    .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:25px; }
+    .info-box { background:#f8f9fc; border-radius:12px; padding:18px; border-left:4px solid #0d6efd; }
+    .info-box h6 { font-size:0.7rem; text-transform:uppercase; letter-spacing:1.5px; color:#6c757d; margin-bottom:10px; font-weight:700; }
+    .items-table { width:100%; border-collapse:collapse; margin-bottom:25px; }
+    .items-table thead th { background:#1a1d2e; color:white; padding:12px 14px; font-size:0.7rem; text-transform:uppercase; letter-spacing:1px; font-weight:700; }
+    .items-table tbody td { padding:10px 14px; border-bottom:1px solid #f0f2f7; font-size:0.85rem; }
+    .text-right{text-align:right} .text-center{text-align:center}
+    .status-badge { padding:6px 14px; border-radius:20px; font-size:0.78rem; font-weight:700; }
+    .status-pending{background:#fff3cd;color:#856404} .status-confirmed{background:#e0f7fa;color:#055160}
+    .status-received{background:#d4edda;color:#155724} .status-completed{background:#cff4fc;color:#055160}
+    @media(max-width:768px){.info-grid{grid-template-columns:1fr} .detail-body{padding:20px 15px}}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="detail-card">
+    <div class="detail-header">
+        <div><h4 style="margin:0;font-weight:700;">📑 {{ order.order_no }}</h4><small style="opacity:0.8;">{{ order.order_date|date:"d M, Y h:i A" }}</small></div>
+        <span class="status-badge status-{{ order.status }}">{{ order.get_status_display }}</span>
+    </div>
+    
+    <div class="detail-body">
+        <div class="info-grid">
+            <div class="info-box"><h6>🏢 Vendor</h6><p style="font-weight:700;font-size:1.1rem;">{{ order.vendor.name }}</p>{% if order.vendor.vendor_code %}<span style="background:#e8ecf4;padding:3px 10px;border-radius:12px;font-size:0.78rem;">{{ order.vendor.vendor_code }}</span>{% endif %}</div>
+            <div class="info-box" style="border-left-color:#28a745;"><h6>📋 Order Info</h6><p><strong>Warehouse:</strong> {{ order.warehouse.name }}</p><p><strong>Vendor SO:</strong> {{ order.vendor_so_number|default:'N/A' }}</p><p><strong>Expected:</strong> {{ order.expected_date|date:"d M, Y"|default:'Not Set' }}</p></div>
+        </div>
+        
+        <h6 class="fw-bold mb-3">📦 Items</h6>
+        <div class="table-responsive">
+            <table class="items-table">
+                <thead><tr><th class="text-center">#</th><th>Product</th><th class="text-right">Order Qty</th><th class="text-right">Received</th><th class="text-right">Pending</th><th class="text-right">Price</th><th class="text-right">Total</th></tr></thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr><td class="text-center">{{ forloop.counter }}</td><td><strong>{{ item.product.name }}</strong></td><td class="text-right">{{ item.qty|floatformat:2 }}</td><td class="text-right">{{ item.received|floatformat:2 }}</td><td class="text-right">{{ item.pending|floatformat:2 }}</td><td class="text-right">Rs. {{ item.price|floatformat:2 }}</td><td class="text-right"><strong>Rs. {{ item.total_amt|floatformat:2 }}</strong></td></tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr style="background:#f8f9fc; font-weight:700;"><td colspan="2">TOTAL</td><td class="text-right">{{ total_ordered|floatformat:2 }}</td><td class="text-right">{{ total_received|floatformat:2 }}</td><td class="text-right">{{ total_pending|floatformat:2 }}</td><td></td><td class="text-right">Rs. {{ order.total_amount|floatformat:2 }}</td></tr>
+                </tfoot>
+            </table>
+        </div>
+        
+        <div class="row mt-3">
+            <div class="col-md-6">
+                <div class="info-box"><h6>💰 Payment</h6><p>Total: <strong>Rs. {{ order.total_amount|floatformat:2 }}</strong></p><p>Advance: <strong>Rs. {{ order.advance_payment|floatformat:2 }}</strong></p><p>Outstanding: <strong>Rs. {{ order.outstanding_advance|floatformat:2 }}</strong></p></div>
+            </div>
+            <div class="col-md-6">
+                <div class="info-box" style="border-left-color:#ff9800;"><h6>📦 Receive Progress</h6><div class="progress" style="height:22px;border-radius:11px;"><div class="progress-bar bg-success" style="width:{{ receive_percent }}%; border-radius:11px; font-weight:700;">{% if receive_percent > 10 %}{{ receive_percent }}%{% endif %}</div></div><small>{{ total_received|floatformat:2 }} of {{ total_ordered|floatformat:2 }} received</small></div>
+            </div>
+        </div>
+        
+        {% if grns %}
+        <h6 class="fw-bold mt-4">📋 GRNs</h6>
+        <div class="table-responsive"><table class="items-table"><thead><tr><th>GRN No</th><th>Date</th><th>Items</th><th class="text-right">Qty</th></tr></thead><tbody>{% for g in grns %}<tr><td><strong>{{ g.grn_no }}</strong></td><td>{{ g.grn_date|date:"d M, Y" }}</td><td>{{ g.total_items }}</td><td class="text-right">{{ g.total_qty|floatformat:2 }}</td></tr>{% endfor %}</tbody></table></div>
+        {% endif %}
+        
+        <div class="d-flex gap-2 mt-4">
+            <a href="{% url 'purchase_order_create_grn' order.pk %}" class="btn btn-success" style="border-radius:10px;">📦 Create GRN</a>
+            <a href="{% url 'purchase_order_list' %}" class="btn btn-outline-secondary" style="border-radius:10px;">← Back</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

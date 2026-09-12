@@ -1,0 +1,264 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Preview Terms v{{ terms.version }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ✅ Tabs Styles */
+    .preview-tabs {
+        display: flex;
+        gap: 0;
+        margin-bottom: 0;
+        border-bottom: 2px solid #e2e8f0;
+        background: #f8f9fc;
+        border-radius: 8px 8px 0 0;
+        overflow: hidden;
+    }
+    
+    .preview-tab {
+        padding: 12px 25px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+        border: none;
+        background: transparent;
+        transition: all 0.3s ease;
+        color: #6b7280;
+        position: relative;
+        text-align: center;
+    }
+    
+    .preview-tab:hover {
+        background: rgba(102, 126, 234, 0.05);
+        color: #1a1a2e;
+    }
+    
+    .preview-tab.active {
+        color: #1a1a2e;
+        background: white;
+        border-bottom: 3px solid #667eea;
+    }
+    
+    .preview-tab i {
+        margin-right: 8px;
+    }
+    
+    .preview-tab .badge-tab {
+        background: #667eea;
+        color: white;
+        font-size: 0.6rem;
+        padding: 2px 10px;
+        border-radius: 20px;
+        margin-left: 6px;
+    }
+    
+    .preview-tab.active .badge-tab {
+        background: #28a745;
+    }
+    
+    /* ✅ Tab Content */
+    .tab-preview-content {
+        display: none;
+        padding: 20px 25px;
+        background: #f8f9fa;
+        border-radius: 0 0 8px 8px;
+        animation: fadeIn 0.3s ease;
+        max-height: 600px;
+        overflow-y: auto;
+    }
+    
+    .tab-preview-content.active {
+        display: block;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* ✅ Urdu Styles */
+    .urdu-preview {
+        font-family: 'Noto Naskh Arabic', 'Amiri', 'Scheherazade', serif;
+        direction: rtl;
+        text-align: right;
+        font-size: 14px;
+        line-height: 2;
+    }
+    
+    .urdu-preview ul {
+        padding-right: 25px;
+        padding-left: 0;
+    }
+    
+    .urdu-preview h1,
+    .urdu-preview h2,
+    .urdu-preview h3,
+    .urdu-preview h4,
+    .urdu-preview p,
+    .urdu-preview li {
+        direction: rtl;
+        text-align: right;
+    }
+    
+    /* ✅ Terms Content Styles */
+    .terms-preview {
+        font-size: 14px;
+        line-height: 1.8;
+        white-space: pre-wrap;
+    }
+    
+    .terms-preview h1, .terms-preview h2, .terms-preview h3 {
+        color: #1a1a2e;
+        margin-top: 20px;
+        margin-bottom: 10px;
+    }
+    
+    .terms-preview ul {
+        padding-left: 20px;
+    }
+    
+    .terms-preview hr {
+        margin: 20px 0;
+        border-color: #e9ecef;
+    }
+    
+    .terms-preview strong {
+        color: #1a1a2e;
+    }
+    
+    /* ✅ Scrollbar */
+    .tab-preview-content::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .tab-preview-content::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+    
+    .tab-preview-content::-webkit-scrollbar-thumb {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 10px;
+    }
+    
+    .tab-preview-content::-webkit-scrollbar-thumb:hover {
+        background: #5a67d8;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap">
+                        <div>
+                            <h5 class="mb-0"><i class="bi bi-file-text"></i> {{ terms.title }}</h5>
+                            <small>Version: {{ terms.version }} | Effective: {{ terms.effective_date|date:"d M, Y" }}</small>
+                        </div>
+                        <div>
+                            {% if terms.is_active %}
+                            <span class="badge bg-success">✅ Active</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Inactive</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- ✅ Tabs -->
+                <div class="preview-tabs">
+                    <button class="preview-tab active" data-tab="english" onclick="switchTab('english')">
+                        <i class="bi bi-translate"></i> English
+                        <span class="badge-tab">EN</span>
+                    </button>
+                    <button class="preview-tab" data-tab="urdu" onclick="switchTab('urdu')">
+                        <i class="bi bi-translate"></i> اردو
+                        <span class="badge-tab">UR</span>
+                    </button>
+                </div>
+                
+                <!-- ✅ English Tab Content -->
+                <div id="tab-preview-english" class="tab-preview-content active">
+                    <div class="terms-preview">
+                        {{ terms.content|linebreaks }}
+                    </div>
+                </div>
+                
+                <!-- ✅ Urdu Tab Content -->
+                <div id="tab-preview-urdu" class="tab-preview-content urdu-preview">
+                    <div class="terms-preview">
+                        {% if terms.urdu_content %}
+                            {{ terms.urdu_content|linebreaks }}
+                        {% else %}
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle"></i>
+                                Urdu version is not available. Please check the English version.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="card-footer text-muted d-flex flex-wrap justify-content-between">
+                    <div>
+                        <small>Created: {{ terms.created_at|date:"d M, Y h:i A" }}</small>
+                        <small class="ms-3">Updated: {{ terms.updated_at|date:"d M, Y h:i A" }}</small>
+                        {% if terms.created_by %}
+                        <small class="ms-3">Created By: {{ terms.created_by.username }}</small>
+                        {% endif %}
+                    </div>
+                    <div>
+                        {% if terms.urdu_content %}
+                            <span class="badge bg-info">✅ Urdu Available</span>
+                        {% else %}
+                            <span class="badge bg-secondary">⚠️ Urdu Not Available</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-3 d-flex gap-2 flex-wrap">
+                <a href="{% url 'terms_admin' %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Back to List
+                </a>
+                <a href="{% url 'terms_edit' terms.pk %}" class="btn btn-warning">
+                    <i class="bi bi-pencil"></i> Edit
+                </a>
+                <button class="btn btn-primary" onclick="window.print()">
+                    <i class="bi bi-printer"></i> Print
+                </button>
+                {% if terms.is_active %}
+                <span class="badge bg-success p-2 align-self-center">✅ Active Version</span>
+                {% else %}
+                <a href="{% url 'terms_activate' terms.pk %}" class="btn btn-success">
+                    <i class="bi bi-check-circle"></i> Activate
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function switchTab(tab) {
+    // Hide all tabs content
+    document.querySelectorAll('.tab-preview-content').forEach(function(el) {
+        el.classList.remove('active');
+    });
+    
+    // Remove active class from all tab buttons
+    document.querySelectorAll('.preview-tab').forEach(function(el) {
+        el.classList.remove('active');
+    });
+    
+    // Show selected tab
+    document.getElementById('tab-preview-' + tab).classList.add('active');
+    
+    // Add active class to selected tab button
+    document.querySelector('.preview-tab[data-tab="' + tab + '"]').classList.add('active');
+}
+</script>
+{% endblock %}

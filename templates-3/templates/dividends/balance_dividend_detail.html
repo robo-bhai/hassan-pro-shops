@@ -1,0 +1,495 @@
+<!-- templates/dividends/balance_dividend_detail.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Balance Dividend Detail{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            
+            <!-- ===== HEADER CARD ===== -->
+            <div class="card shadow-lg">
+                <div class="card-header {% if dividend.status == 'distributed' %}bg-gradient-success{% elif dividend.status == 'cancelled' %}bg-gradient-danger{% elif dividend.status == 'declared' %}bg-gradient-primary{% else %}bg-gradient-secondary{% endif %} text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0">
+                                <i class="bi bi-coin me-2"></i>
+                                Balance Dividend #{{ dividend.dividend_no }}
+                            </h4>
+                            <small>
+                                <i class="bi bi-calendar me-1"></i>
+                                Declared: {{ dividend.declaration_date|date:"d-m-Y" }}
+                                {% if dividend.distribution_date %}
+                                | Distributed: {{ dividend.distribution_date|date:"d-m-Y" }}
+                                {% endif %}
+                            </small>
+                        </div>
+                        <div class="text-end">
+                            {{ dividend.status_badge|safe }}
+                            {% if dividend.refund_type %}
+                            <span class="badge bg-info ms-1">{{ dividend.get_refund_type_display }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- ========================================== -->
+                    <!-- 📊 DIVIDEND INFO CARDS (4 Cards)           -->
+                    <!-- ========================================== -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card bg-light border-0 shadow-sm">
+                                <div class="card-body text-center">
+                                    <h6 class="text-muted mb-1">
+                                        <i class="bi bi-graph-up-arrow me-1"></i>Total Profit
+                                    </h6>
+                                    <h3 class="text-primary">Rs. {{ dividend.total_profit|floatformat:2 }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-light border-0 shadow-sm">
+                                <div class="card-body text-center">
+                                    <h6 class="text-muted mb-1">
+                                        <i class="bi bi-percent me-1"></i>Dividend %
+                                    </h6>
+                                    <h3 class="text-info">{{ dividend.dividend_percentage|floatformat:0 }}%</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-light border-0 shadow-sm">
+                                <div class="card-body text-center">
+                                    <h6 class="text-muted mb-1">
+                                        <i class="bi bi-cash me-1"></i>To Distribute
+                                    </h6>
+                                    <h3 class="text-success">Rs. {{ dividend.amount_to_distribute|floatformat:2 }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- ✅ NEW: Retained Earnings Card -->
+                        <div class="col-md-3">
+                            <div class="card bg-light border-0 shadow-sm">
+                                <div class="card-body text-center">
+                                    <h6 class="text-muted mb-1">
+                                        <i class="bi bi-piggy-bank me-1"></i>Retained Earnings
+                                    </h6>
+                                    <h3 class="text-warning">Rs. {{ retained_earnings|floatformat:2 }}</h3>
+                                    <small class="text-muted">{{ remaining_percentage|floatformat:0 }}% of profit</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ========================================== -->
+                    <!-- 💰 SUMMARY CARDS                           -->
+                    <!-- ========================================== -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="card bg-primary text-white shadow-sm">
+                                <div class="card-body text-center">
+                                    <h6 class="text-white-50">Total Amount</h6>
+                                    <h3>Rs. {{ total_amount|floatformat:2 }}</h3>
+                                    <small>{{ payments.count }} payments</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-success text-white shadow-sm">
+                                <div class="card-body text-center">
+                                    <h6 class="text-white-50">Paid</h6>
+                                    <h3>Rs. {{ paid_amount|floatformat:2 }}</h3>
+                                    <small>{{ paid_count }} payments</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-warning text-dark shadow-sm">
+                                <div class="card-body text-center">
+                                    <h6 class="text-dark-50">Pending</h6>
+                                    <h3>Rs. {{ pending_amount|floatformat:2 }}</h3>
+                                    <small>{{ pending_count }} payments</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ========================================== -->
+                    <!-- 🔄 REFUND + PROFIT BREAKDOWN               -->
+                    <!-- ========================================== -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0"><i class="bi bi-arrow-return-left text-warning me-2"></i>Refund Breakdown</h6>
+                                </div>
+                                <div class="card-body">
+                                    <table class="table table-sm table-borderless mb-0">
+                                        <tr>
+                                            <td><strong>Total Refund</strong></td>
+                                            <td class="text-end"><strong class="text-warning">Rs. {{ total_refund|floatformat:2 }}</strong></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Refund Paid</td>
+                                            <td class="text-end text-success">Rs. {{ total_refund|floatformat:2 }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Refund Pending</td>
+                                            <td class="text-end text-danger">Rs. 0.00</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0"><i class="bi bi-graph-up text-success me-2"></i>Profit Breakdown</h6>
+                                </div>
+                                <div class="card-body">
+                                    <table class="table table-sm table-borderless mb-0">
+                                        <tr>
+                                            <td><strong>Total Profit</strong></td>
+                                            <td class="text-end"><strong class="text-success">Rs. {{ total_profit_amount|floatformat:2 }}</strong></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Profit Paid</td>
+                                            <td class="text-end text-success">Rs. {{ total_profit_amount|floatformat:2 }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Profit Pending</td>
+                                            <td class="text-end text-danger">Rs. 0.00</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ========================================== -->
+                    <!-- 📋 DIVIDEND INFO DETAILS                   -->
+                    <!-- ========================================== -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0"><i class="bi bi-info-circle me-2"></i>Dividend Details</h6>
+                                </div>
+                                <div class="card-body">
+                                    <table class="table table-sm table-borderless mb-0">
+                                        <tr>
+                                            <td style="width: 40%;"><strong>Dividend No</strong></td>
+                                            <td>{{ dividend.dividend_no }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Status</strong></td>
+                                            <td>{{ dividend.status_badge|safe }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Declaration Date</strong></td>
+                                            <td>{{ dividend.declaration_date|date:"d-m-Y" }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Record Date</strong></td>
+                                            <td>{{ dividend.record_date|date:"d-m-Y" }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Distribution Date</strong></td>
+                                            <td>
+                                                {% if dividend.distribution_date %}
+                                                {{ dividend.distribution_date|date:"d-m-Y" }}
+                                                {% else %}
+                                                <span class="text-muted">Not distributed yet</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Distribution Type</strong></td>
+                                            <td>{{ dividend.get_distribution_type_display }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Refund Type</strong></td>
+                                            <td>{{ dividend.get_refund_type_display }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Refund Percentage</strong></td>
+                                            <td>{{ dividend.refund_percentage|floatformat:0 }}%</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Retained Earnings</strong></td>
+                                            <td class="text-warning">Rs. {{ retained_earnings|floatformat:2 }}</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0"><i class="bi bi-person me-2"></i>Created By</h6>
+                                </div>
+                                <div class="card-body">
+                                    <table class="table table-sm table-borderless mb-0">
+                                        <tr>
+                                            <td style="width: 40%;"><strong>Created By</strong></td>
+                                            <td>{{ dividend.created_by.get_full_name|default:dividend.created_by.username }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Created At</strong></td>
+                                            <td>{{ dividend.created_at|date:"d-m-Y H:i" }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Last Updated</strong></td>
+                                            <td>{{ dividend.updated_at|date:"d-m-Y H:i" }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Sales Used</strong></td>
+                                            <td>
+                                                <span class="badge bg-info">{{ dividend.used_sales.count }}</span>
+                                                <small class="text-muted">sales</small>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Total Refund</strong></td>
+                                            <td class="text-warning">Rs. {{ dividend.total_refund_amount|floatformat:2 }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Total Payment</strong></td>
+                                            <td class="text-primary">Rs. {{ dividend.total_payment_amount|floatformat:2 }}</td>
+                                        </tr>
+                                        {% if dividend.notes %}
+                                        <tr>
+                                            <td><strong>Notes</strong></td>
+                                            <td><span class="text-muted">{{ dividend.notes }}</span></td>
+                                        </tr>
+                                        {% endif %}
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ========================================== -->
+                    <!-- 🔘 ACTION BUTTONS                          -->
+                    <!-- ========================================== -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="d-flex flex-wrap gap-2">
+                                {% if can_generate %}
+                                    <a href="{% url 'balance_dividend_generate' dividend.pk %}" 
+                                       class="btn btn-success btn-lg" 
+                                       onclick="return confirm('Generate payments for all eligible shareholders?')">
+                                        <i class="bi bi-play-circle me-2"></i>
+                                        Generate Payments
+                                    </a>
+                                {% endif %}
+                                
+                                {% if can_distribute %}
+                                    <a href="{% url 'balance_dividend_distribute' dividend.pk %}" 
+                                       class="btn btn-primary btn-lg"
+                                       onclick="return confirm('Mark all payments as distributed?')">
+                                        <i class="bi bi-check-all me-2"></i>
+                                        Distribute All
+                                    </a>
+                                {% endif %}
+                                
+                                {% if can_edit %}
+                                    <a href="{% url 'balance_dividend_edit' dividend.pk %}" 
+                                       class="btn btn-warning btn-lg">
+                                        <i class="bi bi-pencil me-2"></i>
+                                        Edit
+                                    </a>
+                                {% endif %}
+                                
+                                {% if can_delete %}
+                                    <a href="{% url 'balance_dividend_delete' dividend.pk %}" 
+                                       class="btn btn-danger btn-lg" 
+                                       onclick="return confirm('Are you sure you want to delete this dividend?')">
+                                        <i class="bi bi-trash me-2"></i>
+                                        Delete
+                                    </a>
+                                {% endif %}
+                                
+                                <a href="{% url 'balance_dividend_list' %}" class="btn btn-secondary btn-lg">
+                                    <i class="bi bi-arrow-left me-2"></i>
+                                    Back to List
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ========================================== -->
+                    <!-- 📋 PAYMENTS TABLE                         -->
+                    <!-- ========================================== -->
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="bi bi-list me-2"></i>
+                                Dividend Payments
+                                <span class="badge bg-secondary ms-2">{{ payments.count }}</span>
+                            </h5>
+                            <div>
+                                <span class="badge bg-success">Paid: {{ paid_count }}</span>
+                                <span class="badge bg-warning text-dark">Pending: {{ pending_count }}</span>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover mb-0">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th style="width: 5%;">#</th>
+                                            <th style="width: 18%;">Shareholder</th>
+                                            <th style="width: 12%;">Balance Used</th>
+                                            <th style="width: 10%;">%</th>
+                                            <th style="width: 12%;">Profit</th>
+                                            <th style="width: 12%;">Refund</th>
+                                            <th style="width: 12%;">Total</th>
+                                            <th style="width: 10%;">Status</th>
+                                            <th style="width: 10%; text-align: center;">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for payment in payments %}
+                                        <tr>
+                                            <td>{{ forloop.counter }}</td>
+                                            <td>
+                                                <strong>{{ payment.shareholder.name }}</strong>
+                                                <br>
+                                                <small class="text-muted">{{ payment.shareholder.shareholder_code }}</small>
+                                            </td>
+                                            <td class="text-end">Rs. {{ payment.balance_used|floatformat:2 }}</td>
+                                            <td class="text-center">{{ payment.percentage|floatformat:1 }}%</td>
+                                            <td class="text-end text-success">Rs. {{ payment.amount|floatformat:2 }}</td>
+                                            <td class="text-end text-warning">Rs. {{ payment.refund_amount|floatformat:2 }}</td>
+                                            <td class="text-end text-primary">
+                                                <strong>Rs. {{ payment.total_payment|floatformat:2 }}</strong>
+                                            </td>
+                                            <td>
+                                                {% if payment.status == 'paid' %}
+                                                    <span class="badge bg-success">✅ Paid</span>
+                                                    {% if payment.main_cash_deducted %}
+                                                    <br><span class="badge bg-info">💵 Cash</span>
+                                                    {% else %}
+                                                    <br><span class="badge bg-secondary">💰 Balance</span>
+                                                    {% endif %}
+                                                {% elif payment.status == 'pending' %}
+                                                    <span class="badge bg-warning text-dark">⏳ Pending</span>
+                                                {% elif payment.status == 'failed' %}
+                                                    <span class="badge bg-danger">❌ Failed</span>
+                                                {% elif payment.status == 'cancelled' %}
+                                                    <span class="badge bg-secondary">❌ Cancelled</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">{{ payment.get_status_display }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-center">
+                                                <!-- ✅ Pending → Pay Button -->
+                                                {% if payment.status == 'pending' %}
+                                                    <a href="{% url 'balance_dividend_pay' payment.pk %}" 
+                                                       class="btn btn-sm btn-success">
+                                                        <i class="bi bi-check-circle"></i> Pay
+                                                    </a>
+                                                {% endif %}
+                                                
+                                                <!-- ✅ Paid → Status Badge -->
+                                                {% if payment.status == 'paid' %}
+                                                    {% if payment.main_cash_deducted %}
+                                                        <span class="badge bg-success">Cash</span>
+                                                    {% else %}
+                                                        <span class="badge bg-secondary">Balance</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                                
+                                                <!-- ✅ Failed → Badge -->
+                                                {% if payment.status == 'failed' %}
+                                                    <span class="badge bg-danger">Failed</span>
+                                                {% endif %}
+                                                
+                                                <!-- ✅ Cancelled → Badge -->
+                                                {% if payment.status == 'cancelled' %}
+                                                    <span class="badge bg-secondary">Cancelled</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="9" class="text-center text-muted py-4">
+                                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                                No payments generated yet.
+                                                {% if can_generate %}
+                                                    <br>
+                                                    <a href="{% url 'balance_dividend_generate' dividend.pk %}" 
+                                                       class="btn btn-sm btn-success mt-2">
+                                                        <i class="bi bi-play-circle me-1"></i>
+                                                        Generate Payments
+                                                    </a>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    {% if payments %}
+                                    <tfoot class="table-dark">
+                                        <tr>
+                                            <th colspan="4" class="text-end">TOTALS:</th>
+                                            <th class="text-end">Rs. {{ total_profit_amount|floatformat:2 }}</th>
+                                            <th class="text-end">Rs. {{ total_refund|floatformat:2 }}</th>
+                                            <th class="text-end">Rs. {{ total_amount|floatformat:2 }}</th>
+                                            <th colspan="2"></th>
+                                        </tr>
+                                    </tfoot>
+                                    {% endif %}
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
+}
+.bg-gradient-success {
+    background: linear-gradient(135deg, #1cc88a 0%, #13855c 100%);
+}
+.bg-gradient-danger {
+    background: linear-gradient(135deg, #e74a3b 0%, #be2617 100%);
+}
+.bg-gradient-secondary {
+    background: linear-gradient(135deg, #858796 0%, #60616a 100%);
+}
+.bg-gradient-warning {
+    background: linear-gradient(135deg, #f6c23e 0%, #dda20a 100%);
+}
+.bg-gradient-info {
+    background: linear-gradient(135deg, #36b9cc 0%, #258391 100%);
+}
+
+.card {
+    border-radius: 12px;
+    overflow: hidden;
+}
+.card-header {
+    border-bottom: none;
+}
+.table th, .table td {
+    vertical-align: middle;
+}
+.badge {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+}
+.btn-lg {
+    border-radius: 10px;
+}
+</style>
+{% endblock %}

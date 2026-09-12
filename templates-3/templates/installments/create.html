@@ -1,0 +1,555 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+{% load custom_filters %}
+
+{% block title %}Create New Installment Plan | Premium Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --success-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        --danger-gradient: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+        --warning-gradient: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+    }
+
+    .premium-card {
+        background: #ffffff;
+        border-radius: 28px;
+        box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+        overflow: hidden;
+    }
+
+    .premium-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 25px 45px -15px rgba(0, 0, 0, 0.15);
+    }
+
+    .premium-header {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        padding: 1.5rem 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .premium-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%);
+        pointer-events: none;
+    }
+
+    .form-control-premium, .form-select-premium {
+        border: 2px solid #e9ecef;
+        border-radius: 16px;
+        padding: 12px 18px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: #f8f9fa;
+    }
+
+    .form-control-premium:focus, .form-select-premium:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        background: #ffffff;
+        outline: none;
+    }
+
+    .form-label-premium {
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #1a1a2e;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .input-group-text-premium {
+        background: #f8f9fa;
+        border: 2px solid #e9ecef;
+        border-radius: 16px;
+        color: #667eea;
+        font-weight: 600;
+    }
+
+    .calculator-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+        border-radius: 20px;
+        padding: 1.5rem;
+        border: 2px solid rgba(102, 126, 234, 0.1);
+    }
+
+    .result-box {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 16px;
+        padding: 1rem;
+        color: white;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+
+    .result-box:hover {
+        transform: scale(1.02);
+    }
+
+    .result-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        opacity: 0.8;
+        margin-bottom: 5px;
+    }
+
+    .result-value {
+        font-size: 1.2rem;
+        font-weight: 700;
+        margin: 0;
+    }
+
+    .btn-premium {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 50px;
+        padding: 12px 28px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        color: white;
+    }
+
+    .btn-premium:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px -5px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-outline-premium {
+        background: transparent;
+        border: 2px solid #667eea;
+        color: #667eea;
+        border-radius: 50px;
+        padding: 10px 24px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .btn-outline-premium:hover {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .animated-gradient {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background-size: 200% 200%;
+        animation: gradientShift 3s ease infinite;
+    }
+
+    @keyframes gradientShift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    .separator {
+        height: 4px;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        border-radius: 2px;
+        width: 60px;
+        margin: 0 auto;
+    }
+
+    .badge-premium {
+        padding: 6px 14px;
+        border-radius: 50px;
+        font-weight: 500;
+        font-size: 0.75rem;
+    }
+
+    .down-payment-preview {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 16px;
+        padding: 12px 16px;
+        margin-top: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}
+<div class="text-center mb-4">
+    <h1 class="h3 fw-bold" style="color: #1a1a2e;">➕ Create Installment Plan</h1>
+    <p class="text-muted">Design flexible payment plans for your customers</p>
+    <div class="separator"></div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="premium-card">
+                <div class="premium-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="badge-premium" style="background: rgba(255,255,255,0.2); color: white;">NEW PLAN</span>
+                            <h4 class="text-white mt-2 mb-0">Installment Plan Configuration</h4>
+                            <p class="text-white-50 small mb-0">Set up terms, interest rates, and late fees</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body p-4 p-lg-5">
+                    <form method="post" id="installmentPlanForm">
+                        {% csrf_token %}
+                        
+                        <!-- Plan Name -->
+                        <div class="mb-4">
+                            <label class="form-label-premium">Plan Name <span class="text-danger">*</span></label>
+                            <input type="text" name="name" class="form-control-premium w-100" 
+                                   placeholder="e.g., 3-Month Easy Plan, 6-Month Premium Plan" 
+                                   required autocomplete="off">
+                        </div>
+
+                        <div class="row g-4 mb-4">
+                            <!-- Duration -->
+                            <div class="col-md-6">
+                                <label class="form-label-premium">Duration <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <input type="number" name="duration_months" id="durationMonths" 
+                                           class="form-control-premium" 
+                                           min="1" max="60" step="1" value="3" required>
+                                    <span class="input-group-text input-group-text-premium rounded-end-3">months</span>
+                                </div>
+                                <small class="text-muted mt-1 d-block">1 to 60 months available</small>
+                            </div>
+
+                            <!-- Down Payment - AMOUNT (NEW!) -->
+                            <div class="col-md-6">
+                                <label class="form-label-premium">Down Payment (Amount)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text input-group-text-premium rounded-start-3">Rs.</span>
+                                    <input type="number" name="down_payment_amount" id="downPaymentAmount" 
+                                           class="form-control-premium" 
+                                           min="0" step="100" value="0" placeholder="Enter amount">
+                                </div>
+                                <small class="text-muted mt-1 d-block">Fixed amount to be paid upfront</small>
+                            </div>
+                        </div>
+
+                        <!-- Dynamic Preview: Amount & Percentage -->
+                        <div class="down-payment-preview mb-4" id="downPaymentPreview" style="display: none;">
+                            <div class="row">
+                                <div class="col-6">
+                                    <small class="text-muted">Down Payment Amount</small>
+                                    <h6 class="text-success mb-0" id="previewAmount">Rs. 0</h6>
+                                </div>
+                                <div class="col-6 text-end">
+                                    <small class="text-muted">Down Payment Percentage</small>
+                                    <h6 class="text-primary mb-0" id="previewPercentage">0%</h6>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-4 mb-4">
+                            <!-- Interest Rate -->
+                            <div class="col-md-6">
+                                <label class="form-label-premium">Interest Rate</label>
+                                <div class="input-group">
+                                    <input type="number" name="interest_rate" id="interestRate" 
+                                           class="form-control-premium" 
+                                           min="0" max="100" step="0.5" value="0">
+                                    <span class="input-group-text input-group-text-premium rounded-end-3">% per annum</span>
+                                </div>
+                                <small class="text-muted mt-1 d-block">0% for interest-free plans</small>
+                            </div>
+
+                            <!-- Late Fee -->
+                            <div class="col-md-6">
+                                <label class="form-label-premium">Late Fee (per day)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text input-group-text-premium rounded-start-3">Rs.</span>
+                                    <input type="number" name="late_fee_per_day" id="lateFee" 
+                                           class="form-control-premium" 
+                                           min="0" step="10" value="0">
+                                </div>
+                                <small class="text-muted mt-1 d-block">Encourage on-time payments</small>
+                            </div>
+                        </div>
+
+                        <!-- Active Status Toggle -->
+                        <div class="mb-4 p-3 bg-light rounded-4">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <label class="fw-semibold mb-0">Plan Status</label>
+                                    <br>
+                                    <small class="text-muted">Inactive plans won't appear in selection dropdown</small>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <input type="checkbox" name="is_active" class="form-check-input" 
+                                           id="isActive" style="width: 3rem; height: 1.5rem;" checked>
+                                    <label class="form-check-label fw-semibold ms-2" for="isActive">
+                                        <span id="statusText" class="text-success">Active</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Hidden field for calculated percentage (will be set before submit) -->
+                        <input type="hidden" name="down_payment_percent" id="downPaymentPercent" value="0">
+
+                        <!-- Premium EMI Calculator -->
+                        <div class="calculator-card mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold mb-0" style="color: #1a1a2e;">
+                                    💰 Live EMI Calculator
+                                </h6>
+                                <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-1 rounded-pill small">
+                                    Real-time preview
+                                </span>
+                            </div>
+                            
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-8">
+                                    <label class="form-label small fw-semibold text-muted">Sample Product Price</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text input-group-text-premium">Rs.</span>
+                                        <input type="number" id="sampleAmount" class="form-control-premium" 
+                                               value="100000" step="10000" placeholder="Enter amount">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-semibold text-muted">&nbsp;</label>
+                                    <button type="button" id="calculatePreview" class="btn-premium w-100">
+                                        🔄 Calculate
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div id="previewResult" style="display: none;">
+                                <div class="row g-3">
+                                    <div class="col-6 col-md-3">
+                                        <div class="result-box">
+                                            <div class="result-label">DOWN PAYMENT</div>
+                                            <div class="result-value" id="downPaymentValue">Rs. 0</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <div class="result-box" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                                            <div class="result-label">LOAN AMOUNT</div>
+                                            <div class="result-value" id="loanAmountValue">Rs. 0</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <div class="result-box" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                                            <div class="result-label">MONTHLY EMI</div>
+                                            <div class="result-value" id="emiValue">Rs. 0</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <div class="result-box" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                                            <div class="result-label">TOTAL PAYABLE</div>
+                                            <div class="result-value" id="totalPayableValue">Rs. 0</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3 p-3 bg-white rounded-3">
+                                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                        <span class="text-muted small">Total Interest:</span>
+                                        <strong class="text-warning" id="totalInterestValue">Rs. 0</strong>
+                                        <span class="text-muted small mx-2">|</span>
+                                        <span class="text-muted small">Number of EMIs:</span>
+                                        <strong id="emiCountValue">0</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-flex gap-3 mt-4">
+                            <button type="submit" class="btn-premium px-5 animated-gradient">
+                                <i class="bi bi-check-lg"></i> Create Plan
+                            </button>
+                            <a href="{% url 'installment_list' %}" class="btn-outline-premium px-4">
+                                <i class="bi bi-x-lg"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Tips Section -->
+            <div class="row g-3 mt-4">
+                <div class="col-md-4">
+                    <div class="text-center p-3">
+                        <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex p-3 mb-2">
+                            <i class="bi bi-calculator fs-4 text-primary"></i>
+                        </div>
+                        <h6 class="fw-semibold">Amount-based Down Payment</h6>
+                        <small class="text-muted">Enter fixed amount, percentage auto-calculates</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-center p-3">
+                        <div class="bg-success bg-opacity-10 rounded-circle d-inline-flex p-3 mb-2">
+                            <i class="bi bi-shield-check fs-4 text-success"></i>
+                        </div>
+                        <h6 class="fw-semibold">Live Preview</h6>
+                        <small class="text-muted">See EMI calculations instantly as you type</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-center p-3">
+                        <div class="bg-warning bg-opacity-10 rounded-circle d-inline-flex p-3 mb-2">
+                            <i class="bi bi-clock-history fs-4 text-warning"></i>
+                        </div>
+                        <h6 class="fw-semibold">Late Fee Protection</h6>
+                        <small class="text-muted">Set penalties to encourage timely payments</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('installmentPlanForm');
+    const durationMonths = document.getElementById('durationMonths');
+    const downPaymentAmount = document.getElementById('downPaymentAmount');
+    const downPaymentPercentHidden = document.getElementById('downPaymentPercent');
+    const interestRate = document.getElementById('interestRate');
+    const sampleAmount = document.getElementById('sampleAmount');
+    const calculateBtn = document.getElementById('calculatePreview');
+    const previewResult = document.getElementById('previewResult');
+    const isActiveCheckbox = document.getElementById('isActive');
+    const statusText = document.getElementById('statusText');
+    const downPaymentPreview = document.getElementById('downPaymentPreview');
+    const previewAmountSpan = document.getElementById('previewAmount');
+    const previewPercentageSpan = document.getElementById('previewPercentage');
+
+    // Status text update
+    isActiveCheckbox.addEventListener('change', function() {
+        if (this.checked) {
+            statusText.innerHTML = 'Active';
+            statusText.className = 'text-success';
+        } else {
+            statusText.innerHTML = 'Inactive';
+            statusText.className = 'text-danger';
+        }
+    });
+
+    // ✅ NEW: Update down payment amount and calculate percentage
+    function updateDownPaymentPercentage() {
+        const amount = parseFloat(sampleAmount.value) || 0;
+        const downAmount = parseFloat(downPaymentAmount.value) || 0;
+        
+        if (amount > 0 && downAmount > 0) {
+            const percentage = (downAmount / amount) * 100;
+            const roundedPercentage = Math.min(100, Math.max(0, percentage)).toFixed(1);
+            downPaymentPercentHidden.value = roundedPercentage;
+            
+            // Show preview
+            downPaymentPreview.style.display = 'block';
+            previewAmountSpan.innerHTML = `Rs. ${downAmount.toLocaleString('en-PK', {minimumFractionDigits: 2})}`;
+            previewPercentageSpan.innerHTML = `${roundedPercentage}%`;
+        } else {
+            downPaymentPercentHidden.value = '0';
+            downPaymentPreview.style.display = 'none';
+        }
+        
+        // Recalculate EMI
+        calculateEMI();
+    }
+
+    // Calculate EMI function
+    function calculateEMI() {
+        const amount = parseFloat(sampleAmount.value) || 0;
+        const downAmount = parseFloat(downPaymentAmount.value) || 0;
+        const rate = parseFloat(interestRate.value) || 0;
+        const months = parseInt(durationMonths.value) || 1;
+
+        if (amount <= 0 || months <= 0) {
+            previewResult.style.display = 'none';
+            return;
+        }
+
+        const downPayment = Math.min(downAmount, amount);
+        const loanAmount = amount - downPayment;
+
+        let emi = 0;
+        if (rate > 0 && months > 0 && loanAmount > 0) {
+            const monthlyRate = (rate / 100) / 12;
+            emi = loanAmount * monthlyRate * Math.pow(1 + monthlyRate, months);
+            emi = emi / (Math.pow(1 + monthlyRate, months) - 1);
+        } else if (loanAmount > 0) {
+            emi = loanAmount / months;
+        }
+
+        const totalPayable = downPayment + (emi * months);
+        const totalInterest = totalPayable - amount;
+
+        // Update DOM
+        document.getElementById('downPaymentValue').innerHTML = `Rs. ${downPayment.toLocaleString('en-PK', {minimumFractionDigits: 2})}`;
+        document.getElementById('loanAmountValue').innerHTML = `Rs. ${loanAmount.toLocaleString('en-PK', {minimumFractionDigits: 2})}`;
+        document.getElementById('emiValue').innerHTML = `Rs. ${emi.toLocaleString('en-PK', {minimumFractionDigits: 2})}`;
+        document.getElementById('totalPayableValue').innerHTML = `Rs. ${totalPayable.toLocaleString('en-PK', {minimumFractionDigits: 2})}`;
+        document.getElementById('totalInterestValue').innerHTML = `Rs. ${totalInterest.toLocaleString('en-PK', {minimumFractionDigits: 2})}`;
+        document.getElementById('emiCountValue').innerHTML = months;
+
+        previewResult.style.display = 'block';
+        
+        // Update percentage preview
+        updateDownPaymentPercentage();
+    }
+
+    // Event Listeners
+    downPaymentAmount.addEventListener('input', updateDownPaymentPercentage);
+    sampleAmount.addEventListener('input', updateDownPaymentPercentage);
+    durationMonths.addEventListener('input', calculateEMI);
+    interestRate.addEventListener('input', calculateEMI);
+    calculateBtn.addEventListener('click', calculateEMI);
+
+    // Initial calculation
+    calculateEMI();
+
+    // Form validation before submit
+    form.addEventListener('submit', function(e) {
+        const name = document.querySelector('[name="name"]').value.trim();
+        const months = parseInt(durationMonths.value);
+        const downAmount = parseFloat(downPaymentAmount.value);
+        const sampleAmt = parseFloat(sampleAmount.value);
+
+        if (!name) {
+            e.preventDefault();
+            alert('❌ Please enter a plan name!');
+            document.querySelector('[name="name"]').focus();
+            return false;
+        }
+
+        if (isNaN(months) || months < 1 || months > 60) {
+            e.preventDefault();
+            alert('❌ Duration must be between 1 and 60 months!');
+            durationMonths.focus();
+            return false;
+        }
+
+        if (downAmount > 0 && sampleAmt > 0 && downAmount > sampleAmt) {
+            e.preventDefault();
+            alert('❌ Down payment amount cannot exceed product price!');
+            downPaymentAmount.focus();
+            return false;
+        }
+
+        // Update hidden percentage field before submit
+        updateDownPaymentPercentage();
+        
+        return true;
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Purchase Tax Summary{% endblock %}
+{% block page_title %}📥 Purchase Tax Summary Report{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filter-bar { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e9ecef; }
+    .tax-card { background: linear-gradient(135deg, #065f46, #047857); color: white; border-radius: 16px; padding: 20px; margin-bottom: 20px; text-align: center; }
+    .tax-amount { font-size: 36px; font-weight: 800; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="filter-bar">
+        <form method="post">{% csrf_token %} method="GET" class="row g-3 align-items-end">
+            <div class="col-md-4"><label class="form-label small">From Date</label><input type="date" name="from_date" class="form-control" value="{{ from_date }}"></div>
+            <div class="col-md-4"><label class="form-label small">To Date</label><input type="date" name="to_date" class="form-control" value="{{ to_date }}"></div>
+            <div class="col-md-4"><button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> Show Report</button></div>
+        </form>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4"><div class="tax-card"><div class="small">Total Purchases</div><div class="tax-amount">PKR {{ total_purchases|floatformat:0 }}</div></div></div>
+        <div class="col-md-4"><div class="tax-card"><div class="small">Tax Rate</div><div class="tax-rate">{{ tax_rate }}%</div></div></div>
+        <div class="col-md-4"><div class="tax-card"><div class="small">Input Tax (Claimable)</div><div class="tax-amount">PKR {{ total_tax|floatformat:0 }}</div></div></div>
+    </div>
+
+    <div class="card mt-3">
+        <div class="card-header bg-white"><strong>Purchase Tax Calculation Details</strong></div>
+        <div class="card-body">
+            <table class="table table-bordered">
+                <tr><th>Description</th><th>Amount (PKR)</th><th>Input Tax @ {{ tax_rate }}%</th></tr>
+                <tr><td>Total Purchases for {{ from_date }} to {{ to_date }}</td><td class="text-end">{{ total_purchases|floatformat:2 }}</td><td class="text-end">{{ total_tax|floatformat:2 }}</td></tr>
+                <tr class="table-light"><td><strong>Total Input Tax Claimable</strong></td><td class="text-end"><strong>{{ total_purchases|floatformat:2 }}</strong></td><td class="text-end"><strong>{{ total_tax|floatformat:2 }}</strong></td></tr>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

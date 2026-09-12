@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Trial Balance{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">⚖️ Trial Balance</h1>
+        <div>
+            <button onclick="window.print()" class="btn btn-primary">
+                <i class="bi bi-printer"></i> Print
+            </button>
+        </div>
+    </div>
+
+    <!-- Date Filter -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">As At Date</h6>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-4">
+                    <input type="date" name="as_at_date" class="form-control" value="{{ as_at_date }}">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search"></i> Generate
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Trial Balance Table -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">
+                Trial Balance as at {{ as_at_date }}
+            </h6>
+            <div>
+                {% if is_balanced %}
+                    <span class="badge bg-success">✅ Balanced</span>
+                {% else %}
+                    <span class="badge bg-danger">❌ Not Balanced</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="dataTable">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>#</th>
+                            <th>Account Code</th>
+                            <th>Account Name</th>
+                            <th>Account Type</th>
+                            <th class="text-end">Debit (Rs.)</th>
+                            <th class="text-end">Credit (Rs.)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in trial_balance_data %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td><code>{{ item.account.code }}</code></td>
+                            <td>{{ item.account.name }}</td>
+                            <td>
+                                <span class="badge bg-secondary">
+                                    {{ item.account.account_type.get_account_class_display }}
+                                </span>
+                            </td>
+                            <td class="text-end">
+                                {% if item.debit > 0 %}
+                                    {{ item.debit|floatformat:2 }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                {% if item.credit > 0 %}
+                                    {{ item.credit|floatformat:2 }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">No accounts found</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-dark">
+                        <tr>
+                            <th colspan="4" class="text-end">TOTAL</th>
+                            <th class="text-end">{{ total_debit|floatformat:2 }}</th>
+                            <th class="text-end">{{ total_credit|floatformat:2 }}</th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- Balance Status -->
+            <div class="alert {% if is_balanced %}alert-success{% else %}alert-danger{% endif %} mt-3">
+                <strong>
+                    {% if is_balanced %}
+                        ✅ Trial Balance is BALANCED
+                    {% else %}
+                        ❌ Trial Balance is NOT BALANCED! 
+                        Difference: Rs. {{ total_debit|add:total_credit|floatformat:2 }}
+                    {% endif %}
+                </strong>
+                <br>
+                <small>Total Debit: Rs. {{ total_debit|floatformat:2 }} | Total Credit: Rs. {{ total_credit|floatformat:2 }}</small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

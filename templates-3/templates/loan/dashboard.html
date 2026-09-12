@@ -1,0 +1,253 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Loan Management Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .loan-header {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        border-radius: 16px;
+        padding: 30px;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+    .loan-header::before {
+        content: '💳';
+        position: absolute;
+        font-size: 150px;
+        right: -30px;
+        bottom: -60px;
+        opacity: 0.1;
+    }
+    .stat-card-loan {
+        border: none;
+        border-radius: 12px;
+        padding: 20px;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    .stat-card-loan:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    .stat-card-loan .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        margin-bottom: 10px;
+    }
+    .stat-card-loan .stat-value {
+        font-size: 24px;
+        font-weight: 700;
+    }
+    .stat-card-loan .stat-label {
+        font-size: 12px;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .loan-card {
+        border: none;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        background: white;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        overflow: hidden;
+    }
+    .loan-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    }
+    .loan-card .loan-status {
+        padding: 2px 12px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    .loan-card .loan-status.active { background: #d4edda; color: #155724; }
+    .loan-card .loan-status.pending { background: #fff3cd; color: #856404; }
+    .loan-card .loan-status.defaulted { background: #f8d7da; color: #721c24; }
+    .loan-card .loan-status.paid { background: #cce5ff; color: #004085; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <!-- ========================================== -->
+    <!-- HEADER                                     -->
+    <!-- ========================================== -->
+    <div class="loan-header mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2><i class="bi bi-credit-card text-primary me-2"></i> Loan Management</h2>
+                <p style="opacity:0.8;">Manage loans, borrowers and payments</p>
+            </div>
+            <div>
+                <a href="{% url 'loan_create' %}" class="btn btn-light btn-sm">
+                    <i class="bi bi-plus-circle"></i> New Loan
+                </a>
+                <a href="{% url 'borrower_create' %}" class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-person-plus"></i> Add Borrower
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- STATS CARDS                               -->
+    <!-- ========================================== -->
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card-loan" style="background: linear-gradient(135deg, #e3f2fd, #bbdefb);">
+                <div class="stat-icon" style="background: rgba(25,118,210,0.15); color: #1976d2;">
+                    <i class="bi bi-file-earmark"></i>
+                </div>
+                <div class="stat-value" style="color: #1976d2;">{{ total_loans }}</div>
+                <div class="stat-label">Total Loans</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card-loan" style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9);">
+                <div class="stat-icon" style="background: rgba(46,125,50,0.15); color: #2e7d32;">
+                    <i class="bi bi-check-circle"></i>
+                </div>
+                <div class="stat-value" style="color: #2e7d32;">{{ active_loans }}</div>
+                <div class="stat-label">Active Loans</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card-loan" style="background: linear-gradient(135deg, #fff3e0, #ffe0b2);">
+                <div class="stat-icon" style="background: rgba(245,124,0,0.15); color: #f57c00;">
+                    <i class="bi bi-clock"></i>
+                </div>
+                <div class="stat-value" style="color: #f57c00;">{{ pending_loans }}</div>
+                <div class="stat-label">Pending Approvals</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card-loan" style="background: linear-gradient(135deg, #fce4ec, #f8bbd0);">
+                <div class="stat-icon" style="background: rgba(198,40,40,0.15); color: #c62828;">
+                    <i class="bi bi-exclamation-triangle"></i>
+                </div>
+                <div class="stat-value" style="color: #c62828;">{{ defaulted_loans }}</div>
+                <div class="stat-label">Defaulted Loans</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- FINANCIAL SUMMARY                         -->
+    <!-- ========================================== -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h6>Total Principal</h6>
+                    <h3>Rs. {{ total_principal|floatformat:0|intcomma }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h6>Total Paid</h6>
+                    <h3>Rs. {{ total_paid|floatformat:0|intcomma }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h6>Outstanding</h6>
+                    <h3>Rs. {{ total_outstanding|floatformat:0|intcomma }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- RECENT LOANS                              -->
+    <!-- ========================================== -->
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="card loan-card">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-clock-history text-primary"></i> Recent Loans</h6>
+                    <a href="{% url 'loan_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-unstyled mb-0">
+                        {% for loan in recent_loans %}
+                        <li class="border-bottom px-3 py-2 d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="fw-bold">{{ loan.loan_no }}</span>
+                                <br>
+                                <small class="text-muted">{{ loan.borrower.name }} • {{ loan.get_loan_type_display }}</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge 
+                                    {% if loan.status == 'active' %}bg-success
+                                    {% elif loan.status == 'pending' %}bg-warning
+                                    {% elif loan.status == 'defaulted' %}bg-danger
+                                    {% elif loan.status == 'paid' %}bg-primary
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ loan.get_status_display }}
+                                </span>
+                                <br>
+                                <small class="text-muted">Rs. {{ loan.principal|floatformat:0|intcomma }}</small>
+                            </div>
+                        </li>
+                        {% empty %}
+                        <li class="text-center py-4 text-muted">
+                            <i class="bi bi-inbox fs-2 d-block"></i>
+                            <p>No loans found</p>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card loan-card">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-exclamation-triangle text-danger"></i> Overdue Loans</h6>
+                    <a href="{% url 'loan_list' %}?status=defaulted" class="btn btn-sm btn-outline-danger">View All</a>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-unstyled mb-0">
+                        {% for loan in overdue_loans %}
+                        <li class="border-bottom px-3 py-2 d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="fw-bold text-danger">{{ loan.loan_no }}</span>
+                                <br>
+                                <small class="text-muted">{{ loan.borrower.name }}</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-danger">⚠️ {{ loan.days_overdue }} days overdue</span>
+                                <br>
+                                <small class="text-muted">Rs. {{ loan.outstanding_balance|floatformat:0|intcomma }}</small>
+                            </div>
+                        </li>
+                        {% empty %}
+                        <li class="text-center py-4 text-muted">
+                            <i class="bi bi-check-circle fs-2 d-block text-success"></i>
+                            <p>No overdue loans! 🎉</p>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

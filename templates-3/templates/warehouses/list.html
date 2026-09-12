@@ -1,0 +1,481 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Warehouses{% endblock %}
+{% block page_title %}🏭 Warehouse Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary: #4361ee;
+        --primary-dark: #3a0ca3;
+        --success: #4cc9f0;
+        --success-dark: #00b4d8;
+        --danger: #f72585;
+        --warning: #f8961e;
+        --dark: #1a1a2e;
+        --gray: #6c757d;
+        --light-gray: #f8f9fa;
+        --border: #e9ecef;
+    }
+    
+    /* Stats Cards */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 20px;
+        padding: 20px;
+        transition: all 0.3s ease;
+        border: 1px solid var(--border);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--primary), var(--success));
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    }
+    
+    .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+        margin-bottom: 15px;
+    }
+    
+    .stat-icon.primary { background: rgba(67, 97, 238, 0.1); color: var(--primary); }
+    .stat-icon.success { background: rgba(76, 201, 240, 0.1); color: var(--success-dark); }
+    .stat-icon.warning { background: rgba(248, 150, 30, 0.1); color: var(--warning); }
+    .stat-icon.danger { background: rgba(247, 37, 133, 0.1); color: var(--danger); }
+    
+    .stat-value {
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: var(--dark);
+        line-height: 1.2;
+    }
+    
+    .stat-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--gray);
+        margin-top: 5px;
+    }
+    
+    /* Filter Bar */
+    .filter-card {
+        background: white;
+        border-radius: 20px;
+        padding: 20px;
+        margin-bottom: 25px;
+        border: 1px solid var(--border);
+    }
+    
+    .search-wrapper {
+        position: relative;
+    }
+    
+    .search-wrapper i {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--gray);
+        font-size: 1rem;
+    }
+    
+    .search-wrapper input {
+        padding-left: 42px;
+        border-radius: 12px;
+        border: 2px solid var(--border);
+        height: 48px;
+        font-size: 0.9rem;
+    }
+    
+    .search-wrapper input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+    }
+    
+    .btn-search {
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        border: none;
+        border-radius: 12px;
+        padding: 10px 24px;
+        font-weight: 600;
+        color: white;
+        height: 48px;
+        transition: all 0.2s;
+    }
+    
+    .btn-search:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(67, 97, 238, 0.3);
+    }
+    
+    /* Table Card */
+    .table-card {
+        background: white;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        overflow: hidden;
+    }
+    
+    .table-header {
+        padding: 20px 24px;
+        background: var(--light-gray);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .table-header h5 {
+        margin: 0;
+        font-weight: 700;
+        font-size: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .badge-count {
+        background: var(--primary);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 30px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .btn-add {
+        background: linear-gradient(135deg, var(--success-dark), var(--success));
+        border: none;
+        padding: 8px 18px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.8rem;
+        color: white;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s;
+    }
+    
+    .btn-add:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 180, 216, 0.3);
+        color: white;
+    }
+    
+    .warehouse-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .warehouse-table thead th {
+        background: var(--dark);
+        color: white;
+        padding: 14px 16px;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 600;
+    }
+    
+    .warehouse-table tbody td {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.85rem;
+        vertical-align: middle;
+    }
+    
+    .warehouse-table tbody tr {
+        transition: background 0.2s;
+    }
+    
+    .warehouse-table tbody tr:hover {
+        background: var(--light-gray);
+    }
+    
+    .warehouse-name {
+        font-weight: 700;
+        color: var(--primary);
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .warehouse-name i {
+        font-size: 1.1rem;
+    }
+    
+    .location-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: rgba(67, 97, 238, 0.08);
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        color: var(--primary);
+    }
+    
+    .stock-value {
+        font-weight: 700;
+        color: var(--success-dark);
+    }
+    
+    .product-count {
+        background: var(--light-gray);
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+    
+    /* Action Buttons */
+    .action-buttons {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+    }
+    
+    .btn-action {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        transition: all 0.2s;
+        border: 1px solid var(--border);
+        background: white;
+    }
+    
+    .btn-action:hover {
+        transform: scale(1.1);
+    }
+    
+    .btn-action.edit { color: var(--warning); }
+    .btn-action.edit:hover { background: rgba(248, 150, 30, 0.1); border-color: var(--warning); }
+    
+    .btn-action.inventory { color: var(--primary); }
+    .btn-action.inventory:hover { background: rgba(67, 97, 238, 0.1); border-color: var(--primary); }
+    
+    .btn-action.delete { color: var(--danger); }
+    .btn-action.delete:hover { background: rgba(247, 37, 133, 0.1); border-color: var(--danger); }
+    
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+    }
+    
+    .empty-icon {
+        font-size: 4rem;
+        opacity: 0.3;
+        margin-bottom: 20px;
+    }
+    
+    .empty-state h4 {
+        font-size: 1.2rem;
+        margin-bottom: 8px;
+        color: var(--dark);
+    }
+    
+    .empty-state p {
+        color: var(--gray);
+        font-size: 0.85rem;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .stat-value { font-size: 1.3rem; }
+        .warehouse-table { min-width: 600px; }
+        .table-header { flex-direction: column; align-items: stretch; }
+        .btn-add { justify-content: center; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i class="bi bi-building"></i>
+            </div>
+            <div class="stat-value">{{ total_warehouses|default:'0' }}</div>
+            <div class="stat-label">Total Warehouses</div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon success">
+                <i class="bi bi-boxes"></i>
+            </div>
+            <div class="stat-value">{{ total_products|default:'0' }}</div>
+            <div class="stat-label">Total Products</div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon warning">
+                <i class="bi bi-currency-rupee"></i>
+            </div>
+            <div class="stat-value">Rs.{{ total_stock_value|floatformat:0|default:'0' }}</div>
+            <div class="stat-label">Total Stock Value</div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon danger">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <div class="stat-value">{{ low_stock_count|default:'0' }}</div>
+            <div class="stat-label">Low Stock Alerts</div>
+        </div>
+    </div>
+    
+    <!-- Filter Card -->
+    <div class="filter-card">
+        <form method="post">{% csrf_token %} method="GET" class="row g-3 align-items-end">
+            <div class="col-md-9">
+                <label class="form-label" style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--gray);">
+                    <i class="bi bi-search"></i> Search Warehouses
+                </label>
+                <div class="search-wrapper">
+                    <i class="bi bi-search"></i>
+                    <input type="text" name="search" class="form-control" 
+                           placeholder="Search by warehouse name or location..." 
+                           value="{{ search }}">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn-search w-100">
+                    <i class="bi bi-search"></i> Search
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Table Card -->
+    <div class="table-card">
+        <div class="table-header">
+            <h5>
+                <i class="bi bi-building" style="color: var(--primary);"></i>
+                Warehouse Directory
+                <span class="badge-count">{{ page_obj.paginator.count|default:'0' }} warehouses</span>
+            </h5>
+            <a href="{% url 'warehouse_create' %}" class="btn-add">
+                <i class="bi bi-plus-lg"></i> Add Warehouse
+            </a>
+        </div>
+        
+        <div style="overflow-x: auto;">
+            <table class="warehouse-table">
+                <thead>
+                    <tr>
+                        <th>Warehouse Name</th>
+                        <th>Location</th>
+                        <th>Description</th>
+                        <th>Products</th>
+                        <th>Stock Value</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for warehouse in page_obj %}
+                    <tr>
+                        <td>
+                            <div class="warehouse-name">
+                                <i class="bi bi-building"></i>
+                                {{ warehouse.name }}
+                            </div>
+                        </td>
+                        <td>
+                            {% if warehouse.location %}
+                            <span class="location-badge">
+                                <i class="bi bi-geo-alt"></i> {{ warehouse.location.name }}
+                            </span>
+                            {% else %}
+                            <span class="location-badge" style="opacity: 0.5;">—</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ warehouse.description|truncatechars:40|default:'—' }}</td>
+                        <td>
+                            <span class="product-count">
+                                <i class="bi bi-box"></i> {{ warehouse.product_count|default:0 }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="stock-value">Rs.{{ warehouse.stock_value|floatformat:0|default:0 }}</span>
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                <a href="{% url 'warehouse_update' warehouse.pk %}" class="btn-action edit" title="Edit Warehouse">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <a href="{% url 'warehouse_inventory' warehouse.pk %}" class="btn-action inventory" title="View Inventory">
+                                    <i class="bi bi-boxes"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6">
+                            <div class="empty-state">
+                                <div class="empty-icon">
+                                    <i class="bi bi-building"></i>
+                                </div>
+                                <h4>No Warehouses Found</h4>
+                                <p>{% if search %}Try a different search term{% else %}Get started by adding your first warehouse{% endif %}</p>
+                                {% if not search %}
+                                <a href="{% url 'warehouse_create' %}" class="btn-add" style="margin-top: 15px;">
+                                    <i class="bi bi-plus-lg"></i> Add First Warehouse
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if page_obj.has_other_pages %}
+        <div style="padding: 20px; border-top: 1px solid var(--border);">
+            {% include 'components/pagination.html' %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

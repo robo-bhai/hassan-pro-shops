@@ -1,0 +1,421 @@
+<!-- templates/shareholders/deduction/bulk_process.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Bulk Process Deductions{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-lg">
+                <div class="card-header bg-gradient-warning text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-layers me-2"></i>
+                        Bulk Process Deductions
+                        <span class="badge bg-light text-dark ms-3">
+                            {{ total_pending }} Pending
+                        </span>
+                    </h4>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- ===== STATUS BADGE ===== -->
+                    <div class="alert alert-{% if is_enabled %}success{% else %}secondary{% endif %} d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>Status:</strong>
+                            {% if is_enabled %}
+                                <span class="badge bg-success">✅ Enabled</span>
+                                <span class="text-muted ms-2">Auto-deduction is active</span>
+                            {% else %}
+                                <span class="badge bg-secondary">⛔ Disabled</span>
+                                <span class="text-muted ms-2">Manual deduction only</span>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <strong>Type:</strong>
+                            <span class="badge bg-info">{{ deduction_type|default:"proportional"|title }}</span>
+                        </div>
+                    </div>
+
+                    <!-- ===== INFO ALERT ===== -->
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Select purchases to process shareholder deductions in bulk.
+                        All selected purchases will be processed with <strong>{{ deduction_type|default:"proportional"|title }}</strong> deduction type.
+                    </div>
+
+                    <!-- ===== PENDING PURCHASES TABLE ===== -->
+                    <div class="card">
+                        <div class="card-header bg-light">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-clock-history me-2"></i>
+                                    Pending Purchases ({{ pending_purchases|length }})
+                                </h6>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="selectAll()">
+                                        <i class="bi bi-check-all me-1"></i> Select All
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="deselectAll()">
+                                        <i class="bi bi-x-lg me-1"></i> Deselect All
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <!-- ✅ FIXED: Added id="deductionTable" -->
+                                <table class="table table-striped table-hover mb-0" id="deductionTable">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th width="50">
+                                                <input type="checkbox" id="selectAll" onchange="toggleAll(this)">
+                                            </th>
+                                            <th>#</th>
+                                            <th>Bill No</th>
+                                            <th>Vendor</th>
+                                            <th>Amount</th>
+                                            <th>Date</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for purchase in pending_purchases %}
+                                        <tr id="row-{{ purchase.id }}">
+                                            <td>
+                                                <input type="checkbox" class="purchase-checkbox" 
+                                                       value="{{ purchase.id }}" id="cb-{{ purchase.id }}">
+                                            </td>
+                                            <td>{{ forloop.counter }}</td>
+                                            <td>
+                                                <strong>{{ purchase.bill_no|default:"N/A" }}</strong>
+                                            </td>
+                                            <td>{{ purchase.vendor.name }}</td>
+                                            <td class="text-danger">
+                                                Rs. {{ purchase.total_amount|floatformat:2 }}
+                                            </td>
+                                            <td>{{ purchase.pur_date|date:"d-m-Y H:i" }}</td>
+                                            <td>
+                                                <span class="badge bg-warning">⏳ Pending</span>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="7" class="text-center text-muted py-4">
+                                                <i class="bi bi-check-circle fs-1 d-block mb-2 text-success"></i>
+                                                <h6>All purchases processed!</h6>
+                                                <p class="text-muted">No pending deductions found.</p>
+                                                <a href="{% url 'purchase_create' %}" class="btn btn-primary mt-2">
+                                                    <i class="bi bi-plus-circle me-1"></i> Create Purchase
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    <tfoot class="table-active">
+                                        <tr>
+                                            <td colspan="3"><strong>Selected: <span id="selectedCount">0</span></strong></td>
+                                            <td colspan="2"><strong>Total: <span id="selectedTotal">Rs. 0.00</span></strong></td>
+                                            <td colspan="2"></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ===== PROGRESS BAR ===== -->
+                    <div id="progressContainer" class="mt-4" style="display:none;">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="mb-2">
+                                    <i class="bi bi-hourglass-split me-2"></i>
+                                    Processing...
+                                    <span id="progressText">0%</span>
+                                </h6>
+                                <div class="progress" style="height:30px;">
+                                    <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success" 
+                                         role="progressbar" style="width: 0%;">
+                                        0%
+                                    </div>
+                                </div>
+                                <p id="progressMessage" class="mt-2 text-muted small">Preparing...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ===== ACTION BUTTONS ===== -->
+                    <div class="mt-4">
+                        <div class="btn-group w-100" role="group">
+                            <button type="button" class="btn btn-success btn-lg" onclick="processSelected()" id="processBtn">
+                                <i class="bi bi-play-fill me-2"></i>
+                                Process Selected (<span id="btnCount">0</span>)
+                            </button>
+                            <a href="{% url 'shareholder_deduction_report' %}" class="btn btn-info btn-lg">
+                                <i class="bi bi-graph-up me-2"></i>
+                                View Report
+                            </a>
+                            <a href="{% url 'dashboard' %}" class="btn btn-secondary btn-lg">
+                                <i class="bi bi-house me-2"></i>
+                                Dashboard
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ========================================== //
+// CSRF Token Helper                         //
+// ========================================== //
+function getCSRFToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+           document.querySelector('input[name="csrfmiddlewaretoken"]')?.value;
+}
+
+// ========================================== //
+// Select / Deselect All                     //
+// ========================================== //
+function selectAll() {
+    document.querySelectorAll('.purchase-checkbox').forEach(cb => cb.checked = true);
+    document.getElementById('selectAll').checked = true;
+    updateSelectedCount();
+}
+
+function deselectAll() {
+    document.querySelectorAll('.purchase-checkbox').forEach(cb => cb.checked = false);
+    document.getElementById('selectAll').checked = false;
+    updateSelectedCount();
+}
+
+function toggleAll(source) {
+    document.querySelectorAll('.purchase-checkbox').forEach(cb => cb.checked = source.checked);
+    updateSelectedCount();
+}
+
+// ========================================== //
+// Update Selected Count                     //
+// ========================================== //
+function updateSelectedCount() {
+    const checkboxes = document.querySelectorAll('.purchase-checkbox:checked');
+    const count = checkboxes.length;
+    document.getElementById('selectedCount').textContent = count;
+    document.getElementById('btnCount').textContent = count;
+    
+    let total = 0;
+    checkboxes.forEach(cb => {
+        const row = cb.closest('tr');
+        const amountCell = row.querySelector('td:nth-child(5)');
+        if (amountCell) {
+            const amount = parseFloat(amountCell.textContent.replace(/[Rs.,]/g, '').trim());
+            if (!isNaN(amount)) total += amount;
+        }
+    });
+    document.getElementById('selectedTotal').textContent = 'Rs. ' + total.toFixed(2);
+}
+
+// ========================================== //
+// Get Selected IDs                          //
+// ========================================== //
+function getSelectedIds() {
+    const checkboxes = document.querySelectorAll('.purchase-checkbox:checked');
+    return Array.from(checkboxes).map(cb => cb.value);
+}
+
+// ========================================== //
+// Process Selected                          //
+// ========================================== //
+function processSelected() {
+    const ids = getSelectedIds();
+    
+    if (ids.length === 0) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'No Selection',
+            text: 'Please select at least one purchase to process!',
+            confirmButtonColor: '#3085d6'
+        });
+        return;
+    }
+    
+    // Calculate total
+    let total = 0;
+    document.querySelectorAll('.purchase-checkbox:checked').forEach(cb => {
+        const row = cb.closest('tr');
+        const amountCell = row.querySelector('td:nth-child(5)');
+        if (amountCell) {
+            const amount = parseFloat(amountCell.textContent.replace(/[Rs.,]/g, '').trim());
+            if (!isNaN(amount)) total += amount;
+        }
+    });
+    
+    Swal.fire({
+        title: 'Confirm Bulk Processing',
+        html: `
+            <p>You are about to process <strong>${ids.length}</strong> purchases.</p>
+            <p>Total amount: <strong class="text-danger">Rs. ${total.toFixed(2)}</strong></p>
+            <p class="text-muted small">This action will deduct from all active shareholders.</p>
+        `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, Process All!',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            startProcessing(ids);
+        }
+    });
+}
+
+// ========================================== //
+// Start Processing                          //
+// ========================================== //
+function startProcessing(ids) {
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    const progressMessage = document.getElementById('progressMessage');
+    const processBtn = document.getElementById('processBtn');
+    
+    progressContainer.style.display = 'block';
+    progressBar.style.width = '0%';
+    progressText.textContent = '0%';
+    progressMessage.textContent = 'Starting bulk processing...';
+    processBtn.disabled = true;
+    
+    let processed = 0;
+    let failed = 0;
+    const total = ids.length;
+    let totalAmount = 0;
+    
+    function processNext() {
+        if (processed + failed >= total) {
+            progressBar.style.width = '100%';
+            progressText.textContent = '100%';
+            progressMessage.textContent = `✅ ${processed} processed, ${failed} failed!`;
+            progressBar.className = 'progress-bar bg-success';
+            processBtn.disabled = false;
+            
+            Swal.fire({
+                icon: 'success',
+                title: '✅ Processing Complete',
+                html: `
+                    <p>Successfully processed: <strong>${processed}</strong></p>
+                    <p>Failed: <strong>${failed}</strong></p>
+                    <p>Total Amount: <strong class="text-danger">Rs. ${totalAmount.toFixed(2)}</strong></p>
+                `,
+                confirmButtonColor: '#28a745'
+            }).then(() => {
+                location.reload();
+            });
+            return;
+        }
+        
+        const id = ids[processed + failed];
+        const percent = (((processed + failed) / total) * 100);
+        progressBar.style.width = `${percent}%`;
+        progressText.textContent = `${Math.round(percent)}%`;
+        progressMessage.textContent = `Processing purchase ${(processed + failed) + 1}/${total}...`;
+        
+        // ✅ Send POST request
+        fetch(`/purchases/${id}/process-deduction/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCSRFToken(),
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                processed++;
+                totalAmount += parseFloat(data.total_amount || 0);
+                // Update row
+                const row = document.getElementById(`row-${id}`);
+                if (row) {
+                    row.style.backgroundColor = '#d4edda';
+                    row.querySelector('td:last-child').innerHTML = 
+                        '<span class="badge bg-success">✅ Processed</span>';
+                }
+            } else {
+                failed++;
+                // Update row
+                const row = document.getElementById(`row-${id}`);
+                if (row) {
+                    row.style.backgroundColor = '#f8d7da';
+                    row.querySelector('td:last-child').innerHTML = 
+                        `<span class="badge bg-danger">❌ ${data.message || 'Failed'}</span>`;
+                }
+            }
+            processNext();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            failed++;
+            const row = document.getElementById(`row-${id}`);
+            if (row) {
+                row.style.backgroundColor = '#f8d7da';
+                row.querySelector('td:last-child').innerHTML = 
+                    '<span class="badge bg-danger">❌ Error</span>';
+            }
+            processNext();
+        });
+    }
+    
+    processNext();
+}
+
+// ========================================== //
+// Initialize                                //
+// ========================================== //
+document.addEventListener('DOMContentLoaded', function() {
+    // Update count on checkbox change
+    document.querySelectorAll('.purchase-checkbox').forEach(cb => {
+        cb.addEventListener('change', updateSelectedCount);
+    });
+    updateSelectedCount();
+    
+    // ✅ Initialize DataTable only if table exists and jQuery is loaded
+    if (typeof $ !== 'undefined' && $.fn.DataTable) {
+        if ($('#deductionTable').length) {
+            $('#deductionTable').DataTable({
+                pageLength: 25,
+                responsive: true,
+                order: [[5, 'desc']],
+                language: {
+                    search: "Search:",
+                    lengthMenu: "Show _MENU_ entries",
+                    info: "Showing _START_ to _END_ of _TOTAL_ entries",
+                    infoEmpty: "No entries found"
+                }
+            });
+        }
+    }
+});
+
+console.log('✅ Bulk process script loaded');
+</script>
+
+<style>
+.bg-gradient-warning {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+}
+#progressContainer {
+    animation: slideDown 0.5s ease;
+}
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.progress {
+    border-radius: 10px;
+    overflow: hidden;
+}
+</style>
+{% endblock %}

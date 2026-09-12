@@ -1,0 +1,156 @@
+<!-- dividends/balance_dividend_create.html -->
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-primary text-white">
+        <h4>💰 Balance-Based Dividend</h4>
+        <small>Profit based on balance usage</small>
+    </div>
+    <div class="card-body">
+        <form method="POST">
+            {% csrf_token %}
+            
+            <!-- Statistics -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5>Active Shareholders</h5>
+                            <h2>{{ active_shareholders }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5>Eligible for Dividend</h5>
+                            <h2 id="eligibleCount">0</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5>Total Balance Used</h5>
+                            <h2 id="totalUsed">Rs. 0</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5>To Distribute</h5>
+                            <h2 id="toDistribute">Rs. 0</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Form -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label>Total Profit (Rs.)</label>
+                        <input type="number" name="total_profit" class="form-control" 
+                               oninput="calculatePreview()" required>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label>Dividend Percentage (%)</label>
+                        <input type="number" name="dividend_percentage" class="form-control" 
+                               value="50" min="1" max="100" oninput="calculatePreview()" required>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label>Declaration Date</label>
+                        <input type="date" name="declaration_date" class="form-control" 
+                               value="{{ today }}" required>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label>Record Date</label>
+                        <input type="date" name="record_date" class="form-control" 
+                               value="{{ today }}" required>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Preview Table -->
+            <div class="mt-4">
+                <h5>📊 Eligible Shareholders Preview</h5>
+                <div class="table-responsive">
+                    <table class="table table-striped" id="previewTable">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Shareholder</th>
+                                <th>Balance Used</th>
+                                <th>Percentage</th>
+                                <th>Dividend Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody id="previewBody">
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">
+                                    Enter values to see preview
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-success mt-3">
+                ✅ Create Dividend
+            </button>
+            <a href="{% url 'dashboard' %}" class="btn btn-secondary mt-3">Cancel</a>
+        </form>
+    </div>
+</div>
+
+<script>
+function calculatePreview() {
+    const totalProfit = parseFloat(document.querySelector('[name="total_profit"]').value) || 0;
+    const percentage = parseFloat(document.querySelector('[name="dividend_percentage"]').value) || 0;
+    
+    if (totalProfit <= 0) return;
+    
+    const toDistribute = (totalProfit * percentage) / 100;
+    document.getElementById('toDistribute').textContent = `Rs. ${toDistribute.toFixed(2)}`;
+    
+    // Get eligible shareholders via AJAX
+    fetch('/api/eligible-shareholders/')
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.getElementById('previewBody');
+            tbody.innerHTML = '';
+            
+            let totalUsed = 0;
+            data.forEach((item, index) => {
+                totalUsed += item.balance_used;
+                const amount = (item.balance_used / data.total_used) * toDistribute;
+                const row = `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${item.name}</td>
+                        <td>Rs. ${item.balance_used.toFixed(2)}</td>
+                        <td>${((item.balance_used / data.total_used) * 100).toFixed(1)}%</td>
+                        <td>Rs. ${amount.toFixed(2)}</td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+            
+            document.getElementById('eligibleCount').textContent = data.length;
+            document.getElementById('totalUsed').textContent = `Rs. ${totalUsed.toFixed(2)}`;
+        });
+}
+</script>
+{% endblock %}

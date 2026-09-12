@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Edit Account{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">✏️ Edit Account</h1>
+        <a href="{% url 'chart_of_accounts' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Code *</label>
+                            <input type="text" name="code" class="form-control" required value="{{ account.code }}">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Name *</label>
+                            <input type="text" name="name" class="form-control" required value="{{ account.name }}">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Account Type *</label>
+                            <select name="account_type" class="form-control" required>
+                                <option value="">Select Type...</option>
+                                {% for type in account_types %}
+                                <option value="{{ type.id }}" {% if account.account_type.id == type.id %}selected{% endif %}>
+                                    {{ type.name }} ({{ type.get_account_class_display }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Parent Account</label>
+                            <select name="parent" class="form-control">
+                                <option value="">None (Top Level)</option>
+                                {% for parent in parent_accounts %}
+                                <option value="{{ parent.id }}" {% if account.parent.id == parent.id %}selected{% endif %}>
+                                    {{ parent.code }} - {{ parent.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Opening Balance</label>
+                            <input type="number" name="opening_balance" class="form-control" step="0.01" 
+                                   value="{{ account.opening_balance|floatformat:2 }}">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Opening Balance Date</label>
+                            <input type="date" name="opening_balance_date" class="form-control" 
+                                   value="{{ account.opening_balance_date|date:'Y-m-d' }}">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Description</label>
+                    <textarea name="description" class="form-control" rows="2">{{ account.description|default:'' }}</textarea>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" name="is_active" class="form-check-input" 
+                                   {% if account.is_active %}checked{% endif %}>
+                            <label class="form-check-label">Active</label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" name="is_bank" class="form-check-input" 
+                                   {% if account.is_bank %}checked{% endif %}>
+                            <label class="form-check-label">Bank Account</label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" name="is_cash" class="form-check-input" 
+                                   {% if account.is_cash %}checked{% endif %}>
+                            <label class="form-check-label">Cash Account</label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" name="is_payable" class="form-check-input" 
+                                   {% if account.is_payable %}checked{% endif %}>
+                            <label class="form-check-label">Payable</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Bank Name</label>
+                            <input type="text" name="bank_name" class="form-control" value="{{ account.bank_name|default:'' }}">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Bank Account No</label>
+                            <input type="text" name="bank_account_no" class="form-control" value="{{ account.bank_account_no|default:'' }}">
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> Update Account
+                </button>
+                <a href="{% url 'chart_of_accounts' %}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

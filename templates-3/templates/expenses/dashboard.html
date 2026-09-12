@@ -1,0 +1,385 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Expenses Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    
+    <!-- ========================================== -->
+    <!-- HEADER                                     -->
+    <!-- ========================================== -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-wallet2 text-primary"></i> Expenses Dashboard</h2>
+            <p class="text-muted">Overview of all expenses and budget utilization</p>
+        </div>
+        <div>
+            <a href="{% url 'expense_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Add Expense
+            </a>
+            <a href="{% url 'expense_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-list"></i> All Expenses
+            </a>
+            <a href="{% url 'budget_dashboard' %}" class="btn btn-outline-info">
+                <i class="bi bi-wallet2"></i> Budget Dashboard
+            </a>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- STATS CARDS                                -->
+    <!-- ========================================== -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white shadow-sm">
+                <div class="card-body">
+                    <h6 class="card-title text-uppercase small">Total Expenses</h6>
+                    <h2 class="mb-0">Rs. {{ total_expenses|floatformat:0|intcomma }}</h2>
+                    <small>{{ total_count }} records</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white shadow-sm">
+                <div class="card-body">
+                    <h6 class="card-title text-uppercase small">Approved</h6>
+                    <h2 class="mb-0">Rs. {{ approved_expenses|floatformat:0|intcomma }}</h2>
+                    <small>{{ approved_count }} approved</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark shadow-sm">
+                <div class="card-body">
+                    <h6 class="card-title text-uppercase small">Pending</h6>
+                    <h2 class="mb-0">Rs. {{ pending_expenses|floatformat:0|intcomma }}</h2>
+                    <small>{{ pending_count }} pending</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white shadow-sm">
+                <div class="card-body">
+                    <h6 class="card-title text-uppercase small">Total Tax</h6>
+                    <h2 class="mb-0">Rs. {{ total_tax|floatformat:0|intcomma }}</h2>
+                    <small>{{ expense_count }} expenses</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- ✅ BUDGET UTILIZATION SECTION              -->
+    <!-- ========================================== -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center">
+            <h6 class="mb-0"><i class="bi bi-wallet2 text-primary"></i> Budget Utilization</h6>
+            <span class="badge bg-secondary">{{ budgets|length }} active budgets</span>
+        </div>
+        <div class="card-body">
+            {% if budgets %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Budget Name</th>
+                            <th>Department</th>
+                            <th>Project</th>
+                            <th class="text-end">Allocated</th>
+                            <th class="text-end">Used</th>
+                            <th class="text-end">Remaining</th>
+                            <th class="text-center">Utilization</th>
+                            <th class="text-center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for budget in budgets %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'budget_detail' budget.id %}" class="text-decoration-none fw-bold">
+                                    {{ budget.name }}
+                                </a>
+                                <br>
+                                <small class="text-muted">{{ budget.budget_no }}</small>
+                            </td>
+                            <td>{{ budget.department.name|default:"-" }}</td>
+                            <td>{{ budget.project.name|default:"-" }}</td>
+                            <td class="text-end fw-bold">Rs. {{ budget.allocated_amount|floatformat:0|intcomma }}</td>
+                            <td class="text-end text-warning">Rs. {{ budget.used_amount|floatformat:0|intcomma }}</td>
+                            <td class="text-end {% if budget.remaining_amount < 0 %}text-danger{% else %}text-success{% endif %}">
+                                Rs. {{ budget.remaining_amount|floatformat:0|intcomma }}
+                            </td>
+                            <td class="text-center" style="min-width:120px;">
+                                <div class="progress" style="height:8px;">
+                                    <div class="progress-bar {% if budget.utilization_percent >= 90 %}bg-danger{% elif budget.utilization_percent >= 70 %}bg-warning{% else %}bg-success{% endif %}" 
+                                         style="width: {{ budget.utilization_percent|floatformat:1 }}%;">
+                                    </div>
+                                </div>
+                                <small class="{% if budget.utilization_percent >= 90 %}text-danger{% elif budget.utilization_percent >= 70 %}text-warning{% else %}text-success{% endif %}">
+                                    {{ budget.utilization_percent|floatformat:1 }}%
+                                </small>
+                            </td>
+                            <td class="text-center">
+                                {% if budget.is_over_budget %}
+                                    <span class="badge bg-danger">⚠️ Over</span>
+                                {% else %}
+                                    <span class="badge bg-success">✅ On Track</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-inbox fs-1 d-block"></i>
+                <p>No active budgets found</p>
+                <a href="{% url 'budget_create' %}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus-circle"></i> Create Budget
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- BUDGET UTILIZATION CHARTS - OPTIONAL      -->
+    <!-- ========================================== -->
+    {% if budgets %}
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-pie-chart text-primary"></i> Budget Utilization Overview</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        {% for budget in budgets|slice:":6" %}
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="small text-truncate" style="max-width:40%;">
+                                    <span class="fw-bold">{{ budget.name|truncatechars:20 }}</span>
+                                </span>
+                                <div class="flex-grow-1 mx-2">
+                                    <div class="progress" style="height:6px;">
+                                        <div class="progress-bar {% if budget.utilization_percent >= 90 %}bg-danger{% elif budget.utilization_percent >= 70 %}bg-warning{% else %}bg-success{% endif %}" 
+                                             style="width: {{ budget.utilization_percent|floatformat:1 }}%;">
+                                        </div>
+                                    </div>
+                                </div>
+                                <span class="small {% if budget.utilization_percent >= 90 %}text-danger{% elif budget.utilization_percent >= 70 %}text-warning{% else %}text-success{% endif %}">
+                                    {{ budget.utilization_percent|floatformat:1 }}%
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if budgets|length > 6 %}
+                    <div class="text-center mt-3">
+                        <a href="{% url 'budget_list' %}" class="btn btn-sm btn-outline-primary">
+                            View All {{ budgets|length }} Budgets
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-exclamation-triangle text-warning"></i> Budget Alerts</h6>
+                </div>
+                <div class="card-body">
+                    {% with over_budgets=budgets|slice:":10" %}
+                    {% if over_budgets %}
+                    <ul class="list-unstyled mb-0">
+                        {% for budget in over_budgets %}
+                        <li class="border-bottom py-2 d-flex justify-content-between align-items-center">
+                            <div>
+                                {% if budget.is_over_budget %}
+                                    <span class="badge bg-danger">⚠️ Over</span>
+                                {% else %}
+                                    <span class="badge bg-success">✅ OK</span>
+                                {% endif %}
+                                <span class="fw-bold">{{ budget.name|truncatechars:25 }}</span>
+                                <br>
+                                <small class="text-muted">{{ budget.utilization_percent|floatformat:1 }}% utilized</small>
+                            </div>
+                            <div>
+                                <span class="{% if budget.remaining_amount < 0 %}text-danger{% else %}text-muted{% endif %}">
+                                    Rs. {{ budget.remaining_amount|floatformat:0|intcomma }}
+                                </span>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-check-circle fs-1 d-block text-success"></i>
+                        <p>All budgets are on track!</p>
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                    
+                    <div class="mt-3">
+                        <a href="{% url 'budget_list' %}" class="btn btn-sm btn-outline-primary w-100">
+                            <i class="bi bi-arrow-right"></i> Manage Budgets
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- ========================================== -->
+    <!-- EXPENSES BY CATEGORY                       -->
+    <!-- ========================================== -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-tags text-primary"></i> Expenses by Category</h6>
+                </div>
+                <div class="card-body">
+                    {% if category_data %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th class="text-end">Amount</th>
+                                    <th class="text-center">%</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cat in category_data %}
+                                <tr>
+                                    <td>{{ cat.category__name }}</td>
+                                    <td class="text-end">Rs. {{ cat.total|floatformat:0|intcomma }}</td>
+                                    <td class="text-center">
+                                        <div class="progress" style="height:5px;">
+                                            <div class="progress-bar bg-primary" style="width: {{ cat.percentage|floatformat:1 }}%;"></div>
+                                        </div>
+                                        <small>{{ cat.percentage|floatformat:1 }}%</small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-inbox fs-1 d-block"></i>
+                        <p>No category data available</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-clock-history text-primary"></i> Recent Expenses</h6>
+                    <a href="{% url 'expense_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                <div class="card-body p-0">
+                    {% if recent_expenses %}
+                    <ul class="list-unstyled mb-0">
+                        {% for expense in recent_expenses %}
+                        <li class="border-bottom px-3 py-2 d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="badge {% if expense.status == 'approved' %}bg-success{% elif expense.status == 'pending' %}bg-warning{% elif expense.status == 'rejected' %}bg-danger{% else %}bg-secondary{% endif %}">
+                                    {{ expense.get_status_display }}
+                                </span>
+                                <span class="fw-bold">{{ expense.description|truncatechars:25 }}</span>
+                                <br>
+                                <small class="text-muted">
+                                    {{ expense.category.name }}
+                                    {% if expense.budget %}
+                                    • <span class="text-primary">{{ expense.budget.name|truncatechars:15 }}</span>
+                                    {% endif %}
+                                </small>
+                            </div>
+                            <div class="text-end">
+                                <span class="fw-bold">Rs. {{ expense.amount|floatformat:0|intcomma }}</span>
+                                <br>
+                                <small class="text-muted">{{ expense.expense_date|date:"d-m-Y" }}</small>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-inbox fs-1 d-block"></i>
+                        <p>No recent expenses</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- MONTHLY EXPENSES TREND                     -->
+    <!-- ========================================== -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white">
+            <h6 class="mb-0"><i class="bi bi-graph-up text-primary"></i> Monthly Expenses Trend</h6>
+        </div>
+        <div class="card-body">
+            {% if monthly_data %}
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Month</th>
+                            <th class="text-end">Total Expenses</th>
+                            <th class="text-end">Avg Expense</th>
+                            <th class="text-end">Count</th>
+                            <th class="text-center">Trend</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for month in monthly_data %}
+                        <tr>
+                            <td>{{ month.month|date:"F Y" }}</td>
+                            <td class="text-end fw-bold">Rs. {{ month.total|floatformat:0|intcomma }}</td>
+                            <td class="text-end">Rs. {{ month.avg|floatformat:0|intcomma }}</td>
+                            <td class="text-end">{{ month.count }}</td>
+                            <td class="text-center">
+                                {% if forloop.counter > 1 %}
+                                    {% with prev=monthly_data|slice:forloop.counter0|last %}
+                                        {% if month.total > prev.total %}
+                                            <span class="text-danger">↑</span>
+                                        {% elif month.total < prev.total %}
+                                            <span class="text-success">↓</span>
+                                        {% else %}
+                                            <span class="text-muted">→</span>
+                                        {% endif %}
+                                    {% endwith %}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-inbox fs-1 d-block"></i>
+                <p>No monthly data available</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

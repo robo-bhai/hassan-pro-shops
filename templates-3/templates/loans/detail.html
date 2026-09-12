@@ -1,0 +1,245 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}🏦 Loan Detail{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">🏦 Loan #{{ loan.loan_no }}</h4>
+                    <div>
+                        {% if loan.status == 'active' %}
+                            <span class="badge bg-success">✅ Active</span>
+                        {% elif loan.status == 'paid' %}
+                            <span class="badge bg-info">💰 Paid</span>
+                        {% else %}
+                            <span class="badge bg-danger">❌ {{ loan.get_status_display }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- Progress -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between">
+                            <span>Payment Progress</span>
+                            <span><strong>{{ progress_percent|floatformat:1 }}%</strong></span>
+                        </div>
+                        <div class="progress" style="height: 20px;">
+                            <div class="progress-bar {% if progress_percent >= 100 %}bg-success{% elif progress_percent >= 75 %}bg-info{% elif progress_percent >= 50 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                 role="progressbar" style="width: {{ progress_percent }}%;" 
+                                 aria-valuenow="{{ progress_percent }}" aria-valuemin="0" aria-valuemax="100">
+                                {{ progress_percent|floatformat:1 }}%
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Loan Details -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <td><strong>Lender:</strong></td>
+                                    <td>{{ loan.lender_name }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Contact:</strong></td>
+                                    <td>{{ loan.lender_contact|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Agreement No:</strong></td>
+                                    <td>{{ loan.agreement_no|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Loan Type:</strong></td>
+                                    <td>{{ loan.get_loan_type_display }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Interest Rate:</strong></td>
+                                    <td>{{ loan.interest_rate }}%</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <td><strong>Principal:</strong></td>
+                                    <td><strong>Rs. {{ loan.principal_amount|floatformat:2 }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Total Payable:</strong></td>
+                                    <td><strong>Rs. {{ loan.total_payable|floatformat:2 }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Paid:</strong></td>
+                                    <td><span class="text-success">Rs. {{ loan.paid_amount|floatformat:2 }}</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Remaining:</strong></td>
+                                    <td>
+                                        {% if remaining_balance > 0 %}
+                                            <span class="text-danger">Rs. {{ remaining_balance|floatformat:2 }}</span>
+                                        {% else %}
+                                            <span class="text-success">Rs. 0.00 ✅</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Installments:</strong></td>
+                                    <td>{{ loan.paid_installments }}/{{ loan.total_installments }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Dates -->
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h6>Loan Date</h6>
+                                    <h5>{{ loan.loan_date|date:"d-m-Y" }}</h5>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h6>Due Date</h6>
+                                    <h5>{{ loan.due_date|date:"d-m-Y" }}</h5>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h6>Status</h6>
+                                    <h5>
+                                        {% if loan.status == 'active' %}
+                                            <span class="text-success">✅ Active</span>
+                                        {% elif loan.status == 'paid' %}
+                                            <span class="text-info">💰 Paid</span>
+                                        {% else %}
+                                            <span class="text-danger">❌ {{ loan.get_status_display }}</span>
+                                        {% endif %}
+                                    </h5>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Purpose & Notes -->
+                    {% if loan.purpose %}
+                    <div class="card mt-3">
+                        <div class="card-header bg-secondary text-white">
+                            <h6 class="mb-0">📝 Purpose</h6>
+                        </div>
+                        <div class="card-body">
+                            {{ loan.purpose }}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if loan.notes %}
+                    <div class="card mt-3">
+                        <div class="card-header bg-secondary text-white">
+                            <h6 class="mb-0">📋 Notes</h6>
+                        </div>
+                        <div class="card-body">
+                            {{ loan.notes }}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Loan Returns (Repayments) -->
+                    <div class="card mt-3">
+                        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">💳 Repayment History</h6>
+                            {% if can_add_return %}
+                                <a href="{% url 'loan_return_create' %}?loan={{ loan.pk }}" class="btn btn-sm btn-warning">
+                                    <i class="bi bi-plus-circle"></i> New Repayment
+                                </a>
+                            {% endif %}
+                        </div>
+                        <div class="card-body">
+                            {% if loan_returns %}
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Return No</th>
+                                                <th>Date</th>
+                                                <th>Amount</th>
+                                                <th>Type</th>
+                                                <th>Status</th>
+                                                <th>Method</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for return in loan_returns %}
+                                            <tr>
+                                                <td><a href="{% url 'loan_return_detail' return.pk %}">{{ return.return_no }}</a></td>
+                                                <td>{{ return.return_date|date:"d-m-Y" }}</td>
+                                                <td><strong>Rs. {{ return.total_amount|floatformat:2 }}</strong></td>
+                                                <td>{{ return.get_return_type_display }}</td>
+                                                <td>
+                                                    {% if return.status == 'paid' %}
+                                                        <span class="badge bg-success">✅ Paid</span>
+                                                    {% else %}
+                                                        <span class="badge bg-warning">⏳ Pending</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>{{ return.get_payment_method_display|default:"-" }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="alert alert-info">
+                                    <strong>Total Returned:</strong> Rs. {{ total_returned|floatformat:2 }}
+                                </div>
+                            {% else %}
+                                <p class="text-muted text-center py-3">
+                                    <i class="bi bi-credit-card fs-4 d-block"></i>
+                                    No repayments yet
+                                </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Agreement File -->
+                    {% if loan.agreement_file %}
+                    <div class="card mt-3">
+                        <div class="card-header bg-secondary text-white">
+                            <h6 class="mb-0">📄 Agreement Document</h6>
+                        </div>
+                        <div class="card-body">
+                            <a href="{{ loan.agreement_file.url }}" target="_blank" class="btn btn-sm btn-primary">
+                                <i class="bi bi-file-pdf"></i> View Document
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Actions -->
+                    <div class="mt-4 d-flex gap-2">
+                        <a href="{% url 'loan_list' %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to List
+                        </a>
+                        
+                        {% if can_add_return %}
+                            <a href="{% url 'loan_return_create' %}?loan={{ loan.pk }}" class="btn btn-warning">
+                                <i class="bi bi-credit-card"></i> Make Repayment
+                            </a>
+                        {% endif %}
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

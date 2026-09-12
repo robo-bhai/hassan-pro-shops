@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}BI Forecast{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-graph-up text-primary"></i> BI Forecast</h2>
+            <p class="text-muted">Business forecasting and predictions</p>
+        </div>
+        <div>
+            <a href="{% url 'bi_dashboard' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    
+    <div class="row g-3">
+        {% for forecast in forecasts %}
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <span class="badge bg-primary">{{ forecast.get_forecast_type_display }}</span>
+                        <span class="badge bg-info">{{ forecast.confidence_level|floatformat:0 }}% confidence</span>
+                    </div>
+                    <h6 class="mt-2 fw-bold">{{ forecast.name }}</h6>
+                    <p class="text-muted small">{{ forecast.period_start|date:"d-m-Y" }} - {{ forecast.period_end|date:"d-m-Y" }}</p>
+                    
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Forecasted</span>
+                        <span class="fw-bold">Rs. {{ forecast.forecasted_value|floatformat:0|intcomma }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Actual</span>
+                        <span class="fw-bold">Rs. {{ forecast.actual_value|floatformat:0|intcomma }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Variance</span>
+                        <span class="fw-bold {% if forecast.variance > 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ forecast.variance|floatformat:0|intcomma }}
+                        </span>
+                    </div>
+                    
+                    <div class="mt-2">
+                        <small class="text-muted">Methodology: {{ forecast.methodology }}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-graph-up fs-2 d-block"></i>
+                <p>No forecasts available</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+</div>
+{% endblock %}

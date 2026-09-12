@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Service Requests - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>📋 Service Requests</h2>
+                <a href="{% url 'service_request_create' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> New Request
+                </a>
+            </div>
+            
+            <!-- Filters -->
+            <div class="card mb-3">
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-3">
+                            <input type="text" name="search" class="form-control" placeholder="Search..." value="{{ search }}">
+                        </div>
+                        <div class="col-md-2">
+                            <select name="status" class="form-select">
+                                <option value="">All Status</option>
+                                {% for key, value in status_choices %}
+                                <option value="{{ key }}" {% if key == status %}selected{% endif %}>{{ value|safe }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select name="priority" class="form-select">
+                                <option value="">All Priority</option>
+                                {% for key, value in priority_choices %}
+                                <option value="{{ key }}" {% if key == priority %}selected{% endif %}>{{ value|safe }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select name="technician" class="form-select">
+                                <option value="">All Technicians</option>
+                                {% for tech in technicians %}
+                                <option value="{{ tech.id }}" {% if tech.id|stringformat:"s" == technician %}selected{% endif %}>{{ tech.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-secondary w-100">Filter</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Stats -->
+            <div class="row mb-3">
+                <div class="col-md-2">
+                    <div class="card text-white bg-primary">
+                        <div class="card-body">
+                            <h6>Total</h6>
+                            <h4>{{ total_requests }}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card text-white bg-warning">
+                        <div class="card-body">
+                            <h6>Pending</h6>
+                            <h4>{{ pending }}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card text-white bg-info">
+                        <div class="card-body">
+                            <h6>In Progress</h6>
+                            <h4>{{ in_progress }}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card text-white bg-success">
+                        <div class="card-body">
+                            <h6>Completed</h6>
+                            <h4>{{ completed }}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card text-white bg-danger">
+                        <div class="card-body">
+                            <h6>Overdue</h6>
+                            <h4>{{ overdue }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Requests Table -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Request #</th>
+                                    <th>Customer</th>
+                                    <th>Service</th>
+                                    <th>Priority</th>
+                                    <th>Status</th>
+                                    <th>Scheduled</th>
+                                    <th>Technician</th>
+                                    <th>Amount</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for req in page_obj %}
+                                <tr {% if req.is_overdue %}class="table-danger"{% endif %}>
+                                    <td><strong>{{ req.request_no }}</strong></td>
+                                    <td>{{ req.customer.name }}</td>
+                                    <td>{{ req.service.name|truncatechars:20 }}</td>
+                                    <td>{{ req.priority_badge|safe }}</td>
+                                    <td>{{ req.status_badge|safe }}</td>
+                                    <td>{{ req.scheduled_date|date:"d-m-Y"|default:"-" }}</td>
+                                    <td>{{ req.technician.name|default:"-" }}</td>
+                                    <td>Rs. {{ req.total_amount|floatformat:2 }}</td>
+                                    <td>
+                                        <a href="{% url 'service_request_detail' req.id %}" class="btn btn-sm btn-info">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="9" class="text-center">No service requests found.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% include "includes/pagination.html" %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

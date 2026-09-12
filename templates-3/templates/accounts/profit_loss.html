@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Profit & Loss Statement{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">💰 Profit & Loss Statement</h1>
+        <div>
+            <a href="?from_date={{ from_date }}&to_date={{ to_date }}" class="btn btn-outline-primary">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </a>
+            <button onclick="window.print()" class="btn btn-primary">
+                <i class="bi bi-printer"></i> Print
+            </button>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">
+                Period: {{ from_date }} to {{ to_date }}
+                {% if is_profit %}
+                    <span class="badge bg-success float-end">✅ Profit</span>
+                {% elif is_loss %}
+                    <span class="badge bg-danger float-end">⚠️ Loss</span>
+                {% endif %}
+            </h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <!-- Income Section -->
+                <div class="col-md-6">
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header bg-success text-white">
+                            <h6 class="mb-0">📈 Income / Revenue</h6>
+                        </div>
+                        <div class="card-body">
+                            {% if income_data %}
+                                <table class="table table-sm">
+                                    {% for item in income_data %}
+                                    <tr>
+                                        <td>{{ item.account.name }}</td>
+                                        <td class="text-end">Rs. {{ item.amount|floatformat:2 }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                    <tr class="table-active">
+                                        <th>Total Income</th>
+                                        <th class="text-end">Rs. {{ total_income|floatformat:2 }}</th>
+                                    </tr>
+                                </table>
+                            {% else %}
+                                <p class="text-muted text-center">No income records found</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Expense Section -->
+                <div class="col-md-6">
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header bg-danger text-white">
+                            <h6 class="mb-0">📉 Expenses</h6>
+                        </div>
+                        <div class="card-body">
+                            {% if expense_data %}
+                                <table class="table table-sm">
+                                    {% for item in expense_data %}
+                                    <tr>
+                                        <td>{{ item.account.name }}</td>
+                                        <td class="text-end">Rs. {{ item.amount|floatformat:2 }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                    <tr class="table-active">
+                                        <th>Total Expenses</th>
+                                        <th class="text-end">Rs. {{ total_expenses|floatformat:2 }}</th>
+                                    </tr>
+                                </table>
+                            {% else %}
+                                <p class="text-muted text-center">No expense records found</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Net Profit/Loss -->
+            <div class="card shadow-sm">
+                <div class="card-header {% if is_profit %}bg-success{% else %}bg-danger{% endif %} text-white">
+                    <h5 class="mb-0 text-center">
+                        {% if is_profit %}
+                            ✅ Net Profit: Rs. {{ net_profit|floatformat:2 }}
+                        {% elif is_loss %}
+                            ❌ Net Loss: Rs. {{ net_profit|floatformat:2 }}
+                        {% else %}
+                            ⚖️ Break Even
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body text-center">
+                    <p><strong>Profit Margin:</strong> {{ profit_margin|floatformat:2 }}%</p>
+                    <p><strong>Total Income:</strong> Rs. {{ total_income|floatformat:2 }}</p>
+                    <p><strong>Total Expenses:</strong> Rs. {{ total_expenses|floatformat:2 }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

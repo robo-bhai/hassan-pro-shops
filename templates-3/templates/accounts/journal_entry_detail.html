@@ -1,0 +1,349 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Journal Entry {{ entry.entry_no }}{% endblock %}
+{% block page_title %}📝 Journal Entry - {{ entry.entry_no }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .detail-card {
+        background: white;
+        border-radius: 14px;
+        border: 1px solid #eef0f5;
+        padding: 20px 24px;
+        margin-bottom: 20px;
+    }
+    
+    .detail-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #eef0f5;
+    }
+    
+    .detail-header .title {
+        font-size: 1.1rem;
+        font-weight: 700;
+    }
+    
+    .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+    }
+    
+    .detail-item .label {
+        font-size: 0.7rem;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+    }
+    
+    .detail-item .value {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #1a1a2e;
+    }
+    
+    .item-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 12px;
+    }
+    
+    .item-table th {
+        background: #f8f9fc;
+        padding: 10px 16px;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #5a6070;
+        font-weight: 700;
+        border-bottom: 2px solid #e0e3eb;
+    }
+    
+    .item-table td {
+        padding: 10px 16px;
+        border-bottom: 1px solid #f0f2f7;
+        font-size: 0.88rem;
+    }
+    
+    .item-table tr:hover {
+        background: #f8f9ff;
+    }
+    
+    .amount-debit {
+        color: #dc3545;
+        font-weight: 600;
+    }
+    
+    .amount-credit {
+        color: #11998e;
+        font-weight: 600;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 4px 16px;
+        border-radius: 15px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .status-badge.draft { background: #e8ecf4; color: #5a6070; }
+    .status-badge.posted { background: #d4edda; color: #155724; }
+    .status-badge.reversed { background: #ffe0b2; color: #856404; }
+    .status-badge.void { background: #f8d7da; color: #721c24; }
+    
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    
+    .btn-action {
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 0.85rem;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .btn-action:hover {
+        transform: translateY(-2px);
+    }
+    
+    .btn-action.post { background: #d4edda; color: #155724; }
+    .btn-action.post:hover { background: #c3e6cb; }
+    
+    .btn-action.reverse { background: #ffe0b2; color: #856404; }
+    .btn-action.reverse:hover { background: #ffd699; }
+    
+    .btn-action.edit { background: #e8ecf4; color: #5a6070; }
+    .btn-action.edit:hover { background: #d5dbe8; }
+    
+    .btn-action.delete { background: #f8d7da; color: #721c24; }
+    .btn-action.delete:hover { background: #f5c6cb; }
+    
+    .btn-action.print { background: #667eea; color: white; }
+    .btn-action.print:hover { background: #5a6fd6; }
+    
+    .total-row {
+        background: #f8f9fc;
+        font-weight: 700;
+    }
+    
+    .total-row td {
+        padding: 12px 16px;
+        border-top: 2px solid #e0e3eb;
+    }
+    
+    @media (max-width: 768px) {
+        .detail-card {
+            padding: 16px;
+        }
+        .detail-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+        .action-buttons {
+            flex-direction: column;
+        }
+        .btn-action {
+            width: 100%;
+            justify-content: center;
+        }
+        .item-table {
+            font-size: 0.8rem;
+        }
+        .item-table th,
+        .item-table td {
+            padding: 8px 10px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Detail Card -->
+<div class="detail-card">
+    <div class="detail-header">
+        <div>
+            <span class="title">{{ entry.entry_no }}</span>
+            <span class="status-badge {{ entry.status }}">{{ entry.get_status_display }}</span>
+        </div>
+        <div class="action-buttons">
+            {% if can_post %}
+            <a href="{% url 'journal_entry_post' entry.pk %}" class="btn-action post" onclick="return confirm('Post this entry?')">
+                <i class="bi bi-check2"></i> Post
+            </a>
+            {% endif %}
+            {% if can_reverse %}
+            <a href="{% url 'journal_entry_reverse' entry.pk %}" class="btn-action reverse" onclick="return confirm('Reverse this entry?')">
+                <i class="bi bi-arrow-counterclockwise"></i> Reverse
+            </a>
+            {% endif %}
+            {% if can_edit %}
+            <a href="#" class="btn-action edit">
+                <i class="bi bi-pencil"></i> Edit
+            </a>
+            {% endif %}
+            {% if can_delete %}
+            <a href="{% url 'journal_entry_delete' entry.pk %}" class="btn-action delete" onclick="return confirm('Delete this entry?')">
+                <i class="bi bi-trash"></i> Delete
+            </a>
+            {% endif %}
+            <button class="btn-action print" onclick="window.print()">
+                <i class="bi bi-printer"></i> Print
+            </button>
+        </div>
+    </div>
+    
+    <div class="detail-grid">
+        <div class="detail-item">
+            <div class="label">Entry Date</div>
+            <div class="value">{{ entry.entry_date|date:"d-m-Y" }}</div>
+        </div>
+        <div class="detail-item">
+            <div class="label">Entry Type</div>
+            <div class="value">{{ entry.get_entry_type_display }}</div>
+        </div>
+        <div class="detail-item">
+            <div class="label">Reference</div>
+            <div class="value">{{ entry.reference|default:"-" }}</div>
+        </div>
+        <div class="detail-item">
+            <div class="label">Created By</div>
+            <div class="value">{{ entry.created_by.username|default:"System" }}</div>
+        </div>
+        <div class="detail-item" style="grid-column: 1 / -1;">
+            <div class="label">Description</div>
+            <div class="value">{{ entry.description }}</div>
+        </div>
+        {% if entry.notes %}
+        <div class="detail-item" style="grid-column: 1 / -1;">
+            <div class="label">Notes</div>
+            <div class="value">{{ entry.notes }}</div>
+        </div>
+        {% endif %}
+        {% if entry.posted_by %}
+        <div class="detail-item">
+            <div class="label">Posted By</div>
+            <div class="value">{{ entry.posted_by.username }}</div>
+        </div>
+        <div class="detail-item">
+            <div class="label">Posted At</div>
+            <div class="value">{{ entry.posted_at|date:"d-m-Y H:i" }}</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Items Table -->
+<div class="detail-card">
+    <h5 style="font-weight:700; font-size:0.95rem; margin-bottom:12px;">📋 Journal Entry Items</h5>
+    
+    <table class="item-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Account</th>
+                <th>Description</th>
+                <th class="text-right">Debit</th>
+                <th class="text-right">Credit</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>
+                    <strong>{{ item.account.code }}</strong> - {{ item.account.name }}
+                </td>
+                <td>{{ item.description|default:"-" }}</td>
+                <td class="text-right">
+                    {% if item.is_debit %}
+                    <span class="amount-debit">Rs. {{ item.amount|floatformat:2 }}</span>
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td class="text-right">
+                    {% if not item.is_debit %}
+                    <span class="amount-credit">Rs. {{ item.amount|floatformat:2 }}</span>
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" class="text-center py-3">No items found</td>
+            </tr>
+            {% endfor %}
+            <tr class="total-row">
+                <td colspan="2"></td>
+                <td><strong>TOTAL</strong></td>
+                <td class="text-right">
+                    <span class="amount-debit">Rs. {{ total_debit|floatformat:2 }}</span>
+                </td>
+                <td class="text-right">
+                    <span class="amount-credit">Rs. {{ total_credit|floatformat:2 }}</span>
+                </td>
+            </tr>
+            {% if is_balanced %}
+            <tr style="background:#d4edda;">
+                <td colspan="5" class="text-center" style="color:#155724; font-weight:600;">
+                    ✅ This entry is balanced (Debit = Credit)
+                </td>
+            </tr>
+            {% else %}
+            <tr style="background:#f8d7da;">
+                <td colspan="5" class="text-center" style="color:#721c24; font-weight:600;">
+                    ❌ This entry is NOT balanced! Difference: Rs. {{ total_debit|floatformat:2|sub:total_credit|floatformat:2 }}
+                </td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Related Documents -->
+{% if entry.sale or entry.purchase or entry.expense %}
+<div class="detail-card">
+    <h5 style="font-weight:700; font-size:0.95rem; margin-bottom:12px;">📎 Related Documents</h5>
+    <div style="display:flex; gap:16px; flex-wrap:wrap;">
+        {% if entry.sale %}
+        <div>
+            <span style="font-weight:600;">Sale:</span>
+            <a href="{% url 'sale_detail' entry.sale.id %}" style="color:#667eea;">{{ entry.sale.bill_no }}</a>
+        </div>
+        {% endif %}
+        {% if entry.purchase %}
+        <div>
+            <span style="font-weight:600;">Purchase:</span>
+            <a href="{% url 'purchase_detail' entry.purchase.id %}" style="color:#667eea;">{{ entry.purchase.bill_no|default:entry.purchase.id }}</a>
+        </div>
+        {% endif %}
+        {% if entry.expense %}
+        <div>
+            <span style="font-weight:600;">Expense:</span>
+            <a href="{% url 'expense_detail' entry.expense.id %}" style="color:#667eea;">{{ entry.expense.expense_no }}</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

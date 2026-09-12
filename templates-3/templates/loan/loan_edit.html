@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Edit Loan{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h5><i class="bi bi-pencil text-warning"></i> Edit Loan</h5>
+                    <p class="text-muted small">{{ loan.loan_no }}</p>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Borrower</label>
+                                <select name="borrower" class="form-select" required>
+                                    {% for borrower in borrowers %}
+                                    <option value="{{ borrower.id }}" {% if borrower.id == loan.borrower.id %}selected{% endif %}>
+                                        {{ borrower.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Loan Type</label>
+                                <select name="loan_type" class="form-select" required>
+                                    {% for key, value in loan_types %}
+                                    <option value="{{ key }}" {% if key == loan.loan_type %}selected{% endif %}>{{ value }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Principal</label>
+                                <input type="number" name="principal" class="form-control" step="0.01" value="{{ loan.principal }}" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Interest Rate</label>
+                                <input type="number" name="interest_rate" class="form-control" step="0.01" value="{{ loan.interest_rate }}" required>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Tenure (Months)</label>
+                                <input type="number" name="tenure_months" class="form-control" value="{{ loan.tenure_months }}" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Start Date</label>
+                                <input type="date" name="start_date" class="form-control" value="{{ loan.start_date|date:'Y-m-d' }}" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">End Date</label>
+                                <input type="date" name="end_date" class="form-control" value="{{ loan.end_date|date:'Y-m-d' }}" required>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Notes</label>
+                            <textarea name="notes" class="form-control" rows="2">{{ loan.notes }}</textarea>
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            Editing loan details will regenerate EMI schedule.
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-warning">
+                                <i class="bi bi-check-circle"></i> Update Loan
+                            </button>
+                            <a href="{% url 'loan_detail' loan.id %}" class="btn btn-secondary">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

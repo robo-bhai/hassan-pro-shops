@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Offer Shares - {{ company_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header">
+        <h4 class="mb-0"><i class="fas fa-hand-holding-heart me-2"></i> Offer Shares for Buyback</h4>
+        <p class="text-muted mb-0">Sell your shares to the company</p>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        You are offering shares for buyback program: <strong>{{ buyback.buyback_no }}</strong>
+                    </div>
+
+                    <table class="table table-borderless">
+                        <tr>
+                            <td><strong>Price Per Share:</strong></td>
+                            <td>Rs. {{ buyback.price_per_share|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Your Total Shares:</strong></td>
+                            <td>{{ total_shares }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Buyback End Date:</strong></td>
+                            <td>{{ buyback.end_date|date:"d M Y" }}</td>
+                        </tr>
+                    </table>
+
+                    <form method="POST" onsubmit="return confirm('Are you sure you want to offer these shares?')">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Number of Shares to Offer *</label>
+                            <input type="number" name="shares_offered" class="form-control" 
+                                   min="1" max="{{ total_shares }}" required 
+                                   oninput="calculateTotal(this.value)">
+                            <small class="text-muted">Max: {{ total_shares }} shares</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Total Amount</label>
+                            <div class="form-control bg-light" id="totalAmount">Rs. 0.00</div>
+                        </div>
+
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-hand-holding-heart"></i> Offer Shares
+                        </button>
+                        <a href="{% url 'buyback_detail' buyback.id %}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-info-circle"></i> Important</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled small">
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> Shares will be transferred to company</li>
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> You will receive payment</li>
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> You can offer all or some shares</li>
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> Offer is binding</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function calculateTotal(shares) {
+    const price = {{ buyback.price_per_share }};
+    const total = shares * price;
+    document.getElementById('totalAmount').textContent = 'Rs. ' + total.toFixed(2);
+}
+</script>
+
+<style>
+    .page-header {
+        background: white;
+        padding: 20px 25px;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+</style>
+{% endblock %}

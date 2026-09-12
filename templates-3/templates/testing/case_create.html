@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Create Test Case{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h5><i class="bi bi-plus-circle text-primary"></i> Create Test Case</h5>
+                    <p class="text-muted small">{{ suite.project.name }} - {{ suite.name }}</p>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Title</label>
+                            <input type="text" name="title" class="form-control" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea name="description" class="form-control" rows="2" required></textarea>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">Test Type</label>
+                                <select name="test_type" class="form-select">
+                                    {% for key, value in test_types %}
+                                    <option value="{{ key }}">{{ value }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Priority</label>
+                                <select name="priority" class="form-select">
+                                    {% for key, value in priority_choices %}
+                                    <option value="{{ key }}">{{ value }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Pre-Conditions</label>
+                            <textarea name="pre_conditions" class="form-control" rows="2"></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Test Steps</label>
+                            <div id="steps-container">
+                                <div class="input-group mb-2">
+                                    <input type="text" name="steps[]" class="form-control" placeholder="Step 1">
+                                    <button type="button" class="btn btn-danger" onclick="removeStep(this)">✕</button>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addStep()">
+                                <i class="bi bi-plus-circle"></i> Add Step
+                            </button>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Expected Result</label>
+                            <textarea name="expected_result" class="form-control" rows="2" required></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" name="is_automated" class="form-check-input">
+                                <label class="form-check-label">Automated Test</label>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> Create Test Case
+                            </button>
+                            <a href="{% url 'test_case_list' suite.id %}" class="btn btn-secondary">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function addStep() {
+        var container = document.getElementById('steps-container');
+        var div = document.createElement('div');
+        div.className = 'input-group mb-2';
+        div.innerHTML = `
+            <input type="text" name="steps[]" class="form-control" placeholder="Step ${container.children.length + 1}">
+            <button type="button" class="btn btn-danger" onclick="removeStep(this)">✕</button>
+        `;
+        container.appendChild(div);
+    }
+    
+    function removeStep(btn) {
+        var container = document.getElementById('steps-container');
+        if (container.children.length > 1) {
+            btn.parentElement.remove();
+        }
+    }
+</script>
+{% endblock %}

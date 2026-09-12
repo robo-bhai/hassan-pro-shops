@@ -1,0 +1,303 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Generate Purchase Order - {{ plan.plan_no }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .generate-header {
+        background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+        color: #1a1a2e;
+        padding: 25px;
+        border-radius: 15px;
+        margin-bottom: 25px;
+    }
+    
+    .form-section {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        margin-bottom: 25px;
+    }
+    
+    .section-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #1a1a2e;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #f0f0f0;
+    }
+    
+    .info-card {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 20px;
+        border-left: 4px solid #667eea;
+        margin-bottom: 20px;
+    }
+    
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .info-row:last-child {
+        border-bottom: none;
+    }
+    
+    .info-label {
+        color: #6c757d;
+    }
+    
+    .info-value {
+        font-weight: 600;
+        color: #1a1a2e;
+    }
+    
+    .info-value.primary { color: #667eea; }
+    .info-value.success { color: #28a745; }
+    .info-value.warning { color: #ffc107; }
+    .info-value.danger { color: #dc3545; }
+    
+    .stock-warning {
+        background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
+        border-radius: 10px;
+        padding: 15px;
+        border-left: 4px solid #ffc107;
+    }
+    
+    .stock-success {
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        border-radius: 10px;
+        padding: 15px;
+        border-left: 4px solid #28a745;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    
+    <!-- Header -->
+    <div class="generate-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h3 class="mb-2">
+                    <i class="bi bi-cart-plus me-2"></i>
+                    Generate Purchase Order
+                </h3>
+                <p class="mb-0 opacity-75">
+                    From Monthly Plan: <strong>{{ plan.plan_no }}</strong> | {{ plan.month|date:"F Y" }}
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <a href="{% url 'monthly_plan_detail' plan.pk %}" class="btn btn-dark">
+                    <i class="bi bi-arrow-left me-1"></i> Back to Plan
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-7">
+            <form method="post" id="poForm">
+                {% csrf_token %}
+                
+                <!-- Vendor Selection -->
+                <div class="form-section">
+                    <h5 class="section-title">
+                        <i class="bi bi-building me-2"></i> Select Vendor
+                    </h5>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Vendor / Supplier <span class="text-danger">*</span></label>
+                        <select name="vendor" class="form-select form-select-lg" required>
+                            <option value="">-- Select Vendor --</option>
+                            {% for vendor in vendors %}
+                                <option value="{{ vendor.id }}">
+                                    {{ vendor.name }} ({{ vendor.vendor_code }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">Select the vendor from whom you want to purchase</small>
+                    </div>
+                </div>
+
+                <!-- Order Summary -->
+                <div class="form-section">
+                    <h5 class="section-title">
+                        <i class="bi bi-clipboard-list me-2"></i> Order Summary
+                    </h5>
+                    
+                    <div class="info-card">
+                        <div class="info-row">
+                            <span class="info-label">Product:</span>
+                            <span class="info-value">{{ plan.product_name|default:"N/A" }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Warehouse:</span>
+                            <span class="info-value">{{ plan.warehouse.name|default:"N/A" }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Purchase Quantity:</span>
+                            <span class="info-value primary">{{ plan.stock_to_purchase|floatformat:2 }} units</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Price Per Unit:</span>
+                            <span class="info-value">Rs. {{ plan.purchase_price_per_unit|floatformat:2|intcomma }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Total Amount:</span>
+                            <span class="info-value success fs-5">
+                                Rs. {{ total_amount|floatformat:2|intcomma }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Additional Notes -->
+                <div class="form-section">
+                    <h5 class="section-title">
+                        <i class="bi bi-journal-text me-2"></i> Additional Notes
+                    </h5>
+                    
+                    <textarea name="notes" 
+                              class="form-control" 
+                              rows="3" 
+                              placeholder="Any special instructions for this order..."></textarea>
+                </div>
+
+                <!-- Submit -->
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-warning btn-lg">
+                        <i class="bi bi-check-circle me-1"></i> Generate Purchase Order
+                    </button>
+                    <a href="{% url 'monthly_plan_detail' plan.pk %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-circle me-1"></i> Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Right Column - Stock Analysis -->
+        <div class="col-lg-5">
+            <!-- Stock Status -->
+            <div class="form-section">
+                <h5 class="section-title">
+                    <i class="bi bi-box-seam me-2"></i> Stock Analysis
+                </h5>
+                
+                {% if plan.stock_to_purchase > 0 %}
+                    <div class="stock-warning mb-3">
+                        <h6 class="fw-bold mb-2">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            Stock Required
+                        </h6>
+                        <p class="mb-0">
+                            You need to purchase <strong>{{ plan.stock_to_purchase|floatformat:2 }}</strong> units 
+                            to meet the expected sales of {{ plan.expected_sales_quantity|floatformat:0|intcomma }} units.
+                        </p>
+                    </div>
+                {% else %}
+                    <div class="stock-success mb-3">
+                        <h6 class="fw-bold mb-2">
+                            <i class="bi bi-check-circle me-1"></i>
+                            Stock Sufficient
+                        </h6>
+                        <p class="mb-0">
+                            Current stock is sufficient to meet the expected sales. No purchase needed.
+                        </p>
+                    </div>
+                {% endif %}
+
+                <div class="info-card">
+                    <div class="info-row">
+                        <span class="info-label">Available Stock:</span>
+                        <span class="info-value">{{ plan.available_stock|floatformat:2 }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Stock Required:</span>
+                        <span class="info-value">{{ plan.stock_required|floatformat:2 }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Stock to Purchase:</span>
+                        <span class="info-value warning">{{ plan.stock_to_purchase|floatformat:2 }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">After Purchase:</span>
+                        <span class="info-value success">{{ plan.stock_after_purchase|floatformat:2 }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Plan Info -->
+            <div class="form-section">
+                <h5 class="section-title">
+                    <i class="bi bi-info-circle me-2"></i> Plan Information
+                </h5>
+                
+                <div class="info-card">
+                    <div class="info-row">
+                        <span class="info-label">Plan No:</span>
+                        <span class="info-value">{{ plan.plan_no }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Version:</span>
+                        <span class="info-value">v{{ plan.version }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Status:</span>
+                        <span class="info-value">{{ plan.get_status_display }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Month:</span>
+                        <span class="info-value">{{ plan.month|date:"F Y" }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Warning -->
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                <strong>Note:</strong>
+                <p class="mb-0 small">
+                    A Purchase Order will be created with status "Pending". You can confirm it later 
+                    and create GRN when goods are received.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Form validation
+    const form = document.getElementById('poForm');
+    
+    form.addEventListener('submit', function(e) {
+        const vendor = form.querySelector('select[name="vendor"]').value;
+        
+        if (!vendor) {
+            e.preventDefault();
+            alert('Please select a vendor before generating the purchase order.');
+            return false;
+        }
+        
+        // Confirm
+        const confirmed = confirm('Are you sure you want to generate a Purchase Order?');
+        
+        if (!confirmed) {
+            e.preventDefault();
+            return false;
+        }
+    });
+});
+</script>
+{% endblock %}

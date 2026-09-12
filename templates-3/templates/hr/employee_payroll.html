@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Employee Payroll{% endblock %}
+{% block page_title %}💰 Payroll: {{ employee.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #059669, #10b981);
+        border-radius: 20px;
+        padding: 25px 30px;
+        margin-bottom: 30px;
+        color: white;
+    }
+    
+    .btn-add {
+        background: linear-gradient(135deg, #f8961e, #f4a261);
+        padding: 10px 20px;
+        border-radius: 10px;
+        color: white;
+        text-decoration: none;
+        display: inline-block;
+    }
+    
+    .btn-add:hover {
+        color: white;
+        transform: translateY(-2px);
+    }
+    
+    .table-card {
+        background: white;
+        border-radius: 20px;
+        border: 1px solid #e9ecef;
+        overflow: hidden;
+    }
+    
+    .table-header {
+        padding: 18px 24px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .payroll-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .payroll-table thead th {
+        background: #1a1a2e;
+        color: white;
+        padding: 12px 16px;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+    }
+    
+    .payroll-table tbody td {
+        padding: 12px 16px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .status-paid {
+        background: #d1fae5;
+        color: #059669;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        display: inline-block;
+    }
+    
+    .status-draft {
+        background: #fed7aa;
+        color: #ea580c;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        display: inline-block;
+    }
+    
+    .btn-view {
+        background: #4361ee;
+        color: white;
+        padding: 5px 12px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 0.75rem;
+    }
+    
+    .info-card {
+        background: white;
+        border-radius: 16px;
+        border: 1px solid #e9ecef;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    @media (max-width: 768px) {
+        .payroll-table {
+            min-width: 600px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header d-flex justify-content-between align-items-center flex-wrap">
+        <div>
+            <h1><i class="bi bi-person-badge"></i> {{ employee.name }}</h1>
+            <p class="mb-0">{{ employee.employee_id }} · {{ employee.get_department_display }}</p>
+        </div>
+        <a href="{% url 'payroll_add' employee.pk %}" class="btn-add">
+            <i class="bi bi-plus-lg"></i> Add Payroll
+        </a>
+    </div>
+    
+    <div class="info-card">
+        <div class="row">
+            <div class="col-md-3">
+                <small class="text-muted">Basic Salary</small>
+                <h4>Rs.{{ employee.basic_salary|floatformat:0 }}</h4>
+            </div>
+            <div class="col-md-3">
+                <small class="text-muted">House Allowance</small>
+                <h4>Rs.{{ employee.house_allowance|floatformat:0 }}</h4>
+            </div>
+            <div class="col-md-3">
+                <small class="text-muted">Other Allowance</small>
+                <h4>Rs.{{ employee.other_allowance|floatformat:0 }}</h4>
+            </div>
+            <div class="col-md-3">
+                <small class="text-muted">Total Monthly</small>
+                <h4 class="text-success">Rs.{{ employee.total_salary|floatformat:0 }}</h4>
+            </div>
+        </div>
+    </div>
+    
+    <div class="table-card">
+        <div class="table-header">
+            <h5><i class="bi bi-calculator"></i> Payroll History</h5>
+        </div>
+        <div style="overflow-x: auto;">
+            <table class="payroll-table">
+                <thead>
+                    <tr>
+                        <th>Month</th>
+                        <th>Basic Salary</th>
+                        <th>Allowances</th>
+                        <th>Deductions</th>
+                        <th>Net Salary</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payroll in payrolls %}
+                    <tr>
+                        <td>{{ payroll.month|date:"F Y" }}</td>
+                        <td>Rs.{{ payroll.basic_salary|floatformat:0 }}</td>
+                        <td class="text-success">Rs.{{ payroll.allowances|floatformat:0 }}</td>
+                        <td>Rs.{{ payroll.total_deductions|floatformat:0 }}</td>
+                        <td class="fw-bold">Rs.{{ payroll.net_salary|floatformat:0 }}</td>
+                        <td>
+                            {% if payroll.status == 'paid' %}
+                            <span class="status-paid">✅ Paid</span>
+                            {% else %}
+                            <span class="status-draft">📝 Draft</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'payslip_generate' payroll.pk %}" class="btn-view" target="_blank">
+                                <i class="bi bi-file-text"></i> Payslip
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5">
+                            <i class="bi bi-inbox" style="font-size: 3rem; opacity: 0.3;"></i>
+                            <p class="mt-2">No payroll records found for this employee</p>
+                            <a href="{% url 'payroll_add' employee.pk %}" class="btn-add mt-2">
+                                <i class="bi bi-plus-lg"></i> Add First Payroll
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

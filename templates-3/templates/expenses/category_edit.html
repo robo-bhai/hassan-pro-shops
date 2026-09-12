@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Edit Category - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>✏️ Edit Category: {{ category.name }}</h2>
+                <a href="{% url 'expense_category_list' %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+            </div>
+            
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Category Name <span class="text-danger">*</span></label>
+                                <input type="text" name="name" class="form-control" required value="{{ category.name }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Category Type <span class="text-danger">*</span></label>
+                                <select name="category_type" class="form-select" required>
+                                    {% for key, value in category_types %}
+                                    <option value="{{ key }}" {% if key == category.category_type %}selected{% endif %}>{{ value }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Parent Category</label>
+                                <select name="parent" class="form-select">
+                                    <option value="">No Parent (Main Category)</option>
+                                    {% for parent in parent_categories %}
+                                    <option value="{{ parent.id }}" {% if parent.id == category.parent_id %}selected{% endif %}>{{ parent.name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <small class="text-muted">Current: {{ category.parent.name|default:"None" }}</small>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check mt-4">
+                                    <input type="checkbox" name="is_active" class="form-check-input" id="isActive" {% if category.is_active %}checked{% endif %}>
+                                    <label class="form-check-label" for="isActive">Active</label>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Description</label>
+                                <textarea name="description" class="form-control" rows="2">{{ category.description }}</textarea>
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <!-- Category Info -->
+                        <div class="alert alert-secondary">
+                            <strong>Code:</strong> {{ category.code }} &nbsp;|&nbsp;
+                            <strong>Created:</strong> {{ category.created_at|date:"d-m-Y H:i" }}
+                        </div>
+                        
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="{% url 'expense_category_list' %}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> Update Category
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

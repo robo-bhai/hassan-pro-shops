@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Document Detail{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-file-earmark-text text-primary"></i> {{ document.title }}</h2>
+            <p class="text-muted">{{ document.document_no }} • {{ document.category.name|default:"Uncategorized" }}</p>
+        </div>
+        <div>
+            <a href="{% url 'document_download' document.id %}" class="btn btn-success">
+                <i class="bi bi-download"></i> Download
+            </a>
+            <a href="{% url 'document_delete' document.id %}" class="btn btn-danger"
+               onclick="return confirm('Delete this document?')">
+                <i class="bi bi-trash"></i> Delete
+            </a>
+            <a href="{% url 'document_list' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    
+    <div class="row g-3">
+        <!-- Document Info -->
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-info-circle text-primary"></i> Document Information</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <small class="text-muted">Title</small>
+                            <p class="fw-bold">{{ document.title }}</p>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Document No</small>
+                            <p>{{ document.document_no }}</p>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Category</small>
+                            <p>{{ document.category.name|default:"-" }}</p>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Status</small>
+                            <p>
+                                <span class="badge 
+                                    {% if document.status == 'approved' %}bg-success
+                                    {% elif document.status == 'pending' %}bg-warning
+                                    {% elif document.status == 'rejected' %}bg-danger
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ document.get_status_display }}
+                                </span>
+                            </p>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Visibility</small>
+                            <p>{{ document.get_visibility_display }}</p>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">File Size</small>
+                            <p>{{ document.get_file_size_display }}</p>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Version</small>
+                            <p>v{{ document.version }}</p>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Uploaded By</small>
+                            <p>{{ document.uploaded_by.username|default:"System" }}</p>
+                        </div>
+                        <div class="col-12">
+                            <small class="text-muted">Description</small>
+                            <p>{{ document.description|default:"No description" }}</p>
+                        </div>
+                        <div class="col-12">
+                            <small class="text-muted">Keywords</small>
+                            <p>{{ document.keywords|default:"-" }}</p>
+                        </div>
+                        {% if document.notes %}
+                        <div class="col-12">
+                            <small class="text-muted">Notes</small>
+                            <p>{{ document.notes }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Metadata -->
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-clock text-primary"></i> Metadata</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <small class="text-muted">Uploaded At</small>
+                            <p>{{ document.uploaded_at|date:"d-m-Y H:i" }}</p>
+                        </div>
+                        <div class="col-12">
+                            <small class="text-muted">Updated At</small>
+                            <p>{{ document.updated_at|date:"d-m-Y H:i" }}</p>
+                        </div>
+                        {% if document.expiry_date %}
+                        <div class="col-12">
+                            <small class="text-muted">Expiry Date</small>
+                            <p>{{ document.expiry_date|date:"d-m-Y" }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Related Modules -->
+            <div class="card shadow-sm border-0 mt-3">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-link text-primary"></i> Related Modules</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        {% if document.sale %}
+                        <li><small>🛒 Sale: #{{ document.sale.bill_no }}</small></li>
+                        {% endif %}
+                        {% if document.purchase %}
+                        <li><small>📥 Purchase: #{{ document.purchase.bill_no }}</small></li>
+                        {% endif %}
+                        {% if document.customer %}
+                        <li><small>👤 Customer: {{ document.customer.name }}</small></li>
+                        {% endif %}
+                        {% if document.vendor %}
+                        <li><small>🏢 Vendor: {{ document.vendor.name }}</small></li>
+                        {% endif %}
+                        {% if document.employee %}
+                        <li><small>👥 Employee: {{ document.employee.name }}</small></li>
+                        {% endif %}
+                        {% if document.shareholder %}
+                        <li><small>👤 Shareholder: {{ document.shareholder.name }}</small></li>
+                        {% endif %}
+                        {% if document.loan %}
+                        <li><small>💳 Loan: #{{ document.loan.loan_no }}</small></li>
+                        {% endif %}
+                        {% if not document.sale and not document.purchase and not document.customer %}
+                        <li class="text-muted">No related modules</li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

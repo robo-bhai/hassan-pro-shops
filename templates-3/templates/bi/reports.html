@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}BI Reports{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-file-earmark-text text-primary"></i> BI Reports</h2>
+            <p class="text-muted">Generated business reports</p>
+        </div>
+        <div>
+            <a href="{% url 'bi_dashboard' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Format</th>
+                            <th>Schedule</th>
+                            <th>Last Run</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for report in reports %}
+                        <tr>
+                            <td>
+                                <span class="fw-bold">{{ report.name }}</span>
+                                <br>
+                                <small class="text-muted">{{ report.description|truncatechars:30 }}</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ report.get_report_type_display }}</span>
+                            </td>
+                            <td>
+                                <span class="badge bg-info">{{ report.get_format_display }}</span>
+                            </td>
+                            <td>{{ report.schedule|default:"Manual" }}</td>
+                            <td>{{ report.last_run|date:"d-m-Y H:i"|default:"Never" }}</td>
+                            <td>
+                                <span class="badge {% if report.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {% if report.is_active %}Active{% else %}Inactive{% endif %}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'bi_report_generate' report.id %}" class="btn btn-outline-success">
+                                        <i class="bi bi-play-circle"></i> Generate
+                                    </a>
+                                    <a href="#" class="btn btn-outline-info">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">
+                                <i class="bi bi-inbox fs-2 d-block"></i>
+                                <p>No reports configured</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

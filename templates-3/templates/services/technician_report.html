@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Technician Performance - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>👤 Technician Performance Report</h2>
+                <div>
+                    <a href="{% url 'service_report' %}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Reports
+                    </a>
+                    <button onclick="window.print()" class="btn btn-primary">
+                        <i class="bi bi-printer"></i> Print
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Date Filter -->
+            <div class="card mb-3">
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">From Date</label>
+                            <input type="date" name="from_date" class="form-control" value="{{ from_date }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">To Date</label>
+                            <input type="date" name="to_date" class="form-control" value="{{ to_date }}">
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">Apply Filter</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Summary Stats -->
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <div class="card text-white bg-primary">
+                        <div class="card-body">
+                            <h6 class="card-title">Total Technicians</h6>
+                            <h2 class="mb-0">{{ technician_data|length }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card text-white bg-success">
+                        <div class="card-body">
+                            <h6 class="card-title">Total Completed Jobs</h6>
+                            <h2 class="mb-0">
+                                {% with total=0 %}
+                                    {% for tech in technician_data %}
+                                        {% with total=total|add:tech.completed %}{% endwith %}
+                                    {% endfor %}
+                                    {{ total }}
+                                {% endwith %}
+                                {% if not technician_data %}0{% endif %}
+                            </h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card text-white bg-warning">
+                        <div class="card-body">
+                            <h6 class="card-title">Avg Completion Rate</h6>
+                            <h2 class="mb-0">
+                                {% if technician_data %}
+                                    {% with total_rate=0 %}
+                                        {% for tech in technician_data %}
+                                            {% with total_rate=total_rate|add:tech.completion_rate %}{% endwith %}
+                                        {% endfor %}
+                                        {{ total_rate|floatformat:0 }}%
+                                    {% endwith %}
+                                {% else %}
+                                    0%
+                                {% endif %}
+                            </h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Technician Performance Table -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Technician</th>
+                                    <th>Total Jobs</th>
+                                    <th>Completed</th>
+                                    <th>Scheduled</th>
+                                    <th>No Show</th>
+                                    <th>Cancelled</th>
+                                    <th>Completion Rate</th>
+                                    <th>Avg Rating</th>
+                                    <th>Timeliness</th>
+                                    <th>Quality</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for tech in technician_data %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>
+                                        <strong>{{ tech.technician.name }}</strong>
+                                        <br>
+                                        <small class="text-muted">{{ tech.technician.employee_id }}</small>
+                                    </td>
+                                    <td>{{ tech.total }}</td>
+                                    <td>
+                                        <span class="badge bg-success">{{ tech.completed }}</span>
+                                    </td>
+                                    <td>{{ tech.scheduled }}</td>
+                                    <td>
+                                        <span class="badge bg-warning text-dark">{{ tech.no_show }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-danger">{{ tech.cancelled }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="progress" style="height:25px; min-width:80px;">
+                                            <div class="progress-bar bg-{% if tech.completion_rate >= 80 %}success{% elif tech.completion_rate >= 50 %}warning{% else %}danger{% endif %}" 
+                                                 role="progressbar" 
+                                                 style="width: {{ tech.completion_rate }}%;" 
+                                                 aria-valuenow="{{ tech.completion_rate }}" 
+                                                 aria-valuemin="0" 
+                                                 aria-valuemax="100">
+                                                {{ tech.completion_rate|floatformat:0 }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if tech.avg_tech_rating > 0 %}
+                                        <span class="badge bg-warning text-dark">{{ tech.avg_tech_rating|floatformat:1 }} ★</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if tech.avg_timeliness > 0 %}
+                                        <span class="badge bg-info">{{ tech.avg_timeliness|floatformat:1 }} ★</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if tech.avg_quality > 0 %}
+                                        <span class="badge bg-success">{{ tech.avg_quality|floatformat:1 }} ★</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="11" class="text-center py-4">
+                                        <i class="bi bi-inbox" style="font-size:2rem;display:block;"></i>
+                                        <p class="text-muted">No technician data available for the selected period.</p>
+                                        <p class="text-muted">Try changing the date range or adding some service requests.</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Export Options -->
+                    <div class="d-flex justify-content-end gap-2 mt-3 no-print">
+                        <button onclick="window.print()" class="btn btn-outline-primary">
+                            <i class="bi bi-printer"></i> Print
+                        </button>
+                        <a href="?export=excel&from_date={{ from_date }}&to_date={{ to_date }}" class="btn btn-outline-success">
+                            <i class="bi bi-file-excel"></i> Export Excel
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    @media print {
+        .no-print {
+            display: none !important;
+        }
+        .btn, .card-header .btn, .form-control, .card-body .d-flex .btn {
+            display: none !important;
+        }
+        .card {
+            border: none !important;
+            box-shadow: none !important;
+        }
+        .card-body {
+            padding: 0 !important;
+        }
+        .no-print {
+            display: none !important;
+        }
+        .table {
+            font-size: 12px;
+        }
+        .progress {
+            background-color: #e9ecef !important;
+        }
+        .progress-bar {
+            color: #000 !important;
+        }
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add search functionality to table
+        const searchInput = document.querySelector('input[name="search"]');
+        if (searchInput) {
+            searchInput.addEventListener('keyup', function() {
+                const filter = this.value.toLowerCase();
+                const rows = document.querySelectorAll('tbody tr');
+                rows.forEach(row => {
+                    const text = row.textContent.toLowerCase();
+                    row.style.display = text.includes(filter) ? '' : 'none';
+                });
+            });
+        }
+    });
+</script>
+{% endblock %}

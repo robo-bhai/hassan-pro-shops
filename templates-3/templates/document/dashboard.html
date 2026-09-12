@@ -1,0 +1,248 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Document Management Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .doc-header {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        border-radius: 16px;
+        padding: 30px;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+    .doc-header::before {
+        content: '📋';
+        position: absolute;
+        font-size: 150px;
+        right: -30px;
+        bottom: -60px;
+        opacity: 0.1;
+    }
+    .stat-card-doc {
+        border: none;
+        border-radius: 12px;
+        padding: 20px;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    .stat-card-doc:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    .stat-card-doc .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        margin-bottom: 10px;
+    }
+    .stat-card-doc .stat-value {
+        font-size: 24px;
+        font-weight: 700;
+    }
+    .stat-card-doc .stat-label {
+        font-size: 12px;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .category-card {
+        border: none;
+        border-radius: 12px;
+        padding: 16px;
+        text-align: center;
+        transition: all 0.3s ease;
+        background: white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .category-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    .category-card .category-icon {
+        font-size: 32px;
+        display: block;
+        margin-bottom: 8px;
+    }
+    .category-card .category-name {
+        font-weight: 600;
+        font-size: 14px;
+    }
+    .category-card .category-count {
+        font-size: 12px;
+        color: #6c757d;
+    }
+    
+    .doc-item {
+        border-left: 3px solid #667eea;
+        padding: 10px 16px;
+        margin-bottom: 8px;
+        background: white;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .doc-item:hover {
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        transform: translateX(4px);
+    }
+    .doc-item .doc-title {
+        font-weight: 600;
+    }
+    .doc-item .doc-meta {
+        font-size: 12px;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <!-- ========================================== -->
+    <!-- HEADER                                     -->
+    <!-- ========================================== -->
+    <div class="doc-header mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2><i class="bi bi-folder text-primary me-2"></i> Document Management</h2>
+                <p style="opacity:0.8;">Centralized document storage and management</p>
+            </div>
+            <div>
+                <a href="{% url 'document_upload' %}" class="btn btn-light btn-sm">
+                    <i class="bi bi-upload"></i> Upload Document
+                </a>
+                <a href="{% url 'document_list' %}" class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-list"></i> All Documents
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- STATS CARDS                               -->
+    <!-- ========================================== -->
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card-doc" style="background: linear-gradient(135deg, #e3f2fd, #bbdefb);">
+                <div class="stat-icon" style="background: rgba(25,118,210,0.15); color: #1976d2;">
+                    <i class="bi bi-file-earmark"></i>
+                </div>
+                <div class="stat-value" style="color: #1976d2;">{{ total_documents }}</div>
+                <div class="stat-label">Total Documents</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card-doc" style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9);">
+                <div class="stat-icon" style="background: rgba(46,125,50,0.15); color: #2e7d32;">
+                    <i class="bi bi-check-circle"></i>
+                </div>
+                <div class="stat-value" style="color: #2e7d32;">{{ pending_approvals|default:0 }}</div>
+                <div class="stat-label">Pending Approvals</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card-doc" style="background: linear-gradient(135deg, #fff3e0, #ffe0b2);">
+                <div class="stat-icon" style="background: rgba(245,124,0,0.15); color: #f57c00;">
+                    <i class="bi bi-clock"></i>
+                </div>
+                <div class="stat-value" style="color: #f57c00;">{{ pending_approvals|default:0 }}</div>
+                <div class="stat-label">Needs Review</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card-doc" style="background: linear-gradient(135deg, #fce4ec, #f8bbd0);">
+                <div class="stat-icon" style="background: rgba(198,40,40,0.15); color: #c62828;">
+                    <i class="bi bi-archive"></i>
+                </div>
+                <div class="stat-value" style="color: #c62828;">{{ total_documents }}</div>
+                <div class="stat-label">Total Categories</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- CATEGORIES                                -->
+    <!-- ========================================== -->
+    <div class="row g-3 mb-4">
+        <div class="col-12">
+            <h6><i class="bi bi-tags text-primary"></i> Quick Categories</h6>
+        </div>
+        {% for category in categories|slice:":6" %}
+        <div class="col-md-2 col-4">
+            <div class="category-card">
+                <span class="category-icon">{{ category.icon|default:"📄" }}</span>
+                <div class="category-name">{{ category.name }}</div>
+                <div class="category-count">{{ category.documents.count }} docs</div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12 text-muted text-center py-3">
+            <i class="bi bi-inbox fs-2 d-block"></i>
+            <p>No categories created yet</p>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- RECENT DOCUMENTS                          -->
+    <!-- ========================================== -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h6 class="mb-0"><i class="bi bi-clock-history text-primary"></i> Recent Documents</h6>
+            <a href="{% url 'document_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+        </div>
+        <div class="card-body p-0">
+            {% for document in recent_documents %}
+            <div class="doc-item">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="doc-title">{{ document.title }}</span>
+                        <div class="doc-meta">
+                            <span>{{ document.category.name|default:"Uncategorized" }}</span>
+                            <span class="mx-2">•</span>
+                            <span>{{ document.uploaded_at|date:"d-m-Y H:i" }}</span>
+                            <span class="mx-2">•</span>
+                            <span>{{ document.get_file_size_display }}</span>
+                            <span class="mx-2">•</span>
+                            <span class="badge 
+                                {% if document.status == 'approved' %}bg-success
+                                {% elif document.status == 'pending' %}bg-warning
+                                {% elif document.status == 'rejected' %}bg-danger
+                                {% else %}bg-secondary{% endif %}">
+                                {{ document.get_status_display }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="btn-group btn-group-sm">
+                        <a href="{% url 'document_detail' document.id %}" class="btn btn-outline-info">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <a href="{% url 'document_download' document.id %}" class="btn btn-outline-success">
+                            <i class="bi bi-download"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-inbox fs-2 d-block"></i>
+                <p>No documents uploaded yet</p>
+                <a href="{% url 'document_upload' %}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-upload"></i> Upload First Document
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

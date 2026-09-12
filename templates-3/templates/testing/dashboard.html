@@ -1,0 +1,324 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Testing Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .test-header {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        border-radius: 16px;
+        padding: 30px;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+    .test-header::before {
+        content: '🧪';
+        position: absolute;
+        font-size: 150px;
+        right: -30px;
+        bottom: -60px;
+        opacity: 0.1;
+    }
+    .stat-card-test {
+        border: none;
+        border-radius: 12px;
+        padding: 20px;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    .stat-card-test:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    .stat-card-test .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        margin-bottom: 10px;
+    }
+    .stat-card-test .stat-value {
+        font-size: 24px;
+        font-weight: 700;
+    }
+    .stat-card-test .stat-label {
+        font-size: 12px;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .status-badge {
+        padding: 2px 12px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    .status-badge.passed { background: #d4edda; color: #155724; }
+    .status-badge.failed { background: #f8d7da; color: #721c24; }
+    .status-badge.blocked { background: #fff3cd; color: #856404; }
+    .status-badge.in_progress { background: #cce5ff; color: #004085; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <!-- ========================================== -->
+    <!-- HEADER                                     -->
+    <!-- ========================================== -->
+    <div class="test-header mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2><i class="bi bi-bug text-primary me-2"></i> Testing Dashboard</h2>
+                <p style="opacity:0.8;">Quality assurance and test management</p>
+            </div>
+            <div>
+                <a href="{% url 'test_project_create' %}" class="btn btn-light btn-sm">
+                    <i class="bi bi-plus-circle"></i> New Project
+                </a>
+                <a href="{% url 'bug_create' %}" class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-bug"></i> Report Bug
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- STATS CARDS                               -->
+    <!-- ========================================== -->
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card-test" style="background: linear-gradient(135deg, #e3f2fd, #bbdefb);">
+                <div class="stat-icon" style="background: rgba(25,118,210,0.15); color: #1976d2;">
+                    <i class="bi bi-folder"></i>
+                </div>
+                <div class="stat-value" style="color: #1976d2;">{{ total_projects }}</div>
+                <div class="stat-label">Test Projects</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card-test" style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9);">
+                <div class="stat-icon" style="background: rgba(46,125,50,0.15); color: #2e7d32;">
+                    <i class="bi bi-check-circle"></i>
+                </div>
+                <div class="stat-value" style="color: #2e7d32;">{{ passed }}</div>
+                <div class="stat-label">Passed Tests</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card-test" style="background: linear-gradient(135deg, #fce4ec, #f8bbd0);">
+                <div class="stat-icon" style="background: rgba(198,40,40,0.15); color: #c62828;">
+                    <i class="bi bi-x-circle"></i>
+                </div>
+                <div class="stat-value" style="color: #c62828;">{{ failed }}</div>
+                <div class="stat-label">Failed Tests</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card-test" style="background: linear-gradient(135deg, #fff3e0, #ffe0b2);">
+                <div class="stat-icon" style="background: rgba(245,124,0,0.15); color: #f57c00;">
+                    <i class="bi bi-bug"></i>
+                </div>
+                <div class="stat-value" style="color: #f57c00;">{{ total_bugs }}</div>
+                <div class="stat-label">Total Bugs</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- TEST STATUS BREAKDOWN                     -->
+    <!-- ========================================== -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-pie-chart text-primary"></i> Test Status</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <div class="d-flex justify-content-between">
+                                <span>✅ Passed</span>
+                                <span class="badge bg-success">{{ passed }}</span>
+                            </div>
+                            <div class="progress" style="height:6px;">
+                                <div class="progress-bar bg-success" style="width: {% widthratio passed total_tests 100 %}%;"></div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="d-flex justify-content-between">
+                                <span>❌ Failed</span>
+                                <span class="badge bg-danger">{{ failed }}</span>
+                            </div>
+                            <div class="progress" style="height:6px;">
+                                <div class="progress-bar bg-danger" style="width: {% widthratio failed total_tests 100 %}%;"></div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="d-flex justify-content-between">
+                                <span>🚫 Blocked</span>
+                                <span class="badge bg-warning">{{ blocked }}</span>
+                            </div>
+                            <div class="progress" style="height:6px;">
+                                <div class="progress-bar bg-warning" style="width: {% widthratio blocked total_tests 100 %}%;"></div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="d-flex justify-content-between">
+                                <span>⚙️ In Progress</span>
+                                <span class="badge bg-info">{{ in_progress }}</span>
+                            </div>
+                            <div class="progress" style="height:6px;">
+                                <div class="progress-bar bg-info" style="width: {% widthratio in_progress total_tests 100 %}%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-bug text-danger"></i> Bug Severity</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <div class="d-flex justify-content-between">
+                                <span>🔴 Critical</span>
+                                <span class="badge bg-danger">{{ critical_bugs }}</span>
+                            </div>
+                            <div class="progress" style="height:6px;">
+                                <div class="progress-bar bg-danger" style="width: {% widthratio critical_bugs total_bugs 100 %}%;"></div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="d-flex justify-content-between">
+                                <span>🟠 Major</span>
+                                <span class="badge bg-warning">{{ major_bugs }}</span>
+                            </div>
+                            <div class="progress" style="height:6px;">
+                                <div class="progress-bar bg-warning" style="width: {% widthratio major_bugs total_bugs 100 %}%;"></div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="d-flex justify-content-between">
+                                <span>🟡 Minor</span>
+                                <span class="badge bg-info">{{ minor_bugs }}</span>
+                            </div>
+                            <div class="progress" style="height:6px;">
+                                <div class="progress-bar bg-info" style="width: {% widthratio minor_bugs total_bugs 100 %}%;"></div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="d-flex justify-content-between">
+                                <span>🟢 Trivial</span>
+                                <span class="badge bg-secondary">{{ trivial_bugs }}</span>
+                            </div>
+                            <div class="progress" style="height:6px;">
+                                <div class="progress-bar bg-secondary" style="width: {% widthratio trivial_bugs total_bugs 100 %}%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <span class="badge bg-danger">{{ open_bugs }} Open Bugs</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- RECENT BUGS & EXECUTIONS                  -->
+    <!-- ========================================== -->
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-bug text-danger"></i> Recent Bugs</h6>
+                    <a href="{% url 'bug_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-unstyled mb-0">
+                        {% for bug in recent_bugs %}
+                        <li class="border-bottom px-3 py-2 d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="badge 
+                                    {% if bug.severity == 'critical' %}bg-danger
+                                    {% elif bug.severity == 'major' %}bg-warning
+                                    {% elif bug.severity == 'minor' %}bg-info
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ bug.get_severity_display }}
+                                </span>
+                                <span class="fw-bold">{{ bug.title|truncatechars:30 }}</span>
+                                <br>
+                                <small class="text-muted">{{ bug.reported_at|date:"d-m-Y H:i" }}</small>
+                            </div>
+                            <div>
+                                <span class="badge 
+                                    {% if bug.status == 'closed' %}bg-success
+                                    {% elif bug.status == 'fixed' %}bg-primary
+                                    {% elif bug.status == 'in_progress' %}bg-warning
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ bug.get_status_display }}
+                                </span>
+                            </div>
+                        </li>
+                        {% empty %}
+                        <li class="text-center py-4 text-muted">
+                            <i class="bi bi-check-circle fs-2 d-block text-success"></i>
+                            <p>No bugs reported! 🎉</p>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-clock-history text-primary"></i> Recent Executions</h6>
+                    <a href="{% url 'test_case_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-unstyled mb-0">
+                        {% for exec in recent_executions %}
+                        <li class="border-bottom px-3 py-2 d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="badge 
+                                    {% if exec.status == 'passed' %}bg-success
+                                    {% elif exec.status == 'failed' %}bg-danger
+                                    {% elif exec.status == 'blocked' %}bg-warning
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ exec.get_status_display }}
+                                </span>
+                                <span class="fw-bold">{{ exec.test_case.title|truncatechars:30 }}</span>
+                                <br>
+                                <small class="text-muted">{{ exec.started_at|date:"d-m-Y H:i" }}</small>
+                            </div>
+                            <div>
+                                <span class="badge bg-secondary">{{ exec.executed_by.username|default:"System" }}</span>
+                            </div>
+                        </li>
+                        {% empty %}
+                        <li class="text-center py-4 text-muted">
+                            <i class="bi bi-inbox fs-2 d-block"></i>
+                            <p>No test executions yet</p>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

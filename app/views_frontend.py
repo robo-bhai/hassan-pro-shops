@@ -13417,8 +13417,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 
 # Direct engine imports replacing external rclone/shell utilities
-from db_backup_manager import export_backup
-from res import execute_restore_from_bytes, get_latest_enc_file
+#from db_backup_manager import export_backup
+#from res import execute_restore_from_bytes, get_latest_enc_file
 
 
 @login_required
@@ -31663,3 +31663,1155 @@ def shareholder_cash_stats_api(request):
         
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})
+        
+@login_required
+def shareholder_cash_report_all_pdf(request):
+    """
+    Generate PDF report for ALL shareholders cash transactions
+    """
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    # Get filters
+    from_date = request.GET.get('from_date', (date.today() - timedelta(days=30)).strftime('%Y-%m-%d'))
+    to_date = request.GET.get('to_date', date.today().strftime('%Y-%m-%d'))
+    shareholder_id = request.GET.get('shareholder', '')
+    
+    try:
+        from_date_obj = datetime.strptime(from_date, '%Y-%m-%d').date()
+        to_date_obj = datetime.strptime(to_date, '%Y-%m-%d').date()
+    except:
+        from_date_obj = date.today() - timedelta(days=30)
+        to_date_obj = date.today()
+    
+    # Get shareholders
+    shareholders = Shareholder.objects.filter(status='active')
+    if shareholder_id:
+        shareholders = shareholders.filter(id=shareholder_id)
+    
+    # Build report data
+    report_data = []
+    total_deposits = Decimal('0.00')
+    total_withdrawals = Decimal('0.00')
+    total_balance = Decimal('0.00')
+    
+    for shareholder in shareholders:
+        transactions = ShareholderCashTransaction.objects.filter(
+            shareholder=shareholder,
+            created_at__date__gte=from_date_obj,
+            created_at__date__lte=to_date_obj
+        )
+        
+        deposits = transactions.filter(
+            transaction_type__in=['deposit', 'dividend', 'balance_dividend', 'transfer_in']
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        
+        withdrawals = transactions.filter(
+            transaction_type__in=['withdraw', 'share_purchase', 'transfer_out']
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        
+        balance = shareholder.get_balance()
+        
+        if deposits > 0 or withdrawals > 0 or balance > 0:
+            report_data.append({
+                'shareholder': shareholder,
+                'deposits': deposits,
+                'withdrawals': withdrawals,
+                'balance': balance,
+                'transaction_count': transactions.count(),
+                'latest_transaction': transactions.first(),
+            })
+            
+            total_deposits += deposits
+            total_withdrawals += withdrawals
+            total_balance += balance
+    
+    # Sort by balance (highest first)
+    report_data.sort(key=lambda x: x['balance'], reverse=True)
+    
+    # Generate PDF
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+    
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=landscape(A4),
+        topMargin=0.3*inch,
+        bottomMargin=0.3*inch,
+        leftMargin=0.3*inch,
+        rightMargin=0.3*inch
+    )
+    
+    styles = getSampleStyleSheet()
+    story = []
+    
+    company = CompanyInfo.objects.first()
+    company_name = company.name if company else "ERP SYSTEM"
+    
+    # Title Style
+    title_style = ParagraphStyle(
+        'Title', 
+        parent=styles['Heading1'], 
+        fontSize=16, 
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#1a1a2e'),
+        spaceAfter=5
+    )
+    
+    subtitle_style = ParagraphStyle(
+        'Subtitle',
+        parent=styles['Normal'],
+        fontSize=10,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#6b7280'),
+        spaceAfter=3
+    )
+    
+    # ==========================================
+    # HEADER
+    # ==========================================
+    story.append(Paragraph(company_name, title_style))
+    story.append(Paragraph("Shareholder Deposit Withdraw Report ", title_style))
+    story.append(Paragraph(f"Period: {from_date} to {to_date}", subtitle_style))
+    story.append(Paragraph(f"Generated: {now().strftime('%d-%m-%Y %H:%M')}", subtitle_style))
+    story.append(Spacer(1, 0.2*inch))
+    
+    # ==========================================
+    # SUMMARY SECTION
+    # ==========================================
+    summary_data = [
+        ['Metric', 'Value'],
+        ['Total Shareholders', str(len(report_data))],
+        ['Total Deposits', f"Rs. {total_deposits:,.2f}"],
+        ['Total Withdrawals', f"Rs. {total_withdrawals:,.2f}"],
+        ['Net Cash Flow', f"Rs. {total_deposits - total_withdrawals:,.2f}"],
+        ['Total Balance', f"Rs. {total_balance:,.2f}"],
+    ]
+    
+    summary_table = Table(summary_data, colWidths=[2.5*inch, 2.5*inch])
+    summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a1d2e')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fc')]),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (1, 1), (1, -1), 'RIGHT'),
+    ]))
+    story.append(summary_table)
+    story.append(Spacer(1, 0.2*inch))
+    
+    # ==========================================
+    # MAIN TABLE
+    # ==========================================
+    story.append(Paragraph("<b>Shareholder Summary</b>", styles['Heading3']))
+    story.append(Spacer(1, 0.1*inch))
+    
+    data = [
+        ['#', 'Shareholder', 'Code', 'Deposits', 'Withdrawals', 'Net', 'Balance', 'Transactions']
+    ]
+    
+    for idx, item in enumerate(report_data, 1):
+        net = item['deposits'] - item['withdrawals']
+        data.append([
+            str(idx),
+            item['shareholder'].name[:25],
+            item['shareholder'].shareholder_code,
+            f"Rs. {item['deposits']:,.2f}",
+            f"Rs. {item['withdrawals']:,.2f}",
+            f"Rs. {net:,.2f}",
+            f"Rs. {item['balance']:,.2f}",
+            str(item['transaction_count'])
+        ])
+    
+    # Add total row
+    data.append([
+        '', '', 'TOTAL',
+        f"Rs. {total_deposits:,.2f}",
+        f"Rs. {total_withdrawals:,.2f}",
+        f"Rs. {total_deposits - total_withdrawals:,.2f}",
+        f"Rs. {total_balance:,.2f}",
+        str(sum(item['transaction_count'] for item in report_data))
+    ])
+    
+    table = Table(data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a1d2e')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('FONTSIZE', (0, 1), (-1, -2), 7),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#f8f9fc')]),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e8ecf4')),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('ALIGN', (3, 0), (7, -1), 'RIGHT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    
+    story.append(table)
+    story.append(Spacer(1, 0.2*inch))
+    
+    # ==========================================
+    # FOOTER
+    # ==========================================
+    story.append(Paragraph(
+        f"Generated: {now().strftime('%d-%m-%Y %H:%M')}",
+        ParagraphStyle('Footer', parent=styles['Normal'], fontSize=8, alignment=TA_CENTER)
+    ))
+    story.append(Paragraph(
+        "This is a computer generated report.",
+        ParagraphStyle('Footer2', parent=styles['Normal'], fontSize=8, alignment=TA_CENTER)
+    ))
+    
+    # Build document
+    doc.build(story)
+    buffer.seek(0)
+    
+    response = HttpResponse(buffer, content_type='application/pdf')
+    filename = f"Shareholder_Cash_Report_{date.today().strftime('%Y%m%d')}.pdf"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+    
+# views_frontend.py
+
+# ============================================
+# MONTHLY PURCHASE PLANNER VIEWS
+# ============================================
+
+from django.db.models import Sum, Q, Count, Avg
+from datetime import datetime, timedelta, date
+from decimal import Decimal
+from django.core.paginator import Paginator
+from django.http import JsonResponse
+import json
+
+
+@login_required
+def monthly_purchase_planner(request):
+    """
+    Monthly Purchase & Investor Planner with Inventory Integration
+    Allows planning for any month with version tracking
+    """
+    
+    # ========================================== #
+    # ✅ PERMISSION CHECK                        #
+    # ========================================== #
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied! Only admins can access this page.')
+        return redirect('dashboard')
+    
+    # ========================================== #
+    # ✅ GET SELECTED MONTH                      #
+    # ========================================== #
+    month_str = request.GET.get('month', date.today().strftime('%Y-%m'))
+    
+    try:
+        selected_month = datetime.strptime(month_str + '-01', '%Y-%m-%d').date()
+    except:
+        selected_month = date.today().replace(day=1)
+        month_str = selected_month.strftime('%Y-%m')
+    
+    # ========================================== #
+    # ✅ GET PLANS FOR SELECTED MONTH            #
+    # ========================================== #
+    plans_this_month = MonthlyPurchasePlan.objects.filter(
+        month=selected_month
+    ).order_by('-version')
+    
+    latest_plan = plans_this_month.filter(is_latest=True).first()
+    
+    # ========================================== #
+    # ✅ GET WAREHOUSES                          #
+    # ========================================== #
+    warehouses = Warehouse.objects.all()
+    
+    # ========================================== #
+    # ✅ POST REQUEST HANDLING                   #
+    # ========================================== #
+    if request.method == 'POST':
+        try:
+            # ========================================== #
+            # SAFE CONVERSION FUNCTIONS                  #
+            # ========================================== #
+            def safe_decimal(value, default='0.00'):
+                """Safely convert value to Decimal"""
+                try:
+                    if not value or str(value).strip() == '':
+                        return Decimal(default)
+                    cleaned = str(value).replace(',', '').replace(' ', '').replace('Rs.', '').replace('$', '').strip()
+                    if cleaned == '':
+                        return Decimal(default)
+                    return Decimal(cleaned)
+                except:
+                    return Decimal(default)
+            
+            def safe_int(value, default=0):
+                """Safely convert value to Integer"""
+                try:
+                    if not value or str(value).strip() == '':
+                        return default
+                    return int(float(str(value).replace(',', '').replace(' ', '').strip()))
+                except:
+                    return default
+            
+            def safe_float(value, default=0.0):
+                """Safely convert value to Float"""
+                try:
+                    if not value or str(value).strip() == '':
+                        return default
+                    return float(value)
+                except:
+                    return default
+            
+            # ========================================== #
+            # ✅ GET FORM DATA                           #
+            # ========================================== #
+            product_id = request.POST.get('product') or None
+            warehouse_id = request.POST.get('warehouse') or None
+            purchase_quantity = safe_int(request.POST.get('purchase_quantity', 0))
+            purchase_price = safe_decimal(request.POST.get('purchase_price_per_unit', 0))
+            expected_sales_quantity = safe_int(request.POST.get('expected_sales_quantity', 0))
+            expected_sales_amount = safe_decimal(request.POST.get('expected_sales_amount', 0))
+            notes = request.POST.get('notes', '')
+            action = request.POST.get('action', 'save')
+            
+            # ========================================== #
+            # ✅ VALIDATION                              #
+            # ========================================== #
+            if not product_id:
+                messages.error(request, '❌ Please select a product!')
+                return redirect(f'/monthly-planner/?month={month_str}')
+            
+            if not warehouse_id:
+                messages.error(request, '❌ Please select a warehouse!')
+                return redirect(f'/monthly-planner/?month={month_str}')
+            
+            if purchase_quantity <= 0:
+                messages.error(request, '❌ Purchase quantity must be greater than zero!')
+                return redirect(f'/monthly-planner/?month={month_str}')
+            
+            if purchase_price <= 0:
+                messages.error(request, '❌ Purchase price must be greater than zero!')
+                return redirect(f'/monthly-planner/?month={month_str}')
+            
+            # ========================================== #
+            # ✅ CALCULATE EXISTING INVESTMENT           #
+            # ========================================== #
+            existing_investment = Decimal('0.00')
+            for sh in Shareholder.objects.filter(status='active'):
+                balance = sh.get_balance()
+                if balance:
+                    existing_investment += Decimal(str(balance))
+            
+            current_investors = Shareholder.objects.filter(status='active').count()
+            
+            # ========================================== #
+            # ✅ GET INVENTORY DATA                      #
+            # ========================================== #
+            current_stock = 0
+            available_stock = 0
+            reserved_stock = 0
+            
+            if product_id and warehouse_id:
+                inventory = Inventory.objects.filter(
+                    product_id=product_id,
+                    warehouse_id=warehouse_id
+                ).first()
+                if inventory:
+                    current_stock = safe_float(inventory.stock)
+                    reserved_stock = safe_float(inventory.reserved_stock)
+                    available_stock = current_stock - reserved_stock
+            
+            # ========================================== #
+            # ✅ ACTION: CREATE NEW VERSION              #
+            # ========================================== #
+            if action == 'create_new':
+                # Mark all existing as not latest
+                plans_this_month.update(is_latest=False)
+                
+                # Get next version number
+                last_plan = plans_this_month.first()
+                new_version = (last_plan.version + 1) if last_plan else 1
+                
+                # Create new plan
+                plan = MonthlyPurchasePlan.objects.create(
+                    month=selected_month,
+                    version=new_version,
+                    is_latest=True,
+                    previous_plan=latest_plan,
+                    product_id=product_id,
+                    warehouse_id=warehouse_id,
+                    purchase_quantity=purchase_quantity,
+                    purchase_price_per_unit=purchase_price,
+                    expected_sales_quantity=expected_sales_quantity,
+                    expected_sales_amount=expected_sales_amount,
+                    current_stock=current_stock,
+                    reserved_stock=reserved_stock,
+                    available_stock=available_stock,
+                    existing_investment=existing_investment,
+                    current_investors=current_investors,
+                    notes=notes,
+                    created_by=request.user,
+                    status='draft'
+                )
+                
+                # Create history
+                MonthlyPlanHistory.objects.create(
+                    plan=plan,
+                    action='created',
+                    performed_by=request.user,
+                    notes=f'New version v{new_version} created'
+                )
+                
+                messages.success(
+                    request, 
+                    f'✅ New Plan v{new_version} created for {selected_month.strftime("%B %Y")}!'
+                )
+                
+            # ========================================== #
+            # ✅ ACTION: SAVE / UPDATE EXISTING          #
+            # ========================================== #
+            else:
+                if latest_plan:
+                    # Update existing plan
+                    old_version = latest_plan.version
+                    
+                    latest_plan.product_id = product_id
+                    latest_plan.warehouse_id = warehouse_id
+                    latest_plan.purchase_quantity = purchase_quantity
+                    latest_plan.purchase_price_per_unit = purchase_price
+                    latest_plan.expected_sales_quantity = expected_sales_quantity
+                    latest_plan.expected_sales_amount = expected_sales_amount
+                    latest_plan.current_stock = current_stock
+                    latest_plan.reserved_stock = reserved_stock
+                    latest_plan.available_stock = available_stock
+                    latest_plan.existing_investment = existing_investment
+                    latest_plan.current_investors = current_investors
+                    latest_plan.notes = notes
+                    latest_plan.save()
+                    
+                    # Create history
+                    MonthlyPlanHistory.objects.create(
+                        plan=latest_plan,
+                        action='updated',
+                        performed_by=request.user,
+                        notes=f'Plan v{old_version} updated'
+                    )
+                    
+                    messages.success(
+                        request, 
+                        f'✅ Plan v{old_version} updated for {selected_month.strftime("%B %Y")}!'
+                    )
+                else:
+                    # Create first plan
+                    plan = MonthlyPurchasePlan.objects.create(
+                        month=selected_month,
+                        version=1,
+                        is_latest=True,
+                        product_id=product_id,
+                        warehouse_id=warehouse_id,
+                        purchase_quantity=purchase_quantity,
+                        purchase_price_per_unit=purchase_price,
+                        expected_sales_quantity=expected_sales_quantity,
+                        expected_sales_amount=expected_sales_amount,
+                        current_stock=current_stock,
+                        reserved_stock=reserved_stock,
+                        available_stock=available_stock,
+                        existing_investment=existing_investment,
+                        current_investors=current_investors,
+                        notes=notes,
+                        created_by=request.user,
+                        status='draft'
+                    )
+                    
+                    # Create history
+                    MonthlyPlanHistory.objects.create(
+                        plan=plan,
+                        action='created',
+                        performed_by=request.user,
+                        notes='First plan created'
+                    )
+                    
+                    messages.success(
+                        request, 
+                        f'✅ Plan v1 created for {selected_month.strftime("%B %Y")}!'
+                    )
+            
+            return redirect(f'/monthly-planner/?month={month_str}')
+            
+        except Exception as e:
+            messages.error(request, f'❌ Error: {str(e)}')
+            import traceback
+            traceback.print_exc()
+            return redirect(f'/monthly-planner/?month={month_str}')
+    
+    # ========================================== #
+    # ✅ GET ALL PLANS FOR HISTORY               #
+    # ========================================== #
+    all_plans = MonthlyPurchasePlan.objects.all().order_by('-month', '-version')
+    
+    status_filter = request.GET.get('status', '')
+    if status_filter:
+        all_plans = all_plans.filter(status=status_filter)
+    
+    paginator = Paginator(all_plans, 12)
+    page = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page)
+    
+    # ========================================== #
+    # ✅ GET PRODUCTS                            #
+    # ========================================== #
+    products = Product.objects.filter(is_active=True)
+    
+    # ========================================== #
+    # ✅ CALCULATE STATS                         #
+    # ========================================== #
+    total_balance = Decimal('0.00')
+    for sh in Shareholder.objects.filter(status='active'):
+        balance = sh.get_balance()
+        if balance:
+            total_balance += Decimal(str(balance))
+    
+    total_plans = MonthlyPurchasePlan.objects.count()
+    completed_plans = MonthlyPurchasePlan.objects.filter(status='completed').count()
+    pending_plans = MonthlyPurchasePlan.objects.filter(status__in=['draft', 'approved', 'in_progress']).count()
+    
+    # ========================================== #
+    # ✅ CONTEXT                                 #
+    # ========================================== #
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'latest_plan': latest_plan,
+        'plans_this_month': plans_this_month,
+        'selected_month': selected_month,
+        'month_str': month_str,
+        'plans': page_obj,
+        'page_obj': page_obj,
+        'products': products,
+        'warehouses': warehouses,
+        'today': date.today(),
+        'total_balance': total_balance,
+        'total_investors': Shareholder.objects.filter(status='active').count(),
+        'available_cash': CashBalance.get_balance(),
+        'total_plans': total_plans,
+        'completed_plans': completed_plans,
+        'pending_plans': pending_plans,
+        'status_filter': status_filter,
+        'status_choices': MonthlyPurchasePlan.STATUS_CHOICES,
+    }
+    return render(request, 'shareholders/monthly_purchase_planner.html', context)
+
+@login_required
+def check_stock_for_plan(request):
+    """AJAX: Check stock for a plan"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        return JsonResponse({'success': False, 'message': 'Access denied!'})
+    
+    try:
+        product_id = request.GET.get('product_id')
+        warehouse_id = request.GET.get('warehouse_id')
+        required_qty = float(request.GET.get('required_qty', 0))
+        
+        if not product_id or not warehouse_id:
+            return JsonResponse({'success': False, 'message': 'Product and Warehouse required!'})
+        
+        # Get inventory
+        inventory = Inventory.objects.filter(
+            product_id=product_id,
+            warehouse_id=warehouse_id
+        ).first()
+        
+        if inventory:
+            current_stock = inventory.stock
+            reserved_stock = inventory.reserved_stock
+            available_stock = inventory.stock - inventory.reserved_stock
+        else:
+            current_stock = 0
+            reserved_stock = 0
+            available_stock = 0
+        
+        # Calculate requirements
+        stock_to_purchase = max(0, required_qty - available_stock)
+        stock_after_purchase = available_stock + stock_to_purchase
+        
+        # Determine status
+        if available_stock <= 0:
+            status = 'out_of_stock'
+            status_text = '❌ Out of Stock'
+            status_color = 'danger'
+        elif available_stock < (required_qty * 0.25):
+            status = 'critical'
+            status_text = '🔴 Critical'
+            status_color = 'danger'
+        elif available_stock < required_qty:
+            status = 'low'
+            status_text = '⚠️ Low Stock'
+            status_color = 'warning'
+        else:
+            status = 'sufficient'
+            status_text = '✅ Sufficient'
+            status_color = 'success'
+        
+        return JsonResponse({
+            'success': True,
+            'current_stock': current_stock,
+            'reserved_stock': reserved_stock,
+            'available_stock': available_stock,
+            'required_qty': required_qty,
+            'stock_to_purchase': stock_to_purchase,
+            'stock_after_purchase': stock_after_purchase,
+            'status': status,
+            'status_text': status_text,
+            'status_color': status_color,
+            'message': f'Available: {available_stock:.2f} | Required: {required_qty:.2f} | Purchase: {stock_to_purchase:.2f}'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+        
+@login_required
+def generate_purchase_order_from_plan(request, pk):
+    """Generate Purchase Order from Monthly Plan"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    plan = get_object_or_404(MonthlyPurchasePlan, pk=pk)
+    
+    # ✅ Check if plan is approved
+    if plan.status not in ['approved', 'in_progress']:
+        messages.error(request, '❌ Plan must be approved first!')
+        return redirect('monthly_plan_detail', pk=pk)
+    
+    # ✅ Check if PO already exists
+    if plan.purchase_order:
+        messages.warning(request, f'⚠️ Purchase Order already exists: {plan.purchase_order.order_no}')
+        return redirect('monthly_plan_detail', pk=pk)
+    
+    # ✅ Check if stock is sufficient
+    if plan.stock_to_purchase <= 0:
+        messages.info(request, '✅ Stock is sufficient! No purchase needed.')
+        return redirect('monthly_plan_detail', pk=pk)
+    
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                # Create Purchase Order
+                po = PurchaseOrder.objects.create(
+                    vendor_id=request.POST.get('vendor') or None,
+                    warehouse=plan.warehouse,
+                    order_date=now(),
+                    status='pending',
+                    notes=f"Auto-generated from Monthly Plan {plan.plan_no}",
+                    created_by=request.user
+                )
+                
+                # Add item
+                PurchaseOrderItem.objects.create(
+                    order=po,
+                    product=plan.product,
+                    qty=plan.stock_to_purchase,
+                    price=plan.purchase_price_per_unit
+                )
+                
+                # Link PO to plan
+                plan.purchase_order = po
+                plan.save()
+                
+                messages.success(request, f'✅ Purchase Order {po.order_no} generated!')
+                return redirect('purchase_order_detail', pk=po.pk)
+                
+        except Exception as e:
+            messages.error(request, f'❌ Error: {str(e)}')
+            return redirect('monthly_plan_detail', pk=pk)
+    
+    # GET request - show form
+    vendors = Vendor.objects.all()
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'plan': plan,
+        'vendors': vendors,
+    }
+    return render(request, 'shareholders/generate_po_from_plan.html', context)
+
+@login_required
+def monthly_plan_detail(request, pk):
+    """View complete plan details with history"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    plan = get_object_or_404(MonthlyPurchasePlan, pk=pk)
+    history = plan.history.all().order_by('-performed_at')
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'plan': plan,
+        'history': history,
+    }
+    return render(request, 'shareholders/monthly_plan_detail.html', context)
+
+
+@login_required
+def monthly_plan_approve(request, pk):
+    """Approve monthly plan"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    plan = get_object_or_404(MonthlyPurchasePlan, pk=pk)
+    
+    if plan.status != 'draft':
+        messages.warning(request, '⚠️ Only draft plans can be approved!')
+        return redirect('monthly_plan_detail', pk=pk)
+    
+    plan.approve(request.user)
+    
+    # Create history
+    MonthlyPlanHistory.objects.create(
+        plan=plan,
+        action='approved',
+        performed_by=request.user,
+        notes='Plan approved'
+    )
+    
+    messages.success(request, f'✅ Plan #{plan.plan_no} approved!')
+    return redirect('monthly_plan_detail', pk=pk)
+
+
+@login_required
+def monthly_plan_complete(request, pk):
+    """Mark plan as completed with actual data"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    plan = get_object_or_404(MonthlyPurchasePlan, pk=pk)
+    
+    # ✅ Check if plan is already completed
+    if plan.status == 'completed':
+        messages.info(request, f'✅ Plan #{plan.plan_no} is already completed!')
+        return redirect('monthly_plan_detail', pk=pk)
+    
+    # ✅ Check if plan is cancelled
+    if plan.status == 'cancelled':
+        messages.error(request, '❌ Cannot complete a cancelled plan!')
+        return redirect('monthly_plan_detail', pk=pk)
+    
+    if request.method == 'POST':
+        try:
+            # ✅ SAFE DECIMAL CONVERSION
+            def safe_decimal(value, default='0.00'):
+                try:
+                    if not value or str(value).strip() == '':
+                        return Decimal(default)
+                    cleaned = str(value).replace(',', '').replace(' ', '').replace('Rs.', '').replace('$', '').strip()
+                    if cleaned == '':
+                        return Decimal(default)
+                    return Decimal(cleaned)
+                except:
+                    return Decimal(default)
+            
+            def safe_int(value, default=0):
+                try:
+                    if not value or str(value).strip() == '':
+                        return default
+                    return int(float(str(value).replace(',', '').replace(' ', '').strip()))
+                except:
+                    return default
+            
+            # Get actual data with safe conversion
+            plan.actual_purchase_quantity = safe_int(request.POST.get('actual_purchase_quantity', 0))
+            plan.actual_purchase_amount = safe_decimal(request.POST.get('actual_purchase_amount', 0))
+            plan.actual_sales_quantity = safe_int(request.POST.get('actual_sales_quantity', 0))
+            plan.actual_sales_amount = safe_decimal(request.POST.get('actual_sales_amount', 0))
+            plan.actual_profit = safe_decimal(request.POST.get('actual_profit', 0))
+            plan.achievements = request.POST.get('achievements', '')
+            plan.challenges = request.POST.get('challenges', '')
+            plan.lessons_learned = request.POST.get('lessons_learned', '')
+            
+            # Mark complete
+            plan.complete(request.user)
+            
+            # Create history
+            MonthlyPlanHistory.objects.create(
+                plan=plan,
+                action='completed',
+                performed_by=request.user,
+                notes=f'Achievement: {plan.achievement_percentage:.1f}%'
+            )
+            
+            messages.success(
+                request, 
+                f'✅ Plan #{plan.plan_no} completed! Achievement: {plan.achievement_percentage:.1f}%'
+            )
+            
+            # ✅ Redirect to detail page (NOT complete page)
+            return redirect('monthly_plan_detail', pk=pk)
+            
+        except Exception as e:
+            messages.error(request, f'❌ Error: {str(e)}')
+            return redirect('monthly_plan_detail', pk=pk)
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'plan': plan,
+    }
+    return render(request, 'shareholders/monthly_plan_complete.html', context)
+
+
+@login_required
+def monthly_plan_cancel(request, pk):
+    """Cancel monthly plan"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    plan = get_object_or_404(MonthlyPurchasePlan, pk=pk)
+    
+    if request.method == 'POST':
+        reason = request.POST.get('reason', '')
+        plan.status = 'cancelled'
+        plan.notes = f"{plan.notes}\nCancelled: {reason}".strip()
+        plan.save()
+        
+        # Create history
+        MonthlyPlanHistory.objects.create(
+            plan=plan,
+            action='cancelled',
+            performed_by=request.user,
+            notes=f'Reason: {reason}'
+        )
+        
+        messages.success(request, f'❌ Plan #{plan.plan_no} cancelled!')
+        return redirect('monthly_purchase_planner')
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'plan': plan,
+    }
+    return render(request, 'shareholders/monthly_plan_cancel.html', context)
+
+
+@login_required
+def monthly_plan_report_pdf(request):
+    """Generate PDF report for all monthly plans"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.lib.enums import TA_CENTER
+    from io import BytesIO
+    
+    plans = MonthlyPurchasePlan.objects.all().order_by('-month')
+    
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4))
+    styles = getSampleStyleSheet()
+    story = []
+    
+    company = CompanyInfo.objects.first()
+    company_name = company.name if company else "ERP SYSTEM"
+    
+    # Title
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=16, alignment=TA_CENTER)
+    story.append(Paragraph(company_name, title_style))
+    story.append(Paragraph("Monthly Purchase Plans Report", title_style))
+    story.append(Spacer(1, 0.2*inch))
+    
+    # Table
+    data = [['Month', 'Plan No', 'Product', 'Planned Qty', 'Actual Qty', 'Planned Amount', 'Actual Amount', 'Achievement %', 'Status']]
+    
+    for plan in plans:
+        data.append([
+            plan.month.strftime('%b %Y'),
+            plan.plan_no,
+            plan.product_name or '-',
+            str(plan.purchase_quantity),
+            str(plan.actual_purchase_quantity),
+            f"Rs. {plan.total_purchase_amount:,.0f}",
+            f"Rs. {plan.actual_purchase_amount:,.0f}",
+            f"{plan.achievement_percentage:.1f}%",
+            plan.get_status_display()
+        ])
+    
+    table = Table(data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a1d2e')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('FONTSIZE', (0, 1), (-1, -1), 7),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fc')]),
+    ]))
+    
+    story.append(table)
+    doc.build(story)
+    buffer.seek(0)
+    
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="Monthly_Plans_Report.pdf"'
+    return response
+    
+# views_frontend.py
+
+from django.http import JsonResponse
+from decimal import Decimal
+
+@login_required
+def investor_requirement_api(request):
+    """AJAX: Calculate investor requirements based on purchase plan"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        return JsonResponse({'success': False, 'message': 'Access denied!'})
+    
+    try:
+        purchase_quantity = int(request.GET.get('purchase_quantity', 0))
+        purchase_price = Decimal(request.GET.get('purchase_price', 0))
+        
+        # Total purchase amount
+        total_purchase = Decimal(str(purchase_quantity)) * purchase_price
+        
+        # Existing investment
+        existing_investment = Decimal('0.00')
+        for sh in Shareholder.objects.filter(status='active'):
+            existing_investment += sh.get_balance()
+        
+        current_investors = Shareholder.objects.filter(status='active').count()
+        
+        # Additional needed
+        additional_needed = max(Decimal('0.00'), total_purchase - existing_investment)
+        
+        # Required investors (average Rs. 10,000)
+        avg_investment = Decimal('10000')
+        required_investors = int(total_purchase / avg_investment) if avg_investment > 0 else 0
+        additional_investors = max(0, required_investors - current_investors)
+        
+        return JsonResponse({
+            'success': True,
+            'total_purchase': float(total_purchase),
+            'existing_investment': float(existing_investment),
+            'additional_needed': float(additional_needed),
+            'current_investors': current_investors,
+            'required_investors': required_investors,
+            'additional_investors': additional_investors,
+            'message': f'You need {additional_investors} more investors or Rs. {additional_needed:,.2f} more investment'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+        
+@login_required
+def monthly_plan_edit(request, pk):
+    """Edit Monthly Purchase Plan with Inventory"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    plan = get_object_or_404(MonthlyPurchasePlan, pk=pk)
+    
+    # ✅ Restrictions
+    if plan.status == 'completed':
+        messages.error(request, '❌ Cannot edit a completed plan!')
+        return redirect('monthly_plan_detail', pk=pk)
+    
+    if plan.status == 'cancelled':
+        messages.error(request, '❌ Cannot edit a cancelled plan!')
+        return redirect('monthly_plan_detail', pk=pk)
+    
+    if not plan.is_latest:
+        messages.error(request, '❌ Cannot edit an old version!')
+        return redirect('monthly_plan_detail', pk=pk)
+    
+    if request.method == 'POST':
+        try:
+            # Safe conversion functions
+            def safe_decimal(value, default='0.00'):
+                try:
+                    if not value or str(value).strip() == '':
+                        return Decimal(default)
+                    cleaned = str(value).replace(',', '').replace(' ', '').replace('Rs.', '').replace('$', '').strip()
+                    if cleaned == '':
+                        return Decimal(default)
+                    return Decimal(cleaned)
+                except:
+                    return Decimal(default)
+            
+            def safe_int(value, default=0):
+                try:
+                    if not value or str(value).strip() == '':
+                        return default
+                    return int(float(str(value).replace(',', '').replace(' ', '').strip()))
+                except:
+                    return default
+            
+            # Get form data
+            product_id = request.POST.get('product') or None
+            warehouse_id = request.POST.get('warehouse') or None
+            purchase_quantity = safe_int(request.POST.get('purchase_quantity', 0))
+            purchase_price = safe_decimal(request.POST.get('purchase_price_per_unit', 0))
+            expected_sales_quantity = safe_int(request.POST.get('expected_sales_quantity', 0))
+            expected_sales_amount = safe_decimal(request.POST.get('expected_sales_amount', 0))
+            notes = request.POST.get('notes', '')
+            
+            # Validation
+            if not product_id or not warehouse_id:
+                messages.error(request, '❌ Product and Warehouse required!')
+                return redirect('monthly_plan_edit', pk=pk)
+            
+            # Get inventory data
+            current_stock = 0
+            available_stock = 0
+            reserved_stock = 0
+            
+            if product_id and warehouse_id:
+                inventory = Inventory.objects.filter(
+                    product_id=product_id,
+                    warehouse_id=warehouse_id
+                ).first()
+                if inventory:
+                    current_stock = inventory.stock
+                    reserved_stock = inventory.reserved_stock
+                    available_stock = inventory.stock - inventory.reserved_stock
+            
+            # Update plan
+            plan.product_id = product_id
+            plan.warehouse_id = warehouse_id
+            plan.purchase_quantity = purchase_quantity
+            plan.purchase_price_per_unit = purchase_price
+            plan.expected_sales_quantity = expected_sales_quantity
+            plan.expected_sales_amount = expected_sales_amount
+            plan.current_stock = current_stock
+            plan.reserved_stock = reserved_stock
+            plan.available_stock = available_stock
+            plan.notes = notes
+            plan.save()
+            
+            messages.success(request, f'✅ Plan updated!')
+            return redirect('monthly_plan_detail', pk=pk)
+            
+        except Exception as e:
+            messages.error(request, f'❌ Error: {str(e)}')
+            return redirect('monthly_plan_edit', pk=pk)
+    
+    # GET request
+    products = Product.objects.filter(is_active=True)
+    warehouses = Warehouse.objects.all()
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'plan': plan,
+        'products': products,
+        'warehouses': warehouses,
+    }
+    return render(request, 'shareholders/monthly_plan_edit.html', context)
+
+
+@login_required
+def monthly_plan_delete(request, pk):
+    """
+    Delete Monthly Purchase Plan with Complete Restrictions
+    """
+    
+    # ========================================== #
+    # ✅ RESTRICTION 1: SUPERUSER ONLY          #
+    # ========================================== #
+    if not request.user.is_superuser:
+        messages.error(request, '❌ Access denied! Only superuser can delete plans.')
+        return redirect('monthly_plan_detail', pk=pk)
+    
+    plan = get_object_or_404(MonthlyPurchasePlan, pk=pk)
+    
+    # ========================================== #
+    # ✅ RESTRICTION 2: STATUS CHECK            #
+    # ========================================== #
+    if plan.status == 'completed':
+        messages.error(request, '❌ Cannot delete a completed plan!')
+        return redirect('monthly_plan_detail', pk=pk)
+    
+    if plan.status == 'approved':
+        messages.error(request, '❌ Cannot delete an approved plan! Cancel it first.')
+        return redirect('monthly_plan_detail', pk=pk)
+    
+    if plan.status == 'in_progress':
+        messages.error(request, '❌ Cannot delete a plan in progress! Cancel it first.')
+        return redirect('monthly_plan_detail', pk=pk)
+    
+    # ========================================== #
+    # ✅ RESTRICTION 3: TRANSACTION CHECK       #
+    # ========================================== #
+    # Agar koi purchase/sale linked hai toh delete na karo
+    # Example:
+    # if plan.actual_purchase_quantity > 0 or plan.actual_sales_quantity > 0:
+    #     messages.error(request, '❌ Cannot delete! Actual transactions exist for this plan.')
+    #     return redirect('monthly_plan_detail', pk=pk)
+    
+    # ========================================== #
+    # ✅ RESTRICTION 4: TIME LIMIT CHECK        #
+    # ========================================== #
+    from django.utils.timezone import now
+    days_since_creation = (now().date() - plan.created_at.date()).days
+    
+    if days_since_creation > 30:
+        messages.error(request, f'❌ Cannot delete! Plan is older than 30 days ({days_since_creation} days).')
+        return redirect('monthly_plan_detail', pk=pk)
+    
+    # ========================================== #
+    # DELETE CONFIRMATION                       #
+    # ========================================== #
+    if request.method == 'POST':
+        plan_no = plan.plan_no
+        month = plan.month
+        
+        # If this was the latest plan, mark previous as latest
+        if plan.is_latest:
+            previous = MonthlyPurchasePlan.objects.filter(
+                month=month
+            ).exclude(pk=pk).order_by('-version').first()
+            if previous:
+                previous.is_latest = True
+                previous.save()
+        
+        # Create history before delete
+        MonthlyPlanHistory.objects.create(
+            plan=plan,
+            action='cancelled',
+            performed_by=request.user,
+            notes=f'Plan deleted by {request.user.username}'
+        )
+        
+        plan.delete()
+        messages.success(request, f'🗑️ Plan #{plan_no} deleted successfully!')
+        return redirect('monthly_purchase_planner')
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'plan': plan,
+        'days_since_creation': days_since_creation,
+    }
+    return render(request, 'shareholders/monthly_plan_delete.html', context)

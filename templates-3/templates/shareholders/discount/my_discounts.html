@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}My Discounts - {{ company_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header">
+        <h4 class="mb-0"><i class="fas fa-gift me-2"></i> My Discounts</h4>
+        <p class="text-muted mb-0">Welcome {{ shareholder.name }}! Here are your exclusive discounts</p>
+    </div>
+
+    <div class="row mt-4">
+        <!-- Available Discounts -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-ticket-alt me-2"></i> Available Discounts</h6>
+                </div>
+                <div class="card-body">
+                    {% if available_discounts %}
+                        <div class="list-group">
+                            {% for item in available_discounts %}
+                            <div class="list-group-item list-group-item-action">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">{{ item.program.name }}</h6>
+                                        <small class="text-muted">
+                                            <i class="fas fa-tag me-1"></i>
+                                            {% if item.program.discount_type == 'percentage' %}
+                                                {{ item.program.discount_value }}% OFF
+                                            {% else %}
+                                                Rs. {{ item.program.discount_value }} OFF
+                                            {% endif %}
+                                            <i class="fas fa-arrow-up ms-2 me-1"></i> {{ item.program.min_shares_required }} shares
+                                        </small>
+                                    </div>
+                                    <div>
+                                        <span class="badge bg-success">Eligible</span>
+                                        <span class="badge bg-primary">Save Rs. {{ item.discount_amt|floatformat:2 }}</span>
+                                    </div>
+                                </div>
+                                <div class="mt-2">
+                                    <small class="text-muted">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Valid until: {% if item.program.end_date %}{{ item.program.end_date|date:"d M Y" }}{% else %}No expiry{% endif %}
+                                    </small>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-ticket-alt fa-3x text-muted mb-3"></i>
+                            <h6>No discounts available</h6>
+                            <p class="text-muted small">You need more shares to qualify for discounts</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="col-md-4">
+            <div class="card mb-3">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Total Shares</h6>
+                    <h3>{{ shareholder.total_shares }}</h3>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Discounts Used</h6>
+                    <h3>{{ usages|length }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Usage History -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h6 class="mb-0"><i class="fas fa-history me-2"></i> Discount Usage History</h6>
+        </div>
+        <div class="card-body">
+            {% if usages %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Program</th>
+                                <th>Original Amount</th>
+                                <th>Discount</th>
+                                <th>Final Amount</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for usage in usages %}
+                            <tr>
+                                <td>{{ usage.program.name }}</td>
+                                <td>Rs. {{ usage.original_amount|floatformat:2 }}</td>
+                                <td><span class="text-success">-Rs. {{ usage.discount_amount|floatformat:2 }}</span></td>
+                                <td><strong>Rs. {{ usage.final_amount|floatformat:2 }}</strong></td>
+                                <td>{{ usage.used_at|date:"d M Y H:i" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-muted text-center py-3">No discounts used yet</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .page-header {
+        background: white;
+        padding: 20px 25px;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    .list-group-item {
+        border-left: 4px solid #28a745;
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,156 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Monthly Closing{% endblock %}
+{% block page_title %}📅 Monthly Closing Report{% endblock %}
+
+{% block extra_css %}
+<style>
+    .closing-card {
+        background: linear-gradient(135deg, #1a1a2e, #16213e);
+        color: white;
+        border-radius: 20px;
+        padding: 25px;
+        margin-bottom: 20px;
+    }
+    .closing-value {
+        font-size: 32px;
+        font-weight: 800;
+    }
+    .metric-box {
+        background: rgba(255,255,255,0.1);
+        border-radius: 12px;
+        padding: 15px;
+        text-align: center;
+    }
+    .profit-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .profit-positive { background: #d1fae5; color: #059669; }
+    .profit-negative { background: #fee2e2; color: #dc2626; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <form method="post">{% csrf_token %} method="GET" class="d-flex gap-2">
+                <input type="month" name="month" class="form-control w-auto" value="{{ selected_month }}">
+                <button type="submit" class="btn btn-primary">Load</button>
+            </form>
+        </div>
+        <div class="col-md-6 text-end">
+            <a href="{% url 'monthly_closing' %}" class="btn btn-secondary">Refresh</a>
+        </div>
+    </div>
+
+    {% if closing %}
+    <div class="closing-card">
+        <div class="d-flex justify-content-between flex-wrap">
+            <div>
+                <h3 class="mb-0">{{ closing.month|date:"F Y" }}</h3>
+                <small>Monthly Closing Report</small>
+            </div>
+            <div>
+                {% if closing.locked %}
+                <span class="badge bg-danger">🔒 Locked</span>
+                {% else %}
+                <span class="badge bg-success">🔓 Open</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="row mt-4">
+            <div class="col-md-3">
+                <div class="metric-box">
+                    <div class="small">Previous Balance</div>
+                    <div class="closing-value">PKR {{ closing.previous_balance|floatformat:0 }}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-box">
+                    <div class="small">Total Purchases</div>
+                    <div class="closing-value">PKR {{ closing.total_purchase_balance|floatformat:0 }}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-box">
+                    <div class="small">Total Sales</div>
+                    <div class="closing-value">PKR {{ closing.total_sale_balance|floatformat:0 }}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-box">
+                    <div class="small">Closing Balance</div>
+                    <div class="closing-value">PKR {{ closing.closing_balance|floatformat:0 }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <strong>Financial Summary</strong>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-bordered mb-0">
+                        <tr><th>Total Purchases</th><td class="text-end">PKR {{ closing.total_purchase_balance|floatformat:2 }}</td></tr>
+                        <tr><th>Purchase Returns</th><td class="text-end">PKR {{ closing.total_purchase_return|floatformat:2 }}</td></tr>
+                        <tr><th>Total Sales (COGS)</th><td class="text-end">PKR {{ closing.total_sale_balance|floatformat:2 }}</td></tr>
+                        <tr><th>Sale Returns</th><td class="text-end">PKR {{ closing.total_sale_return|floatformat:2 }}</td></tr>
+                        <tr class="table-secondary"><th>Total Profit</th><td class="text-end"><strong>PKR {{ closing.total_sale_profit|floatformat:2 }}</strong></td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <strong>Performance Metrics</strong>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-bordered mb-0">
+                        <tr><th>Net Profit Margin</th>
+                            <td class="text-end">
+                                <span class="profit-badge {% if closing.net_profit_margin >= 10 %}profit-positive{% else %}profit-negative{% endif %}">
+                                    {{ closing.net_profit_margin|floatformat:1 }}%
+                                </span>
+                            </td>
+                        </tr>
+                        <tr><th>Return on Investment (ROI)</th>
+                            <td class="text-end">
+                                <span class="profit-badge {% if closing.return_on_investment >= 15 %}profit-positive{% else %}profit-negative{% endif %}">
+                                    {{ closing.return_on_investment|floatformat:1 }}%
+                                </span>
+                            </td>
+                        </tr>
+                        <tr><th>Days Inventory Outstanding</th><td class="text-end">{{ closing.days_inventory_outstanding|floatformat:1 }} days</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> 
+                <strong>Note:</strong> This is a read-only report. To lock/unlock months or generate PDFs, please use the Admin Panel.
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle"></i>
+        No closing report found for {{ selected_month }}. 
+        <a href="{% url 'monthly_closing' %}" class="alert-link">Try another month</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

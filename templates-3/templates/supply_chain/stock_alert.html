@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Stock Alerts{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-exclamation-triangle text-warning"></i> Stock Alerts</h2>
+            <p class="text-muted">Low stock and reorder alerts</p>
+        </div>
+        <div>
+            <a href="{% url 'supply_chain_dashboard' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- ALERT STATS                               -->
+    <!-- ========================================== -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <h6>Critical Stock</h6>
+                    <h3>{{ critical_count }}</h3>
+                    <small>Items below minimum</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h6>Low Stock</h6>
+                    <h3>{{ low_count }}</h3>
+                    <small>Items near reorder level</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h6>In Stock</h6>
+                    <h3>{{ in_stock_count }}</h3>
+                    <small>Items at safe levels</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- ALERT LIST                                -->
+    <!-- ========================================== -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white">
+            <h6 class="mb-0"><i class="bi bi-list"></i> Stock Alert List</h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Product</th>
+                            <th>Current Stock</th>
+                            <th>Minimum</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for alert in alerts %}
+                        <tr>
+                            <td>
+                                <a href="#" class="text-decoration-none fw-bold">
+                                    {{ alert.product.name }}
+                                </a>
+                            </td>
+                            <td>{{ alert.stock|floatformat:0 }}</td>
+                            <td>{{ alert.product.low_stock_threshold|floatformat:0 }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if alert.stock == 0 %}bg-danger
+                                    {% elif alert.stock < alert.product.low_stock_threshold %}bg-warning
+                                    {% else %}bg-success{% endif %}">
+                                    {% if alert.stock == 0 %}Out of Stock
+                                    {% elif alert.stock < alert.product.low_stock_threshold %}Low Stock
+                                    {% else %}In Stock{% endif %}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="#" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-cart-plus"></i> Reorder
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">
+                                <i class="bi bi-check-circle fs-2 d-block text-success"></i>
+                                <p>All stock levels are healthy!</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

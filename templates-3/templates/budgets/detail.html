@@ -1,0 +1,699 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+{% load humanize %}
+
+{% block title %}Budget Detail - {{ budget.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ========================================== */
+    /* PREMIUM STYLES                            */
+    /* ========================================== */
+    .budget-header {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        border-radius: 16px;
+        padding: 30px;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+    .budget-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -20%;
+        width: 400px;
+        height: 400px;
+        background: rgba(255,255,255,0.03);
+        border-radius: 50%;
+    }
+    .budget-header::after {
+        content: '';
+        position: absolute;
+        bottom: -40%;
+        left: -10%;
+        width: 300px;
+        height: 300px;
+        background: rgba(255,255,255,0.02);
+        border-radius: 50%;
+    }
+    .budget-header .header-content {
+        position: relative;
+        z-index: 1;
+    }
+    .budget-header .budget-title {
+        font-size: 28px;
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+    .budget-header .budget-subtitle {
+        font-size: 14px;
+        opacity: 0.7;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+    
+    /* Stat Cards */
+    .stat-card-premium {
+        border: none;
+        border-radius: 12px;
+        padding: 20px;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    .stat-card-premium:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    .stat-card-premium .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        margin-bottom: 12px;
+    }
+    .stat-card-premium .stat-value {
+        font-size: 24px;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    .stat-card-premium .stat-label {
+        font-size: 13px;
+        color: #6c757d;
+        margin-top: 4px;
+    }
+    
+    /* Info Cards */
+    .info-card {
+        border: none;
+        border-radius: 12px;
+        background: #f8f9fa;
+        padding: 16px 20px;
+        transition: all 0.2s ease;
+    }
+    .info-card:hover {
+        background: #e9ecef;
+    }
+    .info-card .info-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #6c757d;
+        font-weight: 600;
+    }
+    .info-card .info-value {
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 0;
+    }
+    
+    /* Progress */
+    .progress-premium {
+        height: 12px;
+        border-radius: 10px;
+        background: #e9ecef;
+        overflow: hidden;
+    }
+    .progress-premium .progress-bar {
+        border-radius: 10px;
+        transition: width 1s ease;
+    }
+    
+    /* Badge Status */
+    .badge-status-lg {
+        padding: 8px 20px;
+        border-radius: 30px;
+        font-size: 14px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .badge-status-lg.draft { background: #e9ecef; color: #6c757d; }
+    .badge-status-lg.pending { background: #fff3cd; color: #856404; }
+    .badge-status-lg.approved { background: #cce5ff; color: #004085; }
+    .badge-status-lg.active { background: #d4edda; color: #155724; }
+    .badge-status-lg.expired { background: #f8d7da; color: #721c24; }
+    .badge-status-lg.cancelled { background: #f8d7da; color: #721c24; }
+    .badge-status-lg.review { background: #d1ecf1; color: #0c5460; }
+    
+    /* Section Divider */
+    .section-divider {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 30px 0 20px;
+    }
+    .section-divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: #e9ecef;
+    }
+    .section-divider .section-icon {
+        font-size: 20px;
+    }
+    .section-divider .section-title {
+        font-size: 18px;
+        font-weight: 600;
+        margin: 0;
+    }
+    
+    /* Alert Card */
+    .alert-card {
+        border: none;
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .alert-card.critical { background: #fce4ec; border-left: 4px solid #c62828; }
+    .alert-card.warning { background: #fff8e1; border-left: 4px solid #f57c00; }
+    .alert-card.info { background: #e3f2fd; border-left: 4px solid #1976d2; }
+    .alert-card.success { background: #e8f5e9; border-left: 4px solid #2e7d32; }
+    
+    /* Timeline */
+    .timeline-item {
+        display: flex;
+        gap: 16px;
+        padding: 12px 0;
+        border-bottom: 1px solid #f1f3f5;
+    }
+    .timeline-item:last-child {
+        border-bottom: none;
+    }
+    .timeline-item .timeline-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: 14px;
+    }
+    .timeline-item .timeline-content {
+        flex: 1;
+    }
+    .timeline-item .timeline-title {
+        font-weight: 600;
+        margin-bottom: 2px;
+    }
+    .timeline-item .timeline-meta {
+        font-size: 12px;
+        color: #6c757d;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .budget-header .budget-title {
+            font-size: 22px;
+        }
+        .budget-header {
+            padding: 20px;
+        }
+        .stat-card-premium .stat-value {
+            font-size: 20px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <!-- ========================================== -->
+    <!-- BREADCRUMB                                 -->
+    <!-- ========================================== -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{% url 'budget_dashboard' %}" class="text-decoration-none">
+                    <i class="bi bi-speedometer2"></i> Dashboard
+                </a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{% url 'budget_list' %}" class="text-decoration-none">
+                    <i class="bi bi-list-ul"></i> Budgets
+                </a>
+            </li>
+            <li class="breadcrumb-item active">{{ budget.budget_no }}</li>
+        </ol>
+    </nav>
+    
+    <!-- ========================================== -->
+    <!-- HEADER                                     -->
+    <!-- ========================================== -->
+    <div class="budget-header mb-4">
+        <div class="header-content">
+            <div class="d-flex flex-wrap justify-content-between align-items-start">
+                <div>
+                    <div class="budget-title">{{ budget.name }}</div>
+                    <div class="budget-subtitle">
+                        <span><i class="bi bi-hash"></i> {{ budget.budget_no }}</span>
+                        <span><i class="bi bi-calendar3"></i> {{ budget.period_start|date:"d M Y" }} - {{ budget.period_end|date:"d M Y" }}</span>
+                        <span><i class="bi bi-arrow-repeat"></i> {{ budget.get_frequency_display }}</span>
+                    </div>
+                </div>
+                <div>
+                    <span class="badge-status-lg {{ budget.status }}">
+                        <i class="bi 
+                            {% if budget.status == 'draft' %}bi-pencil
+                            {% elif budget.status == 'pending' %}bi-clock
+                            {% elif budget.status == 'approved' %}bi-check-circle
+                            {% elif budget.status == 'active' %}bi-check-circle-fill
+                            {% elif budget.status == 'expired' %}bi-clock-fill
+                            {% elif budget.status == 'cancelled' %}bi-x-circle
+                            {% else %}bi-info-circle{% endif %}">
+                        </i>
+                        {{ budget.get_status_display }}
+                    </span>
+                </div>
+            </div>
+            
+            <!-- ========================================== -->
+            <!-- QUICK ACTIONS - WITH GOALS BUTTON         -->
+            <!-- ========================================== -->
+            <div class="mt-3 d-flex flex-wrap gap-2">
+                {% if budget.status == 'draft' %}
+                <a href="{% url 'budget_edit' budget.id %}" class="btn btn-light btn-sm">
+                    <i class="bi bi-pencil"></i> Edit
+                </a>
+                <a href="{% url 'budget_submit' budget.id %}" class="btn btn-warning btn-sm" 
+                   onclick="return confirm('Submit this budget for approval?')">
+                    <i class="bi bi-send"></i> Submit
+                </a>
+                <a href="{% url 'budget_delete' budget.id %}" class="btn btn-danger btn-sm"
+                   onclick="return confirm('⚠️ Are you sure you want to delete this budget?')">
+                    <i class="bi bi-trash"></i> Delete
+                </a>
+                {% endif %}
+                
+                {% if budget.status == 'pending' %}
+                <a href="{% url 'budget_approve' budget.id %}" class="btn btn-success btn-sm"
+                   onclick="return confirm('Approve this budget?')">
+                    <i class="bi bi-check-circle"></i> Approve
+                </a>
+                {% endif %}
+                
+                {% if budget.status == 'approved' %}
+                <a href="{% url 'budget_activate' budget.id %}" class="btn btn-success btn-sm"
+                   onclick="return confirm('Activate this budget?')">
+                    <i class="bi bi-play-circle"></i> Activate
+                </a>
+                {% endif %}
+                
+                <!-- ✅ GOALS BUTTON -->
+                <a href="{% url 'budget_goals' budget.id %}" class="btn btn-info btn-sm">
+                    <i class="bi bi-bullseye"></i> Goals 
+                    {% if budget.goals.count > 0 %}
+                    <span class="badge bg-light text-dark ms-1">{{ budget.goals.count }}</span>
+                    {% endif %}
+                </a>
+                
+                <a href="{% url 'budget_list' %}" class="btn btn-secondary btn-sm">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- STATS CARDS                                -->
+    <!-- ========================================== -->
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card-premium" style="background: linear-gradient(135deg, #e3f2fd, #bbdefb);">
+                <div class="stat-icon" style="background: rgba(25,118,210,0.15); color: #1976d2;">
+                    <i class="bi bi-wallet2"></i>
+                </div>
+                <div class="stat-value" style="color: #1976d2;">
+                    Rs. {{ budget.allocated_amount|floatformat:0|intcomma }}
+                </div>
+                <div class="stat-label">Total Allocated</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card-premium" style="background: linear-gradient(135deg, #fff3e0, #ffe0b2);">
+                <div class="stat-icon" style="background: rgba(245,124,0,0.15); color: #f57c00;">
+                    <i class="bi bi-coin"></i>
+                </div>
+                <div class="stat-value" style="color: #f57c00;">
+                    Rs. {{ budget.used_amount|floatformat:0|intcomma }}
+                </div>
+                <div class="stat-label">Total Used</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card-premium" style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9);">
+                <div class="stat-icon" style="background: rgba(46,125,50,0.15); color: #2e7d32;">
+                    <i class="bi bi-cash"></i>
+                </div>
+                <div class="stat-value" style="color: #2e7d32;">
+                    Rs. {{ budget.remaining_amount|floatformat:0|intcomma }}
+                </div>
+                <div class="stat-label">Remaining Balance</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card-premium" style="background: linear-gradient(135deg, #fce4ec, #f8bbd0);">
+                <div class="stat-icon" style="background: rgba(198,40,40,0.15); color: #c62828;">
+                    <i class="bi bi-percent"></i>
+                </div>
+                <div class="stat-value" style="color: #c62828;">
+                    {{ budget.utilization_percent|floatformat:1 }}%
+                </div>
+                <div class="stat-label">Utilization</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- PROGRESS OVERVIEW                          -->
+    <!-- ========================================== -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="fw-bold">Budget Progress</span>
+                        <span class="fw-bold 
+                            {% if budget.utilization_percent >= 95 %}text-danger
+                            {% elif budget.utilization_percent >= 80 %}text-warning
+                            {% else %}text-success{% endif %}">
+                            {{ budget.utilization_percent|floatformat:1 }}%
+                        </span>
+                    </div>
+                    <div class="progress-premium">
+                        <div class="progress-bar 
+                            {% if budget.utilization_percent >= 95 %}bg-danger
+                            {% elif budget.utilization_percent >= 80 %}bg-warning
+                            {% elif budget.utilization_percent >= 50 %}bg-info
+                            {% else %}bg-success{% endif %}" 
+                            role="progressbar"
+                            style="width: {{ budget.utilization_percent|floatformat:1 }}%;">
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-1">
+                        <small class="text-muted">0%</small>
+                        <small class="text-warning">⚠️ Alert: {{ budget.alert_threshold }}%</small>
+                        <small class="text-danger">🔴 Critical: {{ budget.critical_threshold }}%</small>
+                        <small class="text-muted">100%</small>
+                    </div>
+                </div>
+                <div class="col-md-4 mt-3 mt-md-0">
+                    <div class="d-grid gap-2">
+                        {% if budget.is_over_budget %}
+                        <div class="alert alert-danger mb-0 d-flex align-items-center">
+                            <i class="bi bi-exclamation-triangle fs-5 me-2"></i>
+                            <div>
+                                <strong>Over Budget!</strong>
+                                <br>
+                                <small>Over by Rs. {{ budget.remaining_amount|abs|floatformat:0|intcomma }}</small>
+                            </div>
+                        </div>
+                        {% elif budget.utilization_percent >= 80 %}
+                        <div class="alert alert-warning mb-0 d-flex align-items-center">
+                            <i class="bi bi-exclamation-circle fs-5 me-2"></i>
+                            <div>
+                                <strong>Near Limit!</strong>
+                                <br>
+                                <small>{{ budget.utilization_percent|floatformat:1 }}% utilized</small>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-success mb-0 d-flex align-items-center">
+                            <i class="bi bi-check-circle fs-5 me-2"></i>
+                            <div>
+                                <strong>On Track</strong>
+                                <br>
+                                <small>{{ budget.utilization_percent|floatformat:1 }}% utilized</small>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if budget.remaining_days > 0 %}
+                        <small class="text-muted text-center">
+                            <i class="bi bi-calendar"></i>
+                            {{ budget.remaining_days }} days remaining
+                            {% if budget.daily_allowance > 0 %}
+                            • Daily allowance: <strong>Rs. {{ budget.daily_allowance|floatformat:0|intcomma }}</strong>
+                            {% endif %}
+                        </small>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- DETAILED INFORMATION                      -->
+    <!-- ========================================== -->
+    <div class="row g-4 mb-4">
+        <!-- Left Column -->
+        <div class="col-lg-7">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-info-circle text-primary"></i> Budget Information</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="info-card">
+                                <div class="info-label">Budget Type</div>
+                                <p class="info-value">{{ budget.get_budget_type_display }}</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-card">
+                                <div class="info-label">Frequency</div>
+                                <p class="info-value">{{ budget.get_frequency_display }}</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-card">
+                                <div class="info-label">Department</div>
+                                <p class="info-value">{{ budget.department.name|default:"—" }}</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-card">
+                                <div class="info-label">Project</div>
+                                <p class="info-value">{{ budget.project.name|default:"—" }}</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-card">
+                                <div class="info-label">Category</div>
+                                <p class="info-value">{{ budget.category.name|default:"—" }}</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-card">
+                                <div class="info-label">Rollover</div>
+                                <p class="info-value">
+                                    {% if budget.allow_rollover %}
+                                    <span class="badge bg-success">✅ Enabled</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">❌ Disabled</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="info-card">
+                                <div class="info-label">Description</div>
+                                <p class="info-value">{{ budget.description|default:"No description provided" }}</p>
+                            </div>
+                        </div>
+                        {% if budget.notes %}
+                        <div class="col-12">
+                            <div class="info-card">
+                                <div class="info-label">Notes</div>
+                                <p class="info-value">{{ budget.notes }}</p>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Column -->
+        <div class="col-lg-5">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-clock-history text-primary"></i> Recent Activity</h6>
+                </div>
+                <div class="card-body">
+                    {% if transactions %}
+                    <div class="timeline">
+                        {% for trans in transactions|slice:":5" %}
+                        <div class="timeline-item">
+                            <div class="timeline-icon 
+                                {% if trans.transaction_type == 'expense' %}bg-danger
+                                {% elif trans.transaction_type == 'allocation' %}bg-primary
+                                {% elif trans.transaction_type == 'adjustment' %}bg-warning
+                                {% else %}bg-secondary{% endif %}"
+                                style="color: white;">
+                                <i class="bi 
+                                    {% if trans.transaction_type == 'expense' %}bi-arrow-down
+                                    {% elif trans.transaction_type == 'allocation' %}bi-arrow-up
+                                    {% elif trans.transaction_type == 'adjustment' %}bi-pencil
+                                    {% else %}bi-arrow-repeat{% endif %}">
+                                </i>
+                            </div>
+                            <div class="timeline-content">
+                                <div class="timeline-title">{{ trans.get_transaction_type_display }}</div>
+                                <div class="timeline-meta">
+                                    {{ trans.performed_at|date:"d M Y H:i" }}
+                                    • 
+                                    <span class="fw-bold 
+                                        {% if trans.transaction_type == 'expense' or trans.transaction_type == 'adjustment' %}text-danger{% else %}text-success{% endif %}">
+                                        {% if trans.transaction_type == 'expense' or trans.transaction_type == 'adjustment' %}
+                                            - Rs. {{ trans.amount|floatformat:0|intcomma }}
+                                        {% else %}
+                                            + Rs. {{ trans.amount|floatformat:0|intcomma }}
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-inbox fs-2 d-block"></i>
+                        <p>No transactions yet</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- ALLOCATIONS - FIXED                       -->
+    <!-- ========================================== -->
+    {% if allocations %}
+    <div class="section-divider">
+        <span class="section-icon">📊</span>
+        <h5 class="section-title">Category Allocations</h5>
+    </div>
+    
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 30%;">Category</th>
+                            <th class="text-end" style="width: 17%;">Allocated</th>
+                            <th class="text-end" style="width: 17%;">Used</th>
+                            <th class="text-end" style="width: 17%;">Remaining</th>
+                            <th class="text-center" style="width: 19%;">Utilization</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for alloc in allocations %}
+                        <tr>
+                            <td>
+                                <span class="fw-bold">{{ alloc.category.name }}</span>
+                                {% if alloc.category.code %}
+                                <br>
+                                <small class="text-muted">{{ alloc.category.code }}</small>
+                                {% endif %}
+                            </td>
+                            <td class="text-end fw-bold">
+                                Rs. {{ alloc.allocated_amount|floatformat:0|intcomma }}
+                            </td>
+                            <td class="text-end text-warning">
+                                Rs. {{ alloc.used_amount|floatformat:0|intcomma }}
+                            </td>
+                            <td class="text-end 
+                                {% if alloc.remaining_amount < 0 %}text-danger fw-bold{% else %}text-success{% endif %}">
+                                Rs. {{ alloc.remaining_amount|floatformat:0|intcomma }}
+                            </td>
+                            <td class="text-center">
+                                <div class="d-flex align-items-center justify-content-center gap-2">
+                                    <div class="progress" style="height:6px; width:80px;">
+                                        <div class="progress-bar 
+                                            {% if alloc.utilization_percent >= 95 %}bg-danger
+                                            {% elif alloc.utilization_percent >= 80 %}bg-warning
+                                            {% else %}bg-success{% endif %}" 
+                                            style="width: {{ alloc.utilization_percent|floatformat:1 }}%;">
+                                        </div>
+                                    </div>
+                                    <small class="fw-bold 
+                                        {% if alloc.utilization_percent >= 95 %}text-danger
+                                        {% elif alloc.utilization_percent >= 80 %}text-warning
+                                        {% else %}text-success{% endif %}">
+                                        {{ alloc.utilization_percent|floatformat:1 }}%
+                                    </small>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- ========================================== -->
+    <!-- ALERTS                                     -->
+    <!-- ========================================== -->
+    {% if alerts %}
+    <div class="section-divider">
+        <span class="section-icon">🔔</span>
+        <h5 class="section-title">Budget Alerts</h5>
+    </div>
+    
+    <div class="mb-4">
+        {% for alert in alerts %}
+        <div class="alert-card {% if alert.alert_type == 'critical' or alert.alert_type == 'over_budget' %}critical{% elif alert.alert_type == 'warning' %}warning{% elif alert.alert_type == 'expiring' %}info{% else %}success{% endif %}">
+            <div>
+                <strong>{{ alert.get_alert_type_display }}</strong>
+                <p class="mb-0 small">{{ alert.message }}</p>
+            </div>
+            <div>
+                <span class="badge 
+                    {% if alert.status == 'new' %}bg-danger
+                    {% elif alert.status == 'read' %}bg-secondary
+                    {% elif alert.status == 'acknowledged' %}bg-warning
+                    {% else %}bg-success{% endif %}">
+                    {{ alert.get_status_display }}
+                </span>
+                <small class="d-block text-muted mt-1">{{ alert.triggered_at|date:"d M Y H:i" }}</small>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <!-- ========================================== -->
+    <!-- FOOTER                                     -->
+    <!-- ========================================== -->
+    <div class="text-muted small text-center py-3">
+        <i class="bi bi-info-circle"></i>
+        Budget created on {{ budget.created_at|date:"d M Y H:i" }}
+        {% if budget.created_by %}
+        by <strong>{{ budget.created_by.username }}</strong>
+        {% endif %}
+        {% if budget.updated_at != budget.created_at %}
+        • Last updated: {{ budget.updated_at|date:"d M Y H:i" }}
+        {% endif %}
+    </div>
+    
+</div>
+{% endblock %}

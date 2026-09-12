@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Cash Flow Report{% endblock %}
+{% block page_title %}📊 Cash Flow Report{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Filters -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="post">{% csrf_token %} method="GET" class="row g-3">
+                <div class="col-md-5">
+                    <label class="form-label text-muted small">From Date</label>
+                    <input type="date" name="from_date" class="form-control" value="{{ from_date }}">
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label text-muted small">To Date</label>
+                    <input type="date" name="to_date" class="form-control" value="{{ to_date }}">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">Generate Report</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Inflow by Type -->
+        <div class="col-md-6">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-success text-white">
+                    <h6><i class="bi bi-arrow-down-circle"></i> Cash Inflow by Type</h6>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0">
+                        {% for type, amount in inflow_by_type.items %}
+                        <tr>
+                            <td class="ps-3">
+                                {% if type == 'deposit' %}💵 Deposit
+                                {% elif type == 'sale' %}🛒 Sale Income
+                                {% elif type == 'opening' %}🏁 Opening Balance
+                                {% else %}{{ type|title }}{% endif %}
+                            </td>
+                            <td class="text-end text-success pe-3">+ Rs. {{ amount|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="2" class="text-center py-3 text-muted">No inflow data</td></tr>
+                        {% endfor %}
+                        <tr class="table-success">
+                            <td class="ps-3"><strong>Total Inflow</strong></td>
+                            <td class="text-end pe-3"><strong>Rs. {{ total_inflow|floatformat:2 }}</strong></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Outflow by Type -->
+        <div class="col-md-6">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-danger text-white">
+                    <h6><i class="bi bi-arrow-up-circle"></i> Cash Outflow by Type</h6>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0">
+                        {% for type, amount in outflow_by_type.items %}
+                        <tr>
+                            <td class="ps-3">
+                                {% if type == 'withdraw' %}💸 Withdrawal
+                                {% elif type == 'purchase' %}📥 Purchase Expense
+                                {% elif type == 'expense' %}📝 Other Expense
+                                {% else %}{{ type|title }}{% endif %}
+                            </td>
+                            <td class="text-end text-danger pe-3">- Rs. {{ amount|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="2" class="text-center py-3 text-muted">No outflow data</td></tr>
+                        {% endfor %}
+                        <tr class="table-danger">
+                            <td class="ps-3"><strong>Total Outflow</strong></td>
+                            <td class="text-end pe-3"><strong>Rs. {{ total_outflow|floatformat:2 }}</strong></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Net Cash Summary -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card {% if net_cash >= 0 %}bg-success{% else %}bg-danger{% endif %} text-white">
+                <div class="card-body text-center py-3">
+                    <h5 class="mb-0">
+                        <i class="bi {% if net_cash >= 0 %}bi-arrow-up{% else %}bi-arrow-down{% endif %}"></i>
+                        Net Cash Flow: Rs. {{ net_cash|floatformat:2 }}
+                    </h5>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Daily Breakdown -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h6><i class="bi bi-calendar3"></i> Daily Breakdown</h6>
+        </div>
+        <div class="card-body p-0">
+            <div style="overflow-x: auto;">
+                <table class="table table-hover mb-0 table-sm">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Date</th>
+                            <th>Inflow</th>
+                            <th>Outflow</th>
+                            <th>Net</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for day in daily_data %}
+                        <tr>
+                            <td>{{ day.date }}</td>
+                            <td class="text-success">+ Rs. {{ day.inflow|floatformat:2 }}</td>
+                            <td class="text-danger">- Rs. {{ day.outflow|floatformat:2 }}</td>
+                            <td class="{% if day.net >= 0 %}text-success{% else %}text-danger{% endif %} fw-bold">
+                                {% if day.net >= 0 %}+{% endif %}Rs. {{ day.net|floatformat:2 }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-secondary">
+                        <tr>
+                            <th class="ps-3">Total</th>
+                            <th class="text-end">Rs. {{ total_inflow|floatformat:2 }}</th>
+                            <th class="text-end">Rs. {{ total_outflow|floatformat:2 }}</th>
+                            <th class="text-end">Rs. {{ net_cash|floatformat:2 }}</th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Export Button -->
+    <div class="mt-3 text-end">
+        <a href="?export=pdf&from_date={{ from_date }}&to_date={{ to_date }}" class="btn btn-sm btn-danger">
+            <i class="bi bi-file-pdf"></i> Export PDF
+        </a>
+    </div>
+</div>
+{% endblock %}

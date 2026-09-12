@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}PO {{ po.po_no }} - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>📦 PO: {{ po.po_no }}</h2>
+                <div>
+                    <a href="{% url 'service_inventory_po_list' %}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </a>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-8">
+                    <!-- PO Details -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">📋 PO Details</h5>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-bordered">
+                                <tr>
+                                    <th style="width:150px;">PO #</th>
+                                    <td><strong>{{ po.po_no }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <th>Supplier</th>
+                                    <td>{{ po.supplier.name }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Order Date</th>
+                                    <td>{{ po.order_date|date:"d-m-Y" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Expected Delivery</th>
+                                    <td>{{ po.expected_delivery|date:"d-m-Y"|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Received Date</th>
+                                    <td>{{ po.received_date|date:"d-m-Y"|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Status</th>
+                                    <td>
+                                        {% if po.status == 'draft' %}
+                                        <span class="badge bg-secondary">📝 Draft</span>
+                                        {% elif po.status == 'pending' %}
+                                        <span class="badge bg-warning">⏳ Pending</span>
+                                        {% elif po.status == 'approved' %}
+                                        <span class="badge bg-primary">✅ Approved</span>
+                                        {% elif po.status == 'ordered' %}
+                                        <span class="badge bg-info">📦 Ordered</span>
+                                        {% elif po.status == 'received' %}
+                                        <span class="badge bg-success">📥 Received</span>
+                                        {% elif po.status == 'partial' %}
+                                        <span class="badge bg-warning">📥 Partial</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">❌ Cancelled</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Total Amount</th>
+                                    <td><strong>Rs. {{ po.total_amount|floatformat:2|intcomma }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <th>Discount</th>
+                                    <td>Rs. {{ po.discount|floatformat:2|intcomma }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Net Amount</th>
+                                    <td><strong>Rs. {{ po.net_amount|floatformat:2|intcomma }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <th>Notes</th>
+                                    <td>{{ po.notes|default:"-"|linebreaks }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Items -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">📦 Items</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Item</th>
+                                            <th>Qty</th>
+                                            <th>Unit Price</th>
+                                            <th>Total</th>
+                                            <th>Received</th>
+                                            <th>Pending</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for detail in details %}
+                                        <tr>
+                                            <td>{{ detail.inventory_item.name }}</td>
+                                            <td>{{ detail.quantity }}</td>
+                                            <td>Rs. {{ detail.unit_price|floatformat:2 }}</td>
+                                            <td>Rs. {{ detail.total_price|floatformat:2 }}</td>
+                                            <td>{{ detail.received_quantity }}</td>
+                                            <td>{{ detail.quantity|add:detail.received_quantity|floatformat:0 }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="text-center">No items in this PO.</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <!-- Quick Actions -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">⚡ Quick Actions</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                {% if can_receive %}
+                                <a href="{% url 'service_inventory_po_receive' po.id %}" class="btn btn-success">
+                                    <i class="bi bi-box-arrow-in-down"></i> Receive Items
+                                </a>
+                                {% endif %}
+                                {% if can_edit %}
+                                <a href="#" class="btn btn-warning" onclick="alert('Edit feature coming soon!')">
+                                    <i class="bi bi-pencil"></i> Edit PO
+                                </a>
+                                {% endif %}
+                                <button onclick="window.print()" class="btn btn-info">
+                                    <i class="bi bi-printer"></i> Print
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Summary -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">📊 Summary</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between mb-2">
+                                <strong>Total Items:</strong>
+                                <span>{{ details|length }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <strong>Total Quantity:</strong>
+                                <span>{{ details|length|add:0 }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <strong>Total Amount:</strong>
+                                <span><strong>Rs. {{ po.total_amount|floatformat:2|intcomma }}</strong></span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <strong>Net Amount:</strong>
+                                <span><strong>Rs. {{ po.net_amount|floatformat:2|intcomma }}</strong></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

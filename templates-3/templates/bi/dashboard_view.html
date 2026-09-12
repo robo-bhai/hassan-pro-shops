@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}{{ dashboard.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-layout-three-columns text-primary"></i> {{ dashboard.name }}</h2>
+            <p class="text-muted">{{ dashboard.get_dashboard_type_display }} • {{ dashboard.widgets.count }} widgets</p>
+        </div>
+        <div>
+            <a href="{% url 'bi_dashboard_edit' dashboard.id %}" class="btn btn-warning">
+                <i class="bi bi-pencil"></i> Edit
+            </a>
+            <a href="{% url 'bi_dashboards_list' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    
+    <div class="row g-3">
+        {% for widget in dashboard.widgets.all %}
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">{{ widget.title }}</h6>
+                    <span class="badge bg-secondary">{{ widget.get_widget_type_display }}</span>
+                </div>
+                <div class="card-body" style="min-height:150px;">
+                    <div class="text-center text-muted">
+                        <i class="bi bi-{{ widget.widget_type }} display-4 d-block"></i>
+                        <p>{{ widget.data_source|title }} Data</p>
+                        <small>Widget preview</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-grid fs-2 d-block"></i>
+                <p>No widgets in this dashboard</p>
+                <a href="{% url 'bi_dashboard_edit' dashboard.id %}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus-circle"></i> Add Widgets
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+</div>
+{% endblock %}

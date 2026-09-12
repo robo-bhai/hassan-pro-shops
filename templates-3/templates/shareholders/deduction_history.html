@@ -1,0 +1,215 @@
+<!-- templates/shareholders/deduction_history.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{{ shareholder.name }} - Deduction History{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-lg">
+                <div class="card-header bg-gradient-purple text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-person me-2"></i>
+                        {{ shareholder.name }} - Deduction History
+                        <span class="badge bg-light text-dark ms-3">
+                            {{ shareholder.shareholder_code }}
+                        </span>
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Profile Summary -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body text-center">
+                                    <h6 class="text-white-50">Current Balance</h6>
+                                    <h3>Rs. {{ current_balance|floatformat:2 }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h6 class="text-white-50">Total Shares</h6>
+                                    <h3>{{ total_shares }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-dark">
+                                <div class="card-body text-center">
+                                    <h6 class="text-dark-50">Total Deductions</h6>
+                                    <h3>{{ total_deductions }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body text-center">
+                                    <h6 class="text-white-50">Total Deducted</h6>
+                                    <h3>Rs. {{ total_deducted|floatformat:2 }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabs -->
+                    <ul class="nav nav-tabs mb-4" id="historyTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="deductions-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#deductions" type="button" role="tab">
+                                <i class="bi bi-receipt me-2"></i>Deduction History
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="transactions-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#transactions" type="button" role="tab">
+                                <i class="bi bi-arrow-left-right me-2"></i>All Transactions
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="historyTabsContent">
+                        <!-- Tab 1: Deduction History -->
+                        <div class="tab-pane fade show active" id="deductions" role="tabpanel">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Bill No</th>
+                                            <th>Purchase Date</th>
+                                            <th>Deduction Date</th>
+                                            <th>Amount</th>
+                                            <th>Percentage</th>
+                                            <th>Balance Before</th>
+                                            <th>Balance After</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for item in deduction_history %}
+                                        <tr>
+                                            <td>{{ forloop.counter }}</td>
+                                            <td>
+                                                <strong>{{ item.purchase.bill_no|default:"N/A" }}</strong>
+                                            </td>
+                                            <td>{{ item.purchase.pur_date|date:"d-m-Y" }}</td>
+                                            <td>{{ item.date|date:"d-m-Y H:i" }}</td>
+                                            <td class="text-danger">
+                                                -Rs. {{ item.amount|floatformat:2 }}
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-info">
+                                                    {{ item.percentage|floatformat:1 }}%
+                                                </span>
+                                            </td>
+                                            <td>Rs. {{ item.balance_before|floatformat:2 }}</td>
+                                            <td class="{% if item.balance_after >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                                Rs. {{ item.balance_after|floatformat:2 }}
+                                            </td>
+                                            <td>
+                                                <a href="{% url 'purchase_deduction_details' item.purchase.pk %}" 
+                                                   class="btn btn-sm btn-info">
+                                                    <i class="bi bi-eye"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="9" class="text-center text-muted py-4">
+                                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                                No deduction history found
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Tab 2: All Transactions -->
+                        <div class="tab-pane fade" id="transactions" role="tabpanel">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Date</th>
+                                            <th>Type</th>
+                                            <th>Amount</th>
+                                            <th>Description</th>
+                                            <th>Balance After</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for trans in transactions %}
+                                        <tr>
+                                            <td>{{ forloop.counter }}</td>
+                                            <td>{{ trans.created_at|date:"d-m-Y H:i" }}</td>
+                                            <td>
+                                                <span class="badge bg-{% if trans.transaction_type == 'deposit' %}success{% elif trans.transaction_type == 'withdraw' %}danger{% else %}info{% endif %}">
+                                                    {{ trans.get_transaction_type_display }}
+                                                </span>
+                                            </td>
+                                            <td class="{% if trans.transaction_type == 'deposit' %}text-success{% else %}text-danger{% endif %}">
+                                                {% if trans.transaction_type == 'deposit' %}+{% else %}-{% endif %}
+                                                Rs. {{ trans.amount|floatformat:2 }}
+                                            </td>
+                                            <td>{{ trans.description|default:"-" }}</td>
+                                            <td>Rs. {{ trans.balance_after|floatformat:2 }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted py-4">
+                                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                                No transactions found
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="mt-4">
+                        <div class="btn-group w-100" role="group">
+                            <a href="{% url 'shareholder_balance_detail' shareholder.id %}" 
+                               class="btn btn-primary">
+                                <i class="bi bi-wallet me-2"></i>
+                                Balance Detail
+                            </a>
+                            <a href="{% url 'shareholder_deduction_report' %}" 
+                               class="btn btn-info">
+                                <i class="bi bi-graph-up me-2"></i>
+                                Full Report
+                            </a>
+                            <a href="{% url 'shareholder_balance_summary' %}" 
+                               class="btn btn-secondary">
+                                <i class="bi bi-people me-2"></i>
+                                All Shareholders
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    // Add any custom JS here
+    console.log('Deduction history loaded');
+});
+</script>
+
+<style>
+.bg-gradient-purple {
+    background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%);
+}
+</style>
+{% endblock %}

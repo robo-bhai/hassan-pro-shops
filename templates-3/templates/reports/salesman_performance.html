@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Salesman Performance{% endblock %}
+{% block page_title %}🎯 Salesman Performance Report{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filter-bar { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e9ecef; }
+    .salesman-card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 12px; border: 1px solid #e9ecef; }
+    .achievement-bar { height: 8px; background: #e9ecef; border-radius: 10px; overflow: hidden; }
+    .achievement-fill { height: 100%; border-radius: 10px; }
+    .achievement-excellent { background: #10b981; }
+    .achievement-good { background: #f59e0b; }
+    .achievement-poor { background: #ef4444; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="filter-bar">
+        <form method="post">{% csrf_token %} method="GET" class="row g-3 align-items-end">
+            <div class="col-md-4"><label class="form-label small">From Date</label><input type="date" name="from_date" class="form-control" value="{{ from_date }}"></div>
+            <div class="col-md-4"><label class="form-label small">To Date</label><input type="date" name="to_date" class="form-control" value="{{ to_date }}"></div>
+            <div class="col-md-4"><button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> Show Report</button></div>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-white"><strong><i class="bi bi-trophy"></i> Salesman Performance with Targets</strong></div>
+        <div class="card-body">
+            {% for salesman in salesman_data %}
+            <div class="salesman-card">
+                <div class="d-flex justify-content-between flex-wrap">
+                    <div><strong>{{ salesman.name }}</strong><br><small class="text-muted">ID: {{ salesman.employee_id }}</small></div>
+                    <div class="text-end"><div class="fw-bold">PKR {{ salesman.total_sales|floatformat:0 }}</div><small>{{ salesman.sale_count }} sales</small></div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-6"><small class="text-muted">Target: PKR {{ salesman.target|floatformat:0 }}</small></div>
+                    <div class="col-6 text-end"><small class="text-muted">Achievement: {{ salesman.achievement|floatformat:1 }}%</small></div>
+                </div>
+                <div class="achievement-bar mt-1"><div class="achievement-fill {% if salesman.achievement >= 80 %}achievement-excellent{% elif salesman.achievement >= 50 %}achievement-good{% else %}achievement-poor{% endif %}" style="width: {{ salesman.achievement }}%"></div></div>
+                <div class="mt-2"><small class="text-muted">Profit: PKR {{ salesman.total_profit|floatformat:0 }}</small></div>
+            </div>
+            {% empty %}<div class="text-center text-muted py-5">No salesman data available</div>{% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

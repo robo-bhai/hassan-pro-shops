@@ -1,0 +1,193 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Edit Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .widget-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 15px;
+        padding: 15px 0;
+    }
+    .widget-item {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 15px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+    }
+    .widget-item:hover {
+        border-color: #667eea;
+        background: #f0f3ff;
+        transform: translateY(-2px);
+    }
+    .widget-item.selected {
+        border-color: #28a745;
+        background: #e8f5e9;
+    }
+    .widget-item .widget-icon {
+        font-size: 32px;
+        display: block;
+        margin-bottom: 8px;
+    }
+    .widget-item .widget-name {
+        font-size: 13px;
+        font-weight: 500;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-pencil text-warning"></i> Edit Dashboard</h2>
+            <p class="text-muted">{{ dashboard.name }}</p>
+        </div>
+        <div>
+            <a href="{% url 'bi_dashboards_list' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    
+    <div class="row g-3">
+        <!-- Dashboard Settings -->
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-gear text-primary"></i> Dashboard Settings</h6>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Dashboard Name</label>
+                            <input type="text" name="name" class="form-control" value="{{ dashboard.name }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Dashboard Type</label>
+                            <select name="dashboard_type" class="form-select">
+                                {% for key, value in dashboard_types %}
+                                <option value="{{ key }}" {% if dashboard.dashboard_type == key %}selected{% endif %}>{{ value }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea name="description" class="form-control" rows="3">{{ dashboard.description }}</textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" name="is_default" class="form-check-input" {% if dashboard.is_default %}checked{% endif %}>
+                                <label class="form-check-label">Set as default dashboard</label>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-save"></i> Update Dashboard
+                        </button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Add Widget -->
+            <div class="card shadow-sm border-0 mt-3">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-plus-circle text-primary"></i> Add Widget</h6>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{% url 'bi_widget_create' dashboard.id %}">
+                        {% csrf_token %}
+                        
+                        <div class="mb-2">
+                            <label class="form-label">Widget Title</label>
+                            <input type="text" name="title" class="form-control" required>
+                        </div>
+                        
+                        <div class="mb-2">
+                            <label class="form-label">Widget Type</label>
+                            <select name="widget_type" class="form-select">
+                                {% for key, value in widget_types %}
+                                <option value="{{ key }}">{{ value }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-2">
+                            <label class="form-label">Data Source</label>
+                            <select name="data_source" class="form-select">
+                                <option value="sales">Sales</option>
+                                <option value="purchases">Purchases</option>
+                                <option value="products">Products</option>
+                                <option value="customers">Customers</option>
+                                <option value="inventory">Inventory</option>
+                                <option value="expenses">Expenses</option>
+                                <option value="budgets">Budgets</option>
+                            </select>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-success w-100">
+                            <i class="bi bi-plus-circle"></i> Add Widget
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Widgets -->
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-grid text-primary"></i> Widgets ({{ widgets.count }})</h6>
+                </div>
+                <div class="card-body">
+                    {% if widgets %}
+                    <div class="widget-grid">
+                        {% for widget in widgets %}
+                        <div class="widget-item">
+                            <span class="widget-icon">
+                                {% if widget.widget_type == 'chart' %}📈
+                                {% elif widget.widget_type == 'kpi' %}🎯
+                                {% elif widget.widget_type == 'table' %}📋
+                                {% elif widget.widget_type == 'pie' %}🥧
+                                {% elif widget.widget_type == 'bar' %}📊
+                                {% elif widget.widget_type == 'line' %}📉
+                                {% elif widget.widget_type == 'metric' %}📊
+                                {% elif widget.widget_type == 'heatmap' %}🔥
+                                {% else %}📊{% endif %}
+                            </span>
+                            <span class="widget-name">{{ widget.title }}</span>
+                            <br>
+                            <small class="text-muted">{{ widget.get_widget_type_display }}</small>
+                            <div class="mt-2">
+                                <a href="#" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this widget?')">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-grid fs-2 d-block"></i>
+                        <p>No widgets added yet</p>
+                        <small>Add widgets using the form on the left</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

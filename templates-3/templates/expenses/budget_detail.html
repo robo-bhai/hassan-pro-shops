@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Budget Detail - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>📊 {{ budget.name }}</h2>
+                <a href="{% url 'expense_budget_list' %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+            </div>
+            
+            <!-- Budget Stats -->
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <div class="card text-white bg-primary">
+                        <div class="card-body">
+                            <h6>Allocated</h6>
+                            <h3>Rs. {{ budget.allocated_amount|floatformat:0|intcomma }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-warning">
+                        <div class="card-body">
+                            <h6>Used</h6>
+                            <h3>Rs. {{ budget.used_amount|floatformat:0|intcomma }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white {% if is_over %}bg-danger{% else %}bg-success{% endif %}">
+                        <div class="card-body">
+                            <h6>Remaining</h6>
+                            <h3>Rs. {{ budget.remaining_amount|floatformat:0|intcomma }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-info">
+                        <div class="card-body">
+                            <h6>Utilization</h6>
+                            <h3>{{ utilization|floatformat:1 }}%</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Progress Bar -->
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="progress" style="height:30px;">
+                        <div class="progress-bar bg-{% if utilization > 100 %}danger{% elif utilization > 80 %}warning{% else %}success{% endif %}" 
+                             role="progressbar" 
+                             style="width: {{ utilization|floatformat:0 }}%;" 
+                             aria-valuenow="{{ utilization|floatformat:0 }}" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                            {{ utilization|floatformat:1 }}% Used
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-2">
+                        <small>0%</small>
+                        <small>100%</small>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Budget Details -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0">📋 Budget Details</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered">
+                        <tr><th style="width:150px;">Name</th><td>{{ budget.name }}</td></tr>
+                        <tr><th>Category</th><td>{{ budget.category.get_full_path }}</td></tr>
+                        <tr><th>Period</th><td>{{ budget.period_start|date:"d-m-Y" }} - {{ budget.period_end|date:"d-m-Y" }}</td></tr>
+                        <tr><th>Budget Period</th><td>{{ budget.get_budget_period_display }}</td></tr>
+                        <tr><th>Status</th><td>
+                            {% if budget.status == 'draft' %}
+                            <span class="badge bg-secondary">📝 Draft</span>
+                            {% elif budget.status == 'active' %}
+                            <span class="badge bg-success">✅ Active</span>
+                            {% elif budget.status == 'approved' %}
+                            <span class="badge bg-primary">✅ Approved</span>
+                            {% elif budget.status == 'expired' %}
+                            <span class="badge bg-warning">⏰ Expired</span>
+                            {% else %}
+                            <span class="badge bg-danger">❌ Cancelled</span>
+                            {% endif %}
+                        </td></tr>
+                        <tr><th>Allocated</th><td><strong>Rs. {{ budget.allocated_amount|floatformat:2|intcomma }}</strong></td></tr>
+                        <tr><th>Used</th><td>Rs. {{ budget.used_amount|floatformat:2|intcomma }}</td></tr>
+                        <tr><th>Remaining</th><td>
+                            {% if is_over %}
+                            <strong class="text-danger">Rs. {{ budget.remaining_amount|floatformat:2|intcomma }}</strong>
+                            {% else %}
+                            Rs. {{ budget.remaining_amount|floatformat:2|intcomma }}
+                            {% endif %}
+                        </td></tr>
+                        <tr><th>Expenses Count</th><td>{{ expense_count }}</td></tr>
+                        <tr><th>Notes</th><td>{{ budget.notes|default:"-"|linebreaks }}</td></tr>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Expenses in this Budget -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📋 Expenses Under This Budget</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Description</th>
+                                    <th>Amount</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for expense in expenses %}
+                                <tr>
+                                    <td>{{ expense.expense_no }}</td>
+                                    <td>{{ expense.description|truncatechars:30 }}</td>
+                                    <td><strong>Rs. {{ expense.amount|floatformat:2|intcomma }}</strong></td>
+                                    <td>{{ expense.expense_date|date:"d-m-Y" }}</td>
+                                    <td>{{ expense.get_status_badge|safe }}</td>
+                                    <td>
+                                        <a href="{% url 'expense_detail' expense.id %}" class="btn btn-sm btn-info">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="6" class="text-center">No expenses in this budget.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

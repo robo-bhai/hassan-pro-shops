@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Best Selling Brands{% endblock %}
+{% block page_title %}🏷️ Best Selling Brands{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filter-bar { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e9ecef; }
+    .brand-card { display: flex; align-items: center; justify-content: space-between; padding: 15px; border-bottom: 1px solid #e9ecef; transition: all 0.2s; }
+    .brand-card:hover { background: #f8f9fc; }
+    .rank-badge { width: 30px; height: 30px; background: #4361ee; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="filter-bar">
+        <form method="post">{% csrf_token %} method="GET" class="row g-3 align-items-end">
+            <div class="col-md-4"><label class="form-label small">From Date</label><input type="date" name="from_date" class="form-control" value="{{ from_date }}"></div>
+            <div class="col-md-4"><label class="form-label small">To Date</label><input type="date" name="to_date" class="form-control" value="{{ to_date }}"></div>
+            <div class="col-md-4"><button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> Show Report</button></div>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-white"><strong><i class="bi bi-tags"></i> Brand Performance</strong></div>
+        <div class="card-body p-0">
+            {% for brand in brand_sales %}
+            <div class="brand-card">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rank-badge">{{ forloop.counter }}</div>
+                    <div><strong>{{ brand.product__brand__name }}</strong><br><small>{{ brand.total_qty|floatformat:0 }} units sold</small></div>
+                </div>
+                <div class="text-end">
+                    <div class="fw-bold">PKR {{ brand.total_sales|floatformat:0 }}</div>
+                    <small class="text-muted">Profit: PKR {{ brand.total_profit|floatformat:0 }}</small>
+                </div>
+            </div>
+            {% empty %}<div class="text-center text-muted py-5">No brand data available</div>{% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

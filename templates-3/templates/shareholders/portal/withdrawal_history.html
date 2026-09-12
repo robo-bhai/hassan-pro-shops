@@ -1,0 +1,264 @@
+{% extends 'shareholders/portal/base.html' %}
+{% load static %}
+
+{% block title %}Withdrawal History{% endblock %}
+
+{% block portal_content %}
+<div class="container">
+    <!-- Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-clock-history"></i> Withdrawal History</h2>
+            <p class="text-muted">Track all your withdrawal requests</p>
+        </div>
+        <div>
+            <a href="{% url 'shareholder_portal_withdrawal_request' %}" class="btn btn-warning">
+                <i class="bi bi-dash-circle"></i> New Withdrawal
+            </a>
+            <a href="{% url 'shareholder_portal_dashboard' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card bg-primary text-white h-100">
+                <div class="card-body text-center">
+                    <h6 class="card-title text-uppercase small">Total Requests</h6>
+                    <h3 class="mb-0">{{ total_requests }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card bg-success text-white h-100">
+                <div class="card-body text-center">
+                    <h6 class="card-title text-uppercase small">Approved</h6>
+                    <h3 class="mb-0">{{ approved_count }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card bg-warning text-dark h-100">
+                <div class="card-body text-center">
+                    <h6 class="card-title text-uppercase small">Pending</h6>
+                    <h3 class="mb-0">{{ pending_count }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card bg-info text-white h-100">
+                <div class="card-body text-center">
+                    <h6 class="card-title text-uppercase small">Total Withdrawn</h6>
+                    <h3 class="mb-0">Rs. {{ total_amount|floatformat:0 }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-4">
+                    <select name="status" class="form-select" onchange="this.form.submit()">
+                        <option value="">All Status</option>
+                        {% for code, label in status_choices %}
+                        <option value="{{ code }}" {% if status == code %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <input type="text" name="search" class="form-control" placeholder="Search..." value="{{ request.GET.search }}">
+                        <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-search"></i></button>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <a href="{% url 'shareholder_portal_withdrawal_history' %}" class="btn btn-secondary w-100">
+                        <i class="bi bi-x"></i> Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Requests Table -->
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Request No</th>
+                            <th>Amount</th>
+                            <th>Method</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for req in withdrawal_requests %}
+                        <tr>
+                            <td><code>{{ req.request_no }}</code></td>
+                            <td class="fw-bold text-danger">Rs. {{ req.amount|floatformat:2 }}</td>
+                            <td>{{ req.get_payment_method_display|truncatechars:15 }}</td>
+                            <td>{{ req.created_at|date:"d-m-Y H:i" }}</td>
+                            <td>
+                                {% if req.status == 'pending' %}
+                                    <span class="badge bg-warning">⏳ Pending</span>
+                                {% elif req.status == 'approved' %}
+                                    <span class="badge bg-success">✅ Approved</span>
+                                {% elif req.status == 'rejected' %}
+                                    <span class="badge bg-danger">❌ Rejected</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ req.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-outline-info" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#detailModal{{ req.id }}">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox fs-1 d-block"></i>
+                                <p class="mt-2">No withdrawal requests found</p>
+                                <a href="{% url 'shareholder_portal_withdrawal_request' %}" class="btn btn-warning btn-sm">
+                                    <i class="bi bi-dash-circle"></i> Request Withdrawal
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer">
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="text-muted">Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }}</span>
+                {% if page_obj.has_other_pages %}
+                <nav>
+                    <ul class="pagination pagination-sm mb-0">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1&status={{ status }}">&laquo;</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}&status={{ status }}">‹</a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                        <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                            <a class="page-link" href="?page={{ num }}&status={{ status }}">{{ num }}</a>
+                        </li>
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}&status={{ status }}">›</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&status={{ status }}">&raquo;</a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detail Modals -->
+{% for req in withdrawal_requests %}
+<div class="modal fade" id="detailModal{{ req.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-receipt"></i> Request #{{ req.request_no }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-6">
+                        <label class="text-muted small">Amount</label>
+                        <p class="fw-bold text-danger">Rs. {{ req.amount|floatformat:2 }}</p>
+                    </div>
+                    <div class="col-6">
+                        <label class="text-muted small">Status</label>
+                        <p>
+                            {% if req.status == 'pending' %}
+                                <span class="badge bg-warning">⏳ Pending</span>
+                            {% elif req.status == 'approved' %}
+                                <span class="badge bg-success">✅ Approved</span>
+                            {% elif req.status == 'rejected' %}
+                                <span class="badge bg-danger">❌ Rejected</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-6">
+                        <label class="text-muted small">Payment Method</label>
+                        <p>{{ req.get_payment_method_display }}</p>
+                    </div>
+                    <div class="col-6">
+                        <label class="text-muted small">Date</label>
+                        <p>{{ req.created_at|date:"d-m-Y H:i:s" }}</p>
+                    </div>
+                    <div class="col-12">
+                        <label class="text-muted small">Account Details</label>
+                        <p class="border rounded p-2 bg-light">{{ req.account_details|default:"N/A" }}</p>
+                    </div>
+                    <div class="col-12">
+                        <label class="text-muted small">Description</label>
+                        <p class="border rounded p-2 bg-light">{{ req.description|default:"No description" }}</p>
+                    </div>
+                    
+                    {% if req.status == 'approved' %}
+                    <div class="col-6">
+                        <label class="text-muted small">Approved By</label>
+                        <p>{{ req.approved_by.username|default:"-" }}</p>
+                    </div>
+                    <div class="col-6">
+                        <label class="text-muted small">Approved At</label>
+                        <p>{{ req.approved_at|date:"d-m-Y H:i:s"|default:"-" }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if req.status == 'rejected' and req.rejected_reason %}
+                    <div class="col-12">
+                        <label class="text-muted small text-danger">Rejection Reason</label>
+                        <p class="border border-danger rounded p-2 bg-light">{{ req.rejected_reason }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if req.attachment %}
+                    <div class="col-12">
+                        <label class="text-muted small">Attachment</label>
+                        <br>
+                        <a href="{{ req.attachment.url }}" target="_blank" class="btn btn-sm btn-info">
+                            <i class="bi bi-download"></i> View Attachment
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

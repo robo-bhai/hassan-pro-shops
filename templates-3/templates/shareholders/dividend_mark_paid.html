@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Mark Dividend Paid{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>💰 Mark Dividend Paid</h1>
+        <a href="{% url 'dividend_detail' dividend.pk %}" class="btn btn-secondary">← Back</a>
+    </div>
+    
+    <div class="card">
+        <div class="card-header bg-success text-white">
+            <h6 class="mb-0">📝 Mark Payment as Paid</h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <table class="table table-bordered">
+                        <tr>
+                            <th>Shareholder</th>
+                            <td><strong>{{ payment.shareholder.name }}</strong></td>
+                        </tr>
+                        <tr>
+                            <th>Dividend #</th>
+                            <td>{{ payment.dividend.dividend_no }}</td>
+                        </tr>
+                        <tr>
+                            <th>Shares Held</th>
+                            <td>{{ payment.shares_held|floatformat:0 }}</td>
+                        </tr>
+                        <tr>
+                            <th>Amount</th>
+                            <td><strong class="text-success">Rs. {{ payment.amount|floatformat:2 }}</strong></td>
+                        </tr>
+                        <tr>
+                            <th>Available Cash Balance</th>
+                            <td>
+                                <strong class="{% if current_balance >= payment.amount %}text-success{% else %}text-danger{% endif %}">
+                                    Rs. {{ current_balance|floatformat:2 }}
+                                </strong>
+                                {% if current_balance >= payment.amount %}
+                                    <span class="badge bg-success">✅ Sufficient</span>
+                                {% else %}
+                                    <span class="badge bg-danger">❌ Insufficient</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                    
+                    {% if current_balance < payment.amount %}
+                    <div class="alert alert-danger">
+                        ⚠️ Insufficient cash balance! Available: Rs. {{ current_balance|floatformat:2 }}, Required: Rs. {{ payment.amount|floatformat:2 }}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-6">
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Payment Method *</label>
+                            <select name="payment_method" class="form-select" required>
+                                <option value="Bank Transfer">🏦 Bank Transfer</option>
+                                <option value="Cash">💵 Cash</option>
+                                <option value="Cheque">📄 Cheque</option>
+                                <option value="Online Transfer">📱 Online Transfer</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Reference No</label>
+                            <input type="text" name="reference_no" class="form-control" placeholder="e.g., TRX-123456">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Notes</label>
+                            <textarea name="notes" class="form-control" rows="2" placeholder="Any remarks..."></textarea>
+                        </div>
+                        
+                        <div class="text-end">
+                            <button type="submit" class="btn btn-success btn-lg" 
+                                    {% if current_balance < payment.amount %}disabled{% endif %}>
+                                ✅ Mark as Paid & Deduct Cash
+                            </button>
+                            {% if current_balance < payment.amount %}
+                            <br>
+                            <small class="text-danger">⚠️ Add cash first to pay this dividend</small>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

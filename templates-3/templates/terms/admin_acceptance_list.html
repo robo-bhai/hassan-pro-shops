@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Terms Acceptance - Shareholders{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">
+                            <i class="bi bi-check2-circle me-2"></i>
+                            Shareholder Terms Acceptance
+                        </h4>
+                        <div>
+                            <a href="{% url 'terms_acceptance_export' %}?status={{ status_filter }}" 
+                               class="btn btn-light btn-sm me-2">
+                                <i class="bi bi-download"></i> Export CSV
+                            </a>
+                            <a href="{% url 'terms_admin' %}" class="btn btn-light btn-sm">
+                                <i class="bi bi-gear"></i> Manage Terms
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Stats Cards -->
+                <div class="card-body">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h2 class="mb-0">{{ total_shareholders }}</h2>
+                                    <small class="text-muted">Total Shareholders</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h2 class="mb-0">{{ accepted_count }}</h2>
+                                    <small>✅ Accepted</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning">
+                                <div class="card-body text-center">
+                                    <h2 class="mb-0">{{ pending_count }}</h2>
+                                    <small>⏳ Pending</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body text-center">
+                                    <h2 class="mb-0">{{ acceptance_percentage|floatformat:1 }}%</h2>
+                                    <small>Acceptance Rate</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Filters -->
+                    <form method="get" class="mb-4">
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <input type="text" name="search" class="form-control" 
+                                       placeholder="Search by name/code/email..." 
+                                       value="{{ search }}">
+                            </div>
+                            <div class="col-md-2">
+                                <select name="status" class="form-select">
+                                    <option value="">All Status</option>
+                                    <option value="accepted" {% if status_filter == 'accepted' %}selected{% endif %}>
+                                        ✅ Accepted
+                                    </option>
+                                    <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>
+                                        ⏳ Pending
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <select name="version" class="form-select">
+                                    <option value="">All Versions</option>
+                                    {% for version in all_versions %}
+                                        <option value="{{ version }}" {% if version_filter == version %}selected{% endif %}>
+                                            v{{ version }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="bi bi-filter"></i> Filter
+                                </button>
+                            </div>
+                            <div class="col-md-2">
+                                <a href="{% url 'terms_acceptance_list' %}" class="btn btn-secondary w-100">
+                                    <i class="bi bi-arrow-counterclockwise"></i> Reset
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <!-- Table -->
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Code</th>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Status</th>
+                                    <th>Version</th>
+                                    <th>Accepted Date</th>
+                                    <th>IP Address</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for shareholder in shareholders %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ shareholder.shareholder_code }}</span>
+                                    </td>
+                                    <td>
+                                        <strong>{{ shareholder.name }}</strong>
+                                    </td>
+                                    <td>{{ shareholder.email|default:"-" }}</td>
+                                    <td>
+                                        {% if shareholder.acceptance_status == '✅ Accepted' %}
+                                            <span class="badge bg-success">
+                                                <i class="bi bi-check-circle"></i> Accepted
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-warning text-dark">
+                                                <i class="bi bi-clock"></i> Pending
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if shareholder.accepted_version != '-' %}
+                                            <span class="badge bg-info">v{{ shareholder.accepted_version }}</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {{ shareholder.acceptance_date|date:"d-m-Y H:i"|default:"-" }}
+                                    </td>
+                                    <td>
+                                        <small>{{ shareholder.acceptance_ip|default:"-" }}</small>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'terms_acceptance_detail' shareholder.id %}" 
+                                               class="btn btn-info" title="View Details">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            {% if shareholder.acceptance_status == '✅ Accepted' %}
+                                                <a href="{% url 'terms_acceptance_delete' shareholder.terms_acceptance.id %}" 
+                                                   class="btn btn-danger" title="Delete Acceptance">
+                                                    <i class="bi bi-x-circle"></i>
+                                                </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" class="text-center py-4">
+                                        <i class="bi bi-inbox fs-1 d-block text-muted"></i>
+                                        <p class="text-muted">No shareholders found</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    {% if page_obj.has_other_pages %}
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">
+                                        First
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">
+                                        Previous
+                                    </a>
+                                </li>
+                            {% endif %}
+                            
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">
+                                            {{ num }}
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">
+                                        Next
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">
+                                        Last
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

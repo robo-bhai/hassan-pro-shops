@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}💸 Withdrawal Requests - Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-cash-stack"></i> Withdrawal Requests</h2>
+            <p class="text-muted">Manage shareholder withdrawal requests</p>
+        </div>
+        <div>
+            <span class="badge bg-warning me-2 fs-6">Pending: {{ pending_count }}</span>
+            <span class="badge bg-success me-2 fs-6">Approved: {{ approved_count }}</span>
+            <span class="badge bg-danger fs-6">Rejected: {{ rejected_count }}</span>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Total Requests</h6>
+                    <h2 class="mb-0">{{ page_obj.paginator.count }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Total Amount</h6>
+                    <h2 class="mb-0">Rs. {{ total_amount|floatformat:0 }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h6 class="card-title">Pending Amount</h6>
+                    <h2 class="mb-0">Rs. {{ pending_amount|floatformat:0 }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Pending Requests</h6>
+                    <h2 class="mb-0">{{ pending_count }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-3">
+                    <input type="text" name="search" class="form-control" placeholder="🔍 Search..." value="{{ search }}">
+                </div>
+                <div class="col-md-2">
+                    <select name="status" class="form-select">
+                        <option value="">All Status</option>
+                        {% for code, label in status_choices %}
+                        <option value="{{ code }}" {% if status == code %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select name="shareholder" class="form-select">
+                        <option value="">All Shareholders</option>
+                        {% for sh in shareholders %}
+                        <option value="{{ sh.id }}" {% if shareholder_id|add:0 == sh.id %}selected{% endif %}>
+                            {{ sh.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search"></i> Filter
+                    </button>
+                    <a href="{% url 'shareholder_withdrawal_requests' %}" class="btn btn-secondary">
+                        <i class="bi bi-x"></i> Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Bulk Approve Form -->
+    <form method="POST" action="{% url 'shareholder_withdrawal_request_bulk_approve' %}" id="bulkForm">
+        {% csrf_token %}
+        
+        <!-- Table -->
+        <div class="card shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th style="width:40px;">
+                                    <input type="checkbox" id="selectAll" onclick="toggleAll(this)">
+                                </th>
+                                <th>Request No</th>
+                                <th>Shareholder</th>
+                                <th>Amount</th>
+                                <th>Method</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for req in withdrawal_requests %}
+                            <tr>
+                                <td>
+                                    {% if req.status == 'pending' %}
+                                    <input type="checkbox" name="request_ids" value="{{ req.id }}" class="row-select">
+                                    {% endif %}
+                                </td>
+                                <td><code>{{ req.request_no }}</code></td>
+                                <td>
+                                    <a href="{% url 'shareholder_detail' req.shareholder.id %}">
+                                        {{ req.shareholder.name }}
+                                    </a>
+                                </td>
+                                <td class="fw-bold text-danger">Rs. {{ req.amount|floatformat:2 }}</td>
+                                <td>{{ req.get_payment_method_display|truncatechars:12 }}</td>
+                                <td>{{ req.created_at|date:"d-m-Y H:i" }}</td>
+                                <td>
+                                    {% if req.status == 'pending' %}
+                                        <span class="badge bg-warning">⏳ Pending</span>
+                                    {% elif req.status == 'approved' %}
+                                        <span class="badge bg-success">✅ Approved</span>
+                                    {% elif req.status == 'rejected' %}
+                                        <span class="badge bg-danger">❌ Rejected</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ req.get_status_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'shareholder_withdrawal_request_detail' req.id %}" 
+                                           class="btn btn-primary">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        {% if req.status == 'pending' %}
+                                        <a href="{% url 'shareholder_withdrawal_request_notification' req.id %}" 
+                                           class="btn btn-warning"
+                                           onclick="return confirm('Send reminder to admins?')">
+                                            <i class="bi bi-bell"></i>
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center py-5 text-muted">
+                                    <i class="bi bi-inbox fs-1 d-block"></i>
+                                    <p class="mt-2">No withdrawal requests found</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer">
+                <div class="d-flex flex-wrap justify-content-between align-items-center">
+                    <div>
+                        <button type="submit" class="btn btn-success" 
+                                onclick="return confirm('Approve all selected withdrawal requests?')">
+                            <i class="bi bi-check-all"></i> Bulk Approve Selected
+                        </button>
+                        <span class="text-muted ms-2" id="selectedCount">0 selected</span>
+                    </div>
+                    {% if page_obj.has_other_pages %}
+                    <nav>
+                        <ul class="pagination pagination-sm mb-0">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1&status={{ status }}">&laquo;</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&status={{ status }}">‹</a>
+                            </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                            <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                                <a class="page-link" href="?page={{ num }}&status={{ status }}">{{ num }}</a>
+                            </li>
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}&status={{ status }}">›</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&status={{ status }}">&raquo;</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+function toggleAll(source) {
+    document.querySelectorAll('.row-select').forEach(checkbox => {
+        checkbox.checked = source.checked;
+    });
+    updateSelectedCount();
+}
+
+document.querySelectorAll('.row-select').forEach(el => {
+    el.addEventListener('change', updateSelectedCount);
+});
+
+function updateSelectedCount() {
+    const selected = document.querySelectorAll('.row-select:checked').length;
+    document.getElementById('selectedCount').textContent = selected + ' selected';
+}
+</script>
+{% endblock %}

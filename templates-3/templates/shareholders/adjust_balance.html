@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Adjust Balance - {{ shareholder.name }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-tools"></i> Adjust Balance - {{ shareholder.name }}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>Warning:</strong> This is a direct balance adjustment without affecting main cash.
+                        Only use for corrections and adjustments. This action cannot be undone easily.
+                    </div>
+
+                    <!-- Current Balance -->
+                    <div class="alert alert-info">
+                        <strong>Current Balance:</strong> Rs. {{ current_balance|floatformat:2 }}
+                    </div>
+
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Adjustment Type</label>
+                            <select name="adjustment_type" class="form-select form-control-lg" required>
+                                <option value="add">Add (Increase Balance)</option>
+                                <option value="remove">Remove (Decrease Balance)</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Amount (Rs.)</label>
+                            <input type="number" name="amount" class="form-control form-control-lg" 
+                                   step="0.01" min="0.01" required
+                                   placeholder="Enter amount to adjust">
+                            <div class="form-text">Enter positive amount only</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Reason for Adjustment</label>
+                            <input type="text" name="description" class="form-control" 
+                                   value="Manual adjustment" placeholder="e.g., Correction, Bonus, Penalty etc.">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Reference No. (Optional)</label>
+                            <input type="text" name="reference_no" class="form-control" 
+                                   placeholder="e.g., Adjustment reference">
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'shareholder_balance_detail' shareholder.id %}" class="btn btn-secondary">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-check-circle"></i> Apply Adjustment
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

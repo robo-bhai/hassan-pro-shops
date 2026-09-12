@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Approve Expense - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>✅ Approve Expense #{{ expense.expense_no }}</h2>
+                <a href="{% url 'expense_detail' expense.id %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+            </div>
+            
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <!-- Expense Summary -->
+                        <div class="alert alert-info">
+                            <h5>📋 Expense Summary</h5>
+                            <table class="table table-borderless mb-0">
+                                <tr>
+                                    <td><strong>Description:</strong></td>
+                                    <td>{{ expense.description }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Category:</strong></td>
+                                    <td>{{ expense.category.get_full_path }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Amount:</strong></td>
+                                    <td><strong>Rs. {{ expense.amount|floatformat:2 }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Tax:</strong></td>
+                                    <td>Rs. {{ expense.tax_amount|floatformat:2 }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Total:</strong></td>
+                                    <td><strong class="text-success">Rs. {{ expense.total_amount|floatformat:2 }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Submitted By:</strong></td>
+                                    <td>{{ expense.submitted_by.username }} on {{ expense.submitted_at|date:"d-m-Y H:i" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Budget:</strong></td>
+                                    <td>{{ expense.budget.name|default:"No budget assigned" }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Remarks (Optional)</label>
+                            <textarea name="remarks" class="form-control" rows="2" placeholder="Any remarks about this expense..."></textarea>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="{% url 'expense_detail' expense.id %}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-check-circle"></i> Approve Expense
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

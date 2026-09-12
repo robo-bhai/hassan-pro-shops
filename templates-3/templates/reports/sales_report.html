@@ -1,0 +1,454 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Sales Report{% endblock %}
+{% block page_title %}📊 Sales Report{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --card-bg: #ffffff;
+        --border: #eef0f5;
+        --text: #1a1a2e;
+        --text-light: #6b7280;
+        --accent: #0d6efd;
+    }
+    
+    .filter-hero {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
+        border-radius: 20px;
+        padding: 25px 30px;
+        margin-bottom: 20px;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .filter-hero::before {
+        content: '';
+        position: absolute;
+        top: -40%; right: -10%;
+        width: 250px; height: 250px;
+        background: radial-gradient(circle, rgba(240,165,0,0.1) 0%, transparent 70%);
+        border-radius: 50%;
+    }
+    
+    .filter-hero h5 { position: relative; z-index: 1; font-weight: 700; margin-bottom: 15px; font-size: 1rem; }
+    
+    .filter-hero .form-label-mini {
+        font-weight: 700; font-size: 0.65rem; text-transform: uppercase;
+        letter-spacing: 1.5px; color: rgba(255,255,255,0.7);
+        margin-bottom: 4px; display: block; position: relative; z-index: 1;
+    }
+    
+    .filter-hero .form-control, .filter-hero .form-select {
+        border-radius: 10px; border: 2px solid rgba(255,255,255,0.2);
+        padding: 10px 14px; font-size: 0.9rem; font-weight: 500;
+        background: rgba(255,255,255,0.1); color: white;
+        position: relative; z-index: 1; transition: all 0.3s;
+    }
+    
+    .filter-hero .form-select option { background: #1a1a2e; color: white; }
+    
+    .filter-hero .form-control:focus, .filter-hero .form-select:focus {
+        border-color: #f0a500; background: rgba(255,255,255,0.18);
+        box-shadow: 0 0 20px rgba(240,165,0,0.15); color: white; outline: none;
+    }
+    
+    .filter-hero .form-control::placeholder { color: rgba(255,255,255,0.4); }
+    
+    .btn-generate {
+        border-radius: 10px; padding: 10px 20px; font-weight: 700; font-size: 0.85rem;
+        border: none; cursor: pointer;
+        background: linear-gradient(135deg, #667eea, #764ba2); color: white;
+        transition: all 0.3s; position: relative; z-index: 1; width: 100%;
+        display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    
+    .btn-generate:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(102,126,234,0.4); }
+    
+    .btn-actions { display: flex; gap: 6px; position: relative; z-index: 1; flex-wrap: wrap; }
+    
+    .btn-action-sm {
+        border-radius: 8px; padding: 7px 12px; font-weight: 600; font-size: 0.7rem;
+        text-decoration: none; display: inline-flex; align-items: center; gap: 5px;
+        transition: all 0.2s; border: none; cursor: pointer; white-space: nowrap;
+    }
+    
+    .btn-pdf { background: #dc3545; color: white; }
+    .btn-print { background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); }
+    .btn-export { background: #11998e; color: white; }
+    
+    .btn-action-sm:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.2); color: white; }
+    
+    .preset-buttons { display: flex; gap: 6px; flex-wrap: wrap; position: relative; z-index: 1; margin-bottom: 12px; }
+    
+    .preset-btn {
+        padding: 6px 14px; border-radius: 20px; font-size: 0.7rem; font-weight: 700;
+        border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1);
+        color: white; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    }
+    
+    .preset-btn:hover, .preset-btn.active { background: rgba(255,255,255,0.25); border-color: #f0a500; }
+    
+    .btn-reset-filter {
+        padding: 6px 14px; border-radius: 20px; font-size: 0.7rem; font-weight: 700;
+        border: 1px solid rgba(255,255,255,0.3); background: rgba(220,53,69,0.3);
+        color: white; cursor: pointer; transition: all 0.2s; white-space: nowrap; text-decoration: none;
+    }
+    
+    .btn-reset-filter:hover { background: rgba(220,53,69,0.6); color: white; }
+    
+    .kpi-grid-compact { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 20px; }
+    
+    .kpi-mini {
+        background: white; border-radius: 12px; padding: 14px 16px;
+        border: 1px solid var(--border); display: flex; align-items: center; gap: 12px; transition: all 0.2s;
+    }
+    
+    .kpi-mini:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.06); }
+    
+    .kmi-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
+    .kmi-sales { background: #eef2ff; color: #667eea; }
+    .kmi-amount { background: #e0f7fa; color: #00bcd4; }
+    .kmi-profit { background: #e8f5e9; color: #4caf50; }
+    .kmi-avg { background: #ede7f6; color: #7c4dff; }
+    .kmi-discount { background: #fff3cd; color: #f2994a; }
+    .kmi-outstanding { background: #fce4ec; color: #e91e63; }
+    
+    .kmi-info { flex: 1; min-width: 0; }
+    .kmi-value { font-size: 1rem; font-weight: 800; color: var(--text); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .kmi-label { font-size: 0.65rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+    
+    .table-card { background: white; border-radius: 16px; border: 1px solid var(--border); overflow: hidden; }
+    .table-card .table-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); background: #fafbfc; flex-wrap: wrap; gap: 10px; }
+    .table-card .table-header h5 { margin: 0; font-weight: 700; font-size: 0.9rem; }
+    .table-card .badge-count { background: var(--accent); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; }
+    
+    .table-header-actions { display: flex; gap: 6px; }
+    
+    .btn-table-action {
+        padding: 5px 10px; border-radius: 6px; font-size: 0.65rem; font-weight: 600;
+        text-decoration: none; cursor: pointer; border: none; white-space: nowrap;
+        transition: all 0.2s;
+    }
+    
+    .btn-table-pdf { background: #dc3545; color: white; }
+    .btn-table-print { background: #6c757d; color: white; }
+    
+    .btn-table-action:hover { opacity: 0.85; color: white; }
+    
+    .table-responsive-custom { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    
+    .report-table { width: 100%; border-collapse: collapse; min-width: 900px; }
+    .report-table thead th { background: #1a1d2e; color: white; padding: 12px 14px; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; white-space: nowrap; border: none; }
+    .report-table tbody td { padding: 10px 14px; border-bottom: 1px solid #f0f2f7; font-size: 0.82rem; color: var(--text); vertical-align: middle; }
+    .report-table tbody tr:hover { background: #f8f9ff; }
+    .report-table tbody tr.clickable { cursor: pointer; }
+    .report-table tbody tr:nth-child(even) { background: #fafbfd; }
+    .report-table tbody tr:nth-child(even):hover { background: #f0f4ff; }
+    .report-table tfoot td { padding: 12px 14px; font-weight: 700; background: linear-gradient(135deg, #f8f9fc, #eef0f5); border-top: 2px solid #d0d5e0; font-size: 0.85rem; color: var(--text); }
+    .report-table .text-right { text-align: right; }
+    .report-table .text-center { text-align: center; }
+    
+    .report-bill-link { color: var(--accent); font-weight: 700; text-decoration: none; }
+    .report-bill-link:hover { text-decoration: underline; }
+    
+    .amount-positive { color: #11998e; font-weight: 600; }
+    .amount-negative { color: #dc3545; font-weight: 600; }
+    .amount-neutral { color: var(--text); font-weight: 600; }
+    
+    .badge-status-sm { padding: 4px 10px; border-radius: 12px; font-size: 0.65rem; font-weight: 700; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+    .badge-paid { background: #d4edda; color: #155724; }
+    .badge-pending { background: #fff3cd; color: #856404; }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+    .status-dot.green { background: #28a745; }
+    .status-dot.orange { background: #f2994a; }
+    
+    .active-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 15px; }
+    .filter-tag { background: #eef2ff; color: #667eea; padding: 4px 12px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
+    .filter-tag .remove-filter { cursor: pointer; font-weight: 700; color: #dc3545; }
+    
+    .empty-state { text-align: center; padding: 50px 20px; }
+    .empty-state .empty-icon { font-size: 4rem; opacity: 0.2; margin-bottom: 15px; }
+    .empty-state h4 { color: #8a8fa0; font-weight: 700; }
+    
+    .report-info { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: #fafbfc; border-top: 1px solid var(--border); font-size: 0.7rem; color: #8a8fa0; flex-wrap: wrap; gap: 8px; }
+    
+    @media (max-width: 768px) {
+        .filter-hero { padding: 18px 20px; }
+        .kpi-grid-compact { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .kpi-mini { padding: 10px 12px; gap: 8px; }
+        .kmi-icon { width: 32px; height: 32px; font-size: 0.9rem; border-radius: 8px; }
+        .kmi-value { font-size: 0.82rem; }
+        .report-table { min-width: 650px; }
+        .report-table thead th, .report-table tbody td { padding: 8px 10px; font-size: 0.75rem; }
+    }
+    
+    @media print {
+        .sidebar, .topbar, .filter-hero, .btn-actions, .report-info, .no-print, .active-filters, .table-header-actions { display: none !important; }
+        .main-wrapper { margin-left: 0 !important; }
+        .content-area { padding: 0 !important; }
+        .table-card { box-shadow: none !important; border: 1px solid #ddd; margin-bottom: 10px; }
+        .report-table thead th { background: #1a1d2e !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .kpi-mini { break-inside: avoid; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Filter Hero -->
+<div class="filter-hero">
+    <div class="row align-items-end">
+        <div class="col-lg-8">
+            <h5>📊 Sales Analytics & Report</h5>
+            <div class="preset-buttons">
+                <button type="button" class="preset-btn active" onclick="setPreset('today')">Today</button>
+                <button type="button" class="preset-btn" onclick="setPreset('yesterday')">Yesterday</button>
+                <button type="button" class="preset-btn" onclick="setPreset('week')">This Week</button>
+                <button type="button" class="preset-btn" onclick="setPreset('month')">This Month</button>
+                <button type="button" class="preset-btn" onclick="setPreset('lastmonth')">Last Month</button>
+                <button type="button" class="preset-btn" onclick="setPreset('year')">This Year</button>
+                <a href="{% url 'sales_report' %}" class="btn-reset-filter">✖ Reset</a>
+            </div>
+            <form method="post">{% csrf_token %} method="GET" id="filterForm">
+                <div class="row g-2">
+                    <div class="col-md-3 col-6">
+                        <label class="form-label-mini">📅 From</label>
+                        <input type="date" name="date_from" id="dateFrom" class="form-control" value="{{ date_from }}">
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <label class="form-label-mini">📅 To</label>
+                        <input type="date" name="date_to" id="dateTo" class="form-control" value="{{ date_to }}">
+                    </div>
+                    <div class="col-md-2 col-6">
+                        <label class="form-label-mini">📊 Status</label>
+                        <select name="status" class="form-select">
+                            <option value="">All</option>
+                            <option value="paid" {% if status == 'paid' %}selected{% endif %}>✅ Paid</option>
+                            <option value="pending" {% if status == 'pending' %}selected{% endif %}>⚠ Pending</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 col-6">
+                        <label class="form-label-mini">👤 Customer</label>
+                        <select name="customer" class="form-select">
+                            <option value="">All</option>
+                            {% for c in customers %}
+                            <option value="{{ c.id }}" {% if selected_customer == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name|truncatechars:12 }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2 col-12">
+                        <label class="form-label-mini">&nbsp;</label>
+                        <button type="submit" class="btn-generate"><i class="bi bi-search"></i> Generate</button>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <input type="text" name="search" class="form-control" placeholder="🔍 Search Bill No or Customer..." value="{{ search }}">
+                </div>
+            </form>
+        </div>
+        <div class="col-lg-4 mt-3 mt-lg-0">
+            <label class="form-label-mini">📥 Export</label>
+            <div class="btn-actions">
+                <button onclick="window.print()" class="btn-action-sm btn-print">🖨 Print All</button>
+                <a href="?date_from={{ date_from }}&date_to={{ date_to }}&status={{ status }}&customer={{ selected_customer }}&search={{ search }}&export=pdf" class="btn-action-sm btn-pdf">📄 Summary PDF</a>
+                <a href="?date_from={{ date_from }}&date_to={{ date_to }}&status={{ status }}&customer={{ selected_customer }}&search={{ search }}&export=products_pdf" class="btn-action-sm btn-export">📦 Products PDF</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Active Filters -->
+{% if search or status or selected_customer %}
+<div class="active-filters">
+    <span style="font-size:0.72rem;color:#6b7280;font-weight:600;">Filters:</span>
+    {% if search %}<span class="filter-tag">🔍 {{ search }} <a href="?date_from={{ date_from }}&date_to={{ date_to }}&status={{ status }}&customer={{ selected_customer }}" class="remove-filter">✖</a></span>{% endif %}
+    {% if status %}<span class="filter-tag">{{ status|title }} <a href="?date_from={{ date_from }}&date_to={{ date_to }}&customer={{ selected_customer }}&search={{ search }}" class="remove-filter">✖</a></span>{% endif %}
+    {% if selected_customer %}<span class="filter-tag">👤 Customer <a href="?date_from={{ date_from }}&date_to={{ date_to }}&status={{ status }}&search={{ search }}" class="remove-filter">✖</a></span>{% endif %}
+</div>
+{% endif %}
+
+<!-- KPI Cards -->
+<div class="kpi-grid-compact no-print">
+    <div class="kpi-mini"><div class="kmi-icon kmi-sales">📋</div><div class="kmi-info"><div class="kmi-value">{{ count|default:'0' }}</div><div class="kmi-label">Sales</div></div></div>
+    <div class="kpi-mini"><div class="kmi-icon kmi-amount">💰</div><div class="kmi-info"><div class="kmi-value">Rs. {{ total_amount|floatformat:0|default:'0' }}</div><div class="kmi-label">Amount</div></div></div>
+    <div class="kpi-mini"><div class="kmi-icon kmi-profit">📈</div><div class="kmi-info"><div class="kmi-value">Rs. {{ total_profit|floatformat:0|default:'0' }}</div><div class="kmi-label">Profit</div></div></div>
+    <div class="kpi-mini"><div class="kmi-icon kmi-avg">📊</div><div class="kmi-info"><div class="kmi-value">Rs. {{ avg_sale|floatformat:0|default:'0' }}</div><div class="kmi-label">Avg/Sale</div></div></div>
+    <div class="kpi-mini"><div class="kmi-icon kmi-discount">🏷️</div><div class="kmi-info"><div class="kmi-value">Rs. {{ total_discount|floatformat:0|default:'0' }}</div><div class="kmi-label">Discount</div></div></div>
+    <div class="kpi-mini"><div class="kmi-icon kmi-outstanding">⚠️</div><div class="kmi-info"><div class="kmi-value">Rs. {{ total_outstanding|floatformat:0|default:'0' }}</div><div class="kmi-label">Outstanding</div></div></div>
+</div>
+
+<!-- ========== SALES SUMMARY TABLE ========== -->
+<div class="table-card">
+    <div class="table-header">
+        <h5>📋 Sales Summary</h5>
+        <div class="d-flex align-items-center gap-3">
+            <span class="badge-count">{{ count|default:'0' }} records</span>
+            <div class="table-header-actions no-print">
+                <a href="?date_from={{ date_from }}&date_to={{ date_to }}&status={{ status }}&customer={{ selected_customer }}&search={{ search }}&export=pdf" class="btn-table-action btn-table-pdf">📄 PDF</a>
+                <button onclick="printSection('salesSummary')" class="btn-table-action btn-table-print">🖨 Print</button>
+            </div>
+        </div>
+    </div>
+    <div class="table-responsive-custom" id="salesSummary">
+        <table class="report-table">
+            <thead>
+                <tr>
+                    <th>Bill No</th>
+                    <th>Date & Time</th>
+                    <th>Customer</th>
+                    <th class="text-center">Items</th>
+                    <th class="text-right">Subtotal</th>
+                    <th class="text-right">Discount</th>
+                    <th class="text-right">Grand Total</th>
+                    <th class="text-right">Paid</th>
+                    <th class="text-right">Outstanding</th>
+                    <th class="text-right">Profit</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sale in sales %}
+                <tr class="clickable" onclick="window.location='{% url 'sale_detail' sale.pk %}'">
+                    <td><a href="{% url 'sale_detail' sale.pk %}" class="report-bill-link" onclick="event.stopPropagation();">{{ sale.bill_no }}</a></td>
+                    <td><div style="font-weight:600;font-size:0.82rem;">{{ sale.sale_date|date:"d M, Y" }}</div><small style="color:#8a8fa0;font-size:0.72rem;">{{ sale.sale_date|date:"h:i A" }}</small></td>
+                    <td><strong style="font-size:0.85rem;">{{ sale.customer.name|truncatechars:20 }}</strong>{% if sale.customer.customer_code %}<br><small style="color:#8a8fa0;font-size:0.7rem;">{{ sale.customer.customer_code }}</small>{% endif %}</td>
+                    <td class="text-center"><span class="badge bg-light text-dark fw-bold">{{ sale.saleitem_set.count }}</span></td>
+                    <td class="text-right amount-neutral">Rs. {{ sale.total_without_discount|floatformat:0 }}</td>
+                    <td class="text-right">{% if sale.discount_value > 0 %}<span class="amount-negative">-Rs. {{ sale.discount_value|floatformat:0 }}</span>{% else %}<span style="color:#ccc;">-</span>{% endif %}</td>
+                    <td class="text-right"><strong>Rs. {{ sale.total_amount|floatformat:0 }}</strong></td>
+                    <td class="text-right amount-positive">Rs. {{ sale.paid|floatformat:0 }}</td>
+                    <td class="text-right">{% if sale.outstanding_balance > 0 %}<span class="amount-negative">Rs. {{ sale.outstanding_balance|floatformat:0 }}</span>{% else %}<span class="amount-positive">Rs. 0</span>{% endif %}</td>
+                    <td class="text-right amount-positive">Rs. {{ sale.total_profit|floatformat:0 }}</td>
+                    <td>{% if sale.outstanding_balance <= 0 %}<span class="badge-status-sm badge-paid"><span class="status-dot green"></span> Paid</span>{% else %}<span class="badge-status-sm badge-pending"><span class="status-dot orange"></span> Pending</span>{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="11"><div class="empty-state"><div class="empty-icon">📭</div><h4>No Sales Found</h4></div></td></tr>
+                {% endfor %}
+            </tbody>
+            {% if sales %}
+            <tfoot>
+                <tr>
+                    <td><strong>TOTAL</strong></td><td>-</td><td>-</td>
+                    <td class="text-center"><strong>{{ total_items|default:'0' }}</strong></td>
+                    <td class="text-right"><strong>Rs. {{ total_subtotal|floatformat:0|default:'0' }}</strong></td>
+                    <td class="text-right"><strong>Rs. {{ total_discount|floatformat:0|default:'0' }}</strong></td>
+                    <td class="text-right"><strong>Rs. {{ total_amount|floatformat:0|default:'0' }}</strong></td>
+                    <td class="text-right"><strong>Rs. {{ total_paid|floatformat:0|default:'0' }}</strong></td>
+                    <td class="text-right"><strong>Rs. {{ total_outstanding|floatformat:0|default:'0' }}</strong></td>
+                    <td class="text-right"><strong>Rs. {{ total_profit|floatformat:0|default:'0' }}</strong></td>
+                    <td></td>
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+</div>
+
+<!-- ========== PRODUCTS SOLD DETAIL ========== -->
+{% if sales %}
+<div class="table-card mt-3">
+    <div class="table-header">
+        <h5>📦 Products Sold Detail</h5>
+        <div class="d-flex align-items-center gap-3">
+            <span class="badge-count">{{ total_items|default:'0' }} items</span>
+            <div class="table-header-actions no-print">
+                <a href="?date_from={{ date_from }}&date_to={{ date_to }}&status={{ status }}&customer={{ selected_customer }}&search={{ search }}&export=products_pdf" class="btn-table-action btn-table-pdf">📄 PDF</a>
+                <button onclick="printSection('productsDetail')" class="btn-table-action btn-table-print">🖨 Print</button>
+            </div>
+        </div>
+    </div>
+    <div class="table-responsive-custom" id="productsDetail">
+        <table class="report-table">
+            <thead>
+                <tr>
+                    <th>Bill No</th>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th>Product</th>
+                    <th class="text-right">Qty</th>
+                    <th class="text-right">Price</th>
+                    <th class="text-right">Total</th>
+                    <th class="text-right">Profit</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sale in sales %}
+                    {% for item in sale.saleitem_set.all %}
+                    <tr class="clickable" onclick="window.location='{% url 'sale_detail' sale.pk %}'">
+                        <td><a href="{% url 'sale_detail' sale.pk %}" class="report-bill-link" onclick="event.stopPropagation();">{{ sale.bill_no }}</a></td>
+                        <td><div style="font-weight:600;font-size:0.8rem;">{{ sale.sale_date|date:"d M" }}</div><small style="color:#8a8fa0;font-size:0.68rem;">{{ sale.sale_date|date:"h:i A" }}</small></td>
+                        <td><strong style="font-size:0.82rem;">{{ sale.customer.name|truncatechars:15 }}</strong></td>
+                        <td><strong style="font-size:0.82rem;">{{ item.product.name|truncatechars:25 }}</strong>{% if item.product.serial_no %}<br><small style="color:#8a8fa0;font-size:0.65rem;">S/N: {{ item.product.serial_no }}</small>{% endif %}</td>
+                        <td class="text-center">{{ item.qty|floatformat:2 }}</td>
+                        <td class="text-right">Rs. {{ item.price|floatformat:0 }}</td>
+                        <td class="text-right"><strong>Rs. {{ item.total_amt|floatformat:0 }}</strong></td>
+                        <td class="text-right amount-positive">Rs. {{ item.profit|floatformat:0 }}</td>
+                    </tr>
+                    {% endfor %}
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="5"><strong>TOTAL</strong></td>
+                    <td class="text-right"><strong>-</strong></td>
+                    <td class="text-right"><strong>Rs. {{ total_subtotal|floatformat:0|default:'0' }}</strong></td>
+                    <td class="text-right"><strong>Rs. {{ total_profit|floatformat:0|default:'0' }}</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<div class="report-info mt-3">
+    <span>📅 Period: {{ date_from|default:'N/A' }} to {{ date_to|default:'N/A' }}</span>
+    <span>🕐 Generated: {% now "d M, Y h:i A" %}</span>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function setPreset(preset) {
+        const today = new Date();
+        let from = '', to = '';
+        switch(preset) {
+            case 'today': from = to = today.toISOString().split('T')[0]; break;
+            case 'yesterday': const y = new Date(today); y.setDate(y.getDate()-1); from = to = y.toISOString().split('T')[0]; break;
+            case 'week': const ws = new Date(today); ws.setDate(ws.getDate()-ws.getDay()); from = ws.toISOString().split('T')[0]; to = today.toISOString().split('T')[0]; break;
+            case 'month': from = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]; to = today.toISOString().split('T')[0]; break;
+            case 'lastmonth': const lm = new Date(today.getFullYear(), today.getMonth()-1, 1); from = lm.toISOString().split('T')[0]; const lme = new Date(today.getFullYear(), today.getMonth(), 0); to = lme.toISOString().split('T')[0]; break;
+            case 'year': from = new Date(today.getFullYear(), 0, 1).toISOString().split('T')[0]; to = today.toISOString().split('T')[0]; break;
+        }
+        document.getElementById('dateFrom').value = from;
+        document.getElementById('dateTo').value = to;
+        document.getElementById('filterForm').submit();
+        document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+    }
+    
+    // Print specific section
+    function printSection(sectionId) {
+        const section = document.getElementById(sectionId);
+        const win = window.open('', '_blank');
+        win.document.write(`
+            <html><head><title>Print</title>
+            <style>
+                body { font-family: sans-serif; padding: 20px; }
+                table { width: 100%; border-collapse: collapse; }
+                th { background: #1a1d2e; color: white; padding: 10px 12px; font-size: 11px; text-align: left; }
+                td { padding: 8px 12px; border-bottom: 1px solid #ddd; font-size: 12px; }
+                .text-right { text-align: right; }
+                .text-center { text-align: center; }
+                tfoot td { font-weight: bold; background: #f5f5f5; }
+            </style></head>
+            <body>${section.outerHTML}</body></html>
+        `);
+        win.document.close();
+        setTimeout(() => win.print(), 500);
+    }
+</script>
+{% endblock %}

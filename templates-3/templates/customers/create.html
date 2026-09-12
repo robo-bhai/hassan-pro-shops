@@ -1,0 +1,445 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Add Customer{% endblock %}
+{% block page_title %}➕ Add New Customer{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary: #4361ee;
+        --primary-dark: #3a0ca3;
+        --success: #4cc9f0;
+        --danger: #f72585;
+        --warning: #f8961e;
+        --dark: #1a1a2e;
+        --gray: #6c757d;
+        --light-gray: #f8f9fa;
+        --border: #e9ecef;
+    }
+    
+    .page-header {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        border-radius: 20px;
+        padding: 25px 30px;
+        margin-bottom: 30px;
+        color: white;
+        box-shadow: 0 10px 30px rgba(67, 97, 238, 0.2);
+    }
+    
+    .page-header h1 {
+        font-size: 1.5rem;
+        margin-bottom: 5px;
+        font-weight: 600;
+    }
+    
+    .page-header p {
+        opacity: 0.9;
+        margin: 0;
+        font-size: 0.85rem;
+    }
+    
+    .form-container {
+        background: white;
+        border-radius: 24px;
+        box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+    }
+    
+    .form-header {
+        background: var(--light-gray);
+        padding: 20px 30px;
+        border-bottom: 2px solid var(--border);
+    }
+    
+    .form-header h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--dark);
+    }
+    
+    .form-header h3 i {
+        color: var(--primary);
+        margin-right: 8px;
+    }
+    
+    .form-body {
+        padding: 30px;
+    }
+    
+    .form-group {
+        margin-bottom: 24px;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--gray);
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .form-label i {
+        font-size: 0.9rem;
+        color: var(--primary);
+    }
+    
+    .form-label .required {
+        color: var(--danger);
+        font-size: 0.7rem;
+    }
+    
+    .form-control, .form-select {
+        border: 2px solid var(--border);
+        border-radius: 12px;
+        padding: 12px 16px;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+        background: white;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+        outline: none;
+    }
+    
+    .form-control.is-invalid {
+        border-color: var(--danger);
+        background-color: rgba(247, 37, 133, 0.02);
+    }
+    
+    .invalid-feedback {
+        font-size: 0.75rem;
+        margin-top: 6px;
+        color: var(--danger);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .form-text {
+        font-size: 0.7rem;
+        color: var(--gray);
+        margin-top: 6px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .form-text i {
+        font-size: 0.7rem;
+    }
+    
+    textarea.form-control {
+        resize: vertical;
+        min-height: 80px;
+    }
+    
+    .btn-group-action {
+        display: flex;
+        gap: 12px;
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid var(--border);
+    }
+    
+    .btn-primary-custom {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        border: none;
+        padding: 12px 28px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: white;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .btn-primary-custom:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(67, 97, 238, 0.3);
+        color: white;
+    }
+    
+    .btn-secondary-custom {
+        background: white;
+        border: 2px solid var(--border);
+        padding: 12px 28px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: var(--gray);
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+    }
+    
+    .btn-secondary-custom:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+        background: rgba(67, 97, 238, 0.02);
+    }
+    
+    /* Preview Card */
+    .preview-card {
+        background: linear-gradient(135deg, var(--light-gray) 0%, white 100%);
+        border-radius: 20px;
+        padding: 20px;
+        margin-top: 20px;
+        border: 1px solid var(--border);
+    }
+    
+    .preview-title {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--gray);
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .preview-code {
+        background: white;
+        padding: 10px 15px;
+        border-radius: 12px;
+        font-family: monospace;
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--primary);
+        border: 1px solid var(--border);
+        display: inline-block;
+    }
+    
+    .profit-badge {
+        background: rgba(76, 201, 240, 0.1);
+        border-radius: 10px;
+        padding: 8px 12px;
+        margin-top: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .profit-badge small {
+        color: var(--gray);
+        font-size: 0.7rem;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .form-container {
+        animation: fadeIn 0.3s ease;
+    }
+    
+    @media (max-width: 768px) {
+        .form-body { padding: 20px; }
+        .btn-group-action { flex-direction: column; }
+        .btn-primary-custom, .btn-secondary-custom { justify-content: center; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header">
+        <h1><i class="bi bi-person-badge"></i> Add New Customer</h1>
+        <p>Create a new customer profile. Customer code will be auto-generated if left blank.</p>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-7">
+            <div class="form-container">
+                <div class="form-header">
+                    <h3><i class="bi bi-pencil-square"></i> Customer Information</h3>
+                </div>
+                
+                <div class="form-body">
+                    <form method="POST" id="customerForm" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="bi bi-upc-scan"></i> Customer Code
+                                <span class="required"></span>
+                            </label>
+                            <input type="text" name="customer_code" id="customerCode" 
+                                   class="form-control" 
+                                   placeholder="Leave blank for auto-generate"
+                                   autocomplete="off">
+                            <div class="form-text">
+                                <i class="bi bi-info-circle"></i> 
+                                Leave empty to auto-generate (format: CUS-0001)
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="bi bi-person"></i> Customer Name 
+                                <span class="required">*</span>
+                            </label>
+                            <input type="text" name="name" id="customerName" 
+                                   class="form-control" 
+                                   placeholder="Enter customer name"
+                                   required>
+                            <div class="invalid-feedback">
+                                <i class="bi bi-exclamation-circle"></i> Customer name is required
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="bi bi-folder"></i> Group
+                            </label>
+                            <select name="group" class="form-select">
+                                <option value="">-- Select Group --</option>
+                                {% for group in groups %}
+                                <option value="{{ group.id }}">{{ group.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">
+                                <i class="bi bi-tag"></i> Group customers by category (optional)
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="form-label">
+                                        <i class="bi bi-telephone"></i> Contact Number
+                                    </label>
+                                    <input type="tel" name="contact_number" 
+                                           class="form-control" 
+                                           placeholder="e.g., 0300 1234567">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="form-label">
+                                        <i class="bi bi-percent"></i> Profit Margin (%)
+                                    </label>
+                                    <input type="number" name="profit_margin" 
+                                           class="form-control" 
+                                           value="0" step="0.01" min="0" max="100"
+                                           placeholder="Default profit margin">
+                                    <div class="form-text">
+                                        <i class="bi bi-calculator"></i> Applied to sales automatically
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="bi bi-geo-alt"></i> Address
+                            </label>
+                            <textarea name="address" class="form-control" 
+                                      placeholder="Full address of customer"></textarea>
+                        </div>
+                        
+                        <div class="btn-group-action">
+                            <button type="submit" class="btn-primary-custom">
+                                <i class="bi bi-check-lg"></i> Save Customer
+                            </button>
+                            <a href="{% url 'customer_list' %}" class="btn-secondary-custom">
+                                <i class="bi bi-x-lg"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-5">
+            <div class="preview-card">
+                <div class="preview-title">
+                    <i class="bi bi-eye"></i> Live Preview
+                </div>
+                <div id="previewContent">
+                    <div style="margin-bottom: 15px;">
+                        <small style="color: #6c757d; font-size: 0.7rem;">Customer Code</small>
+                        <div id="previewCode" class="preview-code">CUS-XXXX</div>
+                    </div>
+                    <div>
+                        <small style="color: #6c757d; font-size: 0.7rem;">Customer Name</small>
+                        <div id="previewName" style="font-weight: 600; font-size: 1rem; margin-top: 5px;">—</div>
+                    </div>
+                    <div class="profit-badge">
+                        <span><i class="bi bi-percent"></i> <small>Profit Margin</small></span>
+                        <strong id="previewMargin">0%</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Live preview
+    const customerName = document.getElementById('customerName');
+    const customerCode = document.getElementById('customerCode');
+    const profitMargin = document.querySelector('input[name="profit_margin"]');
+    const previewName = document.getElementById('previewName');
+    const previewCode = document.getElementById('previewCode');
+    const previewMargin = document.getElementById('previewMargin');
+    
+    if (customerName) {
+        customerName.addEventListener('input', function() {
+            previewName.innerHTML = this.value || '—';
+        });
+    }
+    
+    if (customerCode) {
+        customerCode.addEventListener('input', function() {
+            if (this.value) {
+                previewCode.innerHTML = this.value;
+                previewCode.style.color = '#4361ee';
+            } else {
+                previewCode.innerHTML = 'CUS-XXXX (Auto)';
+                previewCode.style.color = '#f8961e';
+            }
+        });
+    }
+    
+    if (profitMargin) {
+        profitMargin.addEventListener('input', function() {
+            previewMargin.innerHTML = (parseFloat(this.value) || 0) + '%';
+        });
+    }
+    
+    // Form validation
+    const form = document.getElementById('customerForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const nameInput = document.getElementById('customerName');
+            if (!nameInput.value.trim()) {
+                e.preventDefault();
+                nameInput.classList.add('is-invalid');
+                nameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } else {
+                nameInput.classList.remove('is-invalid');
+            }
+        });
+        
+        document.getElementById('customerName').addEventListener('input', function() {
+            if (this.value.trim()) {
+                this.classList.remove('is-invalid');
+            }
+        });
+    }
+</script>
+{% endblock %}

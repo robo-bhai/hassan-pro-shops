@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Sales Summary{% endblock %}
+{% block page_title %}📊 Sales Summary Report{% endblock %}
+
+{% block extra_css %}
+<style>
+    .summary-card { background: white; border-radius: 16px; padding: 20px; text-align: center; border: 1px solid #e9ecef; margin-bottom: 20px; }
+    .summary-value { font-size: 28px; font-weight: 800; color: #1a1a2e; }
+    .filter-bar { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e9ecef; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="filter-bar">
+        <form method="post">{% csrf_token %} method="GET" class="row g-3 align-items-end">
+            <div class="col-md-4"><label class="form-label small">From Date</label><input type="date" name="from_date" class="form-control" value="{{ from_date }}"></div>
+            <div class="col-md-4"><label class="form-label small">To Date</label><input type="date" name="to_date" class="form-control" value="{{ to_date }}"></div>
+            <div class="col-md-4"><button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> Show Report</button></div>
+        </form>
+    </div>
+
+    <div class="row">
+        <div class="col-md-3"><div class="summary-card"><div class="summary-value">PKR {{ total_amount|floatformat:0 }}</div><div class="small text-muted">Total Sales</div></div></div>
+        <div class="col-md-3"><div class="summary-card"><div class="summary-value">PKR {{ total_profit|floatformat:0 }}</div><div class="small text-muted">Total Profit</div></div></div>
+        <div class="col-md-3"><div class="summary-card"><div class="summary-value">{{ total_count }}</div><div class="small text-muted">Invoices</div></div></div>
+        <div class="col-md-3"><div class="summary-card"><div class="summary-value">PKR {{ avg_sale|floatformat:0 }}</div><div class="small text-muted">Average per Sale</div></div></div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-12"><div class="card"><div class="card-header bg-white"><strong>Daily Sales Trend</strong></div><div class="card-body"><canvas id="salesChart" height="100"></canvas></div></div></div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="card"><div class="card-header bg-white d-flex justify-content-between"><strong>Sales Details</strong><a href="{% url 'export_report_excel' 'sales_summary' %}?from_date={{ from_date }}&to_date={{ to_date }}" class="btn btn-sm btn-success"><i class="bi bi-download"></i> Export Excel</a></div>
+                <div class="card-body p-0"><div class="table-responsive"><table class="table table-hover mb-0">
+                    <thead class="table-light"><tr><th>Bill No</th><th>Date</th><th>Customer</th><th>Total</th><th>Paid</th><th>Outstanding</th><th>Profit</th></tr></thead>
+                    <tbody>{% for sale in sales %}<tr><td>{{ sale.bill_no }}</td><td>{{ sale.sale_date|date:"d-m-Y" }}</td><td>{{ sale.customer.name|truncatechars:25 }}</td><td>PKR {{ sale.total_amount|floatformat:0 }}</td><td>PKR {{ sale.paid|floatformat:0 }}</td><td>PKR {{ sale.outstanding_balance|floatformat:0 }}</td><td>PKR {{ sale.total_profit|floatformat:0 }}</td></tr>{% empty %}<tr><td colspan="7" class="text-center text-muted">No sales found</td></tr>{% endfor %}</tbody>
+                </table></div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const dailyData = {{ daily_data|safe }};
+    new Chart(document.getElementById('salesChart'), { type: 'line', data: { labels: dailyData.map(d => d.date), datasets: [{ label: 'Sales Amount (PKR)', data: dailyData.map(d => d.amount), borderColor: '#4361ee', fill: true }] }, options: { responsive: true } });
+</script>
+{% endblock %}

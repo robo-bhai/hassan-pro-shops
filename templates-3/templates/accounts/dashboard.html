@@ -1,0 +1,350 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Accounts Dashboard{% endblock %}
+{% block page_title %}📊 Accounts Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 14px;
+        padding: 20px;
+        border: 1px solid #eef0f5;
+        text-align: center;
+        transition: all 0.3s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.06);
+    }
+    
+    .stat-card .stat-number {
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: #1a1a2e;
+    }
+    
+    .stat-card .stat-label {
+        font-size: 0.75rem;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+        margin-top: 4px;
+    }
+    
+    .stat-card .stat-icon {
+        font-size: 2rem;
+        margin-bottom: 8px;
+        opacity: 0.6;
+    }
+    
+    .stat-card.primary .stat-number { color: #667eea; }
+    .stat-card.success .stat-number { color: #11998e; }
+    .stat-card.warning .stat-number { color: #f2994a; }
+    .stat-card.danger .stat-number { color: #dc3545; }
+    .stat-card.info .stat-number { color: #3b82f6; }
+    
+    .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+    
+    .quick-action {
+        background: white;
+        border-radius: 12px;
+        padding: 16px;
+        border: 1px solid #eef0f5;
+        text-align: center;
+        text-decoration: none;
+        color: #1a1a2e;
+        transition: all 0.3s;
+    }
+    
+    .quick-action:hover {
+        background: #f8f9ff;
+        border-color: #667eea;
+        transform: translateY(-2px);
+    }
+    
+    .quick-action i {
+        font-size: 1.5rem;
+        color: #667eea;
+        display: block;
+        margin-bottom: 6px;
+    }
+    
+    .quick-action span {
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    
+    .table-card {
+        background: white;
+        border-radius: 14px;
+        border: 1px solid #eef0f5;
+        overflow: hidden;
+        margin-bottom: 20px;
+    }
+    
+    .table-header {
+        padding: 14px 20px;
+        border-bottom: 1px solid #eef0f5;
+        background: #fafbfc;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .table-header h5 {
+        margin: 0;
+        font-weight: 700;
+        font-size: 0.95rem;
+    }
+    
+    .badge-count {
+        background: #667eea;
+        color: white;
+        padding: 3px 12px;
+        border-radius: 15px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .entry-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .entry-table th {
+        background: #f8f9fc;
+        padding: 10px 16px;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #5a6070;
+        font-weight: 700;
+        border-bottom: 2px solid #e0e3eb;
+    }
+    
+    .entry-table td {
+        padding: 10px 16px;
+        border-bottom: 1px solid #f0f2f7;
+        font-size: 0.88rem;
+    }
+    
+    .entry-table tr:hover {
+        background: #f8f9ff;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 3px 12px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .status-badge.draft { background: #e8ecf4; color: #5a6070; }
+    .status-badge.posted { background: #d4edda; color: #155724; }
+    .status-badge.reversed { background: #ffe0b2; color: #856404; }
+    .status-badge.void { background: #f8d7da; color: #721c24; }
+    
+    .balance-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    
+    .balance-item {
+        background: white;
+        border-radius: 12px;
+        padding: 14px 18px;
+        border: 1px solid #eef0f5;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .balance-item .label {
+        font-size: 0.75rem;
+        color: #6b7280;
+        font-weight: 600;
+    }
+    
+    .balance-item .value {
+        font-size: 1.1rem;
+        font-weight: 700;
+    }
+    
+    .balance-item .value.asset { color: #11998e; }
+    .balance-item .value.liability { color: #dc3545; }
+    .balance-item .value.equity { color: #667eea; }
+    .balance-item .value.income { color: #3b82f6; }
+    .balance-item .value.expense { color: #f2994a; }
+    
+    @media (max-width: 768px) {
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        .quick-actions {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        .balance-summary {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Quick Actions -->
+<div class="quick-actions">
+    <a href="{% url 'journal_entry_create' %}" class="quick-action">
+        <i class="bi bi-pencil-square"></i>
+        <span>New Journal Entry</span>
+    </a>
+    <a href="{% url 'chart_of_accounts' %}" class="quick-action">
+        <i class="bi bi-diagram-3"></i>
+        <span>Chart of Accounts</span>
+    </a>
+    <a href="{% url 'trial_balance' %}" class="quick-action">
+        <i class="bi bi-scale"></i>
+        <span>Trial Balance</span>
+    </a>
+    <a href="{% url 'balance_sheet' %}" class="quick-action">
+        <i class="bi bi-file-earmark-text"></i>
+        <span>Balance Sheet</span>
+    </a>
+    <a href="{% url 'profit_loss_statement' %}" class="quick-action">
+        <i class="bi bi-graph-up-arrow"></i>
+        <span>Profit & Loss</span>
+    </a>
+    <a href="{% url 'general_ledger' %}" class="quick-action">
+        <i class="bi bi-book"></i>
+        <span>General Ledger</span>
+    </a>
+</div>
+
+<!-- Stats -->
+<div class="stats-grid">
+    <div class="stat-card primary">
+        <div class="stat-icon">📒</div>
+        <div class="stat-number">{{ total_entries }}</div>
+        <div class="stat-label">Total Journal Entries</div>
+    </div>
+    <div class="stat-card success">
+        <div class="stat-icon">✅</div>
+        <div class="stat-number">{{ posted_entries }}</div>
+        <div class="stat-label">Posted Entries</div>
+    </div>
+    <div class="stat-card warning">
+        <div class="stat-icon">⏳</div>
+        <div class="stat-number">{{ pending_entries }}</div>
+        <div class="stat-label">Pending Entries</div>
+    </div>
+    <div class="stat-card info">
+        <div class="stat-icon">📊</div>
+        <div class="stat-number">{{ total_accounts }}</div>
+        <div class="stat-label">Total Accounts</div>
+    </div>
+</div>
+
+<!-- Balance Summary -->
+<div class="balance-summary">
+    <div class="balance-item">
+        <span class="label">Total Assets</span>
+        <span class="value asset">Rs. {{ total_assets|floatformat:2 }}</span>
+    </div>
+    <div class="balance-item">
+        <span class="label">Total Liabilities</span>
+        <span class="value liability">Rs. {{ total_liabilities|floatformat:2 }}</span>
+    </div>
+    <div class="balance-item">
+        <span class="label">Total Equity</span>
+        <span class="value equity">Rs. {{ total_equity|floatformat:2 }}</span>
+    </div>
+    <div class="balance-item">
+        <span class="label">Net Income</span>
+        <span class="value income">Rs. {{ total_income|floatformat:2 }}</span>
+    </div>
+    <div class="balance-item">
+        <span class="label">Total Expenses</span>
+        <span class="value expense">Rs. {{ total_expenses|floatformat:2 }}</span>
+    </div>
+</div>
+
+<!-- Recent Entries -->
+<div class="table-card">
+    <div class="table-header">
+        <h5>📋 Recent Journal Entries <span class="badge-count">{{ recent_entries|length }}</span></h5>
+        <a href="{% url 'journal_entry_list' %}" class="btn btn-sm btn-outline-primary" style="border-radius:8px; font-weight:600;">View All</a>
+    </div>
+    <table class="entry-table">
+        <thead>
+            <tr>
+                <th>Entry No</th>
+                <th>Date</th>
+                <th>Description</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th class="text-right">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in recent_entries %}
+            <tr>
+                <td>
+                    <a href="{% url 'journal_entry_detail' entry.pk %}" style="font-weight:600; color:#667eea;">
+                        {{ entry.entry_no }}
+                    </a>
+                </td>
+                <td>{{ entry.entry_date|date:"d-m-Y" }}</td>
+                <td>{{ entry.description|truncatechars:40 }}</td>
+                <td>{{ entry.get_entry_type_display }}</td>
+                <td>
+                    <span class="status-badge {{ entry.status }}">
+                        {{ entry.get_status_display }}
+                    </span>
+                </td>
+                <td class="text-right">
+                    <strong>Rs. {{ entry.total_debit|floatformat:2 }}</strong>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="text-center py-4">
+                    <div style="color:#94a3b8;">
+                        <i class="bi bi-inbox" style="font-size:2rem; display:block; margin-bottom:8px;"></i>
+                        No journal entries yet
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Current Period Info -->
+{% if current_period %}
+<div class="alert alert-info" style="border-radius:12px; border:1px solid #b8e0f7; background:#e8f4fd;">
+    <i class="bi bi-calendar-check"></i>
+    <strong>Current Financial Period:</strong> {{ current_period.name }}
+    ({{ current_period.start_date|date:"d-m-Y" }} to {{ current_period.end_date|date:"d-m-Y" }})
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Edit BOM Item{% endblock %}
+{% block page_title %}✏️ Edit BOM Item{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #f8961e, #f4a261);
+        border-radius: 20px;
+        padding: 25px 30px;
+        margin-bottom: 30px;
+        color: white;
+    }
+    
+    .form-card {
+        background: white;
+        border-radius: 20px;
+        border: 1px solid #e9ecef;
+        overflow: hidden;
+    }
+    
+    .form-header {
+        padding: 18px 24px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+        font-weight: 700;
+    }
+    
+    .form-body {
+        padding: 30px;
+    }
+    
+    .form-group {
+        margin-bottom: 24px;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #6c757d;
+        margin-bottom: 8px;
+        display: block;
+    }
+    
+    .form-control, .form-select {
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 12px 16px;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #f8961e;
+        box-shadow: 0 0 0 3px rgba(248, 150, 30, 0.1);
+    }
+    
+    .btn-submit {
+        background: linear-gradient(135deg, #f8961e, #f4a261);
+        border: none;
+        padding: 14px 28px;
+        border-radius: 12px;
+        font-weight: 600;
+        color: white;
+        width: 100%;
+    }
+    
+    .info-box {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 15px;
+        margin-top: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header">
+        <h1><i class="bi bi-pencil-square"></i> Edit BOM Item</h1>
+        <p>Production Order: {{ order.order_no }} - {{ order.product.name }}</p>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-6 mx-auto">
+            <div class="form-card">
+                <div class="form-header">
+                    <i class="bi bi-boxes"></i> Edit Raw Material Details
+                </div>
+                <div class="form-body">
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <div class="form-group">
+                            <label class="form-label">Raw Material</label>
+                            <input type="text" class="form-control" value="{{ bom.raw_material.name }}" disabled>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Quantity Required (per finished unit) *</label>
+                            <input type="number" name="quantity_required" class="form-control" 
+                                   step="0.01" min="0.01" value="{{ bom.quantity_required }}" required>
+                            <small class="text-muted">Example: 2 (means 2 units of raw material for 1 finished product)</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Cost per Unit (Rs.)</label>
+                            <input type="number" name="cost_per_unit" class="form-control" 
+                                   step="0.01" min="0" value="{{ bom.cost_per_unit }}">
+                            <small class="text-muted">Leave 0 to auto-fetch from product price</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Waste Percentage (%)</label>
+                            <input type="number" name="waste_percentage" class="form-control" 
+                                   step="0.1" min="0" value="{{ bom.waste_percentage }}">
+                        </div>
+                        
+                        <div class="info-box">
+                            <i class="bi bi-info-circle"></i> <strong>Current Values:</strong>
+                            <ul class="mt-2 mb-0">
+                                <li>Current Qty Required: <strong>{{ bom.quantity_required }}</strong></li>
+                                <li>Current Cost/Unit: <strong>Rs. {{ bom.cost_per_unit|floatformat:2 }}</strong></li>
+                                <li>Current Total Cost: <strong>Rs. {{ bom.total_cost|floatformat:2 }}</strong></li>
+                            </ul>
+                        </div>
+                        
+                        <div class="d-flex gap-2 mt-3">
+                            <button type="submit" class="btn-submit">
+                                <i class="bi bi-save"></i> Save Changes
+                            </button>
+                            <a href="{% url 'production_order_detail' order.pk %}" class="btn btn-secondary">
+                                Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

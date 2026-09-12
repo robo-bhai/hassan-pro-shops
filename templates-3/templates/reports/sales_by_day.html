@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Sales by Day{% endblock %}
+{% block page_title %}📅 Sales by Day of Week{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filter-bar { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e9ecef; }
+    .day-card { text-align: center; padding: 15px; border-radius: 12px; background: #f8f9fc; transition: all 0.2s; }
+    .day-card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+    .day-name { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+    .day-amount { font-size: 20px; font-weight: 800; }
+    .weekend { background: #fff8e7; border-left: 3px solid #f59e0b; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="filter-bar">
+        <form method="post">{% csrf_token %} method="GET" class="row g-3 align-items-end">
+            <div class="col-md-4"><label class="form-label small">From Date</label><input type="date" name="from_date" class="form-control" value="{{ from_date }}"></div>
+            <div class="col-md-4"><label class="form-label small">To Date</label><input type="date" name="to_date" class="form-control" value="{{ to_date }}"></div>
+            <div class="col-md-4"><button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> Show Report</button></div>
+        </form>
+    </div>
+
+    <div class="row mb-4">
+        {% for day in days_data %}
+        <div class="col-md-3 col-6 mb-3">
+            <div class="day-card {% if day.day_num >= 5 %}weekend{% endif %}">
+                <div class="day-name">{{ day.day }}</div>
+                <div class="day-amount">PKR {{ day.total|floatformat:0 }}</div>
+                <div class="small text-muted">{{ day.count }} transactions</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-white"><strong><i class="bi bi-bar-chart"></i> Day-wise Sales Comparison</strong></div>
+        <div class="card-body"><canvas id="dayChart" height="100"></canvas></div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> <strong>Business Insight:</strong>
+                {% for day in days_data %}{% if day.total == days_data|dictsortreversed:"total"|first %}Your best sales day is <strong>{{ day.day }}</strong> with PKR {{ day.total|floatformat:0 }} in sales.{% endif %}{% endfor %}
+                {% for day in days_data %}{% if day.day_num >= 5 and day.day_num <= 6 %}Weekend sales are {% if day.total > days_data.4.total %}higher{% else %}lower{% endif %} than Friday.{% endif %}{% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const daysData = {{ days_data|safe }};
+    new Chart(document.getElementById('dayChart'), {
+        type: 'bar',
+        data: { labels: daysData.map(d => d.day), datasets: [{ label: 'Sales (PKR)', data: daysData.map(d => d.total), backgroundColor: ['#4361ee', '#4361ee', '#4361ee', '#4361ee', '#4361ee', '#f59e0b', '#f59e0b'] }] },
+        options: { responsive: true, maintainAspectRatio: true }
+    });
+</script>
+{% endblock %}

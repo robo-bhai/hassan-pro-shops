@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Use Parts - Service Request {{ service_request.request_no }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>🔧 Use Parts in Service</h2>
+                <h5>Request: {{ service_request.request_no }}</h5>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-7">
+                    <div class="card">
+                        <div class="card-body">
+                            <form method="POST">
+                                {% csrf_token %}
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Select Item <span class="text-danger">*</span></label>
+                                    <select name="inventory_item" class="form-select" required>
+                                        <option value="">Select Item</option>
+                                        {% for item in items %}
+                                        <option value="{{ item.id }}">
+                                            {{ item.item_code }} - {{ item.name }} (Stock: {{ item.current_stock }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Quantity <span class="text-danger">*</span></label>
+                                    <input type="number" name="quantity" class="form-control" step="0.01" required placeholder="Enter quantity">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input type="checkbox" name="charged_to_customer" class="form-check-input" id="chargedToCustomer" checked>
+                                        <label class="form-check-label" for="chargedToCustomer">Charge to Customer</label>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Notes</label>
+                                    <textarea name="notes" class="form-control" rows="2"></textarea>
+                                </div>
+                                
+                                <hr>
+                                
+                                <div class="d-flex justify-content-end gap-2">
+                                    <a href="{% url 'service_request_detail' service_request.id %}" class="btn btn-secondary">Cancel</a>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-check-circle"></i> Use Part
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-5">
+                    <!-- Existing Usage -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">📋 Parts Used</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if existing_usage %}
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Item</th>
+                                            <th>Qty</th>
+                                            <th>Cost</th>
+                                            <th>Charged</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for part in existing_usage %}
+                                        <tr>
+                                            <td>{{ part.inventory_item.name }}</td>
+                                            <td>{{ part.quantity }}</td>
+                                            <td>Rs. {{ part.total_cost|floatformat:2 }}</td>
+                                            <td>{% if part.charged_to_customer %}✅{% else %}❌{% endif %}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="mt-2">
+                                <strong>Total Cost:</strong> Rs. 
+                                {% with total=0 %}
+                                    {% for part in existing_usage %}
+                                        {% with total=total|add:part.total_cost %}{% endwith %}
+                                    {% endfor %}
+                                    {{ total|floatformat:2 }}
+                                {% endwith %}
+                            </div>
+                            {% else %}
+                            <p class="text-muted text-center">No parts used yet.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

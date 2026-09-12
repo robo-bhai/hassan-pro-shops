@@ -1,0 +1,208 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Withdrawal Request Detail{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-10 offset-lg-1">
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb" class="mt-2">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'shareholder_withdrawal_requests' %}">Withdrawal Requests</a></li>
+                    <li class="breadcrumb-item active">{{ withdrawal_request.request_no }}</li>
+                </ol>
+            </nav>
+
+            <div class="card shadow-sm">
+                <div class="card-header d-flex flex-wrap justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="bi bi-receipt"></i> Request #{{ withdrawal_request.request_no }}
+                    </h4>
+                    {% if withdrawal_request.status == 'pending' %}
+                        <span class="badge bg-warning fs-6">⏳ Pending</span>
+                    {% elif withdrawal_request.status == 'approved' %}
+                        <span class="badge bg-success fs-6">✅ Approved</span>
+                    {% elif withdrawal_request.status == 'rejected' %}
+                        <span class="badge bg-danger fs-6">❌ Rejected</span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <!-- Shareholder Info -->
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6><i class="bi bi-person"></i> Shareholder</h6>
+                                    <p class="fw-bold mb-0">{{ withdrawal_request.shareholder.name }}</p>
+                                    <p class="text-muted small">{{ withdrawal_request.shareholder.shareholder_code }}</p>
+                                    <p class="mb-0">
+                                        <i class="bi bi-envelope"></i> {{ withdrawal_request.shareholder.email|default:"N/A" }}
+                                    </p>
+                                    <p>
+                                        <i class="bi bi-phone"></i> {{ withdrawal_request.shareholder.phone|default:"N/A" }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card bg-danger text-white">
+                                <div class="card-body">
+                                    <h6><i class="bi bi-wallet"></i> Current Balance</h6>
+                                    <h2 class="mb-0">Rs. {{ shareholder_balance|floatformat:2 }}</h2>
+                                    <p class="mb-0 small">After approval: Rs. {{ after_approval_balance|floatformat:2 }}</p>
+                                    <hr class="border-light">
+                                    <h6><i class="bi bi-cash"></i> Main Cash Balance</h6>
+                                    <h2 class="mb-0">Rs. {{ main_balance|floatformat:2 }}</h2>
+                                    <p class="mb-0 small">After approval: Rs. {{ after_approval_main|floatformat:2 }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Request Details -->
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-6">
+                            <label class="text-muted small">Amount</label>
+                            <p class="fw-bold text-danger fs-3">Rs. {{ withdrawal_request.amount|floatformat:2 }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small">Payment Method</label>
+                            <p class="fs-5">{{ withdrawal_request.get_payment_method_display }}</p>
+                        </div>
+                        <div class="col-12">
+                            <label class="text-muted small">Account Details</label>
+                            <p class="border rounded p-3 bg-light">{{ withdrawal_request.account_details|default:"N/A" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small">Reference Number</label>
+                            <p><code>{{ withdrawal_request.reference_no|default:"N/A" }}</code></p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small">Request Date</label>
+                            <p>{{ withdrawal_request.created_at|date:"d-m-Y H:i:s" }}</p>
+                        </div>
+                        <div class="col-12">
+                            <label class="text-muted small">Description</label>
+                            <p class="border rounded p-3 bg-light">{{ withdrawal_request.description|default:"No description provided" }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Attachment -->
+                    {% if withdrawal_request.attachment %}
+                    <div class="mb-4">
+                        <label class="text-muted small">Attachment</label>
+                        <br>
+                        <a href="{{ withdrawal_request.attachment.url }}" target="_blank" class="btn btn-sm btn-info">
+                            <i class="bi bi-download"></i> View Attachment
+                        </a>
+                        <span class="text-muted ms-2 small">{{ withdrawal_request.attachment.name|cut:"withdrawal_requests/" }}</span>
+                    </div>
+                    {% endif %}
+
+                    <!-- Rejection Reason -->
+                    {% if withdrawal_request.status == 'rejected' and withdrawal_request.rejected_reason %}
+                    <div class="alert alert-danger">
+                        <h6><i class="bi bi-exclamation-triangle"></i> Rejection Reason</h6>
+                        <p class="mb-0">{{ withdrawal_request.rejected_reason }}</p>
+                    </div>
+                    {% endif %}
+
+                    <!-- Approval Info -->
+                    {% if withdrawal_request.status == 'approved' %}
+                    <div class="alert alert-success">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="text-muted small">Approved By</label>
+                                <p class="fw-bold">{{ withdrawal_request.approved_by.username }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="text-muted small">Approved At</label>
+                                <p>{{ withdrawal_request.approved_at|date:"d-m-Y H:i:s" }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Action Buttons -->
+                    {% if withdrawal_request.status == 'pending' %}
+                    <hr>
+                    <h6 class="mb-3"><i class="bi bi-gear"></i> Take Action</h6>
+                    <div class="d-flex flex-wrap gap-2">
+                        <!-- Approve Form -->
+                        <form method="POST" action="" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="approve">
+                            <button type="submit" class="btn btn-success btn-lg"
+                                    onclick="return confirm('Approve this withdrawal request?')">
+                                <i class="bi bi-check-circle"></i> Approve
+                            </button>
+                        </form>
+
+                        <!-- Reject Button -->
+                        <button type="button" class="btn btn-danger btn-lg" data-bs-toggle="modal" data-bs-target="#rejectModal">
+                            <i class="bi bi-x-circle"></i> Reject
+                        </button>
+
+                        <!-- Resend Notification -->
+                        <a href="{% url 'shareholder_withdrawal_request_notification' withdrawal_request.id %}" 
+                           class="btn btn-warning btn-lg"
+                           onclick="return confirm('Resend notification to admins?')">
+                            <i class="bi bi-bell"></i> Resend Notification
+                        </a>
+                    </div>
+                    {% endif %}
+
+                    <!-- Back Buttons -->
+                    <div class="mt-4">
+                        <a href="{% url 'shareholder_withdrawal_requests' %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to List
+                        </a>
+                        <a href="{% url 'shareholder_detail' withdrawal_request.shareholder.id %}" class="btn btn-outline-primary">
+                            <i class="bi bi-person"></i> View Shareholder
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reject Modal -->
+<div class="modal fade" id="rejectModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" action="">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="reject">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-x-circle"></i> Reject Withdrawal Request
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <p><strong>Request #{{ withdrawal_request.request_no }}</strong></p>
+                        <p>Amount: <strong class="text-danger">Rs. {{ withdrawal_request.amount|floatformat:2 }}</strong></p>
+                        <p>Shareholder: <strong>{{ withdrawal_request.shareholder.name }}</strong></p>
+                        <p>Current Balance: <strong>Rs. {{ shareholder_balance|floatformat:2 }}</strong></p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Reason for Rejection <span class="text-danger">*</span></label>
+                        <textarea name="reason" class="form-control" rows="4" required
+                                  placeholder="Explain why this withdrawal request is rejected..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-x-circle"></i> Reject Request
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

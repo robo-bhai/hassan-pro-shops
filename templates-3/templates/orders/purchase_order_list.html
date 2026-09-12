@@ -1,0 +1,240 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Purchase Orders{% endblock %}
+{% block page_title %}📑 Purchase Orders{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root { --border: #eef0f5; --text: #1a1a2e; --accent: #0d6efd; }
+    
+    .stats-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:10px; margin-bottom:20px; }
+    .stat-mini {
+        background:white; border-radius:14px; padding:14px 16px; border:1px solid var(--border);
+        display:flex; align-items:center; gap:10px; cursor:pointer; transition:all 0.3s;
+    }
+    .stat-mini:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.06); }
+    .stat-mini .sm-icon { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0; }
+    .stat-mini .sm-value { font-size:1.1rem; font-weight:800; color:var(--text); }
+    .stat-mini .sm-label { font-size:0.65rem; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; }
+    
+    .icon-total{background:#eef2ff;color:#667eea} .icon-pending{background:#fff3cd;color:#f2994a}
+    .icon-confirmed{background:#e0f7fa;color:#00bcd4} .icon-received{background:#e8f5e9;color:#4caf50}
+    .icon-processing{background:#e8f0fe;color:#667eea} .icon-shipped{background:#ede7f6;color:#7c4dff}
+    .icon-partial{background:#fff8e1;color:#e65100}
+    
+    .filter-bar { background:white; border-radius:14px; padding:16px 20px; border:1px solid var(--border); margin-bottom:20px; }
+    .filter-bar .form-control, .filter-bar .form-select { border-radius:10px; border:2px solid #eef0f5; padding:9px 14px; font-size:0.88rem; background:#fafbfc; }
+    .btn-filter { border-radius:10px; padding:10px 20px; font-weight:700; font-size:0.85rem; border:none; background:linear-gradient(135deg,#667eea,#764ba2); color:white; display:flex; align-items:center; justify-content:center; gap:6px; }
+    
+    .table-card { background:white; border-radius:16px; border:1px solid var(--border); overflow:hidden; }
+    .table-header { display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border); background:#fafbfc; }
+    .table-header h5 { margin:0; font-weight:700; font-size:0.95rem; }
+    .badge-count { background:var(--accent); color:white; padding:4px 12px; border-radius:20px; font-size:0.72rem; font-weight:600; }
+    .btn-new { padding:8px 16px; border-radius:10px; font-weight:700; font-size:0.82rem; text-decoration:none; background:linear-gradient(135deg,#667eea,#764ba2); color:white; display:inline-flex; align-items:center; gap:6px; }
+    
+    .table-responsive-custom { overflow-x:auto; }
+    .order-table { width:100%; border-collapse:collapse; min-width:900px; }
+    .order-table thead th { background:#1a1d2e; color:white; padding:12px 14px; font-size:0.68rem; text-transform:uppercase; letter-spacing:1px; font-weight:700; white-space:nowrap; }
+    .order-table tbody td { padding:10px 14px; border-bottom:1px solid #f0f2f7; font-size:0.85rem; color:var(--text); vertical-align:middle; }
+    .order-table tbody tr { transition:all 0.2s; }
+    .order-table tbody tr:hover { background:#f8f9ff; }
+    .order-table tbody tr.clickable { cursor:pointer; }
+    .order-table tbody tr:nth-child(even) { background:#fafbfd; }
+    .order-table tbody tr:nth-child(even):hover { background:#f0f4ff; }
+    
+    .text-right{text-align:right} .text-center{text-align:center}
+    
+    .status-badge { padding:4px 12px; border-radius:15px; font-size:0.7rem; font-weight:700; white-space:nowrap; display:inline-flex; align-items:center; gap:5px; }
+    .status-dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+    .status-pending{background:#fff3cd;color:#856404} .status-pending .status-dot{background:#f2994a}
+    .status-confirmed{background:#e0f7fa;color:#055160} .status-confirmed .status-dot{background:#00bcd4}
+    .status-processing{background:#e8f0fe;color:#084298} .status-processing .status-dot{background:#667eea}
+    .status-shipped{background:#ede7f6;color:#4a148c} .status-shipped .status-dot{background:#7c4dff}
+    .status-partially_received{background:#fff8e1;color:#e65100} .status-partially_received .status-dot{background:#ff9800}
+    .status-received{background:#d4edda;color:#155724} .status-received .status-dot{background:#28a745}
+    .status-completed{background:#cff4fc;color:#055160} .status-completed .status-dot{background:#0dcaf0}
+    .status-cancelled{background:#fce4ec;color:#721c24} .status-cancelled .status-dot{background:#dc3545}
+    
+    .btn-action { width:30px; height:30px; border-radius:8px; border:1px solid #e0e3eb; background:white; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#5a6070; transition:all 0.2s; }
+    .btn-action:hover { background:#f0f2f7; color:#1a1a2e; }
+    .dropdown-item { font-size:0.82rem; padding:8px 16px; }
+    .dropdown-item i { width:18px; text-align:center; }
+    
+    .empty-state { text-align:center; padding:50px 20px; color:#8a8fa0; }
+    .empty-state .empty-icon { font-size:4rem; opacity:0.2; margin-bottom:10px; }
+    
+    @media (max-width:768px) { .stats-row{grid-template-columns:repeat(2,1fr)} .order-table{min-width:750px} .order-table thead th,.order-table tbody td{padding:8px 10px;font-size:0.78rem} }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Stats -->
+<div class="stats-row">
+    <div class="stat-mini" onclick="window.location='?'">
+        <div class="sm-icon icon-total">📋</div>
+        <div><div class="sm-value">{{ total_orders|default:'0' }}</div><div class="sm-label">Total</div></div>
+    </div>
+    <div class="stat-mini" onclick="window.location='?status=pending'">
+        <div class="sm-icon icon-pending">⏳</div>
+        <div><div class="sm-value">{{ pending_count|default:'0' }}</div><div class="sm-label">Pending</div></div>
+    </div>
+    <div class="stat-mini" onclick="window.location='?status=confirmed'">
+        <div class="sm-icon icon-confirmed">✅</div>
+        <div><div class="sm-value">{{ confirmed_count|default:'0' }}</div><div class="sm-label">Confirmed</div></div>
+    </div>
+    <div class="stat-mini" onclick="window.location='?status=processing'">
+        <div class="sm-icon icon-processing">🔄</div>
+        <div><div class="sm-value">{{ processing_count|default:'0' }}</div><div class="sm-label">Processing</div></div>
+    </div>
+    <div class="stat-mini" onclick="window.location='?status=received'">
+        <div class="sm-icon icon-received">📦</div>
+        <div><div class="sm-value">{{ received_count|default:'0' }}</div><div class="sm-label">Received</div></div>
+    </div>
+    <div class="stat-mini" onclick="window.location='?status=completed'">
+        <div class="sm-icon icon-completed">✅</div>
+        <div><div class="sm-value">{{ completed_count|default:'0' }}</div><div class="sm-label">Completed</div></div>
+    </div>
+</div>
+
+<!-- Filter -->
+<div class="filter-bar">
+    <form method="post">{% csrf_token %} method="GET" class="row g-2">
+        <div class="col-md-4">
+            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">🔍 Search</label>
+            <input type="text" name="search" class="form-control" placeholder="PO No, Vendor..." value="{{ search }}">
+        </div>
+        <div class="col-md-3">
+            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">📊 Status</label>
+            <select name="status" class="form-select">
+                <option value="">All Status</option>
+                <option value="pending" {% if selected_status == 'pending' %}selected{% endif %}>⏳ Pending</option>
+                <option value="confirmed" {% if selected_status == 'confirmed' %}selected{% endif %}>✅ Confirmed</option>
+                <option value="processing" {% if selected_status == 'processing' %}selected{% endif %}>🔄 Processing</option>
+                <option value="shipped" {% if selected_status == 'shipped' %}selected{% endif %}>🚚 Shipped</option>
+                <option value="partially_received" {% if selected_status == 'partially_received' %}selected{% endif %}>📦 Partial</option>
+                <option value="received" {% if selected_status == 'received' %}selected{% endif %}>✅ Received</option>
+                <option value="completed" {% if selected_status == 'completed' %}selected{% endif %}>🏁 Completed</option>
+                <option value="cancelled" {% if selected_status == 'cancelled' %}selected{% endif %}>❌ Cancelled</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">🏭 Warehouse</label>
+            <select name="warehouse" class="form-select">
+                <option value="">All Warehouses</option>
+                {% for wh in warehouses %}
+                <option value="{{ wh.id }}" {% if selected_warehouse == wh.id|stringformat:"s" %}selected{% endif %}>{{ wh.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn-filter w-100"><i class="bi bi-funnel"></i> Filter</button>
+        </div>
+    </form>
+</div>
+
+<!-- Table -->
+<div class="table-card">
+    <div class="table-header">
+        <h5>📑 Purchase Orders <span class="badge-count">{{ page_obj.paginator.count|default:'0' }}</span></h5>
+        <a href="{% url 'purchase_order_create' %}" class="btn-new"><i class="bi bi-plus-lg"></i> New PO</a>
+    </div>
+    
+    <div class="table-responsive-custom">
+        <table class="order-table">
+            <thead>
+                <tr>
+                    <th>PO No</th>
+                    <th>Date</th>
+                    <th>Vendor</th>
+                    <th>Warehouse</th>
+                    <th class="text-right">Total</th>
+                    <th>Receive</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in page_obj %}
+                <tr class="clickable" onclick="window.location='{% url 'purchase_order_detail' order.pk %}'">
+                    <td>
+                        <a href="{% url 'purchase_order_detail' order.pk %}" style="color:var(--accent);font-weight:700;text-decoration:none;" onclick="event.stopPropagation();">
+                            {{ order.order_no }}
+                        </a>
+                    </td>
+                    <td>
+                        <div style="font-weight:600;">{{ order.order_date|date:"d M, Y" }}</div>
+                        <small style="color:#8a8fa0;">{{ order.order_date|date:"h:i A" }}</small>
+                    </td>
+                    <td>
+                        <strong>{{ order.vendor.name|truncatechars:18 }}</strong>
+                        {% if order.vendor.vendor_code %}
+                        <br><small style="color:#8a8fa0;">{{ order.vendor.vendor_code }}</small>
+                        {% endif %}
+                    </td>
+                    <td>{{ order.warehouse.name }}</td>
+                    <td class="text-right"><strong>Rs. {{ order.total_amount|floatformat:0 }}</strong></td>
+                    <td>
+                        {% if order.receive_percent > 0 %}
+                        <div class="progress" style="height:6px;width:60px;border-radius:3px;background:#e9ecef;">
+                            <div class="progress-bar bg-success" style="width:{{ order.receive_percent }}%;border-radius:3px;"></div>
+                        </div>
+                        <small style="font-size:0.7rem;">{{ order.receive_percent }}%</small>
+                        {% else %}
+                        <span style="color:#8a8fa0;font-size:0.8rem;">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="status-badge status-{{ order.status }}">
+                            <span class="status-dot"></span>{{ order.get_status_display }}
+                        </span>
+                    </td>
+                    <td onclick="event.stopPropagation();">
+                        <div class="dropdown">
+                            <button class="btn-action" data-bs-toggle="dropdown" title="Actions">⋮</button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow">
+                                <li><a class="dropdown-item" href="{% url 'purchase_order_detail' order.pk %}"><i class="bi bi-eye"></i> View Details</a></li>
+                                
+                                {% if order.status == 'confirmed' or order.status == 'processing' or order.status == 'shipped' or order.status == 'partially_received' %}
+                                <li><a class="dropdown-item text-success" href="{% url 'purchase_order_create_grn' order.pk %}"><i class="bi bi-box-seam"></i> 📦 Create GRN</a></li>
+                                {% endif %}
+                                
+                                {% if order.status == 'pending' %}
+                                <li><a class="dropdown-item text-info" href="{% url 'purchase_order_quick_status' order.pk 'confirmed' %}"><i class="bi bi-check-circle"></i> ✅ Confirm Order</a></li>
+                                {% endif %}
+                                
+                                {% if order.status == 'pending' or order.status == 'confirmed' %}
+                                <li><a class="dropdown-item text-primary" href="{% url 'purchase_order_quick_status' order.pk 'processing' %}"><i class="bi bi-arrow-repeat"></i> 🔄 Start Processing</a></li>
+                                {% endif %}
+                                
+                                {% if order.status != 'cancelled' and order.status != 'completed' %}
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="{% url 'purchase_order_quick_status' order.pk 'cancelled' %}" onclick="return confirm('❌ Cancel PO #{{ order.order_no }}?')"><i class="bi bi-x-circle"></i> ❌ Cancel Order</a></li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8">
+                        <div class="empty-state">
+                            <div class="empty-icon">📑</div>
+                            <h4>No Purchase Orders Found</h4>
+                            <p>{% if search %}Try different filters{% else %}Create your first PO!{% endif %}</p>
+                            {% if not search %}
+                            <a href="{% url 'purchase_order_create' %}" class="btn-new mt-2"><i class="bi bi-plus-lg"></i> Create First PO</a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    {% include 'components/pagination.html' %}
+</div>
+
+{% endblock %}

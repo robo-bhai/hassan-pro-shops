@@ -1,0 +1,350 @@
+<!-- templates/dividends/balance_dividend_list.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Balance Dividends{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            
+            <!-- ===== HEADER CARD ===== -->
+            <div class="card shadow-lg">
+                <div class="card-header bg-gradient-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0">
+                                <i class="bi bi-list me-2"></i>
+                                Balance-Based Dividends
+                            </h4>
+                            <small>Manage all balance-based dividend distributions</small>
+                        </div>
+                        <div>
+                            <a href="{% url 'balance_dividend_create' %}" class="btn btn-light btn-sm">
+                                <i class="bi bi-plus-circle me-1"></i>
+                                Create New
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- ========================================== -->
+                    <!-- 📊 STATS CARDS                             -->
+                    <!-- ========================================== -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white shadow-sm">
+                                <div class="card-body text-center">
+                                    <h6 class="text-white-50">Total Dividends</h6>
+                                    <h3>{{ total_dividends }}</h3>
+                                    <small>All time</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white shadow-sm">
+                                <div class="card-body text-center">
+                                    <h6 class="text-white-50">Total Distributed</h6>
+                                    <h3>Rs. {{ total_distributed|floatformat:0 }}</h3>
+                                    <small>Paid to shareholders</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-dark shadow-sm">
+                                <div class="card-body text-center">
+                                    <h6 class="text-dark-50">Pending</h6>
+                                    <h3>{{ pending_dividends }}</h3>
+                                    <small>Awaiting distribution</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white shadow-sm">
+                                <div class="card-body text-center">
+                                    <h6 class="text-white-50">Total Refund</h6>
+                                    <h3>Rs. {{ total_refund|floatformat:0|default:"0" }}</h3>
+                                    <small>Refund amount</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ========================================== -->
+                    <!-- 🔘 ACTION BUTTONS                          -->
+                    <!-- ========================================== -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="d-flex flex-wrap gap-2">
+                                <a href="{% url 'balance_dividend_create' %}" class="btn btn-success">
+                                    <i class="bi bi-plus-circle me-2"></i>
+                                    Create Balance Dividend
+                                </a>
+                                <a href="{% url 'balance_dividend_report' %}" class="btn btn-info">
+                                    <i class="bi bi-graph-up me-2"></i>
+                                    View Report
+                                </a>
+                                <button class="btn btn-outline-primary" onclick="window.location.reload()">
+                                    <i class="bi bi-arrow-clockwise me-2"></i>
+                                    Refresh
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ========================================== -->
+                    <!-- 📋 FILTERS                                -->
+                    <!-- ========================================== -->
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <select class="form-select" id="statusFilter" onchange="applyFilter()">
+                                <option value="">All Status</option>
+                                {% for value, label in status_choices %}
+                                <option value="{{ value }}" {% if status == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <input type="date" class="form-control" id="fromDate" 
+                                   value="{{ from_date }}" placeholder="From Date">
+                        </div>
+                        <div class="col-md-3">
+                            <input type="date" class="form-control" id="toDate" 
+                                   value="{{ to_date }}" placeholder="To Date">
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-primary" onclick="applyFilter()">
+                                <i class="bi bi-funnel me-1"></i> Filter
+                            </button>
+                            <a href="{% url 'balance_dividend_list' %}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- ========================================== -->
+                    <!-- 📋 DIVIDENDS TABLE                         -->
+                    <!-- ========================================== -->
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th style="width: 5%;">#</th>
+                                    <th style="width: 12%;">Dividend No</th>
+                                    <th style="width: 10%;">Total Profit</th>
+                                    <th style="width: 8%;">%</th>
+                                    <th style="width: 12%;">Refund + Profit</th>
+                                    <th style="width: 10%;">Refund</th>
+                                    <th style="width: 10%;">Paid</th>
+                                    <th style="width: 10%;">Pending</th>
+                                    <th style="width: 10%;">Payments</th>
+                                    <th style="width: 10%;">Date</th>
+                                    <th style="width: 10%;">Status</th>
+                                    <th style="width: 8%;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for dividend in dividends %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>
+                                        <strong>{{ dividend.dividend_no }}</strong>
+                                        <br>
+                                        <small class="text-muted">{{ dividend.get_distribution_type_display|truncatechars:15 }}</small>
+                                    </td>
+                                    <td class="text-primary">Rs. {{ dividend.total_profit|floatformat:2 }}</td>
+                                    <td class="text-center">{{ dividend.dividend_percentage|floatformat:0 }}%</td>
+                                    <td class="text-success">
+                                        <strong>Rs. {{ dividend.total_amount|floatformat:2 }}</strong>
+                                    </td>
+                                    <td class="text-warning">Rs. {{ dividend.total_refund_amount|floatformat:2 }}</td>
+                                    <td class="text-success">Rs. {{ dividend.paid_amount|floatformat:2 }}</td>
+                                    <td class="text-danger">Rs. {{ dividend.pending_amount|floatformat:2 }}</td>
+                                    <td class="text-center">
+                                        <span class="badge bg-info">{{ dividend.payment_count }}</span>
+                                        <br>
+                                        <small class="text-muted">{{ dividend.paid_count }}/{{ dividend.payment_count }}</small>
+                                    </td>
+                                    <td>{{ dividend.declaration_date|date:"d-m-Y" }}</td>
+                                    <td>
+                                        {% if dividend.status == 'draft' %}
+                                            <span class="badge bg-secondary">📝 Draft</span>
+                                        {% elif dividend.status == 'declared' %}
+                                            <span class="badge bg-primary">📢 Declared</span>
+                                        {% elif dividend.status == 'approved' %}
+                                            <span class="badge bg-warning text-dark">✅ Approved</span>
+                                        {% elif dividend.status == 'distributed' %}
+                                            <span class="badge bg-success">💰 Distributed</span>
+                                        {% elif dividend.status == 'cancelled' %}
+                                            <span class="badge bg-danger">❌ Cancelled</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="d-flex gap-1">
+                                            <a href="{% url 'balance_dividend_detail' dividend.pk %}" 
+                                               class="btn btn-sm btn-info" title="View Details">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            {% if dividend.status == 'draft' %}
+                                            <a href="{% url 'balance_dividend_edit' dividend.pk %}" 
+                                               class="btn btn-sm btn-warning" title="Edit">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            {% endif %}
+                                            {% if dividend.can_generate_payments %}
+                                            <a href="{% url 'balance_dividend_generate' dividend.pk %}" 
+                                               class="btn btn-sm btn-success" title="Generate Payments"
+                                               onclick="return confirm('Generate payments for {{ dividend.dividend_no }}?')">
+                                                <i class="bi bi-play-circle"></i>
+                                            </a>
+                                            {% endif %}
+                                            {% if dividend.status == 'draft' %}
+                                            <a href="{% url 'balance_dividend_delete' dividend.pk %}" 
+                                               class="btn btn-sm btn-danger" title="Delete"
+                                               onclick="return confirm('Delete {{ dividend.dividend_no }}?')">
+                                                <i class="bi bi-trash"></i>
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="12" class="text-center text-muted py-5">
+                                        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                        <h5>No balance dividends found</h5>
+                                        <p class="text-muted">Create your first balance-based dividend</p>
+                                        <a href="{% url 'balance_dividend_create' %}" class="btn btn-success mt-2">
+                                            <i class="bi bi-plus-circle me-2"></i>
+                                            Create Balance Dividend
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            {% if dividends %}
+                            <tfoot class="table-dark">
+                                <tr>
+                                    <th colspan="2" class="text-end">TOTALS:</th>
+                                    <th>Rs. {{ total_profit_sum|floatformat:2 }}</th>
+                                    <th></th>
+                                    <th>Rs. {{ total_amount_sum|floatformat:2 }}</th>
+                                    <th>Rs. {{ total_refund_sum|floatformat:2 }}</th>
+                                    <th>Rs. {{ total_paid_sum|floatformat:2 }}</th>
+                                    <th>Rs. {{ total_pending_sum|floatformat:2 }}</th>
+                                    <th>{{ total_payment_count }}</th>
+                                    <th colspan="3"></th>
+                                </tr>
+                            </tfoot>
+                            {% endif %}
+                        </table>
+                    </div>
+
+                    <!-- ========================================== -->
+                    <!-- 📄 PAGINATION                             -->
+                    <!-- ========================================== -->
+                    {% if page_obj.has_other_pages %}
+                    <nav aria-label="Page navigation" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if status %}&status={{ status }}{% endif %}{% if from_date %}&from_date={{ from_date }}{% endif %}{% if to_date %}&to_date={{ to_date }}{% endif %}">
+                                    <i class="bi bi-chevron-left"></i> Previous
+                                </a>
+                            </li>
+                            {% endif %}
+                            
+                            {% for num in page_obj.paginator.page_range %}
+                            <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                                <a class="page-link" href="?page={{ num }}{% if status %}&status={{ status }}{% endif %}{% if from_date %}&from_date={{ from_date }}{% endif %}{% if to_date %}&to_date={{ to_date }}{% endif %}">
+                                    {{ num }}
+                                </a>
+                            </li>
+                            {% endfor %}
+                            
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if status %}&status={{ status }}{% endif %}{% if from_date %}&from_date={{ from_date }}{% endif %}{% if to_date %}&to_date={{ to_date }}{% endif %}">
+                                    Next <i class="bi bi-chevron-right"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- SCRIPTS                                    -->
+<!-- ========================================== -->
+<script>
+function applyFilter() {
+    const status = document.getElementById('statusFilter').value;
+    const fromDate = document.getElementById('fromDate').value;
+    const toDate = document.getElementById('toDate').value;
+    
+    let url = '?';
+    if (status) url += 'status=' + status + '&';
+    if (fromDate) url += 'from_date=' + fromDate + '&';
+    if (toDate) url += 'to_date=' + toDate;
+    
+    window.location.href = url;
+}
+
+// Auto-submit on Enter key
+document.addEventListener('DOMContentLoaded', function() {
+    const inputs = document.querySelectorAll('#fromDate, #toDate');
+    inputs.forEach(input => {
+        input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                applyFilter();
+            }
+        });
+    });
+});
+</script>
+
+<!-- ========================================== -->
+<!-- STYLES                                     -->
+<!-- ========================================== -->
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.card {
+    border-radius: 12px;
+    overflow: hidden;
+}
+.card-header {
+    border-bottom: none;
+}
+.table th, .table td {
+    vertical-align: middle;
+}
+.badge {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+}
+.btn {
+    border-radius: 8px;
+}
+.pagination .page-link {
+    border-radius: 8px;
+    margin: 0 3px;
+}
+.pagination .active .page-link {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-color: #667eea;
+}
+</style>
+{% endblock %}

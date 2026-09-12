@@ -1,0 +1,857 @@
+{% extends 'shareholders/portal/base.html' %}
+{% load static %}
+
+{% block title %}Shareholder Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ============================================ */
+    /* MINIMAL PROFESSIONAL STYLES                 */
+    /* ============================================ */
+    
+    :root {
+        --primary: #4f46e5;
+        --primary-light: #818cf8;
+        --primary-dark: #4338ca;
+        --success: #22c55e;
+        --success-dark: #16a34a;
+        --warning: #f59e0b;
+        --warning-dark: #d97706;
+        --danger: #ef4444;
+        --danger-dark: #dc2626;
+        --gray-50: #f8fafc;
+        --gray-100: #f1f5f9;
+        --gray-200: #e2e8f0;
+        --gray-300: #cbd5e1;
+        --gray-500: #64748b;
+        --gray-600: #475569;
+        --gray-700: #334155;
+        --gray-800: #1e293b;
+        --gray-900: #0f172a;
+        --radius: 10px;
+        --shadow: 0 1px 3px rgba(0,0,0,0.06);
+        --shadow-hover: 0 4px 16px rgba(0,0,0,0.1);
+    }
+    
+    /* ============================================ */
+    /* BUTTONS                                      */
+    /* ============================================ */
+    .btn-modern {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 8px 18px;
+        border-radius: 8px;
+        font-size: 0.82rem;
+        font-weight: 500;
+        border: none;
+        cursor: pointer;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        position: relative;
+        font-family: inherit;
+        line-height: 1.4;
+        white-space: nowrap;
+    }
+    
+    .btn-modern i { font-size: 1rem; }
+    .btn-modern .badge-count {
+        background: rgba(255,255,255,0.25);
+        padding: 0px 8px;
+        border-radius: 12px;
+        font-size: 0.65rem;
+        font-weight: 600;
+    }
+    
+    /* Primary */
+    .btn-modern.primary {
+        background: var(--primary);
+        color: white;
+    }
+    .btn-modern.primary:hover {
+        background: var(--primary-dark);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);
+    }
+    .btn-modern.primary:active { transform: translateY(0); }
+    
+    /* Success */
+    .btn-modern.success {
+        background: var(--success);
+        color: white;
+    }
+    .btn-modern.success:hover {
+        background: var(--success-dark);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(34, 197, 94, 0.35);
+    }
+    .btn-modern.success:active { transform: translateY(0); }
+    
+    /* Warning */
+    .btn-modern.warning {
+        background: var(--warning);
+        color: white;
+    }
+    .btn-modern.warning:hover {
+        background: var(--warning-dark);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
+    }
+    .btn-modern.warning:active { transform: translateY(0); }
+    
+    /* Danger */
+    .btn-modern.danger {
+        background: var(--danger);
+        color: white;
+    }
+    .btn-modern.danger:hover {
+        background: var(--danger-dark);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+    }
+    .btn-modern.danger:active { transform: translateY(0); }
+    
+    /* Outline */
+    .btn-modern.outline {
+        background: transparent;
+        color: var(--gray-700);
+        border: 1.5px solid var(--gray-200);
+    }
+    .btn-modern.outline:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+        background: var(--gray-50);
+        transform: translateY(-1px);
+    }
+    .btn-modern.outline:active { transform: translateY(0); }
+    
+    .btn-modern.outline-primary {
+        background: transparent;
+        color: var(--primary);
+        border: 1.5px solid var(--primary);
+    }
+    .btn-modern.outline-primary:hover {
+        background: var(--primary);
+        color: white;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+    }
+    
+    /* Sizes */
+    .btn-modern.sm { padding: 5px 12px; font-size: 0.7rem; }
+    .btn-modern.sm i { font-size: 0.8rem; }
+    .btn-modern.lg { padding: 10px 24px; font-size: 0.95rem; }
+    .btn-modern.lg i { font-size: 1.1rem; }
+    
+    /* Ghost (Minimal) */
+    .btn-modern.ghost {
+        background: transparent;
+        color: var(--gray-600);
+        border: none;
+    }
+    .btn-modern.ghost:hover {
+        background: var(--gray-100);
+        color: var(--gray-800);
+    }
+    
+    /* Full Width */
+    .btn-modern.block { width: 100%; justify-content: center; }
+    
+    /* With Icon Only */
+    .btn-modern.icon-only { padding: 8px 10px; }
+    
+    /* ============================================ */
+    /* HEADER                                       */
+    /* ============================================ */
+    .dash-header {
+        margin-bottom: 24px;
+    }
+    
+    .dash-header .greeting {
+        font-size: 1.4rem;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin-bottom: 2px;
+    }
+    
+    .dash-header .greeting small {
+        font-weight: 400;
+        color: var(--gray-500);
+        font-size: 0.9rem;
+    }
+    
+    .dash-header .subtitle {
+        color: var(--gray-500);
+        font-size: 0.85rem;
+    }
+    
+    .dash-header .subtitle .dot {
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        background: var(--success);
+        border-radius: 50%;
+        margin-right: 4px;
+    }
+    
+    /* ============================================ */
+    /* QUICK ACTIONS                               */
+    /* ============================================ */
+    .quick-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 24px;
+    }
+    
+    /* ============================================ */
+    /* STATS GRID                                  */
+    /* ============================================ */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: var(--radius);
+        padding: 18px 20px;
+        border: 1px solid var(--gray-200);
+        transition: all 0.2s;
+    }
+    
+    .stat-card:hover {
+        border-color: var(--primary-light);
+        box-shadow: var(--shadow-hover);
+    }
+    
+    .stat-card .stat-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--gray-500);
+        font-weight: 600;
+    }
+    
+    .stat-card .stat-value {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: var(--gray-900);
+        margin: 2px 0;
+    }
+    
+    .stat-card .stat-sub {
+        font-size: 0.7rem;
+        color: var(--gray-500);
+    }
+    
+    .stat-card .stat-icon {
+        float: right;
+        font-size: 1.4rem;
+        opacity: 0.4;
+    }
+    
+    /* ============================================ */
+    /* ALERTS                                       */
+    /* ============================================ */
+    .alert-box {
+        padding: 12px 18px;
+        border-radius: var(--radius);
+        margin-bottom: 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        border-left: 4px solid;
+    }
+    
+    .alert-box.warning { background: #fffbeb; border-color: var(--warning); }
+    .alert-box.danger { background: #fef2f2; border-color: var(--danger); }
+    .alert-box.info { background: #eff6ff; border-color: var(--primary); }
+    
+    .alert-box .alert-text {
+        font-size: 0.85rem;
+        color: var(--gray-700);
+    }
+    
+    .alert-box .alert-text strong { font-weight: 600; }
+    .alert-box .alert-text small { color: var(--gray-500); margin-left: 4px; }
+    
+    .alert-box .alert-actions { display: flex; gap: 6px; }
+    
+    /* ============================================ */
+    /* PROFIT/LOSS                                 */
+    /* ============================================ */
+    .pl-bar {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+        background: white;
+        border-radius: var(--radius);
+        padding: 16px 20px;
+        border: 1px solid var(--gray-200);
+        margin-bottom: 24px;
+    }
+    
+    .pl-bar .pl-item { text-align: center; }
+    .pl-bar .pl-item .pl-label {
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--gray-500);
+        font-weight: 600;
+    }
+    
+    .pl-bar .pl-item .pl-value {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-top: 2px;
+    }
+    
+    .pl-bar .pl-item .pl-value.positive { color: var(--success); }
+    .pl-bar .pl-item .pl-value.negative { color: var(--danger); }
+    .pl-bar .pl-item .pl-value.neutral { color: var(--gray-700); }
+    
+    /* ============================================ */
+    /* TABLE                                        */
+    /* ============================================ */
+    .table-wrap {
+        background: white;
+        border-radius: var(--radius);
+        border: 1px solid var(--gray-200);
+        overflow: hidden;
+        margin-bottom: 24px;
+    }
+    
+    .table-wrap .table-header {
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--gray-200);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .table-wrap .table-header h6 {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--gray-800);
+        margin: 0;
+    }
+    
+    .table-wrap .table-header .count {
+        font-size: 0.7rem;
+        color: var(--gray-500);
+        background: var(--gray-100);
+        padding: 2px 12px;
+        border-radius: 20px;
+    }
+    
+    .table-wrap table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.82rem;
+    }
+    
+    .table-wrap table th {
+        text-align: left;
+        padding: 10px 16px;
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--gray-500);
+        font-weight: 600;
+        background: var(--gray-50);
+        border-bottom: 1px solid var(--gray-200);
+    }
+    
+    .table-wrap table td {
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--gray-100);
+        color: var(--gray-700);
+    }
+    
+    .table-wrap table tr:last-child td { border-bottom: none; }
+    .table-wrap table tr:hover td { background: var(--gray-50); }
+    
+    .table-wrap .type-badge {
+        font-size: 0.6rem;
+        padding: 2px 10px;
+        border-radius: 20px;
+        font-weight: 600;
+        background: var(--gray-100);
+        color: var(--gray-600);
+    }
+    
+    .table-wrap .text-right { text-align: right; }
+    .table-wrap .text-center { text-align: center; }
+    
+    .table-wrap .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--gray-500);
+    }
+    
+    .table-wrap .empty-state .icon { font-size: 2rem; opacity: 0.3; display: block; margin-bottom: 6px; }
+    
+    /* ============================================ */
+    /* ACTIVITY LIST                               */
+    /* ============================================ */
+    .activity-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    
+    .activity-card {
+        background: white;
+        border-radius: var(--radius);
+        border: 1px solid var(--gray-200);
+        overflow: hidden;
+    }
+    
+    .activity-card .card-header {
+        padding: 12px 18px;
+        border-bottom: 1px solid var(--gray-200);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .activity-card .card-header h6 {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--gray-800);
+        margin: 0;
+    }
+    
+    .activity-card .card-body { padding: 0; }
+    
+    .activity-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .activity-list li {
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--gray-100);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .activity-list li:last-child { border-bottom: none; }
+    
+    .activity-list .act-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .activity-list .act-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        flex-shrink: 0;
+    }
+    
+    .activity-list .act-icon.green { background: #dcfce7; color: #22c55e; }
+    .activity-list .act-icon.red { background: #fee2e2; color: #ef4444; }
+    .activity-list .act-icon.blue { background: #dbeafe; color: #4f46e5; }
+    .activity-list .act-icon.yellow { background: #fef3c7; color: #f59e0b; }
+    
+    .activity-list .act-text { flex: 1; min-width: 0; }
+    
+    .activity-list .act-text .title {
+        font-size: 0.78rem;
+        font-weight: 500;
+        color: var(--gray-700);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .activity-list .act-text .meta {
+        font-size: 0.6rem;
+        color: var(--gray-500);
+    }
+    
+    .activity-list .act-amount {
+        font-weight: 600;
+        font-size: 0.8rem;
+        flex-shrink: 0;
+    }
+    
+    .activity-list .act-amount.positive { color: var(--success); }
+    .activity-list .act-amount.negative { color: var(--danger); }
+    
+    /* ============================================ */
+    /* RESPONSIVE                                  */
+    /* ============================================ */
+    @media (max-width: 992px) {
+        .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        .pl-bar { grid-template-columns: repeat(2, 1fr); }
+        .activity-grid { grid-template-columns: 1fr; }
+    }
+    
+    @media (max-width: 768px) {
+        .quick-actions { gap: 6px; }
+        .btn-modern { font-size: 0.7rem; padding: 6px 12px; }
+        .btn-modern i { font-size: 0.8rem; }
+        .btn-modern.lg { font-size: 0.8rem; padding: 8px 16px; }
+        .stat-card .stat-value { font-size: 1.1rem; }
+        .pl-bar { padding: 12px 16px; }
+        .pl-bar .pl-item .pl-value { font-size: 0.95rem; }
+        .activity-list li { padding: 8px 12px; }
+        .activity-list .act-text .title { font-size: 0.7rem; }
+        .activity-list .act-amount { font-size: 0.7rem; }
+        .table-wrap table { font-size: 0.7rem; }
+        .table-wrap table th, .table-wrap table td { padding: 6px 10px; }
+    }
+    
+    @media (max-width: 480px) {
+        .stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+        .stat-card { padding: 12px 14px; }
+        .stat-card .stat-value { font-size: 0.95rem; }
+        .stat-card .stat-label { font-size: 0.6rem; }
+        .stat-card .stat-icon { font-size: 1rem; }
+        /* ✅ LABELS ALWAYS VISIBLE - No hiding */
+        .btn-modern { font-size: 0.6rem; padding: 4px 8px; }
+        .btn-modern i { font-size: 0.7rem; }
+        .pl-bar { grid-template-columns: 1fr 1fr; gap: 6px; padding: 10px 12px; }
+        .pl-bar .pl-item .pl-value { font-size: 0.8rem; }
+        .alert-box { flex-direction: column; text-align: center; }
+        .alert-box .alert-actions { justify-content: center; }
+        .dash-header .greeting { font-size: 1.1rem; }
+    }
+</style>
+{% endblock %}
+
+{% block portal_content %}
+<div>
+    
+    <!-- ============================================ -->
+    <!-- HEADER                                       -->
+    <!-- ============================================ -->
+    <div class="dash-header">
+        <div class="greeting">
+            👋 Welcome, {{ shareholder.name }}
+            <small>{{ shareholder.shareholder_code }}</small>
+        </div>
+        <div class="subtitle">
+            <span class="dot"></span>
+            {% now "l, F d, Y" %}
+        </div>
+    </div>
+    
+    <!-- ============================================ -->
+    <!-- QUICK ACTIONS - LABELS ALWAYS VISIBLE      -->
+    <!-- ============================================ -->
+    <div class="quick-actions">
+        
+        <!-- Buy Shares - Success -->
+        <a href="{% url 'shareholder_portal_buy_shares' %}" class="btn-modern success">
+            <i class="bi bi-plus-circle"></i>
+            Buy Shares
+        </a>
+        
+        <!-- Sell Shares - Warning -->
+        <a href="{% url 'shareholder_portal_sell_shares' %}" class="btn-modern warning">
+            <i class="bi bi-dash-circle"></i>
+            Sell Shares
+        </a>
+        
+        <!-- Deposit - Primary with Badge -->
+        <a href="{% url 'shareholder_portal_deposit_request' %}" class="btn-modern primary">
+            <i class="bi bi-arrow-down-circle"></i>
+            Deposit
+            {% with pending_deposits=shareholder.pending_deposit_requests %}
+            {% if pending_deposits > 0 %}
+            <span class="badge-count">{{ pending_deposits }}</span>
+            {% endif %}
+            {% endwith %}
+        </a>
+        
+        <!-- Withdraw - Danger with Badge -->
+        <a href="{% url 'shareholder_portal_withdrawal_request' %}" class="btn-modern danger">
+            <i class="bi bi-arrow-up-circle"></i>
+            Withdraw
+            {% with pending_withdrawals=shareholder.pending_withdrawal_requests %}
+            {% if pending_withdrawals > 0 %}
+            <span class="badge-count">{{ pending_withdrawals }}</span>
+            {% endif %}
+            {% endwith %}
+        </a>
+        
+        <!-- Deposit History - Outline -->
+        <a href="{% url 'shareholder_portal_deposit_history' %}" class="btn-modern outline">
+            <i class="bi bi-clock-history"></i>
+            Deposit History
+        </a>
+        
+        <!-- Withdraw History - Outline -->
+        <a href="{% url 'shareholder_portal_withdrawal_history' %}" class="btn-modern outline">
+            <i class="bi bi-clock-history"></i>
+            Withdraw History
+        </a>
+        
+    </div>
+    
+    <!-- ============================================ -->
+    <!-- STATS                                       -->
+    <!-- ============================================ -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <span class="stat-icon">💰</span>
+            <div class="stat-label">Balance</div>
+            <div class="stat-value">Rs. {{ balance|floatformat:2 }}</div>
+            <div class="stat-sub">Available</div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-icon">📈</span>
+            <div class="stat-label">Shares</div>
+            <div class="stat-value">{{ total_shares|floatformat:0 }}</div>
+            <div class="stat-sub">{{ shares|length }} holdings</div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-icon">📊</span>
+            <div class="stat-label">Investment</div>
+            <div class="stat-value">Rs. {{ total_investment|floatformat:2 }}</div>
+            <div class="stat-sub">{{ total_shares|floatformat:0 }} shares</div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-icon">💵</span>
+            <div class="stat-label">Dividends</div>
+            <div class="stat-value">Rs. {{ total_dividends|floatformat:2 }}</div>
+            <div class="stat-sub">{{ dividend_payments|length }} payments</div>
+        </div>
+    </div>
+    
+    <!-- ============================================ -->
+    <!-- PORTFOLIO VALUE                             -->
+    <!-- ============================================ -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+        <div class="stat-card" style="border-color: var(--primary);">
+            <div class="stat-label">Current Portfolio Value</div>
+            <div class="stat-value" style="font-size: 1.5rem;">Rs. {{ current_value|floatformat:2 }}</div>
+            <div class="stat-sub">@ Rs. {{ current_price|floatformat:2 }}/share</div>
+        </div>
+        <div class="stat-card" style="border-color: var(--success);">
+            <div class="stat-label">Dividends Received</div>
+            <div class="stat-value" style="font-size: 1.5rem;">Rs. {{ total_dividends|floatformat:2 }}</div>
+            <div class="stat-sub">{{ dividend_payments|length }} payments received</div>
+        </div>
+    </div>
+    
+    <!-- ============================================ -->
+    <!-- ALERTS                                       -->
+    <!-- ============================================ -->
+    {% with pending_deposits=shareholder.pending_deposit_requests %}
+    {% if pending_deposits > 0 %}
+    <div class="alert-box warning">
+        <span class="alert-text">
+            ⏳ <strong>{{ pending_deposits }}</strong> pending deposit request(s) <small>Waiting for admin approval</small>
+        </span>
+        <div class="alert-actions">
+            <a href="{% url 'shareholder_portal_deposit_history' %}?status=pending" class="btn-modern sm warning">View</a>
+            <a href="{% url 'shareholder_portal_deposit_history' %}" class="btn-modern sm outline">All</a>
+        </div>
+    </div>
+    {% endif %}
+    {% endwith %}
+    
+    {% with pending_withdrawals=shareholder.pending_withdrawal_requests %}
+    {% if pending_withdrawals > 0 %}
+    <div class="alert-box danger">
+        <span class="alert-text">
+            💸 <strong>{{ pending_withdrawals }}</strong> pending withdrawal request(s) <small>Waiting for admin approval</small>
+        </span>
+        <div class="alert-actions">
+            <a href="{% url 'shareholder_portal_withdrawal_history' %}?status=pending" class="btn-modern sm danger">View</a>
+            <a href="{% url 'shareholder_portal_withdrawal_history' %}" class="btn-modern sm outline">All</a>
+        </div>
+    </div>
+    {% endif %}
+    {% endwith %}
+    
+    {% if pending_dividends %}
+    <div class="alert-box info">
+        <span class="alert-text">
+            📅 <strong>Pending Dividends:</strong>
+            {% for pd in pending_dividends %}
+                <span style="background: var(--gray-100); padding: 1px 8px; border-radius: 12px; font-size: 0.75rem;">Rs. {{ pd.amount|floatformat:2 }}</span>
+            {% endfor %}
+        </span>
+        <span class="alert-text" style="font-size: 0.75rem; color: var(--gray-500);">{{ pending_dividends|length }} pending</span>
+    </div>
+    {% endif %}
+    
+    <!-- ============================================ -->
+    <!-- PROFIT/LOSS                                 -->
+    <!-- ============================================ -->
+    <div class="pl-bar">
+        <div class="pl-item">
+            <div class="pl-label">Profit / Loss</div>
+            <div class="pl-value {% if profit_loss >= 0 %}positive{% else %}negative{% endif %}">
+                {% if profit_loss >= 0 %}+{% endif %}Rs. {{ profit_loss|floatformat:2 }}
+            </div>
+        </div>
+        <div class="pl-item">
+            <div class="pl-label">ROI</div>
+            <div class="pl-value {% if profit_loss_percent >= 0 %}positive{% else %}negative{% endif %}">
+                {% if profit_loss_percent >= 0 %}+{% endif %}{{ profit_loss_percent|floatformat:1 }}%
+            </div>
+        </div>
+        <div class="pl-item">
+            <div class="pl-label">Total Investment</div>
+            <div class="pl-value neutral">Rs. {{ total_investment|floatformat:2 }}</div>
+        </div>
+        <div class="pl-item">
+            <div class="pl-label">Portfolio Value</div>
+            <div class="pl-value neutral">Rs. {{ current_value|floatformat:2 }}</div>
+        </div>
+    </div>
+    
+    <!-- ============================================ -->
+    <!-- SHARE HOLDINGS                              -->
+    <!-- ============================================ -->
+    <div class="table-wrap">
+        <div class="table-header">
+            <h6>📈 Share Holdings</h6>
+            <span class="count">{{ shares|length }} holdings</span>
+        </div>
+        {% if shares %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th class="text-right">Quantity</th>
+                    <th class="text-right">Price</th>
+                    <th class="text-right">Investment</th>
+                    <th class="text-right">Value</th>
+                    <th class="text-right">P/L</th>
+                    <th class="text-center">Certificate</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for share in shares %}
+                <tr>
+                    <td><span class="type-badge">{{ share.get_share_type_display }}</span></td>
+                    <td class="text-right">{{ share.quantity }}</td>
+                    <td class="text-right">Rs. {{ share.purchase_price|floatformat:2 }}</td>
+                    <td class="text-right">Rs. {{ share.total_investment|floatformat:2 }}</td>
+                    <td class="text-right">Rs. {{ share.total_value|floatformat:2 }}</td>
+                    <td class="text-right {% if share.profit_loss >= 0 %}positive{% else %}negative{% endif %}" style="font-weight:600;">
+                        {% if share.profit_loss >= 0 %}+{% endif %}Rs. {{ share.profit_loss|floatformat:2 }}
+                    </td>
+                    <td class="text-center">
+                        {% if share.certificate_printed %}
+                        <a href="{% url 'shareholder_portal_download_certificate' share.id %}" style="color: var(--success); text-decoration: none;">
+                            <i class="bi bi-download"></i>
+                        </a>
+                        {% else %}
+                        <span style="font-size:0.6rem; color: var(--gray-500);">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <span class="icon">📊</span>
+            <p>No shares held yet</p>
+            <a href="{% url 'shareholder_portal_buy_shares' %}" style="color: var(--primary); text-decoration: none; font-weight: 500;">Buy your first shares →</a>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- ============================================ -->
+    <!-- RECENT ACTIVITY                             -->
+    <!-- ============================================ -->
+    <div class="activity-grid">
+        <!-- Transactions -->
+        <div class="activity-card">
+            <div class="card-header">
+                <h6>🕐 Recent Activity</h6>
+                <a href="{% url 'shareholder_portal_transactions' %}" style="font-size: 0.7rem; color: var(--primary); text-decoration: none;">View All</a>
+            </div>
+            <div class="card-body">
+                <ul class="activity-list">
+                    {% for trans in transactions %}
+                    <li>
+                        <div class="act-left">
+                            <div class="act-icon 
+                                {% if trans.is_deposit %}green{% else %}red{% endif %}">
+                                {% if trans.is_deposit %}<i class="bi bi-arrow-down"></i>{% else %}<i class="bi bi-arrow-up"></i>{% endif %}
+                            </div>
+                            <div class="act-text">
+                                <div class="title">{{ trans.description|truncatechars:30 }}</div>
+                                <div class="meta">{{ trans.created_at|timesince }} ago</div>
+                            </div>
+                        </div>
+                        <div class="act-amount {% if trans.is_deposit %}positive{% else %}negative{% endif %}">
+                            {% if trans.is_deposit %}+{% else %}-{% endif %}Rs. {{ trans.amount|floatformat:2 }}
+                        </div>
+                    </li>
+                    {% empty %}
+                    <li style="padding: 20px; text-align: center; color: var(--gray-500);">
+                        No transactions yet
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Dividends -->
+        <div class="activity-card">
+            <div class="card-header">
+                <h6>💵 Dividend History</h6>
+                <span style="font-size:0.7rem; color: var(--gray-500);">{{ dividend_payments|length }} records</span>
+            </div>
+            <div class="card-body">
+                <ul class="activity-list">
+                    {% for div in dividend_payments %}
+                    <li>
+                        <div class="act-left">
+                            <div class="act-icon blue">
+                                <i class="bi bi-cash"></i>
+                            </div>
+                            <div class="act-text">
+                                <div class="title">{{ div.dividend.dividend_no }}</div>
+                                <div class="meta">{{ div.created_at|date:"d M Y" }} · {{ div.shares_held }} shares</div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="act-amount positive">Rs. {{ div.amount|floatformat:2 }}</div>
+                            <div style="text-align: right; font-size: 0.6rem; color: var(--gray-500);">
+                                {% if div.status == 'paid' %}✅ Paid{% else %}⏳ Pending{% endif %}
+                            </div>
+                        </div>
+                    </li>
+                    {% empty %}
+                    <li style="padding: 20px; text-align: center; color: var(--gray-500);">
+                        No dividends received yet
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

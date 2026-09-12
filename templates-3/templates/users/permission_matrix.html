@@ -1,0 +1,1130 @@
+<!-- users/permission_matrix.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}🔐 Permission Matrix - {{ company_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-4 py-3 py-md-4">
+    <!-- Header -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between mb-3 mb-md-4">
+        <div>
+            <h1 class="h4 h-md-3 mb-1 text-gray-800">
+                <i class="bi bi-table text-primary me-2"></i>Permission Matrix
+            </h1>
+            <p class="text-muted small mb-0 d-none d-sm-block">
+                Click on any permission cell to toggle access level
+            </p>
+            <p class="text-muted small mb-0 d-block d-sm-none">
+                Tap cells to toggle permissions
+            </p>
+        </div>
+        <div class="d-flex gap-1 gap-md-2 flex-wrap">
+            <!-- Mobile: Collapsed buttons -->
+            <div class="d-block d-md-none">
+                <button class="btn btn-sm btn-success rounded-pill px-3" onclick="savePermissions()">
+                    <i class="bi bi-save"></i>
+                </button>
+                <button class="btn btn-sm btn-warning rounded-pill px-3" onclick="resetPermissions()">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="toggleMobileMenu()">
+                    <i class="bi bi-three-dots-vertical"></i>
+                </button>
+            </div>
+            <!-- Desktop: Full buttons -->
+            <div class="d-none d-md-flex gap-2">
+                <button class="btn btn-success rounded-pill px-4" onclick="savePermissions()">
+                    <i class="bi bi-save me-2"></i>Save Changes
+                </button>
+                <button class="btn btn-warning rounded-pill px-3" onclick="resetPermissions()">
+                    <i class="bi bi-arrow-counterclockwise me-2"></i>Reset
+                </button>
+                <button class="btn btn-outline-secondary rounded-pill px-3" onclick="exportMatrix()">
+                    <i class="bi bi-download me-2"></i>Export
+                </button>
+                <a href="{% url 'user_list' %}" class="btn btn-outline-secondary rounded-pill px-3">
+                    <i class="bi bi-arrow-left me-2"></i>Back
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Menu Dropdown -->
+    <div class="d-block d-md-none mb-3" id="mobileMenu" style="display:none;">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-3">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-success" onclick="savePermissions()">
+                        <i class="bi bi-save me-2"></i>Save Changes
+                    </button>
+                    <button class="btn btn-warning" onclick="resetPermissions()">
+                        <i class="bi bi-arrow-counterclockwise me-2"></i>Reset
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="exportMatrix()">
+                        <i class="bi bi-download me-2"></i>Export
+                    </button>
+                    <a href="{% url 'user_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-2"></i>Back to Users
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards - Mobile Optimized -->
+    <div class="row g-2 g-md-3 mb-3 mb-md-4">
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100 stat-card">
+                <div class="card-body d-flex align-items-center p-2 p-md-3">
+                    <div class="stat-icon bg-primary bg-opacity-10 text-primary rounded-3 p-2 p-md-3 me-2 me-md-3">
+                        <i class="bi bi-people fs-5 fs-md-4"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted small mb-0 text-uppercase fw-semibold d-none d-sm-block">Total Roles</h6>
+                        <h6 class="text-muted small mb-0 text-uppercase fw-semibold d-block d-sm-none">Roles</h6>
+                        <h3 class="mb-0 fw-bold fs-4 fs-md-3">{{ total_roles }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100 stat-card">
+                <div class="card-body d-flex align-items-center p-2 p-md-3">
+                    <div class="stat-icon bg-success bg-opacity-10 text-success rounded-3 p-2 p-md-3 me-2 me-md-3">
+                        <i class="bi bi-shield-check fs-5 fs-md-4"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted small mb-0 text-uppercase fw-semibold d-none d-sm-block">Permissions</h6>
+                        <h6 class="text-muted small mb-0 text-uppercase fw-semibold d-block d-sm-none">Perms</h6>
+                        <h3 class="mb-0 fw-bold fs-4 fs-md-3">{{ total_permissions }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100 stat-card">
+                <div class="card-body d-flex align-items-center p-2 p-md-3">
+                    <div class="stat-icon bg-warning bg-opacity-10 text-warning rounded-3 p-2 p-md-3 me-2 me-md-3">
+                        <i class="bi bi-pencil-square fs-5 fs-md-4"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted small mb-0 text-uppercase fw-semibold d-none d-sm-block">Editable</h6>
+                        <h6 class="text-muted small mb-0 text-uppercase fw-semibold d-block d-sm-none">Edit</h6>
+                        <h3 class="mb-0 fw-bold fs-4 fs-md-3" id="editableCount">{{ total_permissions }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100 stat-card">
+                <div class="card-body d-flex align-items-center p-2 p-md-3">
+                    <div class="stat-icon bg-danger bg-opacity-10 text-danger rounded-3 p-2 p-md-3 me-2 me-md-3">
+                        <i class="bi bi-clock-history fs-5 fs-md-4"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted small mb-0 text-uppercase fw-semibold d-none d-sm-block">Pending</h6>
+                        <h6 class="text-muted small mb-0 text-uppercase fw-semibold d-block d-sm-none">Pending</h6>
+                        <h3 class="mb-0 fw-bold fs-4 fs-md-3" id="pendingChanges">0</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters - Mobile Responsive -->
+    <div class="card border-0 shadow-sm mb-3 mb-md-4">
+        <div class="card-body p-2 p-md-3">
+            <div class="row g-2 align-items-center">
+                <div class="col-6 col-md-3">
+                    <label class="form-label fw-semibold small text-uppercase text-muted mb-0 mb-md-1 d-none d-sm-block">
+                        <i class="bi bi-filter me-1"></i>Filter by Role
+                    </label>
+                    <label class="form-label fw-semibold small text-uppercase text-muted mb-0 d-block d-sm-none">
+                        Role
+                    </label>
+                    <select class="form-select form-select-sm" id="roleFilter" onchange="filterMatrix()">
+                        <option value="all">All Roles</option>
+                        {% for role in roles %}
+                        <option value="{{ role.key }}">{{ role.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label fw-semibold small text-uppercase text-muted mb-0 mb-md-1 d-none d-sm-block">
+                        <i class="bi bi-search me-1"></i>Search
+                    </label>
+                    <label class="form-label fw-semibold small text-uppercase text-muted mb-0 d-block d-sm-none">
+                        Search
+                    </label>
+                    <input type="text" class="form-control form-control-sm" id="permissionSearch" 
+                           placeholder="Search..." oninput="filterMatrix()">
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label fw-semibold small text-uppercase text-muted mb-0 mb-md-1 d-none d-sm-block">
+                        <i class="bi bi-eye me-1"></i>View
+                    </label>
+                    <label class="form-label fw-semibold small text-uppercase text-muted mb-0 d-block d-sm-none">
+                        View
+                    </label>
+                    <div class="btn-group w-100">
+                        <button class="btn btn-outline-primary btn-sm active" id="viewCompact" onclick="setView('compact')">
+                            <i class="bi bi-grid"></i>
+                        </button>
+                        <button class="btn btn-outline-primary btn-sm" id="viewDetailed" onclick="setView('detailed')">
+                            <i class="bi bi-table"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label fw-semibold small text-uppercase text-muted mb-0 mb-md-1 d-none d-sm-block">
+                        <i class="bi bi-bolt me-1"></i>Bulk
+                    </label>
+                    <label class="form-label fw-semibold small text-uppercase text-muted mb-0 d-block d-sm-none">
+                        Bulk
+                    </label>
+                    <div class="btn-group w-100">
+                        <button class="btn btn-outline-secondary btn-sm" onclick="toggleAll('full')" title="All Full">
+                            <i class="bi bi-check-all"></i>
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="toggleAll('none')" title="All None">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Permission Matrix - Horizontal Scroll for Mobile -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <!-- Mobile Scroll Indicator -->
+            <div class="d-block d-md-none text-center py-1 bg-light border-bottom">
+                <small class="text-muted">
+                    <i class="bi bi-arrow-left-right me-1"></i>
+                    Swipe to see all roles
+                </small>
+            </div>
+            
+            <div class="table-responsive" style="max-height: calc(100vh - 400px); overflow-y: auto;">
+                <table class="table table-hover align-middle mb-0" id="permissionMatrix">
+                    <thead class="table-light sticky-top" style="z-index:3;">
+                        <tr>
+                            <th class="fw-semibold text-muted small text-uppercase" 
+                                style="min-width:180px; position:sticky; left:0; background:#f8f9fa; z-index:4;">
+                                <div class="d-flex align-items-center gap-1">
+                                    <i class="bi bi-lock me-1"></i>
+                                    <span class="d-none d-sm-inline">Permission</span>
+                                    <span class="d-inline d-sm-none">Perm</span>
+                                </div>
+                            </th>
+                            {% for role in roles %}
+                            <th class="fw-semibold text-muted small text-uppercase text-center" 
+                                style="min-width:80px; min-width:90px;" data-role="{{ role.key }}">
+                                <div class="d-flex flex-column align-items-center">
+                                    <span class="role-icon-sm {{ role.key }}">
+                                        <i class="bi {{ role.icon }}"></i>
+                                    </span>
+                                    <span class="mt-1 d-none d-sm-block">{{ role.name }}</span>
+                                    <span class="mt-1 d-block d-sm-none">{{ role.name|slice:":4" }}</span>
+                                    <small class="text-muted d-none d-sm-block">{{ role.user_count }} users</small>
+                                    <div class="mt-1 d-none d-md-flex">
+                                        <button class="btn btn-sm btn-outline-secondary p-0 px-1" 
+                                                onclick="toggleRoleAll('{{ role.key }}', 'full')" 
+                                                title="All Full" style="font-size:0.6rem;">
+                                            <i class="bi bi-check-all"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary p-0 px-1" 
+                                                onclick="toggleRoleAll('{{ role.key }}', 'none')" 
+                                                title="All None" style="font-size:0.6rem;">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody id="matrixBody">
+                        {% for module in modules %}
+                        <!-- Module Header -->
+                        <tr class="table-active">
+                            <td colspan="{{ roles|length|add:1 }}" class="fw-bold p-1 p-md-2" 
+                                style="position:sticky; left:0; background:#f8f9fa; z-index:1;">
+                                <div class="d-flex align-items-center gap-1 gap-md-2">
+                                    <i class="bi bi-folder me-1"></i>
+                                    <span class="small">{{ module.name }}</span>
+                                    <span class="badge bg-secondary bg-opacity-10 text-secondary ms-1 d-none d-sm-inline">
+                                        {{ module.permissions|length }}
+                                    </span>
+                                    <span class="badge bg-secondary bg-opacity-10 text-secondary ms-1 d-inline d-sm-none">
+                                        {{ module.permissions|length }}
+                                    </span>
+                                </div>
+                            </td>
+                        </tr>
+                        <!-- Permissions -->
+                        {% for permission in module.permissions %}
+                        <tr class="permission-row" data-module="{{ module.key }}" 
+                            data-permission="{{ permission.key }}">
+                            <td style="position:sticky; left:0; background:white; z-index:1; min-width:180px;">
+                                <div class="d-flex align-items-center gap-1 gap-md-2">
+                                    <span class="permission-icon text-muted d-none d-sm-block">
+                                        <i class="bi {{ permission.icon }}"></i>
+                                    </span>
+                                    <div>
+                                        <div class="fw-semibold small">{{ permission.name }}</div>
+                                        <div class="text-muted small d-none d-lg-block">{{ permission.description }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            {% for role in roles %}
+                            <td class="text-center permission-cell editable p-1 p-md-2" 
+                                data-role="{{ role.key }}"
+                                data-permission="{{ permission.key }}"
+                                data-current="{% if permission.key in role.permissions %}full{% elif permission.key in role.partial_permissions %}partial{% else %}none{% endif %}"
+                                onclick="togglePermissionCell(this)">
+                                <div class="permission-status">
+                                    <span class="badge {% if permission.key in role.permissions %}bg-success bg-opacity-15 text-success{% elif permission.key in role.partial_permissions %}bg-warning bg-opacity-15 text-warning{% else %}bg-danger bg-opacity-10 text-danger{% endif %} p-1 p-md-2 rounded-3">
+                                        <i class="bi {% if permission.key in role.permissions %}bi-check-lg{% elif permission.key in role.partial_permissions %}bi-dash-lg{% else %}bi-x-lg{% endif %}"></i>
+                                        <span class="status-label d-none d-sm-inline">
+                                            {% if permission.key in role.permissions %}Full{% elif permission.key in role.partial_permissions %}Partial{% else %}None{% endif %}
+                                        </span>
+                                    </span>
+                                </div>
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Legend - Mobile Optimized -->
+    <div class="card border-0 shadow-sm mt-3 mt-md-4">
+        <div class="card-body p-2 p-md-3">
+            <div class="d-flex flex-wrap align-items-center gap-2 gap-md-4">
+                <span class="fw-semibold small text-uppercase text-muted me-1 d-none d-sm-block">Legend:</span>
+                <span class="fw-semibold small text-uppercase text-muted me-1 d-block d-sm-none">Legend:</span>
+                <div class="d-flex align-items-center gap-1 gap-md-2" onclick="setDefaultToggle('full')" style="cursor:pointer;">
+                    <span class="badge bg-success bg-opacity-15 text-success p-1 rounded-3">
+                        <i class="bi bi-check-lg"></i>
+                    </span>
+                    <small class="d-none d-sm-inline">Full</small>
+                </div>
+                <div class="d-flex align-items-center gap-1 gap-md-2" onclick="setDefaultToggle('partial')" style="cursor:pointer;">
+                    <span class="badge bg-warning bg-opacity-15 text-warning p-1 rounded-3">
+                        <i class="bi bi-dash-lg"></i>
+                    </span>
+                    <small class="d-none d-sm-inline">Partial</small>
+                </div>
+                <div class="d-flex align-items-center gap-1 gap-md-2" onclick="setDefaultToggle('none')" style="cursor:pointer;">
+                    <span class="badge bg-danger bg-opacity-10 text-danger p-1 rounded-3">
+                        <i class="bi bi-x-lg"></i>
+                    </span>
+                    <small class="d-none d-sm-inline">None</small>
+                </div>
+                <div class="text-muted small d-none d-md-block">
+                    <i class="bi bi-info-circle me-1"></i>
+                    <span id="toggleHint">Tap any cell to toggle</span>
+                </div>
+                <div class="text-muted small d-block d-md-none">
+                    <i class="bi bi-info-circle me-1"></i>
+                    <span id="toggleHintMobile">Tap to toggle</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Save Confirmation Modal - Mobile Optimized -->
+<div class="modal fade" id="saveModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-save text-success me-2"></i>Save Permissions
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>You are about to save <strong id="saveCount">0</strong> permission changes.</p>
+                <div class="alert alert-warning border-0">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    This will update user permissions for all roles.
+                </div>
+                <div id="savePreview" class="mb-3" style="max-height:200px; overflow-y:auto;"></div>
+            </div>
+            <div class="modal-footer border-0 flex-wrap gap-2">
+                <button class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">
+                    <i class="bi bi-x me-2"></i>Cancel
+                </button>
+                <button class="btn btn-success rounded-pill px-4" onclick="confirmSave()">
+                    <i class="bi bi-check-lg me-2"></i>Save
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Mobile First Responsive */
+    
+    /* Stats Cards */
+    .stat-card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        cursor: pointer;
+    }
+    .stat-card:active {
+        transform: scale(0.98);
+    }
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08) !important;
+    }
+    
+    .stat-icon {
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    
+    @media (min-width: 768px) {
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+        }
+    }
+    
+    /* Role Icons */
+    .role-icon-sm {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        color: white;
+        flex-shrink: 0;
+    }
+    
+    @media (min-width: 768px) {
+        .role-icon-sm {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+    }
+    
+    .role-icon-sm.admin { background: #dc3545; }
+    .role-icon-sm.owner { background: #667eea; }
+    .role-icon-sm.manager { background: #17a2b8; }
+    .role-icon-sm.salesman { background: #28a745; }
+    .role-icon-sm.accountant { background: #ffc107; color: #1a1a2e; }
+    .role-icon-sm.warehouse { background: #6c757d; }
+    
+    /* Permission Cells - Touch Friendly */
+    .permission-cell {
+        transition: all 0.2s ease;
+        cursor: pointer;
+        position: relative;
+        min-width: 50px;
+        min-height: 40px;
+        touch-action: manipulation;
+    }
+    
+    .permission-cell:active {
+        transform: scale(0.92);
+    }
+    
+    @media (min-width: 768px) {
+        .permission-cell:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            z-index: 5;
+        }
+        .permission-cell.editable::after {
+            content: '✎';
+            position: absolute;
+            top: 2px;
+            right: 5px;
+            font-size: 0.6rem;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .permission-cell.editable:hover::after {
+            opacity: 0.6;
+        }
+    }
+    
+    .permission-cell.changed {
+        animation: flashChange 0.5s ease;
+    }
+    
+    @keyframes flashChange {
+        0%, 100% { background: transparent; }
+        50% { background: rgba(255, 193, 7, 0.3); }
+    }
+    
+    .permission-cell .badge {
+        font-size: 0.65rem;
+        padding: 4px 8px;
+        min-width: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+    }
+    
+    @media (min-width: 768px) {
+        .permission-cell .badge {
+            font-size: 0.75rem;
+            padding: 6px 12px;
+            min-width: 55px;
+        }
+    }
+    
+    /* Badge Colors */
+    .badge.bg-success.bg-opacity-15 {
+        background: rgba(40, 167, 69, 0.15) !important;
+        border: 1px solid rgba(40, 167, 69, 0.2);
+        color: #28a745 !important;
+    }
+    .badge.bg-warning.bg-opacity-15 {
+        background: rgba(255, 193, 7, 0.15) !important;
+        border: 1px solid rgba(255, 193, 7, 0.2);
+        color: #ffc107 !important;
+    }
+    .badge.bg-danger.bg-opacity-10 {
+        background: rgba(220, 53, 69, 0.10) !important;
+        border: 1px solid rgba(220, 53, 69, 0.15);
+        color: #dc3545 !important;
+    }
+    
+    .badge.bg-success.bg-opacity-15 .status-label,
+    .badge.bg-warning.bg-opacity-15 .status-label,
+    .badge.bg-danger.bg-opacity-10 .status-label {
+        display: none;
+    }
+    
+    @media (min-width: 576px) {
+        .badge.bg-success.bg-opacity-15 .status-label,
+        .badge.bg-warning.bg-opacity-15 .status-label,
+        .badge.bg-danger.bg-opacity-10 .status-label {
+            display: inline;
+        }
+    }
+    
+    /* Permission Rows */
+    .permission-row {
+        transition: background 0.2s ease;
+    }
+    .permission-row:active {
+        background: rgba(102, 126, 234, 0.05);
+    }
+    .permission-row.hidden {
+        display: none;
+    }
+    
+    /* View Modes */
+    .compact-view .permission-cell .badge {
+        font-size: 0.55rem;
+        padding: 2px 4px;
+        min-width: 30px;
+    }
+    .compact-view .permission-cell .status-label {
+        display: none !important;
+    }
+    .compact-view .permission-icon {
+        display: none;
+    }
+    .compact-view .permission-row td:first-child {
+        font-size: 0.7rem;
+        padding: 2px 4px;
+    }
+    
+    @media (min-width: 768px) {
+        .compact-view .permission-cell .badge {
+            font-size: 0.6rem;
+            padding: 4px 6px;
+        }
+        .compact-view .permission-row td:first-child {
+            font-size: 0.8rem;
+            padding: 4px 8px;
+        }
+    }
+    
+    .detailed-view .permission-cell .badge {
+        font-size: 0.8rem;
+        padding: 6px 12px;
+        min-width: 60px;
+    }
+    
+    @media (min-width: 768px) {
+        .detailed-view .permission-cell .badge {
+            font-size: 0.9rem;
+            padding: 8px 14px;
+        }
+    }
+    
+    .filter-highlight {
+        background: rgba(255, 193, 7, 0.15) !important;
+    }
+    
+    /* Sticky Header */
+    .sticky-top {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+    }
+    
+    /* Table Responsive */
+    .table-responsive {
+        max-height: calc(100vh - 400px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    @media (max-width: 576px) {
+        .table-responsive {
+            max-height: calc(100vh - 350px);
+        }
+    }
+    
+    /* Mobile Menu */
+    #mobileMenu {
+        animation: slideDown 0.3s ease;
+    }
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Save Preview */
+    .save-change-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 8px;
+        border-bottom: 1px solid #f0f2f7;
+        font-size: 0.8rem;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+    
+    @media (min-width: 768px) {
+        .save-change-item {
+            font-size: 0.85rem;
+            padding: 4px 8px;
+        }
+    }
+    
+    .save-change-item .from {
+        color: #dc3545;
+    }
+    .save-change-item .to {
+        color: #28a745;
+    }
+    
+    /* Modal Mobile */
+    .modal-dialog-scrollable .modal-body {
+        max-height: 60vh;
+    }
+    
+    /* Touch Feedback */
+    .touch-feedback {
+        transition: all 0.1s ease;
+    }
+    .touch-feedback:active {
+        transform: scale(0.95);
+    }
+    
+    /* Scroll Indicator */
+    .scroll-indicator {
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 0.6; }
+        50% { opacity: 1; }
+    }
+    
+    /* Form Controls Mobile */
+    .form-select-sm, .form-control-sm {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    @media (min-width: 768px) {
+        .form-select-sm, .form-control-sm {
+            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
+        }
+    }
+    
+    /* Buttons Mobile */
+    .btn-sm {
+        padding: 0.2rem 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    @media (min-width: 768px) {
+        .btn-sm {
+            padding: 0.25rem 0.6rem;
+            font-size: 0.8rem;
+        }
+    }
+</style>
+
+<script>
+    let pendingChanges = {};
+    let defaultToggle = 'full';
+    let currentView = 'compact';
+    let originalData = {};
+    let isMobile = window.innerWidth < 768;
+    
+    // ==========================================
+    // TOGGLE PERMISSION CELL
+    // ==========================================
+    
+    function togglePermissionCell(cell) {
+        var current = cell.dataset.current || 'none';
+        var role = cell.dataset.role;
+        var permission = cell.dataset.permission;
+        
+        var next = { 'none': 'partial', 'partial': 'full', 'full': 'none' };
+        var newStatus = next[current] || 'none';
+        
+        updateCellStatus(cell, newStatus);
+        
+        var key = role + '_' + permission;
+        if (newStatus !== originalData[key]) {
+            pendingChanges[key] = { role: role, permission: permission, newStatus: newStatus };
+        } else {
+            delete pendingChanges[key];
+        }
+        
+        updatePendingCount();
+        cell.classList.add('changed');
+        setTimeout(() => cell.classList.remove('changed'), 500);
+        
+        // Haptic feedback for mobile
+        if (isMobile && navigator.vibrate) {
+            navigator.vibrate(10);
+        }
+    }
+    
+    function updateCellStatus(cell, status) {
+        var badge = cell.querySelector('.badge');
+        var icon = badge.querySelector('i');
+        var label = badge.querySelector('.status-label');
+        
+        badge.className = 'badge p-1 p-md-2 rounded-3';
+        if (status === 'full') {
+            badge.classList.add('bg-success', 'bg-opacity-15', 'text-success');
+            icon.className = 'bi bi-check-lg';
+            if (label) label.textContent = 'Full';
+        } else if (status === 'partial') {
+            badge.classList.add('bg-warning', 'bg-opacity-15', 'text-warning');
+            icon.className = 'bi bi-dash-lg';
+            if (label) label.textContent = 'Partial';
+        } else {
+            badge.classList.add('bg-danger', 'bg-opacity-10', 'text-danger');
+            icon.className = 'bi bi-x-lg';
+            if (label) label.textContent = 'None';
+        }
+        
+        cell.dataset.current = status;
+    }
+    
+    // ==========================================
+    // BULK TOGGLE
+    // ==========================================
+    
+    function toggleRoleAll(roleKey, status) {
+        var cells = document.querySelectorAll(`.permission-cell[data-role="${roleKey}"]`);
+        cells.forEach(function(cell) {
+            var current = cell.dataset.current;
+            var permission = cell.dataset.permission;
+            if (current !== status) {
+                updateCellStatus(cell, status);
+                var key = roleKey + '_' + permission;
+                if (status !== originalData[key]) {
+                    pendingChanges[key] = { role: roleKey, permission: permission, newStatus: status };
+                } else {
+                    delete pendingChanges[key];
+                }
+            }
+        });
+        updatePendingCount();
+        showToast('info', `Updated all permissions for ${roleKey}`, 'Bulk Update');
+    }
+    
+    function toggleAll(status) {
+        if (!confirm(`Set all permissions to ${status}?`)) return;
+        
+        var cells = document.querySelectorAll('.permission-cell.editable');
+        cells.forEach(function(cell) {
+            var current = cell.dataset.current;
+            var role = cell.dataset.role;
+            var permission = cell.dataset.permission;
+            if (current !== status) {
+                updateCellStatus(cell, status);
+                var key = role + '_' + permission;
+                if (status !== originalData[key]) {
+                    pendingChanges[key] = { role: role, permission: permission, newStatus: status };
+                } else {
+                    delete pendingChanges[key];
+                }
+            }
+        });
+        updatePendingCount();
+        showToast('info', `All permissions set to ${status}`, 'Bulk Update');
+    }
+    
+    function setDefaultToggle(status) {
+        defaultToggle = status;
+        var hint = document.getElementById('toggleHint');
+        var hintMobile = document.getElementById('toggleHintMobile');
+        if (hint) hint.textContent = `Tap to toggle to ${status}`;
+        if (hintMobile) hintMobile.textContent = `Tap to toggle to ${status}`;
+    }
+    
+    // ==========================================
+    // PENDING CHANGES
+    // ==========================================
+    
+    function updatePendingCount() {
+        var count = Object.keys(pendingChanges).length;
+        document.getElementById('pendingChanges').textContent = count;
+        document.getElementById('saveCount').textContent = count;
+    }
+    
+    // ==========================================
+    // SAVE PERMISSIONS
+    // ==========================================
+    
+    function savePermissions() {
+        var count = Object.keys(pendingChanges).length;
+        if (count === 0) {
+            showToast('warning', 'No changes to save!', 'No Changes');
+            return;
+        }
+        
+        var preview = document.getElementById('savePreview');
+        preview.innerHTML = '';
+        for (var key in pendingChanges) {
+            var change = pendingChanges[key];
+            var div = document.createElement('div');
+            div.className = 'save-change-item';
+            div.innerHTML = `
+                <span><strong>${change.role}</strong> → ${change.permission}</span>
+                <span>
+                    <span class="from">${originalData[key] || 'none'}</span>
+                    <i class="bi bi-arrow-right mx-1"></i>
+                    <span class="to">${change.newStatus}</span>
+                </span>
+            `;
+            preview.appendChild(div);
+        }
+        
+        new bootstrap.Modal(document.getElementById('saveModal')).show();
+    }
+    
+    function confirmSave() {
+        var data = {
+            changes: Object.values(pendingChanges),
+            csrfmiddlewaretoken: getCsrfToken()
+        };
+        
+        showToast('info', 'Saving permissions...', 'Please wait');
+        
+        fetch('/api/permission-matrix/save/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                for (var key in pendingChanges) {
+                    originalData[key] = pendingChanges[key].newStatus;
+                }
+                pendingChanges = {};
+                updatePendingCount();
+                bootstrap.Modal.getInstance(document.getElementById('saveModal')).hide();
+                showToast('success', result.message || 'Permissions saved!', 'Saved');
+            } else {
+                showToast('danger', result.message || 'Failed to save', 'Error');
+            }
+        })
+        .catch(error => {
+            showToast('danger', 'Network error!', 'Error');
+        });
+    }
+    
+    function resetPermissions() {
+        if (Object.keys(pendingChanges).length === 0) {
+            showToast('warning', 'No changes to reset!', 'No Changes');
+            return;
+        }
+        
+        if (!confirm('Discard all pending changes?')) return;
+        
+        var cells = document.querySelectorAll('.permission-cell.editable');
+        cells.forEach(function(cell) {
+            var role = cell.dataset.role;
+            var permission = cell.dataset.permission;
+            var key = role + '_' + permission;
+            var originalStatus = originalData[key] || 'none';
+            updateCellStatus(cell, originalStatus);
+        });
+        
+        pendingChanges = {};
+        updatePendingCount();
+        showToast('info', 'All changes discarded!', 'Reset');
+    }
+    
+    // ==========================================
+    // FILTER MATRIX
+    // ==========================================
+    
+    function filterMatrix() {
+        var roleFilter = document.getElementById('roleFilter').value;
+        var searchTerm = document.getElementById('permissionSearch').value.toLowerCase();
+        var rows = document.querySelectorAll('.permission-row');
+        var visibleCount = 0;
+        
+        rows.forEach(function(row) {
+            var permission = row.dataset.permission || '';
+            var module = row.dataset.module || '';
+            var show = true;
+            
+            if (roleFilter !== 'all') {
+                var cell = row.querySelector(`.permission-cell[data-role="${roleFilter}"]`);
+                if (cell) {
+                    var status = cell.dataset.current || 'none';
+                    if (status === 'none') show = false;
+                } else {
+                    show = false;
+                }
+            }
+            
+            if (show && searchTerm) {
+                var permissionName = permission.toLowerCase();
+                var moduleName = module.toLowerCase();
+                if (!permissionName.includes(searchTerm) && !moduleName.includes(searchTerm)) {
+                    show = false;
+                }
+            }
+            
+            row.classList.toggle('hidden', !show);
+            if (show) visibleCount++;
+        });
+        
+        document.getElementById('editableCount').textContent = visibleCount;
+    }
+    
+    // ==========================================
+    // VIEW MODE
+    // ==========================================
+    
+    function setView(view) {
+        currentView = view;
+        var matrix = document.getElementById('permissionMatrix');
+        matrix.classList.remove('compact-view', 'detailed-view');
+        matrix.classList.add(view + '-view');
+        
+        document.getElementById('viewCompact').classList.toggle('active', view === 'compact');
+        document.getElementById('viewDetailed').classList.toggle('active', view === 'detailed');
+        
+        localStorage.setItem('permissionMatrixView', view);
+    }
+    
+    // ==========================================
+    // EXPORT
+    // ==========================================
+    
+    function exportMatrix() {
+        var data = getMatrixData();
+        var csv = 'Permission,Role,Status\n';
+        
+        Object.keys(originalData).forEach(function(key) {
+            var parts = key.split('_');
+            csv += `${parts[1]},${parts[0]},${originalData[key]}\n`;
+        });
+        
+        downloadFile(csv, 'permission_matrix.csv', 'text/csv');
+        showToast('success', 'Matrix exported!', 'Export');
+    }
+    
+    function getMatrixData() {
+        var data = {};
+        document.querySelectorAll('.permission-cell.editable').forEach(function(cell) {
+            var role = cell.dataset.role;
+            var permission = cell.dataset.permission;
+            var status = cell.dataset.current || 'none';
+            data[role + '_' + permission] = status;
+        });
+        return data;
+    }
+    
+    function downloadFile(content, filename, mimeType) {
+        var blob = new Blob([content], { type: mimeType });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+    
+    // ==========================================
+    // MOBILE MENU
+    // ==========================================
+    
+    function toggleMobileMenu() {
+        var menu = document.getElementById('mobileMenu');
+        menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    }
+    
+    // ==========================================
+    // CSRF TOKEN
+    // ==========================================
+    
+    function getCsrfToken() {
+        var csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        if (csrfInput) return csrfInput.value;
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        return meta ? meta.getAttribute('content') : '';
+    }
+    
+    // ==========================================
+    // TOAST NOTIFICATIONS
+    // ==========================================
+    
+    function showToast(type, message, title) {
+        var toastContainer = document.getElementById('toastContainer');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.className = 'position-fixed bottom-0 end-0 p-2 p-md-3';
+            toastContainer.style.zIndex = '9999';
+            toastContainer.style.maxWidth = '100%';
+            toastContainer.style.width = isMobile ? '100%' : 'auto';
+            document.body.appendChild(toastContainer);
+        }
+        
+        var colors = {
+            success: 'bg-success',
+            danger: 'bg-danger',
+            warning: 'bg-warning text-dark',
+            info: 'bg-info text-dark'
+        };
+        
+        var toast = document.createElement('div');
+        toast.className = `toast align-items-center ${colors[type] || 'bg-secondary'} text-white border-0 w-100`;
+        toast.role = 'alert';
+        toast.ariaLive = 'assertive';
+        toast.ariaAtomic = 'true';
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    <strong>${title}</strong><br>
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+        
+        toastContainer.appendChild(toast);
+        var bsToast = new bootstrap.Toast(toast, { delay: 3000 });
+        bsToast.show();
+        toast.addEventListener('hidden.bs.toast', function() { this.remove(); });
+    }
+    
+    // ==========================================
+    // HANDLE RESIZE
+    // ==========================================
+    
+    function handleResize() {
+        isMobile = window.innerWidth < 768;
+    }
+    
+    // ==========================================
+    // INITIALIZE
+    // ==========================================
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.permission-cell.editable').forEach(function(cell) {
+            var role = cell.dataset.role;
+            var permission = cell.dataset.permission;
+            var status = cell.dataset.current || 'none';
+            originalData[role + '_' + permission] = status;
+        });
+        
+        var savedView = localStorage.getItem('permissionMatrixView');
+        if (savedView) {
+            setView(savedView);
+        }
+        
+        filterMatrix();
+        updatePendingCount();
+        
+        // Set default toggle hint
+        setDefaultToggle(defaultToggle);
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                savePermissions();
+            }
+            if (e.key === 'Escape') {
+                resetPermissions();
+            }
+        });
+        
+        window.addEventListener('resize', handleResize);
+        
+        // Auto-dismiss mobile menu on click outside
+        document.addEventListener('click', function(e) {
+            var menu = document.getElementById('mobileMenu');
+            if (menu && menu.style.display === 'block') {
+                var target = e.target;
+                if (!target.closest('#mobileMenu') && !target.closest('.btn-outline-secondary')) {
+                    menu.style.display = 'none';
+                }
+            }
+        });
+    });
+</script>
+
+<!-- Toast Container -->
+<div id="toastContainer" class="position-fixed bottom-0 end-0 p-2 p-md-3" style="z-index:9999; max-width:100%;"></div>
+
+<!-- CSRF Token -->
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+
+{% endblock %}

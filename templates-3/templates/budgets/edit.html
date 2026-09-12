@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Edit Budget - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>✏️ Edit Budget: {{ budget.name }}</h2>
+                <a href="{% url 'budget_detail' budget.id %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST">
+                        {% csrf_token %}
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Budget Name <span class="text-danger">*</span></label>
+                                <input type="text" name="name" class="form-control" required value="{{ budget.name }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Budget Type <span class="text-danger">*</span></label>
+                                <select name="budget_type" class="form-select" required>
+                                    {% for key, value in budget_types %}
+                                    <option value="{{ key }}" {% if key == budget.budget_type %}selected{% endif %}>{{ value|safe }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Department</label>
+                                <select name="department" class="form-select">
+                                    <option value="">Select Department</option>
+                                    {% for dept in departments %}
+                                    <option value="{{ dept.id }}" {% if dept.id == budget.department_id %}selected{% endif %}>{{ dept.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Project</label>
+                                <select name="project" class="form-select">
+                                    <option value="">Select Project</option>
+                                    {% for project in projects %}
+                                    <option value="{{ project.id }}" {% if project.id == budget.project_id %}selected{% endif %}>{{ project.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Category</label>
+                                <select name="category" class="form-select">
+                                    <option value="">Select Category</option>
+                                    {% for cat in categories %}
+                                    <option value="{{ cat.id }}" {% if cat.id == budget.category_id %}selected{% endif %}>{{ cat.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Frequency</label>
+                                <select name="frequency" class="form-select">
+                                    {% for key, value in budget_frequencies %}
+                                    <option value="{{ key }}" {% if key == budget.frequency %}selected{% endif %}>{{ value }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Period Start <span class="text-danger">*</span></label>
+                                <input type="date" name="period_start" class="form-control" required value="{{ budget.period_start|date:'Y-m-d' }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Period End <span class="text-danger">*</span></label>
+                                <input type="date" name="period_end" class="form-control" required value="{{ budget.period_end|date:'Y-m-d' }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Allocated Amount (Rs.) <span class="text-danger">*</span></label>
+                                <input type="number" name="allocated_amount" class="form-control" step="0.01" required value="{{ budget.allocated_amount }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Alert Threshold (%)</label>
+                                <input type="number" name="alert_threshold" class="form-control" step="0.01" value="{{ budget.alert_threshold }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Critical Threshold (%)</label>
+                                <input type="number" name="critical_threshold" class="form-control" step="0.01" value="{{ budget.critical_threshold }}">
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check mt-4">
+                                    <input type="checkbox" name="allow_rollover" class="form-check-input" id="allowRollover" {% if budget.allow_rollover %}checked{% endif %}>
+                                    <label class="form-check-label" for="allowRollover">Allow Rollover</label>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Description</label>
+                                <textarea name="description" class="form-control" rows="2">{{ budget.description }}</textarea>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Notes</label>
+                                <textarea name="notes" class="form-control" rows="2">{{ budget.notes }}</textarea>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <!-- Allocations -->
+                        <h5 class="mb-3">📊 Category Allocations</h5>
+                        <div id="allocationsContainer">
+                            {% for alloc in budget.allocations.all %}
+                            <div class="row g-2 mb-2 allocation-row">
+                                <div class="col-md-6">
+                                    <select name="category_ids[]" class="form-select">
+                                        <option value="">Select Category</option>
+                                        {% for cat in categories %}
+                                        <option value="{{ cat.id }}" {% if cat.id == alloc.category_id %}selected{% endif %}>{{ cat.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <input type="number" name="allocated_amounts[]" class="form-control" step="0.01" value="{{ alloc.allocated_amount }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <button type="button" class="btn btn-danger btn-sm remove-allocation">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="row g-2 mb-2 allocation-row">
+                                <div class="col-md-6">
+                                    <select name="category_ids[]" class="form-select">
+                                        <option value="">Select Category</option>
+                                        {% for cat in categories %}
+                                        <option value="{{ cat.id }}">{{ cat.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <input type="number" name="allocated_amounts[]" class="form-control" step="0.01" placeholder="Amount">
+                                </div>
+                                <div class="col-md-2">
+                                    <button type="button" class="btn btn-danger btn-sm remove-allocation">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="addAllocation">
+                            <i class="bi bi-plus-circle"></i> Add Allocation
+                        </button>
+
+                        <hr class="my-4">
+
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="{% url 'budget_detail' budget.id %}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> Update Budget
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('addAllocation').addEventListener('click', function() {
+            const container = document.getElementById('allocationsContainer');
+            const firstRow = container.querySelector('.allocation-row');
+            const newRow = firstRow.cloneNode(true);
+            
+            newRow.querySelectorAll('input').forEach(function(input) {
+                input.value = '';
+            });
+            newRow.querySelector('select').selectedIndex = 0;
+            
+            container.appendChild(newRow);
+        });
+
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.remove-allocation')) {
+                const row = e.target.closest('.allocation-row');
+                const container = document.getElementById('allocationsContainer');
+                if (container.querySelectorAll('.allocation-row').length > 1) {
+                    row.remove();
+                } else {
+                    alert('At least one allocation is required!');
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

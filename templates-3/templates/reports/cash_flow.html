@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Cash Flow Statement{% endblock %}
+{% block page_title %}💵 Cash Flow Statement{% endblock %}
+
+{% block extra_css %}
+<style>
+    .cash-card { background: white; border-radius: 16px; padding: 20px; margin-bottom: 20px; border: 1px solid #e9ecef; text-align: center; }
+    .cash-in { color: #10b981; }
+    .cash-out { color: #dc2626; }
+    .net-positive { background: #d1fae5; color: #059669; }
+    .net-negative { background: #fee2e2; color: #dc2626; }
+    .filter-bar { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e9ecef; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="filter-bar">
+        <form method="post">{% csrf_token %} method="GET" class="row g-3 align-items-end">
+            <div class="col-md-4"><label class="form-label small">From Date</label><input type="date" name="from_date" class="form-control" value="{{ from_date }}"></div>
+            <div class="col-md-4"><label class="form-label small">To Date</label><input type="date" name="to_date" class="form-control" value="{{ to_date }}"></div>
+            <div class="col-md-4"><button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> Show Report</button></div>
+        </form>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4"><div class="cash-card"><div class="small text-muted">Cash Inflow</div><div class="display-6 cash-in">+ PKR {{ cash_in|floatformat:0 }}</div><div class="small">Sales + Other Receipts</div></div></div>
+        <div class="col-md-4"><div class="cash-card"><div class="small text-muted">Cash Outflow</div><div class="display-6 cash-out">- PKR {{ cash_out|floatformat:0 }}</div><div class="small">Purchases + Expenses</div></div></div>
+        <div class="col-md-4"><div class="cash-card {% if net_cash >= 0 %}net-positive{% else %}net-negative{% endif %}"><div class="small text-muted">Net Cash Flow</div><div class="display-6">{{ net_cash|floatformat:0 }}</div><div class="small">{% if net_cash >= 0 %}Positive Cash Flow{% else %}Negative Cash Flow{% endif %}</div></div></div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-md-6">
+            <div class="card"><div class="card-header bg-white"><strong class="cash-in"><i class="bi bi-arrow-down-circle"></i> Cash Inflows</strong></div>
+                <div class="card-body p-0"><table class="table table-hover mb-0"><tr class="table-success"><td>Sales Revenue</td><td class="text-end">+ {{ total_sales_received|floatformat:0 }}</td></tr>
+                <tr class="table-light"><td><strong>Total Inflow</strong></td><td class="text-end"><strong>+ {{ cash_in|floatformat:0 }}</strong></td></tr></table></div></div>
+        </div>
+        <div class="col-md-6">
+            <div class="card"><div class="card-header bg-white"><strong class="cash-out"><i class="bi bi-arrow-up-circle"></i> Cash Outflows</strong></div>
+                <div class="card-body p-0"><table class="table table-hover mb-0"><tr class="table-danger"><td>Purchase Payments</td><td class="text-end">- {{ purchase_payments|floatformat:0 }}</td></tr>
+                <tr class="table-danger"><td>Operating Expenses</td><td class="text-end">- {{ total_expenses|floatformat:0 }}</td></tr>
+                <tr class="table-light"><td><strong>Total Outflow</strong></td><td class="text-end"><strong>- {{ cash_out|floatformat:0 }}</strong></td></tr></table></div></div>
+        </div>
+    </div>
+</div>
+{% endblock %}

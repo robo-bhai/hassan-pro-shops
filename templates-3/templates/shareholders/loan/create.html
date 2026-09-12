@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Apply for Loan - {{ company_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header">
+        <h4 class="mb-0"><i class="fas fa-hand-holding-usd me-2"></i> Apply for Loan</h4>
+        <p class="text-muted mb-0">Get loan against your shares</p>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Loan Type *</label>
+                                    <select name="loan_type" class="form-select" required>
+                                        <option value="">Select Type</option>
+                                        {% for type in loan_types %}
+                                        <option value="{{ type.0 }}">{{ type.1 }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Principal Amount (Rs.) *</label>
+                                    <input type="number" name="principal" class="form-control" step="0.01" min="1000" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Interest Rate (%) *</label>
+                                    <input type="number" name="interest_rate" class="form-control" step="0.01" value="12" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">LTV Ratio (%)</label>
+                                    <input type="number" name="ltv_ratio" class="form-control" value="60" readonly>
+                                    <small class="text-muted">Maximum 60% of collateral value</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Start Date</label>
+                                    <input type="date" name="start_date" class="form-control" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Maturity Date</label>
+                                    <input type="date" name="maturity_date" class="form-control" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Processing Fee (Rs.)</label>
+                            <input type="number" name="processing_fee" class="form-control" step="0.01" value="0">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Select Collateral Shares</label>
+                            <div class="border rounded p-3">
+                                {% for share in shares %}
+                                <div class="form-check">
+                                    <input type="checkbox" name="collateral_shares[]" value="{{ share.id }}" class="form-check-input" id="share{{ share.id }}">
+                                    <label class="form-check-label" for="share{{ share.id }}">
+                                        {{ share.share_type|title }} - {{ share.quantity }} shares @ Rs. {{ share.purchase_price|floatformat:2 }}
+                                        <span class="badge bg-secondary">Value: Rs. {{ share.total_value|floatformat:2 }}</span>
+                                    </label>
+                                </div>
+                                {% empty %}
+                                <p class="text-muted text-center py-3">No shares available for collateral</p>
+                                {% endfor %}
+                            </div>
+                            <small class="text-muted">Select shares to pledge as collateral</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Notes</label>
+                            <textarea name="notes" class="form-control" rows="3"></textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-paper-plane"></i> Submit Application
+                        </button>
+                        <a href="{% url 'loan_list' %}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-info-circle"></i> Loan Guide</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled small">
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> Loan against shares</li>
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> Competitive interest rates</li>
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> Flexible repayment</li>
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> Quick approval</li>
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> Keep your shares</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .page-header {
+        background: white;
+        padding: 20px 25px;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Cancel Plan - {{ plan.plan_no }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-lg-6 mx-auto">
+            <div class="card shadow-sm">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-x-circle me-2"></i>
+                        Cancel Plan #{{ plan.plan_no }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Warning:</strong> This action cannot be undone!
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6>Plan Details:</h6>
+                        <table class="table table-sm">
+                            <tr><td><strong>Month:</strong></td><td>{{ plan.month|date:"F Y" }}</td></tr>
+                            <tr><td><strong>Product:</strong></td><td>{{ plan.product_name|default:"-" }}</td></tr>
+                            <tr><td><strong>Quantity:</strong></td><td>{{ plan.purchase_quantity }} units</td></tr>
+                            <tr><td><strong>Total:</strong></td><td>Rs. {{ plan.total_purchase_amount|floatformat:2 }}</td></tr>
+                        </table>
+                    </div>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Reason for Cancellation</label>
+                            <textarea name="reason" class="form-control" rows="3" 
+                                      placeholder="Why are you cancelling this plan?" required></textarea>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'monthly_plan_detail' plan.id %}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Back
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-x-circle"></i> Confirm Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Pay Vendor - {{ vendor.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="page-title-box">
+                <div class="page-title-right">
+                    <ol class="breadcrumb m-0">
+                        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'vendor_list' %}">Vendors</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'vendor_ledger' vendor.pk %}">Ledger</a></li>
+                        <li class="breadcrumb-item active">Pay</li>
+                    </ol>
+                </div>
+                <h4 class="page-title">Pay Vendor - {{ vendor.name }}</h4>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card">
+                <div class="card-body">
+                    <!-- Vendor Summary -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="border rounded p-3 bg-light">
+                                <h6 class="text-muted mb-1">Vendor Details</h6>
+                                <p class="mb-0"><strong>Name:</strong> {{ vendor.name }}</p>
+                                <p class="mb-0"><strong>Code:</strong> {{ vendor.vendor_code }}</p>
+                                <p class="mb-0"><strong>Contact:</strong> {{ vendor.contact_number|default:"N/A" }}</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="border rounded p-3 {% if outstanding > 0 %}bg-danger text-white{% else %}bg-success text-white{% endif %}">
+                                <h6 class="text-white-50 mb-1">Outstanding Balance</h6>
+                                <h2 class="mb-0">Rs. {{ outstanding|floatformat:2 }}</h2>
+                                <small>Current Cash Balance: Rs. {{ current_cash|floatformat:2 }}</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payment Form -->
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Amount to Pay <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text">Rs.</span>
+                                    <input type="number" 
+                                           name="amount" 
+                                           id="amount" 
+                                           class="form-control form-control-lg" 
+                                           step="0.01" 
+                                           min="0.01" 
+                                           max="{{ outstanding }}"
+                                           value="{{ outstanding }}"
+                                           required>
+                                </div>
+                                <small class="text-muted">Max: Rs. {{ outstanding|floatformat:2 }}</small>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Payment Method <span class="text-danger">*</span></label>
+                                <select name="payment_method" class="form-select form-control-lg" required>
+                                    {% for value, label in payment_methods %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Reference No</label>
+                                <input type="text" name="reference_no" class="form-control" placeholder="e.g., Cheque No, Transaction ID">
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Purchase (Optional)</label>
+                                <select name="purchase_id" class="form-select">
+                                    <option value="">-- All Purchases --</option>
+                                    {% for purchase in purchases %}
+                                    <option value="{{ purchase.id }}">
+                                        #{{ purchase.bill_no|default:purchase.id }} - Rs. {{ purchase.outstanding_balance|floatformat:2 }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <small class="text-muted">Select specific purchase to pay</small>
+                            </div>
+
+                            <div class="col-12 mb-3">
+                                <label class="form-label">Notes</label>
+                                <textarea name="notes" class="form-control" rows="2" placeholder="Payment notes..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-warning">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Note:</strong> This payment will be deducted from the main cash balance.
+                            Current cash balance: <strong>Rs. {{ current_cash|floatformat:2 }}</strong>
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'vendor_ledger' vendor.pk %}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="bi bi-check-circle"></i> Pay Rs. <span id="display-amount">{{ outstanding|floatformat:2 }}</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Payment History -->
+            {% if payment_history %}
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0">Recent Payments</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Amount</th>
+                                    <th>Method</th>
+                                    <th>Reference</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for payment in payment_history %}
+                                <tr>
+                                    <td>{{ payment.payment_date|date:"d-m-Y H:i" }}</td>
+                                    <td class="text-danger">-Rs. {{ payment.amount|floatformat:2 }}</td>
+                                    <td>{{ payment.method.name|default:"Cash" }}</td>
+                                    <td>{{ payment.reference_no|default:"-" }}</td>
+                                    <td>{{ payment.notes|default:"-" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('amount').addEventListener('input', function() {
+    document.getElementById('display-amount').textContent = parseFloat(this.value || 0).toFixed(2);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,461 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ shareholder.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- ============================================ -->
+    <!-- HEADER WITH BUTTONS                         -->
+    <!-- ============================================ -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-0">👤 {{ shareholder.name }}</h1>
+            <p class="text-muted">{{ shareholder.shareholder_code }}</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <!-- Deposit Requests Link -->
+            <a href="{% url 'shareholder_deposit_requests_for_shareholder' shareholder.pk %}" 
+               class="btn btn-primary">
+                <i class="bi bi-coin"></i> Deposits
+                {% with count=shareholder.deposit_requests.all|length %}
+                {% if count > 0 %}
+                <span class="badge bg-light text-dark ms-1">{{ count }}</span>
+                {% endif %}
+                {% endwith %}
+            </a>
+            
+            <!-- Withdrawal Requests Link -->
+            <a href="{% url 'shareholder_withdrawal_requests_for_shareholder' shareholder.pk %}" 
+               class="btn btn-danger">
+                <i class="bi bi-cash-stack"></i> Withdrawals
+                {% with count=shareholder.withdrawal_requests.all|length %}
+                {% if count > 0 %}
+                <span class="badge bg-light text-dark ms-1">{{ count }}</span>
+                {% endif %}
+                {% endwith %}
+            </a>
+            
+            <!-- Edit Button -->
+            <a href="{% url 'shareholder_edit' shareholder.pk %}" class="btn btn-warning">
+                <i class="bi bi-pencil"></i> Edit
+            </a>
+            
+            <!-- Back Button -->
+            <a href="{% url 'shareholder_list' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    
+    <!-- ============================================ -->
+    <!-- PROFILE CARD                                -->
+    <!-- ============================================ -->
+    <div class="row">
+        <div class="col-md-4 mb-3">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0"><i class="bi bi-person"></i> Profile</h6>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <div class="avatar-lg mx-auto" style="width:80px;height:80px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px;color:white;font-weight:bold;">
+                            {{ shareholder.name|first|upper }}
+                        </div>
+                        <h5 class="mt-2">{{ shareholder.name }}</h5>
+                        <span class="badge bg-secondary">{{ shareholder.shareholder_code }}</span>
+                    </div>
+                    <hr>
+                    <p><strong>Type:</strong> {{ shareholder.get_shareholder_type_display }}</p>
+                    <p><strong>Status:</strong> {{ shareholder.status_badge|safe }}</p>
+                    <p><strong>Email:</strong> {{ shareholder.email|default:'-' }}</p>
+                    <p><strong>Phone:</strong> {{ shareholder.phone|default:'-' }}</p>
+                    <p><strong>Address:</strong> {{ shareholder.address|default:'-'|truncatechars:50 }}</p>
+                    <p><strong>CNIC/NTN:</strong> {{ shareholder.cnic|default:'-' }}</p>
+                    <p><strong>Founder:</strong> {% if shareholder.is_founder %}✅ Yes{% else %}❌ No{% endif %}</p>
+                    <p><strong>Board Member:</strong> {% if shareholder.is_board_member %}✅ Yes{% else %}❌ No{% endif %}</p>
+                    
+                    <!-- Login Access -->
+                    <hr>
+                    <p>
+                        <strong>Login Access:</strong> 
+                        {% if shareholder.allow_login %}
+                            <span class="badge bg-success">✅ Enabled</span>
+                            {% if shareholder.user %}
+                            <br><small class="text-muted">Username: <code>{{ shareholder.user.username }}</code></small>
+                            {% endif %}
+                        {% else %}
+                            <span class="badge bg-secondary">❌ Disabled</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ============================================ -->
+        <!-- STATS CARDS                                 -->
+        <!-- ============================================ -->
+        <div class="col-md-8 mb-3">
+            <div class="row g-2">
+                <div class="col-md-3 col-6">
+                    <div class="card bg-primary text-white shadow-sm">
+                        <div class="card-body text-center">
+                            <h6 class="text-uppercase small">Total Shares</h6>
+                            <h2 class="mb-0">{{ total_shares|floatformat:0 }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="card bg-success text-white shadow-sm">
+                        <div class="card-body text-center">
+                            <h6 class="text-uppercase small">Investment</h6>
+                            <h5 class="mb-0">Rs. {{ total_investment|floatformat:0 }}</h5>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="card bg-warning text-white shadow-sm">
+                        <div class="card-body text-center">
+                            <h6 class="text-uppercase small">Dividends</h6>
+                            <h5 class="mb-0">Rs. {{ total_dividends|floatformat:0 }}</h5>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="card bg-info text-white shadow-sm">
+                        <div class="card-body text-center">
+                            <h6 class="text-uppercase small">Current Value</h6>
+                            <h5 class="mb-0">Rs. {{ current_value|floatformat:0 }}</h5>
+                            <small>
+                                {% if profit_loss > 0 %}📈 +{% else %}📉 {% endif %}
+                                {{ profit_loss|floatformat:0 }} ({{ profit_loss_percent|floatformat:1 }}%)
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ============================================ -->
+            <!-- QUICK ACTION LINKS                          -->
+            <!-- ============================================ -->
+            <div class="row g-2 mt-2">
+                <div class="col-md-3 col-6">
+                    <a href="{% url 'shareholder_deposit_requests_for_shareholder' shareholder.pk %}" 
+                       class="btn btn-outline-primary w-100 py-2">
+                        <i class="bi bi-coin"></i> Deposit Requests
+                        {% with count=shareholder.deposit_requests.all|length %}
+                        {% if count > 0 %}
+                        <span class="badge bg-primary">{{ count }}</span>
+                        {% endif %}
+                        {% endwith %}
+                    </a>
+                </div>
+                <div class="col-md-3 col-6">
+                    <a href="{% url 'shareholder_withdrawal_requests_for_shareholder' shareholder.pk %}" 
+                       class="btn btn-outline-danger w-100 py-2">
+                        <i class="bi bi-cash-stack"></i> Withdrawal Requests
+                        {% with count=shareholder.withdrawal_requests.all|length %}
+                        {% if count > 0 %}
+                        <span class="badge bg-danger">{{ count }}</span>
+                        {% endif %}
+                        {% endwith %}
+                    </a>
+                </div>
+                <div class="col-md-3 col-6">
+                    <a href="{% url 'shareholder_balance_detail' shareholder.pk %}" 
+                       class="btn btn-outline-success w-100 py-2">
+                        <i class="bi bi-wallet"></i> Cash Balance
+                    </a>
+                </div>
+                <div class="col-md-3 col-6">
+                    <a href="{% url 'shareholder_edit' shareholder.pk %}" 
+                       class="btn btn-outline-warning w-100 py-2">
+                        <i class="bi bi-pencil"></i> Edit Profile
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ============================================ -->
+    <!-- SHARE HOLDINGS                              -->
+    <!-- ============================================ -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center">
+            <h6 class="mb-0"><i class="bi bi-graph-up"></i> Share Holdings</h6>
+            <span class="badge bg-secondary">Total: {{ total_shares|floatformat:0 }} shares</span>
+        </div>
+        <div class="card-body p-0">
+            {% if shares %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Type</th>
+                            <th>Quantity</th>
+                            <th>Purchase Price</th>
+                            <th>Total Value</th>
+                            <th>Certificate</th>
+                            <th>Issue Date</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for share in shares %}
+                        <tr>
+                            <td>{{ share.get_share_type_display }}</td>
+                            <td><strong>{{ share.quantity|floatformat:0 }}</strong></td>
+                            <td>Rs. {{ share.purchase_price|floatformat:2 }}</td>
+                            <td>Rs. {{ share.total_value|floatformat:2 }}</td>
+                            <td>
+                                {% if share.certificate_number %}
+                                <span class="badge bg-success">{{ share.certificate_number }}</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Pending</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ share.issue_date|date:'d-m-Y' }}</td>
+                            <td>{{ share.status_badge|safe }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-inbox fs-1 d-block"></i>
+                <p class="mt-2">No shares held</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- ============================================ -->
+    <!-- DIVIDEND HISTORY                            -->
+    <!-- ============================================ -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center">
+            <h6 class="mb-0"><i class="bi bi-cash"></i> Dividend History</h6>
+            <span class="badge bg-secondary">{{ dividend_payments|length }} records</span>
+        </div>
+        <div class="card-body p-0">
+            {% if dividend_payments %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Dividend</th>
+                            <th>Shares Held</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Payment Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in dividend_payments %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'dividend_detail' payment.dividend.pk %}">
+                                    {{ payment.dividend.dividend_no }}
+                                </a>
+                            </td>
+                            <td>{{ payment.shares_held|floatformat:0 }}</td>
+                            <td class="fw-bold text-success">Rs. {{ payment.amount|floatformat:2 }}</td>
+                            <td>{{ payment.status_badge|safe }}</td>
+                            <td>{{ payment.payment_date|date:'d-m-Y'|default:'-' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-cash-stack fs-1 d-block"></i>
+                <p class="mt-2">No dividends received</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- ============================================ -->
+    <!-- DEPOSIT & WITHDRAWAL REQUESTS SUMMARY       -->
+    <!-- ============================================ -->
+    <div class="row g-3">
+        <!-- Deposit Requests -->
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white d-flex flex-wrap justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-coin"></i> Deposit Requests</h6>
+                    <a href="{% url 'shareholder_deposit_requests_for_shareholder' shareholder.pk %}" 
+                       class="btn btn-sm btn-light">
+                        View All
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    {% with deposits=shareholder.deposit_requests.all|slice:":5" %}
+                    {% if deposits %}
+                    <ul class="list-unstyled mb-0">
+                        {% for req in deposits %}
+                        <li class="border-bottom px-3 py-2 d-flex flex-wrap justify-content-between align-items-center">
+                            <div>
+                                <code>{{ req.request_no }}</code>
+                                <br>
+                                <small class="text-muted">{{ req.created_at|date:"d-m-Y H:i" }}</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="fw-bold text-success">Rs. {{ req.amount|floatformat:2 }}</span>
+                                <br>
+                                {% if req.status == 'pending' %}
+                                    <span class="badge bg-warning">⏳ Pending</span>
+                                {% elif req.status == 'approved' %}
+                                    <span class="badge bg-success">✅ Approved</span>
+                                {% elif req.status == 'rejected' %}
+                                    <span class="badge bg-danger">❌ Rejected</span>
+                                {% endif %}
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="text-center py-3 text-muted">
+                        <i class="bi bi-inbox"></i> No deposit requests
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                </div>
+                <div class="card-footer bg-transparent">
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted small">
+                            Pending: {{ shareholder.deposit_requests.all|length }}
+                        </span>
+                        <a href="{% url 'shareholder_deposit_requests_for_shareholder' shareholder.pk %}" 
+                           class="btn btn-sm btn-primary">
+                            <i class="bi bi-arrow-right"></i> View All
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Withdrawal Requests -->
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-danger text-white d-flex flex-wrap justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-cash-stack"></i> Withdrawal Requests</h6>
+                    <a href="{% url 'shareholder_withdrawal_requests_for_shareholder' shareholder.pk %}" 
+                       class="btn btn-sm btn-light">
+                        View All
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    {% with withdrawals=shareholder.withdrawal_requests.all|slice:":5" %}
+                    {% if withdrawals %}
+                    <ul class="list-unstyled mb-0">
+                        {% for req in withdrawals %}
+                        <li class="border-bottom px-3 py-2 d-flex flex-wrap justify-content-between align-items-center">
+                            <div>
+                                <code>{{ req.request_no }}</code>
+                                <br>
+                                <small class="text-muted">{{ req.created_at|date:"d-m-Y H:i" }}</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="fw-bold text-danger">Rs. {{ req.amount|floatformat:2 }}</span>
+                                <br>
+                                {% if req.status == 'pending' %}
+                                    <span class="badge bg-warning">⏳ Pending</span>
+                                {% elif req.status == 'approved' %}
+                                    <span class="badge bg-success">✅ Approved</span>
+                                {% elif req.status == 'rejected' %}
+                                    <span class="badge bg-danger">❌ Rejected</span>
+                                {% endif %}
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="text-center py-3 text-muted">
+                        <i class="bi bi-inbox"></i> No withdrawal requests
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                </div>
+                <div class="card-footer bg-transparent">
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted small">
+                            Pending: {{ shareholder.withdrawal_requests.all|length }}
+                        </span>
+                        <a href="{% url 'shareholder_withdrawal_requests_for_shareholder' shareholder.pk %}" 
+                           class="btn btn-sm btn-danger">
+                            <i class="bi bi-arrow-right"></i> View All
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ============================================ -->
+    <!-- TRANSFERS                                   -->
+    <!-- ============================================ -->
+    <div class="row mt-3">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0"><i class="bi bi-arrow-up-right"></i> Transfers Out</h6>
+                </div>
+                <div class="card-body p-0">
+                    {% if transfers_out %}
+                    <ul class="list-unstyled mb-0">
+                        {% for transfer in transfers_out|slice:":10" %}
+                        <li class="border-bottom px-3 py-2 d-flex flex-wrap justify-content-between align-items-center">
+                            <div>
+                                <span class="fw-bold">{{ transfer.quantity }}</span> shares
+                                <br>
+                                <small class="text-muted">→ {{ transfer.to_shareholder.name }}</small>
+                            </div>
+                            <span class="badge bg-{% if transfer.status == 'completed' %}success{% elif transfer.status == 'approved' %}primary{% elif transfer.status == 'pending' %}warning{% else %}danger{% endif %}">
+                                {{ transfer.get_status_display }}
+                            </span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="text-center py-3 text-muted">
+                        <i class="bi bi-inbox"></i> No transfers out
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0"><i class="bi bi-arrow-down-left"></i> Transfers In</h6>
+                </div>
+                <div class="card-body p-0">
+                    {% if transfers_in %}
+                    <ul class="list-unstyled mb-0">
+                        {% for transfer in transfers_in|slice:":10" %}
+                        <li class="border-bottom px-3 py-2 d-flex flex-wrap justify-content-between align-items-center">
+                            <div>
+                                <span class="fw-bold">{{ transfer.quantity }}</span> shares
+                                <br>
+                                <small class="text-muted">← {{ transfer.from_shareholder.name }}</small>
+                            </div>
+                            <span class="badge bg-{% if transfer.status == 'completed' %}success{% elif transfer.status == 'approved' %}primary{% elif transfer.status == 'pending' %}warning{% else %}danger{% endif %}">
+                                {{ transfer.get_status_display }}
+                            </span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="text-center py-3 text-muted">
+                        <i class="bi bi-inbox"></i> No transfers in
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

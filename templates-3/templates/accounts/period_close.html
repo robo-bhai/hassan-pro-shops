@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Close Financial Period{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">🔒 Close Financial Period</h1>
+        <a href="{% url 'financial_periods' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-header py-3 bg-warning">
+            <h6 class="m-0 font-weight-bold text-dark">⚠️ Warning: This action cannot be undone!</h6>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-danger">
+                <h5>Are you sure you want to close this period?</h5>
+                <p><strong>Period:</strong> {{ period.name }}</p>
+                <p><strong>Type:</strong> {{ period.get_period_type_display }}</p>
+                <p><strong>Start Date:</strong> {{ period.start_date|date:"d-m-Y" }}</p>
+                <p><strong>End Date:</strong> {{ period.end_date|date:"d-m-Y" }}</p>
+                <p><strong>Status:</strong> 
+                    <span class="badge bg-{{ period.is_closed|yesno:'secondary,success' }}">
+                        {{ period.is_closed|yesno:'Closed,Active' }}
+                    </span>
+                </p>
+            </div>
+
+            <form method="POST">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">
+                    <i class="bi bi-lock"></i> Yes, Close Period
+                </button>
+                <a href="{% url 'financial_periods' %}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

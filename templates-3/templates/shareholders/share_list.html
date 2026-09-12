@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Share Holdings{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>📈 Share Holdings</h1>
+        <div>
+            <a href="{% url 'shareholder_dashboard' %}" class="btn btn-secondary">
+                ← Back to Dashboard
+            </a>
+        </div>
+    </div>
+    
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-4">
+                            <input type="text" name="search" class="form-control" placeholder="Search by shareholder, certificate..." value="{{ search }}">
+                        </div>
+                        <div class="col-md-3">
+                            <select name="type" class="form-select">
+                                <option value="">All Share Types</option>
+                                <option value="ordinary" {% if share_type == 'ordinary' %}selected{% endif %}>Ordinary Share</option>
+                                <option value="preference" {% if share_type == 'preference' %}selected{% endif %}>Preference Share</option>
+                                <option value="bonus" {% if share_type == 'bonus' %}selected{% endif %}>Bonus Share</option>
+                                <option value="founder" {% if share_type == 'founder' %}selected{% endif %}>Founder Share</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select name="shareholder" class="form-select">
+                                <option value="">All Shareholders</option>
+                                {% for sh in shareholders %}
+                                <option value="{{ sh.id }}" {% if shareholder_id == sh.id|stringformat:'s' %}selected{% endif %}>
+                                    {{ sh.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">Filter</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Summary Cards -->
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Total Shares</h6>
+                    <h2 class="mb-0">{{ total_shares|floatformat:0 }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Total Value</h6>
+                    <h2 class="mb-0">Rs. {{ total_value|floatformat:0 }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Latest Share Price</h6>
+                    <h2 class="mb-0">Rs. {{ latest_price.price|floatformat:2 }}</h2>
+                    <small>as of {{ latest_price.date }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Shareholder</th>
+                            <th>Type</th>
+                            <th>Quantity</th>
+                            <th>Purchase Price</th>
+                            <th>Total Value</th>
+                            <th>Profit/Loss</th>
+                            <th>Certificate</th>
+                            <th>Issue Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for share in page_obj %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>
+                                <a href="{% url 'shareholder_detail' share.shareholder.id %}">
+                                    {{ share.shareholder.name }}
+                                </a>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ share.get_share_type_display }}</span>
+                            </td>
+                            <td><strong>{{ share.quantity|floatformat:0 }}</strong></td>
+                            <td>Rs. {{ share.purchase_price|floatformat:2 }}</td>
+                            <td>Rs. {{ share.total_value|floatformat:2 }}</td>
+                            <td>
+                                {% with profit=share.profit_loss %}
+                                {% if profit > 0 %}
+                                <span class="text-success">+Rs. {{ profit|floatformat:2 }}</span>
+                                <br><small class="text-success">({{ share.profit_loss_percent|floatformat:1 }}%)</small>
+                                {% elif profit < 0 %}
+                                <span class="text-danger">-Rs. {{ profit|floatformat:2 }}</span>
+                                <br><small class="text-danger">({{ share.profit_loss_percent|floatformat:1 }}%)</small>
+                                {% else %}
+                                <span class="text-muted">Rs. 0.00</span>
+                                {% endif %}
+                                {% endwith %}
+                            </td>
+                            <td>{{ share.certificate_number|default:'-' }}</td>
+                            <td>{{ share.issue_date|date:'d-m-Y' }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center py-4">
+                                <div class="text-muted">
+                                    <h5>No shares found</h5>
+                                    <p>Add shares by creating a shareholder or transferring shares.</p>
+                                    <a href="{% url 'shareholder_create' %}" class="btn btn-primary">Add Shareholder</a>
+                                    <a href="{% url 'share_transfer_create' %}" class="btn btn-warning">Transfer Shares</a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            {% include "includes/pagination.html" %}
+        </div>
+    </div>
+</div>
+{% endblock %}

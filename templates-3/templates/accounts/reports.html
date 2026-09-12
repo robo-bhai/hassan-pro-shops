@@ -1,0 +1,215 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Accounts Reports{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">📊 Accounts Reports</h1>
+        <a href="{% url 'export_accounts_report' %}" class="btn btn-success">
+            <i class="bi bi-file-excel"></i> Export Excel
+        </a>
+    </div>
+
+    <!-- Filter -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Filter</h6>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">From Date</label>
+                    <input type="date" name="from_date" class="form-control" value="{{ from_date }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">To Date</label>
+                    <input type="date" name="to_date" class="form-control" value="{{ to_date }}">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search"></i> Filter
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Total Accounts</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_accounts }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-journal fs-2 text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Journal Entries</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_journal_entries }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-pencil-square fs-2 text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Total Debit</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">Rs. {{ total_debit|floatformat:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-arrow-down fs-2 text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Total Credit</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">Rs. {{ total_credit|floatformat:0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-arrow-up fs-2 text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Account Balances by Type -->
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Account Balances by Type</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Account Type</th>
+                                    <th class="text-center">Count</th>
+                                    <th class="text-end">Total Balance (Rs.)</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for type, data in account_balances.items %}
+                                <tr>
+                                    <td>
+                                        <span class="badge {% if type == 'asset' %}bg-success{% elif type == 'liability' %}bg-danger{% elif type == 'equity' %}bg-primary{% elif type == 'income' %}bg-info{% else %}bg-warning{% endif %}">
+                                            {{ type|title }}
+                                        </span>
+                                    </td>
+                                    <td class="text-center">{{ data.count }}</td>
+                                    <td class="text-end">{{ data.formatted }}</td>
+                                    <td>
+                                        {% if data.total > 0 %}
+                                            <span class="badge bg-success">Active</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Zero</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Current Period Info -->
+    {% if current_period %}
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Current Financial Period</h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <strong>Name:</strong> {{ current_period.name }}
+                </div>
+                <div class="col-md-3">
+                    <strong>Type:</strong> {{ current_period.get_period_type_display }}
+                </div>
+                <div class="col-md-3">
+                    <strong>Start:</strong> {{ current_period.start_date|date:"d-m-Y" }}
+                </div>
+                <div class="col-md-3">
+                    <strong>End:</strong> {{ current_period.end_date|date:"d-m-Y" }}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle"></i> No active financial period found.
+    </div>
+    {% endif %}
+
+    <!-- Quick Links -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Quick Links</h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <a href="{% url 'trial_balance' %}" class="btn btn-outline-primary w-100 mb-2">
+                        <i class="bi bi-scale"></i> Trial Balance
+                    </a>
+                </div>
+                <div class="col-md-3">
+                    <a href="{% url 'balance_sheet' %}" class="btn btn-outline-success w-100 mb-2">
+                        <i class="bi bi-file-text"></i> Balance Sheet
+                    </a>
+                </div>
+                <div class="col-md-3">
+                    <a href="{% url 'profit_loss_statement' %}" class="btn btn-outline-warning w-100 mb-2">
+                        <i class="bi bi-graph-up"></i> Profit & Loss
+                    </a>
+                </div>
+                <div class="col-md-3">
+                    <a href="{% url 'cash_flow_statement' %}" class="btn btn-outline-info w-100 mb-2">
+                        <i class="bi bi-cash"></i> Cash Flow
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

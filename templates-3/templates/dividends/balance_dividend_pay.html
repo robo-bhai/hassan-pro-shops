@@ -1,0 +1,153 @@
+<!-- templates/dividends/balance_dividend_pay.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h4><i class="fas fa-money-bill-wave"></i> Mark Dividend Payment as Paid</h4>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- Payment Details -->
+                    <div class="alert alert-info">
+                        <h5><i class="fas fa-user"></i> {{ payment.shareholder.name }}</h5>
+                        <div class="row mt-3">
+                            <div class="col-md-3">
+                                <div class="small text-muted">Refund Amount</div>
+                                <h5>Rs. {{ payment.refund_amount|floatformat:2 }}</h5>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="small text-muted">Profit Amount</div>
+                                <h5 class="text-success">Rs. {{ payment.amount|floatformat:2 }}</h5>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="small text-muted">Total Payment</div>
+                                <h5 class="text-primary">Rs. {{ payment.total_payment|floatformat:2 }}</h5>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="small text-muted">Current Balance</div>
+                                <h5>Rs. {{ shareholder_balance|floatformat:2 }}</h5>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Balance Info -->
+                    <div class="alert alert-secondary">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>After Payment (Without Cash):</strong>
+                                <h6>Balance: Rs. {{ shareholder_balance|add:payment.total_payment|floatformat:2 }}</h6>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>After Payment (With Cash):</strong>
+                                <h6>Balance: Rs. {{ shareholder_balance|add:payment.total_payment|floatformat:2 }}</h6>
+                                <h6>Main Cash: Rs. {{ current_balance|add:payment.total_payment|floatformat:2 }}</h6>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Form -->
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Payment Method</label>
+                                    <select name="payment_method" class="form-select">
+                                        <option value="Bank Transfer">🏦 Bank Transfer</option>
+                                        <option value="Cash">💵 Cash</option>
+                                        <option value="JazzCash">📱 JazzCash</option>
+                                        <option value="EasyPaisa">📱 EasyPaisa</option>
+                                        <option value="Cheque">📄 Cheque</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Reference No</label>
+                                    <input type="text" name="reference_no" class="form-control" 
+                                           placeholder="Enter reference number...">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="mb-3">
+                                    <label class="form-label">Notes</label>
+                                    <input type="text" name="notes" class="form-control" 
+                                           placeholder="Optional notes...">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- ✅ NEW: Main Cash Deduction Option -->
+                        <div class="alert alert-warning">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" 
+                                       id="deductMainCash" name="deduct_main_cash">
+                                <label class="form-check-label" for="deductMainCash">
+                                    <strong>Deduct from Main Cash</strong>
+                                </label>
+                            </div>
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle"></i>
+                                If checked: Main cash se paisa deduct hoga aur shareholder ko cash milega.<br>
+                                If unchecked: Sirf shareholder balance increase hoga (main cash unchanged).
+                            </small>
+                        </div>
+                        
+                        <!-- Preview -->
+                        <div class="alert alert-secondary mt-3" id="previewSection">
+                            <h6><i class="fas fa-eye"></i> Preview</h6>
+                            <div id="previewContent">
+                                <p>
+                                    👤 <strong>Shareholder:</strong> {{ payment.shareholder.name }}<br>
+                                    💰 <strong>Total Payment:</strong> Rs. {{ payment.total_payment|floatformat:2 }}<br>
+                                    🔄 <strong>Refund:</strong> Rs. {{ payment.refund_amount|floatformat:2 }}<br>
+                                    📈 <strong>Profit:</strong> Rs. {{ payment.amount|floatformat:2 }}<br>
+                                    💵 <strong>Main Cash:</strong> 
+                                    <span id="cashPreview">No Change</span>
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="fas fa-check-circle"></i> Mark as Paid
+                            </button>
+                            <a href="{% url 'balance_dividend_detail' pk=dividend.pk %}" 
+                               class="btn btn-secondary btn-lg">
+                                <i class="fas fa-arrow-left"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ✅ Live Preview Update
+document.getElementById('deductMainCash').addEventListener('change', function() {
+    const cashPreview = document.getElementById('cashPreview');
+    const totalPayment = {{ payment.total_payment|floatformat:2 }};
+    const currentBalance = {{ current_balance|floatformat:2 }};
+    
+    if (this.checked) {
+        cashPreview.innerHTML = `-Rs. ${totalPayment.toFixed(2)} (New: Rs. ${(currentBalance - totalPayment).toFixed(2)})`;
+        cashPreview.className = 'text-danger';
+    } else {
+        cashPreview.innerHTML = 'No Change';
+        cashPreview.className = 'text-success';
+    }
+});
+</script>
+{% endblock %}

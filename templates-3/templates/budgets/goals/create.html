@@ -1,0 +1,432 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Create Goal - {{ budget.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ========================================== */
+    /* PREMIUM CREATE GOAL STYLES                */
+    /* ========================================== */
+    .form-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    .form-card {
+        border: none;
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    .form-card .card-header {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        padding: 25px 30px;
+        border: none;
+    }
+    .form-card .card-header h5 {
+        color: white;
+        font-weight: 600;
+        margin: 0;
+    }
+    .form-card .card-header .subtitle {
+        color: rgba(255,255,255,0.7);
+        font-size: 13px;
+        margin: 4px 0 0 0;
+    }
+    .form-card .card-body {
+        padding: 30px;
+    }
+    
+    /* Form Fields */
+    .form-group {
+        margin-bottom: 20px;
+    }
+    .form-group .form-label {
+        font-weight: 600;
+        font-size: 13px;
+        color: #2d3748;
+        margin-bottom: 6px;
+        display: block;
+    }
+    .form-group .form-label .required {
+        color: #e53e3e;
+        margin-left: 2px;
+    }
+    .form-group .form-label .optional {
+        color: #a0aec0;
+        font-weight: 400;
+        font-size: 11px;
+    }
+    .form-group .form-control,
+    .form-group .form-select {
+        border-radius: 10px;
+        border: 2px solid #e2e8f0;
+        padding: 10px 14px;
+        font-size: 14px;
+        transition: all 0.3s ease;
+    }
+    .form-group .form-control:focus,
+    .form-group .form-select:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        outline: none;
+    }
+    .form-group .form-control.is-invalid,
+    .form-group .form-select.is-invalid {
+        border-color: #e53e3e;
+    }
+    .form-group .form-control.is-valid,
+    .form-group .form-select.is-valid {
+        border-color: #38a169;
+    }
+    
+    /* Tips Box */
+    .tips-box {
+        background: #f7fafc;
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 20px;
+        border-left: 4px solid #667eea;
+    }
+    .tips-box .tips-title {
+        font-weight: 600;
+        font-size: 13px;
+        color: #2d3748;
+        margin-bottom: 6px;
+    }
+    .tips-box .tips-list {
+        padding-left: 20px;
+        margin: 0;
+        color: #4a5568;
+        font-size: 13px;
+    }
+    .tips-box .tips-list li {
+        margin-bottom: 4px;
+    }
+    
+    /* Action Buttons */
+    .btn-action {
+        padding: 10px 28px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 14px;
+        transition: all 0.3s ease;
+        border: none;
+    }
+    .btn-action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    .btn-primary-action {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    .btn-primary-action:hover {
+        color: white;
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+    }
+    .btn-secondary-action {
+        background: #e2e8f0;
+        color: #4a5568;
+    }
+    .btn-secondary-action:hover {
+        background: #cbd5e0;
+        color: #2d3748;
+    }
+    
+    /* Preview Card */
+    .preview-card {
+        background: #f7fafc;
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-top: 16px;
+        display: none;
+    }
+    .preview-card.show {
+        display: block;
+    }
+    .preview-card .preview-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        border-bottom: 1px solid #edf2f7;
+    }
+    .preview-card .preview-item:last-child {
+        border-bottom: none;
+    }
+    .preview-card .preview-label {
+        color: #4a5568;
+        font-size: 13px;
+    }
+    .preview-card .preview-value {
+        font-weight: 600;
+        color: #2d3748;
+        font-size: 13px;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .form-card .card-header {
+            padding: 20px;
+        }
+        .form-card .card-body {
+            padding: 20px;
+        }
+        .btn-action {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="form-container">
+        
+        <!-- ========================================== -->
+        <!-- CARD                                        -->
+        <!-- ========================================== -->
+        <div class="form-card card">
+            
+            <!-- Header -->
+            <div class="card-header">
+                <h5><i class="bi bi-plus-circle me-2"></i> Create New Goal</h5>
+                <p class="subtitle">
+                    <i class="bi bi-wallet2"></i> {{ budget.name }} 
+                    <span class="mx-2">•</span> 
+                    <i class="bi bi-calendar3"></i> {{ budget.period_start|date:"d M Y" }} - {{ budget.period_end|date:"d M Y" }}
+                </p>
+            </div>
+            
+            <!-- Body -->
+            <div class="card-body">
+                
+                <!-- Tips Box -->
+                <div class="tips-box">
+                    <div class="tips-title">
+                        <i class="bi bi-lightbulb me-1"></i> Goal Setting Tips
+                    </div>
+                    <ul class="tips-list">
+                        <li>Set <strong>SMART</strong> goals (Specific, Measurable, Achievable, Relevant, Time-bound)</li>
+                        <li>Start with <strong>small</strong> goals and gradually increase</li>
+                        <li>Track your progress <strong>daily</strong> for better results</li>
+                        <li>Celebrate when you achieve <strong>milestones</strong> 🎉</li>
+                    </ul>
+                </div>
+                
+                <!-- Form -->
+                <form method="POST" id="goalForm">
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <!-- Goal Name -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Goal Name <span class="required">*</span>
+                                </label>
+                                <input type="text" name="name" class="form-control" 
+                                       placeholder="e.g., Kitchen Saving Goal" 
+                                       required autofocus>
+                            </div>
+                        </div>
+                        
+                        <!-- Goal Type -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Goal Type <span class="required">*</span>
+                                </label>
+                                <select name="goal_type" class="form-select" required>
+                                    {% for key, value in goal_types %}
+                                    <option value="{{ key }}">{{ value }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <!-- Category -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Category <span class="optional">(Optional)</span>
+                                </label>
+                                <select name="category" class="form-select">
+                                    <option value="">Overall Budget</option>
+                                    {% for cat in categories %}
+                                    <option value="{{ cat.id }}">{{ cat.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Target Amount -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Target Amount <span class="required">*</span>
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text">Rs.</span>
+                                    <input type="number" name="target_amount" class="form-control" 
+                                           placeholder="0.00" step="0.01" required id="targetAmount">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <!-- Start Date -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Start Date <span class="required">*</span>
+                                </label>
+                                <input type="date" name="start_date" class="form-control" 
+                                       required value="{{ today }}" id="startDate">
+                            </div>
+                        </div>
+                        
+                        <!-- End Date -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    End Date <span class="required">*</span>
+                                </label>
+                                <input type="date" name="end_date" class="form-control" 
+                                       required id="endDate">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Description -->
+                    <div class="form-group">
+                        <label class="form-label">
+                            Description <span class="optional">(Optional)</span>
+                        </label>
+                        <textarea name="description" class="form-control" rows="3" 
+                                  placeholder="Describe your goal in detail..." id="goalDescription"></textarea>
+                    </div>
+                    
+                    <!-- Preview -->
+                    <div class="preview-card" id="previewCard">
+                        <div class="fw-bold mb-2"><i class="bi bi-eye"></i> Preview</div>
+                        <div class="preview-item">
+                            <span class="preview-label">Goal Name</span>
+                            <span class="preview-value" id="previewName">—</span>
+                        </div>
+                        <div class="preview-item">
+                            <span class="preview-label">Type</span>
+                            <span class="preview-value" id="previewType">—</span>
+                        </div>
+                        <div class="preview-item">
+                            <span class="preview-label">Target</span>
+                            <span class="preview-value" id="previewTarget">—</span>
+                        </div>
+                        <div class="preview-item">
+                            <span class="preview-label">Period</span>
+                            <span class="preview-value" id="previewPeriod">—</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Actions -->
+                    <div class="d-flex gap-2 flex-wrap mt-3">
+                        <button type="submit" class="btn-action btn-primary-action">
+                            <i class="bi bi-check-circle"></i> Create Goal
+                        </button>
+                        <a href="{% url 'budget_goals' budget.id %}" class="btn-action btn-secondary-action">
+                            <i class="bi bi-x-circle"></i> Cancel
+                        </a>
+                    </div>
+                    
+                </form>
+            </div>
+        </div>
+        
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- JAVASCRIPT - Live Preview                  -->
+<!-- ========================================== -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('goalForm');
+        const previewCard = document.getElementById('previewCard');
+        
+        // Preview elements
+        const previewName = document.getElementById('previewName');
+        const previewType = document.getElementById('previewType');
+        const previewTarget = document.getElementById('previewTarget');
+        const previewPeriod = document.getElementById('previewPeriod');
+        
+        // Form fields
+        const nameInput = document.querySelector('input[name="name"]');
+        const typeSelect = document.querySelector('select[name="goal_type"]');
+        const targetInput = document.getElementById('targetAmount');
+        const startInput = document.getElementById('startDate');
+        const endInput = document.getElementById('endDate');
+        
+        // Get goal type display
+        function getTypeDisplay(value) {
+            const types = {
+                'saving': '💰 Saving',
+                'spending': '💳 Spending',
+                'emergency': '🆘 Emergency',
+                'investment': '📈 Investment',
+                'debt': '💸 Debt',
+                'purchase': '🛒 Purchase'
+            };
+            return types[value] || value;
+        }
+        
+        // Update preview
+        function updatePreview() {
+            const name = nameInput.value.trim() || '—';
+            const type = getTypeDisplay(typeSelect.value);
+            const target = targetInput.value ? 'Rs. ' + parseFloat(targetInput.value).toLocaleString() : '—';
+            const start = startInput.value ? new Date(startInput.value).toLocaleDateString('en-IN') : '—';
+            const end = endInput.value ? new Date(endInput.value).toLocaleDateString('en-IN') : '—';
+            
+            previewName.textContent = name;
+            previewType.textContent = type;
+            previewTarget.textContent = target;
+            previewPeriod.textContent = start + ' → ' + end;
+            
+            // Show preview if any field has value
+            if (name !== '—' || target !== '—' || start !== '—') {
+                previewCard.classList.add('show');
+            } else {
+                previewCard.classList.remove('show');
+            }
+        }
+        
+        // Event listeners
+        nameInput.addEventListener('input', updatePreview);
+        typeSelect.addEventListener('change', updatePreview);
+        targetInput.addEventListener('input', updatePreview);
+        startInput.addEventListener('change', updatePreview);
+        endInput.addEventListener('change', updatePreview);
+        
+        // Initial preview
+        updatePreview();
+        
+        // Set min date for end date
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('endDate').min = today;
+        
+        // Auto calculate end date (3 months from start)
+        document.getElementById('startDate').addEventListener('change', function() {
+            const start = new Date(this.value);
+            if (start) {
+                const end = new Date(start);
+                end.setMonth(end.getMonth() + 3);
+                document.getElementById('endDate').value = end.toISOString().split('T')[0];
+                updatePreview();
+            }
+        });
+    });
+</script>
+{% endblock %}

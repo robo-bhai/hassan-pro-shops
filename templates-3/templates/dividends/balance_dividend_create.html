@@ -1,0 +1,488 @@
+<!-- templates/dividends/balance_dividend_create.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Create Balance Dividend{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            
+            <!-- ===== HEADER CARD ===== -->
+            <div class="card shadow-lg">
+                <div class="card-header bg-gradient-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0">
+                                <i class="bi bi-coin me-2"></i>
+                                Create Balance-Based Dividend
+                            </h4>
+                            <small>Distribute profit based on balance usage (not shares)</small>
+                        </div>
+                        <div>
+                            <span class="badge bg-light text-dark">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Balance-Based
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- ========================================== -->
+                    <!-- 📊 AUTO PROFIT SECTION                    -->
+                    <!-- ========================================== -->
+                    <div class="alert alert-info border-0 shadow-sm">
+                        <h5 class="mb-2">
+                            <i class="bi bi-calculator me-2"></i>
+                            Auto-Calculated Profit
+                        </h5>
+                        <div class="row mt-3">
+                            <div class="col-md-3">
+                                <div class="card bg-white bg-opacity-50 border-0">
+                                    <div class="card-body text-center py-2">
+                                        <div class="small text-muted">Total Sales Profit</div>
+                                        <h5 class="text-primary">Rs. {{ profit_data.total_sales_profit|floatformat:2 }}</h5>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-white bg-opacity-50 border-0">
+                                    <div class="card-body text-center py-2">
+                                        <div class="small text-muted">Total Discounts</div>
+                                        <h5 class="text-danger">- Rs. {{ profit_data.total_discounts|floatformat:2 }}</h5>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-white bg-opacity-50 border-0">
+                                    <div class="card-body text-center py-2">
+                                        <div class="small text-muted">Total Expenses</div>
+                                        <h5 class="text-danger">- Rs. {{ profit_data.total_expenses|floatformat:2 }}</h5>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-success text-white bg-opacity-75 border-0">
+                                    <div class="card-body text-center py-2">
+                                        <div class="small text-white-50">📊 Net Profit</div>
+                                        <h5 class="text-white">Rs. {{ auto_profit|floatformat:2 }}</h5>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3 pt-2 border-top border-light">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <small class="text-muted">
+                                        <i class="bi bi-calendar me-1"></i>
+                                        Period: {{ profit_data.from_date|date:"d-m-Y" }} to {{ profit_data.to_date|date:"d-m-Y" }}
+                                    </small>
+                                </div>
+                                <div class="col-md-4">
+                                    <small class="text-muted">
+                                        <i class="bi bi-check-circle me-1"></i>
+                                        Unused Sales: <strong>{{ profit_data.unused_sale_count }}</strong>
+                                    </small>
+                                </div>
+                                <div class="col-md-4">
+                                    <small class="text-muted">
+                                        <i class="bi bi-check-circle-fill me-1"></i>
+                                        Already Used: <strong>{{ profit_data.used_sale_count }}</strong>
+                                    </small>
+                                </div>
+                            </div>
+                            {% if profit_data.unused_sales %}
+                            <div class="mt-2">
+                                <button class="btn btn-sm btn-outline-secondary" type="button" 
+                                        data-bs-toggle="collapse" data-bs-target="#unusedSalesList">
+                                    <i class="bi bi-list me-1"></i>
+                                    Show Unused Sales ({{ profit_data.unused_sale_count }})
+                                </button>
+                                <div class="collapse mt-2" id="unusedSalesList">
+                                    <div class="card card-body bg-white bg-opacity-50">
+                                        <div class="row">
+                                            {% for sale in profit_data.unused_sales|slice:":10" %}
+                                            <div class="col-md-3 col-sm-6">
+                                                <small>
+                                                    <span class="badge bg-secondary">{{ forloop.counter }}</span>
+                                                    Bill #{{ sale.bill_no }}
+                                                    <span class="text-muted">({{ sale.sale_date|date:"d-m-Y" }})</span>
+                                                </small>
+                                            </div>
+                                            {% endfor %}
+                                            {% if profit_data.unused_sales|length > 10 %}
+                                            <div class="col-12">
+                                                <small class="text-muted">... and {{ profit_data.unused_sales|length|add:"-10" }} more</small>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- ========================================== -->
+                    <!-- 🔄 REFUND SECTION                          -->
+                    <!-- ========================================== -->
+                    <div class="alert alert-success border-0 shadow-sm">
+                        <h5 class="mb-2">
+                            <i class="bi bi-arrow-return-left me-2"></i>
+                            Refund Settings
+                        </h5>
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Refund Type</label>
+                                    <select name="refund_type" class="form-select" id="refundType">
+                                        <option value="full">🔄 Full Refund + Profit</option>
+                                        <option value="partial">🔄 Partial Refund + Profit</option>
+                                        <option value="profit_only">💰 Profit Only</option>
+                                    </select>
+                                    <small class="text-muted">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        Full = 100% balance wapas | Partial = % balance wapas | Profit Only = Sirf profit
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3" id="refundPercentDiv">
+                                    <label class="form-label fw-bold">Refund Percentage</label>
+                                    <div class="input-group">
+                                        <input type="number" 
+                                               name="refund_percentage" 
+                                               id="refundPercentage"
+                                               class="form-control" 
+                                               step="1"
+                                               min="0"
+                                               max="100"
+                                               value="100">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                    <small class="text-muted">
+                                        <i class="bi bi-percent me-1"></i>
+                                        Kitna % deducted balance wapas karna hai
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- ========================================== -->
+                    <!-- 📝 FORM                                   -->
+                    <!-- ========================================== -->
+                    <form method="POST" id="dividendForm">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">
+                                        <i class="bi bi-graph-up-arrow me-1"></i>
+                                        Total Profit
+                                        <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">Rs.</span>
+                                        <input type="number" 
+                                               name="total_profit" 
+                                               id="totalProfit"
+                                               class="form-control" 
+                                               value="{{ auto_profit|floatformat:2 }}" 
+                                               step="0.01" 
+                                               min="0"
+                                               required>
+                                        <button class="btn btn-outline-secondary" 
+                                                type="button" 
+                                                onclick="document.getElementById('totalProfit').value='{{ auto_profit|floatformat:2 }}'; updatePreview();">
+                                            <i class="bi bi-arrow-clockwise"></i> Auto
+                                        </button>
+                                    </div>
+                                    <small class="text-muted">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        Auto-calculated from unused sales
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">
+                                        <i class="bi bi-percent me-1"></i>
+                                        Dividend Percentage
+                                        <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group">
+                                        <input type="number" 
+                                               name="dividend_percentage" 
+                                               id="dividendPercentage"
+                                               class="form-control" 
+                                               value="50" 
+                                               min="1" 
+                                               max="100" 
+                                               step="0.5" 
+                                               required>
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                    <small class="text-muted">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        Percentage of profit to distribute
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">
+                                        <i class="bi bi-calendar-event me-1"></i>
+                                        Declaration Date
+                                        <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="date" 
+                                           name="declaration_date" 
+                                           class="form-control" 
+                                           value="{{ today }}" 
+                                           required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">
+                                        <i class="bi bi-calendar-check me-1"></i>
+                                        Record Date
+                                        <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="date" 
+                                           name="record_date" 
+                                           class="form-control" 
+                                           value="{{ today }}" 
+                                           required>
+                                    <small class="text-muted">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        Date to check eligible shareholders
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">
+                                        <i class="bi bi-diagram-3 me-1"></i>
+                                        Distribution Type
+                                    </label>
+                                    <select name="distribution_type" class="form-select">
+                                        {% for value, label in distribution_types %}
+                                        <option value="{{ value }}" {% if value == 'balance_used' %}selected{% endif %}>
+                                            {{ label }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <small class="text-muted">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        How to distribute profit among shareholders
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">
+                                        <i class="bi bi-sticky me-1"></i>
+                                        Notes
+                                    </label>
+                                    <input type="text" 
+                                           name="notes" 
+                                           class="form-control" 
+                                           placeholder="Optional notes...">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- ========================================== -->
+                        <!-- 📊 PREVIEW SECTION                        -->
+                        <!-- ========================================== -->
+                        <div class="alert alert-secondary border-0 shadow-sm mt-3">
+                            <h6 class="mb-2">
+                                <i class="bi bi-eye me-2"></i>
+                                Preview
+                            </h6>
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="small text-muted">💰 Total Profit</div>
+                                    <h5 class="text-primary" id="previewProfit">{{ auto_profit|floatformat:2 }}</h5>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="small text-muted">📊 To Distribute</div>
+                                    <h5 class="text-success" id="previewDistribute">0.00</h5>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="small text-muted">🔄 Refund</div>
+                                    <h5 class="text-warning" id="previewRefund">0.00</h5>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="small text-muted">💵 Total Payment</div>
+                                    <h5 class="text-info" id="previewTotal">0.00</h5>
+                                </div>
+                            </div>
+                            <div class="mt-2 pt-2 border-top">
+                                <small class="text-muted">
+                                    <i class="bi bi-people me-1"></i>
+                                    Eligible Shareholders: <strong>{{ eligible_count }}</strong>
+                                </small>
+                                <span class="ms-3">
+                                    <small class="text-muted">
+                                        <i class="bi bi-coin me-1"></i>
+                                        Refund Type: <span id="previewRefundType">Full</span>
+                                    </small>
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <!-- ========================================== -->
+                        <!-- 🔘 ACTION BUTTONS                         -->
+                        <!-- ========================================== -->
+                        <div class="mt-3">
+                            <button type="submit" class="btn btn-success btn-lg" id="submitBtn">
+                                <i class="bi bi-plus-circle me-2"></i>
+                                Create Dividend
+                            </button>
+                            <a href="{% url 'balance_dividend_list' %}" class="btn btn-secondary btn-lg">
+                                <i class="bi bi-arrow-left me-2"></i>
+                                Cancel
+                            </a>
+                            <button type="reset" class="btn btn-outline-secondary btn-lg">
+                                <i class="bi bi-arrow-counterclockwise me-2"></i>
+                                Reset
+                            </button>
+                        </div>
+                    </form>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- SCRIPTS                                    -->
+<!-- ========================================== -->
+<script>
+// ✅ Live Preview Update
+document.getElementById('totalProfit').addEventListener('input', updatePreview);
+document.getElementById('dividendPercentage').addEventListener('input', updatePreview);
+document.getElementById('refundPercentage').addEventListener('input', updatePreview);
+
+document.getElementById('refundType').addEventListener('change', function() {
+    const refundPercentDiv = document.getElementById('refundPercentDiv');
+    const refundPercent = document.getElementById('refundPercentage');
+    const previewRefundType = document.getElementById('previewRefundType');
+    
+    if (this.value === 'profit_only') {
+        refundPercent.value = 0;
+        refundPercentDiv.style.display = 'none';
+        previewRefundType.textContent = 'Profit Only';
+    } else if (this.value === 'full') {
+        refundPercent.value = 100;
+        refundPercentDiv.style.display = 'block';
+        previewRefundType.textContent = 'Full Refund';
+    } else {
+        refundPercentDiv.style.display = 'block';
+        previewRefundType.textContent = 'Partial Refund';
+    }
+    updatePreview();
+});
+
+function updatePreview() {
+    const profit = parseFloat(document.getElementById('totalProfit').value) || 0;
+    const percent = parseFloat(document.getElementById('dividendPercentage').value) || 0;
+    const refundPercent = parseFloat(document.getElementById('refundPercentage').value) || 0;
+    
+    const distribute = profit * (percent / 100);
+    const refund = distribute * (refundPercent / 100);
+    const total = distribute + refund;
+    
+    document.getElementById('previewProfit').textContent = profit.toFixed(2);
+    document.getElementById('previewDistribute').textContent = distribute.toFixed(2);
+    document.getElementById('previewRefund').textContent = refund.toFixed(2);
+    document.getElementById('previewTotal').textContent = total.toFixed(2);
+}
+
+// ✅ Form Validation
+document.getElementById('dividendForm').addEventListener('submit', function(e) {
+    const profit = parseFloat(document.getElementById('totalProfit').value) || 0;
+    
+    if (profit <= 0) {
+        e.preventDefault();
+        alert('❌ Total profit must be greater than zero!');
+        return false;
+    }
+    
+    const percent = parseFloat(document.getElementById('dividendPercentage').value) || 0;
+    if (percent <= 0 || percent > 100) {
+        e.preventDefault();
+        alert('❌ Dividend percentage must be between 1 and 100!');
+        return false;
+    }
+    
+    return true;
+});
+
+// ✅ Reset Button Handler
+document.querySelector('button[type="reset"]').addEventListener('click', function() {
+    setTimeout(updatePreview, 100);
+});
+
+// ✅ Initialize preview on load
+document.addEventListener('DOMContentLoaded', function() {
+    updatePreview();
+    // Set default refund type preview
+    const refundType = document.getElementById('refundType').value;
+    if (refundType === 'full') {
+        document.getElementById('previewRefundType').textContent = 'Full Refund';
+    } else if (refundType === 'partial') {
+        document.getElementById('previewRefundType').textContent = 'Partial Refund';
+    } else {
+        document.getElementById('previewRefundType').textContent = 'Profit Only';
+    }
+});
+</script>
+
+<!-- ========================================== -->
+<!-- STYLES                                     -->
+<!-- ========================================== -->
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.card {
+    border-radius: 12px;
+    overflow: hidden;
+}
+.card-header {
+    border-bottom: none;
+}
+.btn {
+    border-radius: 8px;
+}
+.alert {
+    border-radius: 10px;
+}
+.form-control, .form-select {
+    border-radius: 8px;
+}
+.input-group-text {
+    border-radius: 8px 0 0 8px;
+}
+.input-group .btn {
+    border-radius: 0 8px 8px 0;
+}
+</style>
+{% endblock %}

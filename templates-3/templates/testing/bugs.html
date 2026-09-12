@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Bugs{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-bug text-danger"></i> Bugs</h2>
+            <p class="text-muted">Track and manage bugs</p>
+        </div>
+        <div>
+            <a href="{% url 'bug_create' %}" class="btn btn-danger">
+                <i class="bi bi-plus-circle"></i> Report Bug
+            </a>
+            <a href="{% url 'test_dashboard' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    
+    <!-- Filters -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-3">
+                    <input type="text" name="search" class="form-control" placeholder="Search bugs..." value="{{ search }}">
+                </div>
+                <div class="col-md-3">
+                    <select name="status" class="form-select">
+                        <option value="">All Status</option>
+                        {% for key, value in status_choices %}
+                        <option value="{{ key }}" {% if key == status %}selected{% endif %}>{{ value }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select name="severity" class="form-select">
+                        <option value="">All Severity</option>
+                        {% for key, value in severity_choices %}
+                        <option value="{{ key }}" {% if key == severity %}selected{% endif %}>{{ value }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary w-100">Filter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Bugs Table -->
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Title</th>
+                            <th>Severity</th>
+                            <th>Module</th>
+                            <th>Status</th>
+                            <th>Reported By</th>
+                            <th>Assigned To</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bug in page_obj %}
+                        <tr>
+                            <td><strong>#{{ bug.id }}</strong></td>
+                            <td>
+                                <span class="fw-bold">{{ bug.title|truncatechars:30 }}</span>
+                                <br>
+                                <small class="text-muted">{{ bug.description|truncatechars:40 }}</small>
+                            </td>
+                            <td>
+                                <span class="badge 
+                                    {% if bug.severity == 'critical' %}bg-danger
+                                    {% elif bug.severity == 'major' %}bg-warning
+                                    {% elif bug.severity == 'minor' %}bg-info
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ bug.get_severity_display }}
+                                </span>
+                            </td>
+                            <td>{{ bug.module|default:"-" }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if bug.status == 'closed' %}bg-success
+                                    {% elif bug.status == 'fixed' %}bg-primary
+                                    {% elif bug.status == 'in_progress' %}bg-warning
+                                    {% elif bug.status == 'new' %}bg-danger
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ bug.get_status_display }}
+                                </span>
+                            </td>
+                            <td>{{ bug.reported_by.username|default:"System" }}</td>
+                            <td>{{ bug.assigned_to.username|default:"-" }}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'bug_update_status' bug.id %}" class="btn btn-outline-primary" 
+                                       onclick="return confirm('Update status?')">
+                                        <i class="bi bi-arrow-right"></i>
+                                    </a>
+                                    <a href="#" class="btn btn-outline-info">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-muted">
+                                <i class="bi bi-check-circle fs-2 d-block text-success"></i>
+                                <p>No bugs reported! 🎉</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer bg-white">
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}&search={{ search }}&status={{ status }}&severity={{ severity }}">Previous</a>
+                    </li>
+                    {% endif %}
+                    {% for num in page_obj.paginator.page_range %}
+                    <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                        <a class="page-link" href="?page={{ num }}&search={{ search }}&status={{ status }}&severity={{ severity }}">{{ num }}</a>
+                    </li>
+                    {% endfor %}
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}&search={{ search }}&status={{ status }}&severity={{ severity }}">Next</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Supplier Performance{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-speedometer2 text-primary"></i> Supplier Performance</h2>
+            <p class="text-muted">Track supplier performance metrics</p>
+        </div>
+        <div>
+            <a href="{% url 'supplier_list' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    
+    <!-- ========================================== -->
+    <!-- PERFORMANCE TABLE                         -->
+    <!-- ========================================== -->
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Supplier</th>
+                            <th>Total Orders</th>
+                            <th>On-Time %</th>
+                            <th>Quality %</th>
+                            <th>Price Competitiveness</th>
+                            <th>Lead Time</th>
+                            <th>Rating</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for supplier in suppliers %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'supplier_detail' supplier.id %}" class="text-decoration-none fw-bold">
+                                    {{ supplier.name }}
+                                </a>
+                            </td>
+                            <td>{{ supplier.total_orders }}</td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="progress flex-grow-1 me-2" style="height:6px;">
+                                        <div class="progress-bar bg-success" style="width: {{ supplier.on_time_delivery_rate|floatformat:0 }}%;"></div>
+                                    </div>
+                                    <small>{{ supplier.on_time_delivery_rate|floatformat:0 }}%</small>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="progress flex-grow-1 me-2" style="height:6px;">
+                                        <div class="progress-bar bg-primary" style="width: {{ supplier.quality_score|floatformat:0 }}%;"></div>
+                                    </div>
+                                    <small>{{ supplier.quality_score|floatformat:0 }}%</small>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="progress flex-grow-1 me-2" style="height:6px;">
+                                        <div class="progress-bar bg-info" style="width: {{ supplier.price_competitiveness|floatformat:0 }}%;"></div>
+                                    </div>
+                                    <small>{{ supplier.price_competitiveness|floatformat:0 }}%</small>
+                                </div>
+                            </td>
+                            <td>{{ supplier.lead_time }} days</td>
+                            <td>
+                                <span class="badge 
+                                    {% if supplier.rating >= 4.5 %}bg-success
+                                    {% elif supplier.rating >= 4.0 %}bg-primary
+                                    {% elif supplier.rating >= 3.0 %}bg-warning
+                                    {% else %}bg-danger{% endif %}">
+                                    {{ supplier.rating|floatformat:1 }} ★
+                                </span>
+                            </td>
+                            <td>
+                                <a href="{% url 'supplier_detail' supplier.id %}" class="btn btn-sm btn-outline-info">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-muted">
+                                <i class="bi bi-inbox fs-2 d-block"></i>
+                                <p>No suppliers found</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

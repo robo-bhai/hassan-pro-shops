@@ -1,0 +1,643 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Products{% endblock %}
+{% block page_title %}🏷️ Products{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --card-bg: #ffffff;
+        --border: #eef0f5;
+        --text: #1a1a2e;
+        --text-light: #6b7280;
+        --accent: #0d6efd;
+        --success: #11998e;
+        --warning: #f2994a;
+    }
+    
+    .filter-bar {
+        background: white;
+        border-radius: 14px;
+        padding: 16px 20px;
+        border: 1px solid var(--border);
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+    
+    .filter-bar .form-control,
+    .filter-bar .form-select {
+        border-radius: 10px;
+        border: 2px solid #eef0f5;
+        padding: 10px 14px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        background: #fafbfc;
+        transition: all 0.2s;
+    }
+    
+    .filter-bar .form-control:focus,
+    .filter-bar .form-select:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(13,110,253,0.1);
+        background: white;
+        outline: none;
+    }
+    
+    .btn-search {
+        border-radius: 10px;
+        padding: 10px 24px;
+        font-weight: 700;
+        font-size: 0.85rem;
+        border: none;
+        cursor: pointer;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        transition: all 0.3s;
+        white-space: nowrap;
+    }
+    
+    .btn-search:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(102,126,234,0.4);
+    }
+    
+    .table-card {
+        background: white;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+    
+    .table-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 18px 22px;
+        border-bottom: 1px solid var(--border);
+        background: #fafbfc;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    
+    .table-header h5 {
+        margin: 0;
+        font-weight: 700;
+        font-size: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .badge-count {
+        background: var(--accent);
+        color: white;
+        padding: 5px 14px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .table-responsive-custom {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .product-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 950px;
+    }
+    
+    .product-table thead th {
+        background: #1a1d2e;
+        color: white;
+        padding: 14px 16px;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        font-weight: 700;
+        white-space: nowrap;
+        border: none;
+    }
+    
+    .product-table tbody td {
+        padding: 14px 16px;
+        border-bottom: 1px solid #f0f2f7;
+        font-size: 0.88rem;
+        color: var(--text);
+        vertical-align: middle;
+    }
+    
+    .product-table tbody tr {
+        transition: all 0.2s;
+    }
+    
+    .product-table tbody tr:hover {
+        background: #f8f9ff;
+    }
+    
+    .product-table tbody tr:nth-child(even) {
+        background: #fafbfd;
+    }
+    
+    .product-table tbody tr:nth-child(even):hover {
+        background: #f0f4ff;
+    }
+    
+    .product-table tbody tr.row-no-barcode {
+        opacity: 0.7;
+    }
+    
+    .text-right { text-align: right; }
+    .text-center { text-align: center; }
+    
+    .product-name-cell {
+        font-weight: 600;
+        color: var(--text);
+    }
+    
+    .product-name-cell .serial {
+        font-size: 0.7rem;
+        color: #8a8fa0;
+        display: block;
+        margin-top: 2px;
+    }
+    
+    .barcode-code {
+        font-family: 'Courier New', monospace;
+        font-size: 0.8rem;
+        background: #f8f9fc;
+        padding: 3px 10px;
+        border-radius: 6px;
+        color: #5a6070;
+        font-weight: 600;
+        letter-spacing: 1px;
+    }
+    
+    .barcode-code.empty {
+        color: #ccc;
+        background: #fafafa;
+        font-style: italic;
+    }
+    
+    .price-tag {
+        font-weight: 700;
+        color: var(--accent);
+        font-size: 0.9rem;
+    }
+    
+    .price-tag.zero {
+        color: #dc3545;
+    }
+    
+    .info-badge {
+        display: inline-block;
+        padding: 3px 12px;
+        border-radius: 12px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        background: #e8ecf4;
+        color: #5a6070;
+        margin: 1px 2px;
+    }
+    
+    .info-badge.brand { background: #eef2ff; color: #667eea; }
+    .info-badge.category { background: #e8f5e9; color: #4caf50; }
+    .info-badge.unit { background: #fff3cd; color: #856404; }
+    .info-badge.location { background: #e0f7fa; color: #055160; }
+    .info-badge.type { background: #ede7f6; color: #7c4dff; }
+    
+    .no-info { color: #ccc; font-size: 0.8rem; }
+    
+    .barcode-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.7rem;
+        color: #8a8fa0;
+    }
+    
+    .barcode-toggle .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+    }
+    
+    .barcode-toggle .dot.custom { background: #f2994a; }
+    .barcode-toggle .dot.auto { background: #667eea; }
+    
+    /* Action Buttons */
+    .btn-icon-action {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        border: 1px solid #e0e3eb;
+        background: white;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        font-size: 0.85rem;
+    }
+    
+    .btn-icon-action:hover {
+        transform: scale(1.1);
+    }
+    
+    .btn-edit {
+        color: #f2994a;
+        border-color: #ffe0b2;
+    }
+    
+    .btn-edit:hover {
+        background: #fff3e0;
+        color: #e65100;
+        border-color: #f2994a;
+    }
+    
+    /* ✅ NEW: Import/Export Buttons */
+    .btn-import-export {
+        border-radius: 10px;
+        padding: 8px 18px;
+        font-weight: 700;
+        font-size: 0.8rem;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+    
+    .btn-import-export:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    }
+    
+    .btn-import-export.import {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+    }
+    
+    .btn-import-export.export {
+        background: linear-gradient(135deg, #11998e, #38ef7d);
+        color: white;
+    }
+    
+    .btn-import-export.import:hover {
+        box-shadow: 0 6px 20px rgba(102,126,234,0.4);
+    }
+    
+    .btn-import-export.export:hover {
+        box-shadow: 0 6px 20px rgba(17,153,142,0.4);
+    }
+    
+    .btn-import-export i {
+        font-size: 1rem;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+    }
+    
+    .empty-state .empty-icon {
+        font-size: 5rem;
+        opacity: 0.2;
+        margin-bottom: 15px;
+    }
+    
+    .empty-state h4 { color: #8a8fa0; font-weight: 700; }
+    
+    /* ✅ NEW: Import/Export Dropdown */
+    .import-export-dropdown {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .import-export-dropdown .dropdown-menu {
+        border-radius: 12px;
+        border: 1px solid #eef0f5;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        padding: 8px;
+        min-width: 200px;
+    }
+    
+    .import-export-dropdown .dropdown-item {
+        border-radius: 8px;
+        padding: 10px 16px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transition: all 0.2s;
+        color: var(--text);
+    }
+    
+    .import-export-dropdown .dropdown-item:hover {
+        background: #f0f4ff;
+        color: var(--accent);
+    }
+    
+    .import-export-dropdown .dropdown-item i {
+        font-size: 1.1rem;
+        width: 24px;
+        text-align: center;
+    }
+    
+    .import-export-dropdown .dropdown-item .badge {
+        font-size: 0.6rem;
+        padding: 2px 8px;
+        border-radius: 10px;
+        margin-left: auto;
+    }
+    
+    .import-export-dropdown .dropdown-divider {
+        margin: 6px 0;
+        border-color: #eef0f5;
+    }
+    
+    .import-export-dropdown .dropdown-item.text-success { color: #11998e; }
+    .import-export-dropdown .dropdown-item.text-primary { color: #667eea; }
+    .import-export-dropdown .dropdown-item.text-warning { color: #f2994a; }
+    .import-export-dropdown .dropdown-item.text-danger { color: #dc3545; }
+    
+    /* ✅ NEW: Quick Stats */
+    .quick-stats {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+    }
+    
+    .quick-stat {
+        background: white;
+        border-radius: 12px;
+        padding: 12px 20px;
+        border: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .quick-stat .stat-icon {
+        font-size: 1.5rem;
+        opacity: 0.4;
+    }
+    
+    .quick-stat .stat-number {
+        font-weight: 800;
+        font-size: 1.2rem;
+        color: var(--text);
+        line-height: 1;
+    }
+    
+    .quick-stat .stat-label {
+        font-size: 0.7rem;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+    }
+    
+    @media (max-width: 768px) {
+        .filter-bar { padding: 14px 16px; }
+        .product-table { min-width: 800px; }
+        .product-table thead th,
+        .product-table tbody td { padding: 10px 12px; font-size: 0.78rem; }
+        .table-header { padding: 14px 16px; }
+        .btn-icon-action { width: 28px; height: 28px; font-size: 0.75rem; }
+        .quick-stats { gap: 8px; }
+        .quick-stat { padding: 8px 14px; }
+        .quick-stat .stat-number { font-size: 1rem; }
+    }
+    
+    @media (max-width: 480px) {
+        .filter-bar .row > div { margin-bottom: 8px; }
+        .btn-search { width: 100%; }
+        .table-header { flex-direction: column; align-items: stretch; }
+        .table-header .d-flex { flex-wrap: wrap; justify-content: center; }
+        .btn-import-export { width: 100%; justify-content: center; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ✅ NEW: Quick Stats -->
+<div class="quick-stats">
+    <div class="quick-stat">
+        <span class="stat-icon">🏷️</span>
+        <div>
+            <div class="stat-number">{{ page_obj.paginator.count|default:0 }}</div>
+            <div class="stat-label">Total Products</div>
+        </div>
+    </div>
+    <div class="quick-stat">
+        <span class="stat-icon">✅</span>
+        <div>
+            <div class="stat-number">{{ active_count|default:0 }}</div>
+            <div class="stat-label">Active</div>
+        </div>
+    </div>
+    <div class="quick-stat">
+        <span class="stat-icon">📦</span>
+        <div>
+            <div class="stat-number">{{ total_stock|default:0 }}</div>
+            <div class="stat-label">Total Stock</div>
+        </div>
+    </div>
+    <div class="quick-stat">
+        <span class="stat-icon">💰</span>
+        <div>
+            <div class="stat-number">Rs. {{ total_value|default:"0"|floatformat:0 }}</div>
+            <div class="stat-label">Stock Value</div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="filter-bar">
+    <form method="GET" class="row g-2 align-items-end">
+        <div class="col-md-4">
+            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">🔍 Search</label>
+            <input type="text" name="search" class="form-control" placeholder="Name, Serial No, Barcode..." value="{{ search }}">
+        </div>
+        <div class="col-md-2">
+            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">🏷️ Category</label>
+            <select name="category" class="form-select">
+                <option value="">All</option>
+                {% for cat in categories %}
+                <option value="{{ cat.id }}" {% if selected_category == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">🏭 Brand</label>
+            <select name="brand" class="form-select">
+                <option value="">All</option>
+                {% for b in brands %}
+                <option value="{{ b.id }}" {% if selected_brand == b.id|stringformat:"s" %}selected{% endif %}>{{ b.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">📍 Location</label>
+            <select name="location" class="form-select">
+                <option value="">All</option>
+                {% for loc in locations %}
+                <option value="{{ loc.id }}" {% if selected_location == loc.id|stringformat:"s" %}selected{% endif %}>{{ loc.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn-search w-100"><i class="bi bi-funnel"></i> Filter</button>
+        </div>
+    </form>
+</div>
+
+<!-- Table Card -->
+<div class="table-card">
+    <div class="table-header">
+        <h5>🏷️ Products <span class="badge-count">{{ page_obj.paginator.count|default:'0' }} products</span></h5>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <!-- ✅ NEW: Import/Export Dropdown -->
+            <div class="import-export-dropdown dropdown">
+                <button class="btn-import-export import dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-arrow-left-right"></i> Import/Export
+                </button>
+                <ul class="dropdown-menu">
+                    <li>
+                        <a class="dropdown-item text-primary" href="{% url 'product_import_export' %}">
+                            <i class="bi bi-cloud-upload"></i> Import/Export Dashboard
+                            <span class="badge bg-primary">New</span>
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <a class="dropdown-item text-success" href="{% url 'product_export_csv' %}?with_stock=true&with_price=true&with_categories=true">
+                            <i class="bi bi-filetype-csv"></i> Export CSV
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item text-success" href="{% url 'product_export_excel' %}?with_stock=true&with_price=true&with_categories=true">
+                            <i class="bi bi-file-earmark-excel"></i> Export Excel
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item text-warning" href="{% url 'product_export_all' %}?with_stock=true&with_price=true&with_categories=true">
+                            <i class="bi bi-download"></i> Export All (Full)
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <a class="dropdown-item text-primary" href="{% url 'product_export_template' %}">
+                            <i class="bi bi-file-earmark-text"></i> Download Template
+                            <span class="badge bg-info">CSV</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            
+            <a href="{% url 'inventory_list' %}" class="btn btn-sm btn-outline-success" style="border-radius:10px; padding:8px 16px; font-weight:600;">📦 View Stock</a>
+            <a href="{% url 'product_create' %}" class="btn btn-sm btn-primary" style="border-radius:10px; padding:8px 16px; font-weight:600; background:linear-gradient(135deg,#667eea,#764ba2); border:none;">➕ Add Product</a>
+        </div>
+    </div>
+    
+    <div class="table-responsive-custom">
+        <table class="product-table">
+            <thead>
+                <tr>
+                    <th>Serial No</th>
+                    <th>Product Name</th>
+                    <th>Barcode</th>
+                    <th class="text-right">Price</th>
+                    <th>Category</th>
+                    <th>Brand</th>
+                    <th>Unit</th>
+                    <th>Location</th>
+                    <th class="text-center" style="width:50px;">Edit</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in page_obj %}
+                <tr class="{% if not product.barcode %}row-no-barcode{% endif %}">
+                    <td>
+                        {% if product.serial_no %}
+                        <span style="font-weight:600;font-size:0.85rem;">{{ product.serial_no }}</span>
+                        {% else %}<span style="color:#ccc;">-</span>{% endif %}
+                    </td>
+                    <td>
+                        <div class="product-name-cell">
+                            {{ product.name }}
+                            {% if product.description %}
+                            <span class="serial">{{ product.description|truncatechars:40 }}</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        {% if product.barcode %}
+                        <div>
+                            <span class="barcode-code">{{ product.barcode }}</span>
+                            <div class="barcode-toggle mt-1">
+                                <span class="dot {% if product.use_custom_barcode %}custom{% else %}auto{% endif %}"></span>
+                                {% if product.use_custom_barcode %}Custom{% else %}Auto{% endif %}
+                            </div>
+                        </div>
+                        {% else %}
+                        <span class="barcode-code empty">No barcode</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-right">
+                        {% if product.price > 0 %}
+                        <span class="price-tag">Rs. {{ product.price|floatformat:2 }}</span>
+                        {% else %}
+                        <span class="price-tag zero">Rs. 0.00</span>
+                        {% endif %}
+                    </td>
+                    <td>{% if product.category %}<span class="info-badge category">{{ product.category.name }}</span>{% else %}<span class="no-info">-</span>{% endif %}</td>
+                    <td>{% if product.brand %}<span class="info-badge brand">{{ product.brand.name }}</span>{% else %}<span class="no-info">-</span>{% endif %}</td>
+                    <td>{% if product.unit %}<span class="info-badge unit">{{ product.unit.name }}</span>{% else %}<span class="no-info">-</span>{% endif %}</td>
+                    <td>{% if product.location %}<span class="info-badge location">{{ product.location.name }}</span>{% else %}<span class="no-info">-</span>{% endif %}</td>
+                    <td class="text-center">
+                        <a href="{% url 'product_update' product.pk %}" class="btn-icon-action btn-edit" title="Edit Product">
+                            ✏️
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9">
+                        <div class="empty-state">
+                            <div class="empty-icon">🏷️</div>
+                            <h4>No Products Found</h4>
+                            <p>{% if search %}Try different filters{% else %}No products yet{% endif %}</p>
+                            {% if not search %}
+                            <div class="d-flex gap-2 justify-content-center flex-wrap">
+                                <a href="{% url 'product_create' %}" class="btn btn-primary mt-2" style="border-radius:10px; padding:10px 20px; font-weight:600;">➕ Add First Product</a>
+                                <a href="{% url 'product_import_export' %}" class="btn btn-success mt-2" style="border-radius:10px; padding:10px 20px; font-weight:600;">📥 Import Products</a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    {% include 'components/pagination.html' %}
+</div>
+
+{% endblock %}

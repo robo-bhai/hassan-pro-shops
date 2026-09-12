@@ -1,0 +1,325 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Add Expense{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-lg-10 offset-lg-1">
+            
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb" class="mt-3">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'expense_dashboard' %}">💰 Expenses</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'expense_list' %}">All Expenses</a></li>
+                    <li class="breadcrumb-item active">Add Expense</li>
+                </ol>
+            </nav>
+
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-plus-circle"></i> Add New Expense</h5>
+                </div>
+                <div class="card-body">
+                    
+                    <form method="POST" enctype="multipart/form-data" id="expenseForm">
+                        {% csrf_token %}
+                        
+                        <div class="row g-3">
+                            
+                            <!-- ========================================== -->
+                            <!-- CATEGORY                                  -->
+                            <!-- ========================================== -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Category <span class="text-danger">*</span></label>
+                                <select name="category" class="form-select" required>
+                                    <option value="">Select Category</option>
+                                    {% for cat in categories %}
+                                    <option value="{{ cat.id }}">{{ cat.name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <small class="text-muted">Select expense category</small>
+                            </div>
+                            
+                            <!-- ========================================== -->
+                            <!-- ✅ BUDGET SELECTION                       -->
+                            <!-- ========================================== -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Budget <i class="bi bi-info-circle text-muted" title="Select a budget to track this expense against it"></i></label>
+                                <select name="budget" class="form-select" id="budgetSelect">
+                                    <option value="">Select Budget (Optional)</option>
+                                    {% for budget in budgets %}
+                                    <option value="{{ budget.id }}" 
+                                            data-department="{{ budget.department.name|default:'N/A' }}"
+                                            data-project="{{ budget.project.name|default:'N/A' }}"
+                                            data-allocated="{{ budget.allocated_amount }}"
+                                            data-used="{{ budget.used_amount }}"
+                                            data-remaining="{{ budget.remaining_amount }}">
+                                        {{ budget.name }} 
+                                        (Rs. {{ budget.allocated_amount|floatformat:0 }})
+                                        {% if budget.department %} - {{ budget.department.name }}{% endif %}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <small class="text-muted">Expense will be tracked against selected budget</small>
+                            </div>
+                            
+                            <!-- ========================================== -->
+                            <!-- BUDGET DETAILS (Shows when selected)     -->
+                            <!-- ========================================== -->
+                            <div class="col-12" id="budgetDetails" style="display: none;">
+                                <div class="alert alert-info border-0 shadow-sm">
+                                    <div class="row g-3">
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Department</small>
+                                            <p class="fw-bold mb-0" id="budgetDept">-</p>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Project</small>
+                                            <p class="fw-bold mb-0" id="budgetProject">-</p>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Remaining</small>
+                                            <p class="fw-bold mb-0 text-success" id="budgetRemaining">-</p>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Utilization</small>
+                                            <p class="fw-bold mb-0" id="budgetUtilization">0%</p>
+                                        </div>
+                                    </div>
+                                    <div class="progress mt-2" style="height:8px;">
+                                        <div class="progress-bar" id="budgetProgress" style="width:0%;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- ========================================== -->
+                            <!-- DESCRIPTION                               -->
+                            <!-- ========================================== -->
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold">Description <span class="text-danger">*</span></label>
+                                <input type="text" name="description" class="form-control" required placeholder="Enter expense description" id="descInput">
+                                <small class="text-muted">Brief description of the expense</small>
+                            </div>
+                            
+                            <!-- ========================================== -->
+                            <!-- AMOUNT                                    -->
+                            <!-- ========================================== -->
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Amount (Rs.) <span class="text-danger">*</span></label>
+                                <input type="number" name="amount" class="form-control" step="0.01" min="0.01" required placeholder="0.00" id="amountInput">
+                            </div>
+                            
+                            <!-- ========================================== -->
+                            <!-- EXPENSE DATE                              -->
+                            <!-- ========================================== -->
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Expense Date <span class="text-danger">*</span></label>
+                                <input type="date" name="expense_date" class="form-control" value="{{ today }}" required>
+                            </div>
+                            
+                            <!-- ========================================== -->
+                            <!-- PAYMENT METHOD                            -->
+                            <!-- ========================================== -->
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Payment Method <span class="text-danger">*</span></label>
+                                <select name="payment_method" class="form-select" required>
+                                    <option value="">Select Method</option>
+                                    {% for code, label in payment_methods %}
+                                    <option value="{{ code }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <!-- ========================================== -->
+                            <!-- REFERENCE NO                              -->
+                            <!-- ========================================== -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Reference Number</label>
+                                <input type="text" name="reference_no" class="form-control" placeholder="Transaction/Cheque number">
+                                <small class="text-muted">Optional reference number</small>
+                            </div>
+                            
+                            <!-- ========================================== -->
+                            <!-- VENDOR                                    -->
+                            <!-- ========================================== -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Vendor</label>
+                                <select name="vendor" class="form-select">
+                                    <option value="">Select Vendor (Optional)</option>
+                                    {% for vendor in vendors %}
+                                    <option value="{{ vendor.id }}">{{ vendor.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <!-- ========================================== -->
+                            <!-- VENDOR INVOICE NO                         -->
+                            <!-- ========================================== -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Vendor Invoice No</label>
+                                <input type="text" name="vendor_invoice_no" class="form-control" placeholder="Invoice number">
+                            </div>
+                            
+                            <!-- ========================================== -->
+                            <!-- TAX RATE                                  -->
+                            <!-- ========================================== -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Tax Rate (%)</label>
+                                <input type="number" name="tax_rate" class="form-control" step="0.01" min="0" value="0" id="taxRate">
+                                <small class="text-muted">Tax will be calculated automatically</small>
+                            </div>
+                            
+                            <!-- ========================================== -->
+                            <!-- COST CENTER                               -->
+                            <!-- ========================================== -->
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold">Cost Center</label>
+                                <input type="text" name="cost_center" class="form-control" placeholder="e.g., IT-001, HR-002">
+                                <small class="text-muted">Department/Project cost center code</small>
+                            </div>
+                            
+                            <!-- ========================================== -->
+                            <!-- RECURRING                                  -->
+                            <!-- ========================================== -->
+                            <div class="col-md-12">
+                                <div class="form-check">
+                                    <input type="checkbox" name="is_recurring" class="form-check-input" id="isRecurring">
+                                    <label class="form-check-label fw-bold" for="isRecurring">Recurring Expense</label>
+                                </div>
+                            </div>
+                            
+                            <div id="recurringFields" style="display: none;">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Recurring Frequency</label>
+                                    <select name="recurring_frequency" class="form-select">
+                                        <option value="">Select Frequency</option>
+                                        {% for code, label in recurring_frequencies %}
+                                        <option value="{{ code }}">{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">End Date</label>
+                                    <input type="date" name="recurring_end_date" class="form-control">
+                                    <small class="text-muted">Leave empty for indefinite</small>
+                                </div>
+                            </div>
+                            
+                            <!-- ========================================== -->
+                            <!-- NOTES                                     -->
+                            <!-- ========================================== -->
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold">Notes</label>
+                                <textarea name="notes" class="form-control" rows="3" placeholder="Additional notes..."></textarea>
+                            </div>
+                            
+                            <!-- ========================================== -->
+                            <!-- RECEIPT                                   -->
+                            <!-- ========================================== -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Receipt</label>
+                                <input type="file" name="receipt" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
+                                <small class="text-muted">Upload receipt image or PDF</small>
+                            </div>
+                            
+                            <!-- ========================================== -->
+                            <!-- ATTACHMENT                                -->
+                            <!-- ========================================== -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Attachment</label>
+                                <input type="file" name="attachment" class="form-control" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx">
+                                <small class="text-muted">Upload supporting document</small>
+                            </div>
+                            
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <!-- ========================================== -->
+                        <!-- BUTTONS                                    -->
+                        <!-- ========================================== -->
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-check-circle"></i> Save Expense
+                            </button>
+                            <button type="reset" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-counterclockwise"></i> Reset
+                            </button>
+                            <a href="{% url 'expense_list' %}" class="btn btn-secondary">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </a>
+                        </div>
+                        
+                    </form>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+
+<script>
+    // ============================================
+    // BUDGET SELECTION SHOW DETAILS
+    // ============================================
+    document.getElementById('budgetSelect')?.addEventListener('change', function() {
+        var details = document.getElementById('budgetDetails');
+        var selected = this.options[this.selectedIndex];
+        
+        if (this.value) {
+            details.style.display = 'block';
+            
+            var dept = selected.getAttribute('data-department') || '-';
+            var project = selected.getAttribute('data-project') || '-';
+            var allocated = parseFloat(selected.getAttribute('data-allocated')) || 0;
+            var used = parseFloat(selected.getAttribute('data-used')) || 0;
+            var remaining = parseFloat(selected.getAttribute('data-remaining')) || 0;
+            
+            document.getElementById('budgetDept').textContent = dept;
+            document.getElementById('budgetProject').textContent = project;
+            document.getElementById('budgetRemaining').textContent = 'Rs. ' + remaining.toFixed(2);
+            
+            var percent = 0;
+            if (allocated > 0) {
+                percent = (used / allocated) * 100;
+            }
+            var progressBar = document.getElementById('budgetProgress');
+            progressBar.style.width = Math.min(percent, 100) + '%';
+            
+            if (percent >= 90) {
+                progressBar.className = 'progress-bar bg-danger';
+            } else if (percent >= 70) {
+                progressBar.className = 'progress-bar bg-warning';
+            } else {
+                progressBar.className = 'progress-bar bg-success';
+            }
+            
+            document.getElementById('budgetUtilization').textContent = percent.toFixed(1) + '%';
+            
+        } else {
+            details.style.display = 'none';
+        }
+    });
+    
+    // ============================================
+    // RECURRING TOGGLE
+    // ============================================
+    document.getElementById('isRecurring')?.addEventListener('change', function() {
+        document.getElementById('recurringFields').style.display = this.checked ? 'block' : 'none';
+    });
+    
+    // ============================================
+    // AMOUNT & TAX AUTO CALCULATE
+    // ============================================
+    document.getElementById('amountInput')?.addEventListener('input', function() {
+        var amount = parseFloat(this.value) || 0;
+        var taxRate = parseFloat(document.getElementById('taxRate').value) || 0;
+        var taxAmount = (amount * taxRate) / 100;
+        var total = amount + taxAmount;
+        
+        // You can show total somewhere if needed
+    });
+</script>
+{% endblock %}

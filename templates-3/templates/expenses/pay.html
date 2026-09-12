@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Mark Paid - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>💰 Mark Expense #{{ expense.expense_no }} as Paid</h2>
+                <a href="{% url 'expense_detail' expense.id %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+            </div>
+            
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <div class="alert alert-success">
+                            <h5>📋 Expense Summary</h5>
+                            <table class="table table-borderless mb-0">
+                                <tr>
+                                    <td><strong>Description:</strong></td>
+                                    <td>{{ expense.description }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Total Amount:</strong></td>
+                                    <td><strong class="text-success">Rs. {{ expense.total_amount|floatformat:2 }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Approved By:</strong></td>
+                                    <td>{{ expense.approved_by.username }} on {{ expense.approved_at|date:"d-m-Y H:i" }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Payment Date</label>
+                                <input type="date" name="payment_date" class="form-control" value="{% now 'Y-m-d' %}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Remarks</label>
+                                <input type="text" name="remarks" class="form-control" placeholder="Payment remarks...">
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Note:</strong> This will deduct Rs. {{ expense.total_amount|floatformat:2 }} from cash balance.
+                        </div>
+                        
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="{% url 'expense_detail' expense.id %}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-currency-rupee"></i> Mark as Paid
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

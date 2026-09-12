@@ -1,0 +1,179 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Loan Detail - {{ company_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header d-flex justify-content-between align-items-center">
+        <div>
+            <h4 class="mb-0"><i class="fas fa-hand-holding-usd me-2"></i> {{ loan.loan_no }}</h4>
+            <p class="text-muted mb-0">{{ loan.shareholder.name }}</p>
+        </div>
+        <div>
+            <a href="{% url 'loan_list' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back
+            </a>
+            {% if loan.status == 'active' or loan.status == 'approved' %}
+            <a href="{% url 'loan_pay' loan.id %}" class="btn btn-success">
+                <i class="fas fa-money-bill-wave"></i> Make Payment
+            </a>
+            {% endif %}
+            <a href="{% url 'loan_statement' loan.id %}" class="btn btn-info" target="_blank">
+                <i class="fas fa-file-pdf"></i> Statement
+            </a>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <!-- Left Column -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i> Loan Details</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless">
+                        <tr><td><strong>Loan No:</strong></td><td>{{ loan.loan_no }}</td></tr>
+                        <tr><td><strong>Type:</strong></td><td>{{ loan.get_loan_type_display }}</td></tr>
+                        <tr><td><strong>Principal:</strong></td><td><strong>Rs. {{ loan.principal|floatformat:2 }}</strong></td></tr>
+                        <tr><td><strong>Interest Rate:</strong></td><td>{{ loan.interest_rate }}% p.a.</td></tr>
+                        <tr><td><strong>Outstanding:</strong></td><td><strong class="text-danger">Rs. {{ loan.outstanding|floatformat:2 }}</strong></td></tr>
+                        <tr><td><strong>Interest Accrued:</strong></td><td>Rs. {{ loan.interest_accrued|floatformat:2 }}</td></tr>
+                        <tr><td><strong>Total Due:</strong></td><td><strong class="text-danger">Rs. {{ remaining_balance|floatformat:2 }}</strong></td></tr>
+                        <tr><td><strong>Status:</strong></td><td>
+                            <span class="badge {% if loan.status == 'active' %}bg-success{% elif loan.status == 'approved' %}bg-primary{% elif loan.status == 'paid' %}bg-info{% elif loan.status == 'defaulted' %}bg-danger{% else %}bg-secondary{% endif %}">
+                                {{ loan.get_status_display }}
+                            </span>
+                        </td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-calendar me-2"></i> Dates & Collateral</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless">
+                        <tr><td><strong>Start Date:</strong></td><td>{{ loan.start_date|date:"d M Y" }}</td></tr>
+                        <tr><td><strong>Maturity Date:</strong></td><td>{{ loan.maturity_date|date:"d M Y" }}</td></tr>
+                        <tr><td><strong>Approval Date:</strong></td><td>{% if loan.approval_date %}{{ loan.approval_date|date:"d M Y" }}{% else %}Pending{% endif %}</td></tr>
+                        <tr><td><strong>Disbursement:</strong></td><td>{% if loan.disbursement_date %}{{ loan.disbursement_date|date:"d M Y" }}{% else %}Not disbursed{% endif %}</td></tr>
+                        <tr><td><strong>LTV Ratio:</strong></td><td>
+                            <span class="badge {% if loan.get_ltv_percent > 80 %}bg-danger{% elif loan.get_ltv_percent > 60 %}bg-warning{% else %}bg-success{% endif %}">
+                                {{ loan.get_ltv_percent|floatformat:0 }}%
+                            </span>
+                        </td></tr>
+                        <tr><td><strong>Collateral:</strong></td><td>{{ loan.collateral_shares.count }} shares</td></tr>
+                        <tr><td><strong>Collateral Value:</strong></td><td>Rs. {{ loan.collateral_value|floatformat:2 }}</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment History -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h6 class="mb-0"><i class="fas fa-history me-2"></i> Payment History</h6>
+        </div>
+        <div class="card-body">
+            {% if interest_payments or principal_payments %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Amount</th>
+                                <th>Method</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for payment in interest_payments %}
+                            <tr>
+                                <td>{{ payment.payment_date|date:"d M Y" }}</td>
+                                <td><span class="badge bg-warning">Interest</span></td>
+                                <td>Rs. {{ payment.amount|floatformat:2 }}</td>
+                                <td>{{ payment.payment_method|default:"-" }}</td>
+                                <td>{{ payment.notes|default:"-" }}</td>
+                            </tr>
+                            {% endfor %}
+                            {% for payment in principal_payments %}
+                            <tr>
+                                <td>{{ payment.payment_date|date:"d M Y" }}</td>
+                                <td><span class="badge bg-primary">Principal</span></td>
+                                <td>Rs. {{ payment.amount|floatformat:2 }}</td>
+                                <td>{{ payment.payment_method|default:"-" }}</td>
+                                <td>{{ payment.notes|default:"-" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-active">
+                                <td colspan="2"><strong>Total Paid</strong></td>
+                                <td><strong>Rs. {{ total_principal_paid|add:total_interest_paid|floatformat:2 }}</strong></td>
+                                <td colspan="2"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-muted text-center py-3">No payments made yet</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Collateral Shares -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h6 class="mb-0"><i class="fas fa-chart-line me-2"></i> Collateral Shares</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Certificate</th>
+                            <th>Type</th>
+                            <th>Quantity</th>
+                            <th>Purchase Price</th>
+                            <th>Current Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for share in loan.collateral_shares.all %}
+                        <tr>
+                            <td>{{ share.certificate_number|default:"-" }}</td>
+                            <td>{{ share.get_share_type_display }}</td>
+                            <td>{{ share.quantity }}</td>
+                            <td>Rs. {{ share.purchase_price|floatformat:2 }}</td>
+                            <td>Rs. {{ share.total_value|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-3">No collateral shares</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .page-header {
+        background: white;
+        padding: 20px 25px;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+</style>
+{% endblock %}

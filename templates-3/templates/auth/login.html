@@ -1,0 +1,778 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ company_name|default:'SmartERP' }} | Login</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        /* ========== LOADING OVERLAY (from create.html) ========== */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 9999;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        
+        .loading-overlay.show {
+            display: flex;
+        }
+        
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-top: 4px solid #667eea;
+            border-right: 4px solid #f0a500;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .spinner-text {
+            color: white;
+            margin-top: 15px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+        
+        .spinner-subtext {
+            color: rgba(255,255,255,0.6);
+            margin-top: 8px;
+            font-size: 0.75rem;
+        }
+        
+        /* Animated Background Elements */
+        .bg-shape {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 0;
+        }
+        
+        .shape {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.3;
+            animation: float 20s infinite ease-in-out;
+        }
+        
+        .shape-1 {
+            background: radial-gradient(circle, #6366f1, #8b5cf6);
+            width: 400px;
+            height: 400px;
+            top: -100px;
+            left: -100px;
+            animation-delay: 0s;
+        }
+        
+        .shape-2 {
+            background: radial-gradient(circle, #06b6d4, #10b981);
+            width: 500px;
+            height: 500px;
+            bottom: -150px;
+            right: -100px;
+            animation-delay: 5s;
+        }
+        
+        .shape-3 {
+            background: radial-gradient(circle, #f59e0b, #ef4444);
+            width: 300px;
+            height: 300px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation-delay: 10s;
+            opacity: 0.15;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            33% { transform: translate(30px, -30px) rotate(5deg); }
+            66% { transform: translate(-20px, 20px) rotate(-3deg); }
+        }
+        
+        /* Grid Pattern Overlay */
+        .grid-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        /* Main Container */
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Glass Card */
+        .login-card {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(20px);
+            border-radius: 32px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            width: 100%;
+            max-width: 480px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .login-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 35px 60px -15px rgba(0, 0, 0, 0.6);
+        }
+        
+        /* Gradient Border Effect */
+        .card-header {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            padding: 40px 40px 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .card-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: shine 8s infinite;
+        }
+        
+        @keyframes shine {
+            0% { transform: translate(-30%, -30%) rotate(0deg); }
+            100% { transform: translate(30%, 30%) rotate(360deg); }
+        }
+        
+        .logo-wrapper {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+        
+        .logo-icon {
+            width: 80px;
+            height: 80px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            transform: rotate(45deg);
+        }
+        
+        .logo-icon span {
+            transform: rotate(-45deg);
+            font-size: 2.5rem;
+        }
+        
+        .card-header h2 {
+            color: white;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin: 0 0 5px;
+            letter-spacing: -0.5px;
+        }
+        
+        .card-header p {
+            color: rgba(255,255,255,0.7);
+            font-size: 0.85rem;
+            margin: 0;
+        }
+        
+        /* Card Body */
+        .card-body {
+            padding: 40px;
+        }
+        
+        /* Form Groups */
+        .form-group {
+            margin-bottom: 24px;
+        }
+        
+        .form-group label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #94a3b8;
+            margin-bottom: 8px;
+        }
+        
+        .input-group-custom {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        
+        .input-icon {
+            position: absolute;
+            left: 16px;
+            color: #64748b;
+            font-size: 1.1rem;
+            z-index: 2;
+            transition: color 0.3s ease;
+        }
+        
+        .form-control-custom {
+            width: 100%;
+            padding: 14px 16px 14px 48px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #e2e8f0;
+            background: rgba(30, 41, 59, 0.6);
+            border: 1.5px solid rgba(71, 85, 105, 0.5);
+            border-radius: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control-custom:focus {
+            outline: none;
+            border-color: #6366f1;
+            background: rgba(30, 41, 59, 0.8);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+        }
+        
+        .form-control-custom:focus + .input-icon {
+            color: #818cf8;
+        }
+        
+        .form-control-custom::placeholder {
+            color: #475569;
+            font-weight: 400;
+        }
+        
+        /* Password Toggle */
+        .password-toggle {
+            position: absolute;
+            right: 16px;
+            cursor: pointer;
+            color: #64748b;
+            font-size: 1.1rem;
+            transition: color 0.3s ease;
+            z-index: 2;
+        }
+        
+        .password-toggle:hover {
+            color: #94a3b8;
+        }
+        
+        /* Alert Messages */
+        .alert-custom {
+            border-radius: 16px;
+            padding: 14px 18px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            animation: slideDown 0.4s ease;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-15px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
+        }
+        
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #6ee7b7;
+        }
+        
+        .alert-icon {
+            font-size: 1.2rem;
+        }
+        
+        /* Login Button */
+        .btn-login {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border: none;
+            border-radius: 16px;
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        
+        .btn-login::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        
+        .btn-login:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+        
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px -8px rgba(99, 102, 241, 0.5);
+        }
+        
+        .btn-login:active {
+            transform: translateY(1px);
+        }
+        
+        .btn-login span {
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Disabled button state */
+        .btn-login:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-login:disabled::before {
+            display: none;
+        }
+        
+        /* Additional Links */
+        .additional-links {
+            margin-top: 24px;
+            text-align: center;
+        }
+        
+        .additional-links a {
+            color: #94a3b8;
+            font-size: 0.8rem;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        
+        .additional-links a:hover {
+            color: #818cf8;
+        }
+        
+        .divider {
+            margin: 0 8px;
+            color: #334155;
+        }
+        
+        /* Footer */
+        .card-footer {
+            background: rgba(15, 23, 42, 0.5);
+            padding: 20px 40px;
+            text-align: center;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .card-footer p {
+            margin: 0;
+            font-size: 0.7rem;
+            color: #475569;
+            letter-spacing: 0.5px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 560px) {
+            .card-body {
+                padding: 30px 24px;
+            }
+            
+            .card-header {
+                padding: 30px 30px 25px;
+            }
+            
+            .logo-icon {
+                width: 65px;
+                height: 65px;
+            }
+            
+            .logo-icon span {
+                font-size: 2rem;
+            }
+            
+            .card-header h2 {
+                font-size: 1.5rem;
+            }
+        }
+        
+        /* Particles Canvas */
+        #particles-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+    </style>
+</head>
+<body>
+    
+    <!-- ========== LOADING OVERLAY (from create.html) ========== -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <div class="spinner-text" id="loadingText">Signing in...</div>
+        <div class="spinner-subtext">Please wait while we verify your credentials</div>
+    </div>
+    
+    <!-- Animated Background Shapes -->
+    <div class="bg-shape">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+    </div>
+    
+    <!-- Grid Overlay -->
+    <div class="grid-overlay"></div>
+    
+    <!-- Particles Canvas -->
+    <canvas id="particles-canvas"></canvas>
+    
+    <!-- Login Container -->
+    <div class="login-container">
+        <div class="login-card">
+            
+            <!-- Card Header -->
+            <div class="card-header">
+                <div class="logo-wrapper">
+                    <div class="logo-icon">
+                        <span>🏢</span>
+                    </div>
+                </div>
+                <h2>{{ company_name|default:'SmartERP' }}</h2>
+                <p>Enterprise Resource Planning</p>
+            </div>
+            
+            <!-- Card Body -->
+            <div class="card-body">
+                
+                <!-- Error Messages -->
+                {% if form.errors %}
+                <div class="alert-custom alert-error">
+                    <i class="bi bi-shield-exclamation alert-icon"></i>
+                    <div>
+                        <strong>Authentication Failed</strong><br>
+                        <small>Invalid username or password. Please try again.</small>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if messages %}
+                {% for message in messages %}
+                <div class="alert-custom {% if message.tags == 'error' %}alert-error{% else %}alert-success{% endif %}">
+                    <i class="bi {% if message.tags == 'error' %}bi-exclamation-triangle{% else %}bi-check-circle{% endif %} alert-icon"></i>
+                    <div>{{ message }}</div>
+                </div>
+                {% endfor %}
+                {% endif %}
+                
+                <!-- Login Form -->
+                <form method="post" id="loginForm" autocomplete="off">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ next }}">
+                    
+                    <!-- Username Field -->
+                    <div class="form-group">
+                        <label><i class="bi bi-person-badge me-1"></i> USERNAME</label>
+                        <div class="input-group-custom">
+                            <i class="bi bi-person input-icon"></i>
+                            <input type="text" 
+                                   name="username" 
+                                   id="usernameInput"
+                                   class="form-control-custom" 
+                                   placeholder="Enter your username"
+                                   required 
+                                   autofocus
+                                   autocomplete="off">
+                        </div>
+                    </div>
+                    
+                    <!-- Password Field -->
+                    <div class="form-group">
+                        <label><i class="bi bi-key me-1"></i> PASSWORD</label>
+                        <div class="input-group-custom">
+                            <i class="bi bi-lock input-icon"></i>
+                            <input type="password" 
+                                   name="password" 
+                                   id="passwordInput"
+                                   class="form-control-custom" 
+                                   placeholder="Enter your password"
+                                   required
+                                   autocomplete="off">
+                            <i class="bi bi-eye-slash password-toggle" 
+                               id="togglePassword" 
+                               onclick="togglePasswordVisibility()"></i>
+                        </div>
+                    </div>
+                    
+                    <!-- Login Button -->
+                    <button type="submit" class="btn-login" id="loginBtn">
+                        <span>🔐 Sign In</span>
+                        <i class="bi bi-arrow-right-short" style="font-size: 1.3rem;"></i>
+                    </button>
+                    
+                    <!-- Additional Links -->
+                    <div class="additional-links">
+                        <a href="#">
+                            <i class="bi bi-question-circle"></i> Forgot Password?
+                        </a>
+                        <span class="divider">•</span>
+                        <a href="#">
+                            <i class="bi bi-headset"></i> Need Help?
+                        </a>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Card Footer -->
+            <div class="card-footer">
+                <p>
+                    <i class="bi bi-shield-check"></i> Secure Connection • 256-bit SSL Encrypted
+                </p>
+                <p style="margin-top: 8px; font-size: 0.65rem;">
+                    © {% now "Y" %} {{ company_name|default:'SmartERP' }}. All rights reserved.
+                </p>
+            </div>
+            
+        </div>
+    </div>
+    
+    <script>
+        // ========== LOADING OVERLAY FUNCTIONS (from create.html) ==========
+        function showLoading(message = 'Signing in...') {
+            const overlay = document.getElementById('loadingOverlay');
+            const textEl = document.getElementById('loadingText');
+            if (textEl) textEl.textContent = message;
+            if (overlay) overlay.classList.add('show');
+        }
+        
+        function hideLoading() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) overlay.classList.remove('show');
+        }
+        
+        // ========== PARTICLES ANIMATION ==========
+        const canvas = document.getElementById('particles-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let particles = [];
+        let particleCount = 80;
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 2 + 0.5;
+                this.speedX = (Math.random() - 0.5) * 0.5;
+                this.speedY = (Math.random() - 0.5) * 0.3;
+                this.opacity = Math.random() * 0.3 + 0.1;
+            }
+            
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                
+                if (this.x < 0) this.x = canvas.width;
+                if (this.x > canvas.width) this.x = 0;
+                if (this.y < 0) this.y = canvas.height;
+                if (this.y > canvas.height) this.y = 0;
+            }
+            
+            draw() {
+                ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        
+        function initParticles() {
+            particles = [];
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle());
+            }
+        }
+        
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let particle of particles) {
+                particle.update();
+                particle.draw();
+            }
+            requestAnimationFrame(animateParticles);
+        }
+        
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            initParticles();
+        });
+        
+        resizeCanvas();
+        initParticles();
+        animateParticles();
+        
+        // ========== PASSWORD TOGGLE ==========
+        function togglePasswordVisibility() {
+            const passwordInput = document.getElementById('passwordInput');
+            const toggleIcon = document.getElementById('togglePassword');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.classList.remove('bi-eye-slash');
+                toggleIcon.classList.add('bi-eye');
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.classList.remove('bi-eye');
+                toggleIcon.classList.add('bi-eye-slash');
+            }
+        }
+        
+        // ========== FORM SUBMIT WITH FULL PAGE OVERLAY ==========
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            const username = document.getElementById('usernameInput').value;
+            const password = document.getElementById('passwordInput').value;
+            
+            if (!username || !password) {
+                e.preventDefault();
+                showAlert('Please fill in both fields!', 'error');
+                return;
+            }
+            
+            // Show full page loading overlay (jaisa create.html mein hai)
+            showLoading('Signing in...');
+            
+            // Disable submit button to prevent double submission
+            const submitBtn = document.getElementById('loginBtn');
+            submitBtn.disabled = true;
+            
+            // Form submit ho jayega - overlay already visible
+            // Agar kuch ghalti se form submit nahi hua to 10 sec mein hide karo
+            setTimeout(() => {
+                if (document.getElementById('loadingOverlay').classList.contains('show')) {
+                    hideLoading();
+                    submitBtn.disabled = false;
+                    showAlert('Connection timeout. Please try again.', 'error');
+                }
+            }, 15000);
+        });
+        
+        // Agar page load ho aur koi error ho to loading hide karo
+        window.addEventListener('load', function() {
+            hideLoading();
+            document.getElementById('usernameInput').focus();
+        });
+        
+        // Show alert function
+        function showAlert(message, type) {
+            const cardBody = document.querySelector('.card-body');
+            const existingAlert = document.querySelector('.alert-custom:not(.alert-error)');
+            if (existingAlert && existingAlert !== document.querySelector('.alert-error')) existingAlert.remove();
+            
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert-custom ${type === 'error' ? 'alert-error' : 'alert-success'}`;
+            alertDiv.innerHTML = `
+                <i class="bi ${type === 'error' ? 'bi-exclamation-triangle' : 'bi-info-circle'} alert-icon"></i>
+                <div>${message}</div>
+            `;
+            alertDiv.style.animation = 'slideDown 0.4s ease';
+            
+            // Insert after existing error alert or at top
+            const existingError = document.querySelector('.alert-error');
+            if (existingError) {
+                existingError.remove();
+            }
+            cardBody.insertBefore(alertDiv, cardBody.firstChild);
+            
+            setTimeout(() => {
+                alertDiv.style.opacity = '0';
+                alertDiv.style.transform = 'translateY(-10px)';
+                setTimeout(() => alertDiv.remove(), 300);
+            }, 4000);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Borrower Detail{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-person text-primary"></i> {{ borrower.name }}</h2>
+            <p class="text-muted">{{ borrower.borrower_code }} • {{ borrower.get_borrower_type_display }}</p>
+        </div>
+        <div>
+            <a href="{% url 'loan_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> New Loan
+            </a>
+            <a href="{% url 'borrower_list' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    
+    <!-- Borrower Info -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-info-circle text-primary"></i> Personal Information</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <small class="text-muted">Name</small>
+                            <p class="fw-bold">{{ borrower.name }}</p>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Type</small>
+                            <p>{{ borrower.get_borrower_type_display }}</p>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">CNIC</small>
+                            <p>{{ borrower.cnic|default:"-" }}</p>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Email</small>
+                            <p>{{ borrower.email|default:"-" }}</p>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Phone</small>
+                            <p>{{ borrower.phone }}</p>
+                        </div>
+                        <div class="col-12">
+                            <small class="text-muted">Address</small>
+                            <p>{{ borrower.address }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-credit-card text-primary"></i> Credit Information</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <small class="text-muted">Credit Score</small>
+                            <h5>
+                                <span class="badge 
+                                    {% if borrower.credit_score >= 900 %}bg-success
+                                    {% elif borrower.credit_score >= 750 %}bg-primary
+                                    {% elif borrower.credit_score >= 600 %}bg-warning
+                                    {% else %}bg-danger{% endif %}"
+                                    style="font-size:16px;">
+                                    {{ borrower.credit_score }}
+                                </span>
+                            </h5>
+                            <small>{{ borrower.get_credit_rating_display }}</small>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Status</small>
+                            <p>
+                                <span class="badge {% if borrower.status == 'active' %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {{ borrower.get_status_display }}
+                                </span>
+                            </p>
+                        </div>
+                        <div class="col-12">
+                            <small class="text-muted">Bank Details</small>
+                            <p>
+                                {{ borrower.bank_name|default:"-" }}
+                                <br>
+                                <small class="text-muted">Account: {{ borrower.account_number|default:"-" }}</small>
+                            </p>
+                        </div>
+                        {% if borrower.notes %}
+                        <div class="col-12">
+                            <small class="text-muted">Notes</small>
+                            <p>{{ borrower.notes }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Loan History -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white">
+            <h6 class="mb-0"><i class="bi bi-file-earmark-text text-primary"></i> Loan History</h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Loan No</th>
+                            <th>Type</th>
+                            <th>Principal</th>
+                            <th>EMI</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for loan in borrower.loans.all %}
+                        <tr>
+                            <td>
+                                <span class="fw-bold">{{ loan.loan_no }}</span>
+                                <br>
+                                <small class="text-muted">{{ loan.created_at|date:"d-m-Y" }}</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ loan.get_loan_type_display }}</span>
+                            </td>
+                            <td>Rs. {{ loan.principal|floatformat:0|intcomma }}</td>
+                            <td>Rs. {{ loan.emi_amount|floatformat:0|intcomma }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if loan.status == 'active' %}bg-success
+                                    {% elif loan.status == 'pending' %}bg-warning
+                                    {% elif loan.status == 'defaulted' %}bg-danger
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ loan.get_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="{% url 'loan_detail' loan.id %}" class="btn btn-sm btn-outline-info">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">
+                                <i class="bi bi-inbox fs-2 d-block"></i>
+                                <p>No loans found for this borrower</p>
+                                <a href="{% url 'loan_create' %}" class="btn btn-primary btn-sm">
+                                    <i class="bi bi-plus-circle"></i> Create Loan
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

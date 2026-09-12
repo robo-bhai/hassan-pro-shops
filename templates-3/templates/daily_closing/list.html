@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Daily Closing History{% endblock %}
+{% block page_title %}📋 Daily Closing History{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="card">
+        <div class="card-header" style="background: linear-gradient(135deg, #1a1a2e, #16213e); color: white;">
+            <h5 class="mb-0">📋 Daily Closing Reports</h5>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <a href="{% url 'daily_closing' %}" class="btn btn-primary">+ New Closing</a>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Date</th>
+                            <th>Opening Cash</th>
+                            <th>Cash Sales</th>
+                            <th>Total Sales</th>
+                            <th>Expenses</th>
+                            <th>Closing Cash</th>
+                            <th>Difference</th>
+                            <th>Closed By</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for closing in closings %}
+                        <tr>
+                            <td>{{ closing.closing_date|date:"d-m-Y" }}</td>
+                            <td>Rs. {{ closing.opening_cash|floatformat:2 }}</td>
+                            <td>Rs. {{ closing.cash_sales|floatformat:2 }}</td>
+                            <td><strong>Rs. {{ closing.total_sales_today|floatformat:2 }}</strong></td>
+                            <td class="text-danger">Rs. {{ closing.total_expenses|floatformat:2 }}</td>
+                            <td>Rs. {{ closing.closing_cash|floatformat:2 }}</td>
+                            <td class="{% if closing.cash_difference >= 0 %}text-success{% else %}text-danger{% endif %} fw-bold">
+                                {{ closing.cash_difference|floatformat:2 }}
+                            </td>
+                            <td>{{ closing.closed_by.username|default:'-' }}</td>
+                            <td>
+                                <a href="{% url 'daily_closing_detail' closing.id %}" class="btn btn-sm btn-info">View</a>
+                                <a href="{% url 'daily_closing_pdf' closing.id %}" class="btn btn-sm btn-secondary">PDF</a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center py-4">
+                                <div class="text-muted">No closing reports found</div>
+                                <a href="{% url 'daily_closing' %}" class="btn btn-primary mt-2">Create First Closing</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

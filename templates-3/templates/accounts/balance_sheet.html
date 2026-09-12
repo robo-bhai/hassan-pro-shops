@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Balance Sheet{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">📊 Balance Sheet</h1>
+        <div>
+            <button onclick="window.print()" class="btn btn-primary">
+                <i class="bi bi-printer"></i> Print
+            </button>
+        </div>
+    </div>
+
+    <!-- Date Filter -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">As At Date</h6>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-4">
+                    <input type="date" name="as_at_date" class="form-control" value="{{ as_at_date }}">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search"></i> Generate
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Assets -->
+        <div class="col-md-6">
+            <div class="card shadow h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">📦 ASSETS</h5>
+                </div>
+                <div class="card-body">
+                    {% if assets %}
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Account</th>
+                                    <th class="text-end">Amount (Rs.)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in assets %}
+                                <tr>
+                                    <td>{{ item.account.name }}</td>
+                                    <td class="text-end">{{ item.balance|floatformat:2 }}</td>
+                                </tr>
+                                {% endfor %}
+                                <tr class="table-active">
+                                    <th>TOTAL ASSETS</th>
+                                    <th class="text-end">{{ total_assets|floatformat:2 }}</th>
+                                </tr>
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <p class="text-muted text-center">No assets found</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Liabilities & Equity -->
+        <div class="col-md-6">
+            <!-- Liabilities -->
+            <div class="card shadow mb-3">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">💳 LIABILITIES</h5>
+                </div>
+                <div class="card-body">
+                    {% if liabilities %}
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Account</th>
+                                    <th class="text-end">Amount (Rs.)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in liabilities %}
+                                <tr>
+                                    <td>{{ item.account.name }}</td>
+                                    <td class="text-end">{{ item.balance|floatformat:2 }}</td>
+                                </tr>
+                                {% endfor %}
+                                <tr class="table-active">
+                                    <th>TOTAL LIABILITIES</th>
+                                    <th class="text-end">{{ total_liabilities|floatformat:2 }}</th>
+                                </tr>
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <p class="text-muted text-center">No liabilities found</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Equity -->
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">🏦 EQUITY</h5>
+                </div>
+                <div class="card-body">
+                    {% if equities %}
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Account</th>
+                                    <th class="text-end">Amount (Rs.)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in equities %}
+                                <tr>
+                                    <td>{{ item.account.name }}</td>
+                                    <td class="text-end">{{ item.balance|floatformat:2 }}</td>
+                                </tr>
+                                {% endfor %}
+                                <tr class="table-active">
+                                    <th>TOTAL EQUITY</th>
+                                    <th class="text-end">{{ total_equity|floatformat:2 }}</th>
+                                </tr>
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <p class="text-muted text-center">No equity found</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Balance Sheet Check -->
+            <div class="card shadow mt-3">
+                <div class="card-body text-center">
+                    <h6>Balance Sheet Check</h6>
+                    <p>
+                        <strong>Total Assets:</strong> Rs. {{ total_assets|floatformat:2 }}<br>
+                        <strong>Total Liabilities + Equity:</strong> Rs. {{ total_liabilities|add:total_equity|floatformat:2 }}
+                    </p>
+                    {% if is_balanced %}
+                        <span class="badge bg-success">✅ Balanced</span>
+                    {% else %}
+                        <span class="badge bg-danger">
+                            ❌ Not Balanced! Difference: Rs. {{ total_assets|add:total_liabilities|floatformat:2 }}
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,411 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+{% load custom_filters %}
+
+{% block title %}Edit Plan - {{ plan.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .premium-card {
+        background: #ffffff;
+        border-radius: 24px;
+        box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease;
+        overflow: hidden;
+    }
+
+    .premium-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .premium-header {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        padding: 1.5rem 2rem;
+        position: relative;
+    }
+
+    .form-control-premium, .form-select-premium {
+        border: 2px solid #e9ecef;
+        border-radius: 16px;
+        padding: 12px 18px;
+        transition: all 0.3s ease;
+        background: #f8f9fa;
+    }
+
+    .form-control-premium:focus, .form-select-premium:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        background: #ffffff;
+    }
+
+    .form-label-premium {
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #1a1a2e;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 0.85rem;
+    }
+
+    .btn-premium {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 50px;
+        padding: 12px 28px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        color: white;
+    }
+
+    .btn-premium:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px -5px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-danger-premium {
+        background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+        border: none;
+        border-radius: 50px;
+        padding: 12px 28px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        color: white;
+    }
+
+    .btn-danger-premium:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px -5px rgba(235, 51, 73, 0.4);
+    }
+
+    .btn-outline-premium {
+        background: transparent;
+        border: 2px solid #667eea;
+        color: #667eea;
+        border-radius: 50px;
+        padding: 10px 24px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .btn-outline-premium:hover {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .result-box {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 16px;
+        padding: 1rem;
+        color: white;
+        text-align: center;
+    }
+
+    .separator {
+        height: 4px;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        border-radius: 2px;
+        width: 60px;
+        margin: 0 auto;
+    }
+
+    .info-badge {
+        background: #e9ecef;
+        padding: 4px 12px;
+        border-radius: 50px;
+        font-size: 0.75rem;
+        color: #667eea;
+    }
+
+    .down-payment-preview {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 16px;
+        padding: 12px 16px;
+        margin-top: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}
+<div class="text-center mb-4">
+    <h1 class="h3 fw-bold" style="color: #1a1a2e;">✏️ Edit Installment Plan</h1>
+    <p class="text-muted">Update plan details and terms</p>
+    <div class="separator"></div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="premium-card">
+                <div class="premium-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="info-badge">EDIT MODE</span>
+                            <h4 class="text-white mt-2 mb-0">{{ plan.name }}</h4>
+                            <p class="text-white-50 small mb-0">Update plan configuration</p>
+                        </div>
+                        <span class="badge bg-light text-dark px-3 py-2 rounded-pill">
+                            ID: #{{ plan.id }}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="card-body p-4 p-lg-5">
+                    <form method="post" id="editPlanForm">
+                        {% csrf_token %}
+                        
+                        <div class="mb-4">
+                            <label class="form-label-premium">Plan Name <span class="text-danger">*</span></label>
+                            <input type="text" name="name" class="form-control-premium w-100" 
+                                   value="{{ plan.name }}" required>
+                        </div>
+
+                        <div class="row g-4 mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label-premium">Duration <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <input type="number" name="duration_months" id="durationMonths" 
+                                           class="form-control-premium" 
+                                           value="{{ plan.duration_months }}" min="1" max="60" required>
+                                    <span class="input-group-text bg-light border-2 rounded-end-3">months</span>
+                                </div>
+                            </div>
+                            
+                            <!-- ✅ DOWN PAYMENT - AMOUNT (Not Percentage) -->
+                            <div class="col-md-6">
+                                <label class="form-label-premium">Down Payment (Amount)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-2 rounded-start-3">Rs.</span>
+                                    <input type="number" name="down_payment_amount" id="downPaymentAmount" 
+                                           class="form-control-premium" 
+                                           min="0" step="100" value="{{ down_payment_amount|floatformat:0 }}" 
+                                           placeholder="Enter amount">
+                                </div>
+                                <small class="text-muted mt-1 d-block">Fixed amount to be paid upfront</small>
+                            </div>
+                        </div>
+
+                        <!-- Dynamic Preview: Amount & Percentage -->
+                        <div class="down-payment-preview mb-4" id="downPaymentPreview" style="display: {% if down_payment_amount > 0 %}block{% else %}none{% endif %};">
+                            <div class="row">
+                                <div class="col-6">
+                                    <small class="text-muted">Down Payment Amount</small>
+                                    <h6 class="text-success mb-0" id="previewAmount">Rs. {{ down_payment_amount|floatformat:0|intcomma }}</h6>
+                                </div>
+                                <div class="col-6 text-end">
+                                    <small class="text-muted">Down Payment Percentage</small>
+                                    <h6 class="text-primary mb-0" id="previewPercentage">{{ plan.down_payment_percent|floatformat:1 }}%</h6>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-4 mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label-premium">Interest Rate</label>
+                                <div class="input-group">
+                                    <input type="number" name="interest_rate" id="interestRate" 
+                                           class="form-control-premium" 
+                                           value="{{ plan.interest_rate }}" min="0" max="100" step="0.5">
+                                    <span class="input-group-text bg-light border-2 rounded-end-3">% per annum</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label-premium">Late Fee (per day)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-2 rounded-start-3">Rs.</span>
+                                    <input type="number" name="late_fee_per_day" id="lateFee" 
+                                           class="form-control-premium" 
+                                           value="{{ plan.late_fee_per_day }}" min="0" step="10">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4 p-3 bg-light rounded-4">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <label class="fw-semibold mb-0">Active Status</label>
+                                    <br>
+                                    <small class="text-muted">Inactive plans won't appear in selection dropdown</small>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <input type="checkbox" name="is_active" class="form-check-input" 
+                                           id="isActive" style="width: 3rem; height: 1.5rem;" 
+                                           {% if plan.is_active %}checked{% endif %}>
+                                    <label class="form-check-label fw-semibold ms-2" for="isActive">
+                                        <span id="statusText" class="{% if plan.is_active %}text-success{% else %}text-danger{% endif %}">
+                                            {% if plan.is_active %}Active{% else %}Inactive{% endif %}
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Hidden field for percentage (will be calculated from amount) -->
+                        <input type="hidden" name="down_payment_percent" id="downPaymentPercent" value="{{ plan.down_payment_percent }}">
+
+                        <!-- Preview Section -->
+                        <div class="calculator-card bg-light rounded-4 p-4 mb-4">
+                            <h6 class="fw-bold mb-3">📊 Plan Preview (on Rs. 100,000 product)</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="result-box">
+                                        <small>Down Payment Amount</small>
+                                        <h5 class="mb-0" id="previewDownAmount">Rs. {{ down_payment_amount|floatformat:0|intcomma }}</h5>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="result-box" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                                        <small>Monthly EMI</small>
+                                        <h5 class="mb-0" id="previewEMI">Rs. 0</h5>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-3 text-center">
+                                <small class="text-muted">
+                                    Down Payment: <strong id="previewPercentText">{{ plan.down_payment_percent|floatformat:1 }}%</strong> of product price
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-3 justify-content-end">
+                            <a href="{% url 'installment_list' %}" class="btn-outline-premium">
+                                <i class="bi bi-x-lg"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn-premium">
+                                <i class="bi bi-check-lg"></i> Save Changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const isActiveCheckbox = document.getElementById('isActive');
+    const statusText = document.getElementById('statusText');
+    const durationMonths = document.getElementById('durationMonths');
+    const downPaymentAmount = document.getElementById('downPaymentAmount');
+    const downPaymentPercentHidden = document.getElementById('downPaymentPercent');
+    const interestRate = document.getElementById('interestRate');
+    const previewDownAmount = document.getElementById('previewDownAmount');
+    const previewEMI = document.getElementById('previewEMI');
+    const previewPercentText = document.getElementById('previewPercentText');
+    const downPaymentPreview = document.getElementById('downPaymentPreview');
+    const previewAmountSpan = document.getElementById('previewAmount');
+    const previewPercentageSpan = document.getElementById('previewPercentage');
+
+    const SAMPLE_AMOUNT = 100000; // Fixed sample amount for preview
+
+    // Status text update
+    isActiveCheckbox.addEventListener('change', function() {
+        if (this.checked) {
+            statusText.innerHTML = 'Active';
+            statusText.className = 'text-success';
+        } else {
+            statusText.innerHTML = 'Inactive';
+            statusText.className = 'text-danger';
+        }
+    });
+
+    // ✅ Update down payment preview and calculate percentage
+    function updateDownPaymentPreview() {
+        const downAmount = parseFloat(downPaymentAmount.value) || 0;
+        
+        if (downAmount > 0) {
+            const percentage = (downAmount / SAMPLE_AMOUNT) * 100;
+            const roundedPercentage = Math.min(100, Math.max(0, percentage)).toFixed(1);
+            
+            // Update hidden field
+            downPaymentPercentHidden.value = roundedPercentage;
+            
+            // Update preview displays
+            previewDownAmount.innerHTML = `Rs. ${downAmount.toLocaleString('en-PK', {minimumFractionDigits: 2})}`;
+            previewPercentText.innerHTML = `${roundedPercentage}%`;
+            
+            // Show preview card
+            downPaymentPreview.style.display = 'block';
+            previewAmountSpan.innerHTML = `Rs. ${downAmount.toLocaleString('en-PK', {minimumFractionDigits: 2})}`;
+            previewPercentageSpan.innerHTML = `${roundedPercentage}%`;
+        } else {
+            downPaymentPercentHidden.value = '0';
+            previewDownAmount.innerHTML = 'Rs. 0';
+            previewPercentText.innerHTML = '0%';
+            downPaymentPreview.style.display = 'none';
+        }
+        
+        // Recalculate EMI
+        calculateEMI();
+    }
+
+    // Calculate EMI
+    function calculateEMI() {
+        const downAmount = parseFloat(downPaymentAmount.value) || 0;
+        const rate = parseFloat(interestRate.value) || 0;
+        const months = parseInt(durationMonths.value) || 1;
+
+        const downPayment = Math.min(downAmount, SAMPLE_AMOUNT);
+        const loanAmount = SAMPLE_AMOUNT - downPayment;
+
+        let emi = 0;
+        if (rate > 0 && months > 0 && loanAmount > 0) {
+            const monthlyRate = (rate / 100) / 12;
+            emi = loanAmount * monthlyRate * Math.pow(1 + monthlyRate, months);
+            emi = emi / (Math.pow(1 + monthlyRate, months) - 1);
+        } else if (loanAmount > 0) {
+            emi = loanAmount / months;
+        }
+
+        previewEMI.innerHTML = `Rs. ${emi.toLocaleString('en-PK', {minimumFractionDigits: 2})}`;
+    }
+
+    // Event Listeners
+    downPaymentAmount.addEventListener('input', updateDownPaymentPreview);
+    durationMonths.addEventListener('input', calculateEMI);
+    interestRate.addEventListener('input', calculateEMI);
+
+    // Initial calculations
+    updateDownPaymentPreview();
+    calculateEMI();
+
+    // Form validation before submit
+    document.getElementById('editPlanForm').addEventListener('submit', function(e) {
+        const name = document.querySelector('[name="name"]').value.trim();
+        const months = parseInt(durationMonths.value);
+        const downAmount = parseFloat(downPaymentAmount.value);
+
+        if (!name) {
+            e.preventDefault();
+            alert('❌ Please enter a plan name!');
+            return false;
+        }
+
+        if (isNaN(months) || months < 1 || months > 60) {
+            e.preventDefault();
+            alert('❌ Duration must be between 1 and 60 months!');
+            return false;
+        }
+
+        if (downAmount > SAMPLE_AMOUNT) {
+            e.preventDefault();
+            alert('❌ Down payment amount cannot exceed Rs. 100,000 (sample price)!');
+            return false;
+        }
+
+        // Update hidden percentage field before submit
+        updateDownPaymentPreview();
+        
+        return true;
+    });
+});
+</script>
+{% endblock %}

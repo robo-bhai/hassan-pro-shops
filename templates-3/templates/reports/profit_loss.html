@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Profit & Loss{% endblock %}
+{% block page_title %}💰 Profit & Loss Statement{% endblock %}
+
+{% block extra_css %}
+<style>
+    .pl-card { background: white; border-radius: 16px; overflow: hidden; border: 1px solid #e9ecef; margin-bottom: 20px; }
+    .pl-header { background: #1a1a2e; color: white; padding: 12px 20px; font-weight: 700; }
+    .pl-row { display: flex; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid #e9ecef; }
+    .pl-row.total { background: #e8ecf4; font-weight: 700; }
+    .pl-row.profit { background: #d1fae5; color: #059669; font-weight: 800; }
+    .indent { padding-left: 40px; }
+    .filter-bar { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e9ecef; }
+    @media print { .filter-bar, .btn, .navbar, .sidebar { display: none; } }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="filter-bar">
+        <form method="post">{% csrf_token %} method="GET" class="row g-3 align-items-end">
+            <div class="col-md-4"><label class="form-label small">From Date</label><input type="date" name="from_date" class="form-control" value="{{ from_date }}"></div>
+            <div class="col-md-4"><label class="form-label small">To Date</label><input type="date" name="to_date" class="form-control" value="{{ to_date }}"></div>
+            <div class="col-md-4"><button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> Show Report</button></div>
+        </form>
+    </div>
+
+    <div class="pl-card">
+        <div class="pl-header">Profit & Loss Statement <span class="float-end small">{{ from_date }} to {{ to_date }}</span></div>
+        <div class="pl-row"><span><strong>INCOME</strong></span><span></span></div>
+        <div class="pl-row indent"><span>Total Sales Revenue</span><span>PKR {{ total_sales|floatformat:2 }}</span></div>
+        <div class="pl-row indent"><span>Less: Discounts</span><span>PKR {{ total_discount|floatformat:2 }}</span></div>
+        <div class="pl-row total"><span>Net Sales Revenue</span><span>PKR {{ net_sales|floatformat:2 }}</span></div>
+        
+        <div class="pl-row"><span><strong>COST OF GOODS SOLD (COGS)</strong></span><span></span></div>
+        <div class="pl-row indent"><span>Total Purchases</span><span>PKR {{ total_purchases|floatformat:2 }}</span></div>
+        <div class="pl-row total"><span>Total COGS</span><span>PKR {{ total_purchases|floatformat:2 }}</span></div>
+        
+        <div class="pl-row total"><span>GROSS PROFIT</span><span>PKR {{ gross_profit|floatformat:2 }}</span></div>
+        
+        <div class="pl-row"><span><strong>EXPENSES</strong></span><span></span></div>
+        <div class="pl-row indent"><span>Salary Expenses</span><span>PKR {{ salary_expense|floatformat:2 }}</span></div>
+        <div class="pl-row indent"><span>Other Operating Expenses</span><span>PKR {{ total_expenses|floatformat:2 }}</span></div>
+        <div class="pl-row total"><span>Total Operating Expenses</span><span>PKR {{ total_expenses|floatformat:2 }}</span></div>
+        
+        <div class="pl-row profit"><span>NET PROFIT</span><span>PKR {{ net_profit|floatformat:2 }}</span></div>
+        <div class="pl-row"><span>Profit Margin</span><span>{{ profit_margin|floatformat:1 }}%</span></div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-white"><strong>Monthly Trend</strong></div>
+                <div class="card-body"><canvas id="profitChart" height="80"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="alert alert-info mt-3">
+        <i class="bi bi-info-circle"></i> <strong>Interpretation:</strong>
+        {% if profit_margin >= 15 %}✅ Excellent! Your profit margin is above 15%. Keep it up!
+        {% elif profit_margin >= 10 %}⚠️ Good profit margin. There's room for improvement.
+        {% else %}❌ Low profit margin. Consider reducing expenses or increasing prices.{% endif %}
+    </div>
+</div>
+
+<script>
+    const monthlyData = {{ monthly_data|safe }};
+    new Chart(document.getElementById('profitChart'), {
+        type: 'line',
+        data: { labels: monthlyData.map(d => d.month), datasets: [{ label: 'Sales (PKR)', data: monthlyData.map(d => d.sales), borderColor: '#4361ee', fill: true }] },
+        options: { responsive: true, maintainAspectRatio: true }
+    });
+</script>
+{% endblock %}

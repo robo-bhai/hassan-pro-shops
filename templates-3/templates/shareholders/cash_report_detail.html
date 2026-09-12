@@ -1,0 +1,305 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Cash Report - {{ shareholder.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .profile-header {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 12px 12px 0 0;
+    }
+    
+    .profile-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+    }
+    
+    .stat-box {
+        background: rgba(255,255,255,0.1);
+        padding: 12px 20px;
+        border-radius: 10px;
+        text-align: center;
+    }
+    
+    .stat-box .number {
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+    
+    .stat-box .label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        opacity: 0.7;
+        letter-spacing: 0.5px;
+    }
+    
+    .transaction-row {
+        border-left: 3px solid transparent;
+        transition: all 0.3s ease;
+    }
+    
+    .transaction-row:hover {
+        background: #f8f9fc;
+        border-left-color: #667eea;
+    }
+    
+    .transaction-row.type-deposit {
+        border-left-color: #00b894;
+    }
+    
+    .transaction-row.type-withdrawal {
+        border-left-color: #e17055;
+    }
+    
+    .transaction-row.type-transfer {
+        border-left-color: #6c5ce7;
+    }
+    
+    .timeline-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
+    }
+    
+    .dot-deposit {
+        background: #00b894;
+    }
+    
+    .dot-withdrawal {
+        background: #e17055;
+    }
+    
+    .dot-transfer {
+        background: #6c5ce7;
+    }
+    
+    .filter-bar {
+        background: #f8f9fc;
+        padding: 15px 20px;
+        border-radius: 10px;
+        margin: 20px 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            
+            <!-- ✅ Profile Header -->
+            <div class="profile-header">
+                <div class="row align-items-center">
+                    <div class="col-md-8 d-flex align-items-center gap-4">
+                        <div class="profile-avatar">
+                            <i class="bi bi-person-circle"></i>
+                        </div>
+                        <div>
+                            <h3 class="mb-1 fw-bold">{{ shareholder.name }}</h3>
+                            <div class="d-flex flex-wrap gap-3">
+                                <span>
+                                    <i class="bi bi-tag me-1"></i>
+                                    {{ shareholder.shareholder_code }}
+                                </span>
+                                <span>
+                                    <i class="bi bi-envelope me-1"></i>
+                                    {{ shareholder.email|default:"No email" }}
+                                </span>
+                                <span>
+                                    <i class="bi bi-phone me-1"></i>
+                                    {{ shareholder.phone|default:"No phone" }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div class="stat-box">
+                            <div class="number">Rs. {{ current_balance|floatformat:0 }}</div>
+                            <div class="label">Current Balance</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ✅ Stats Row -->
+            <div class="row g-3 mt-2">
+                <div class="col-md-4">
+                    <div class="card bg-success text-white">
+                        <div class="card-body text-center py-3">
+                            <h6 class="mb-0 opacity-75">Total Deposits</h6>
+                            <h3 class="mb-0">Rs. {{ total_deposits|floatformat:0 }}</h3>
+                            <small>{{ total_deposits|floatformat:2 }}</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-danger text-white">
+                        <div class="card-body text-center py-3">
+                            <h6 class="mb-0 opacity-75">Total Withdrawals</h6>
+                            <h3 class="mb-0">Rs. {{ total_withdrawals|floatformat:0 }}</h3>
+                            <small>{{ total_withdrawals|floatformat:2 }}</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-info text-white">
+                        <div class="card-body text-center py-3">
+                            <h6 class="mb-0 opacity-75">Net Cash Flow</h6>
+                            <h3 class="mb-0">Rs. {{ total_deposits|add:total_withdrawals|floatformat:0 }}</h3>
+                            <small>{{ total_deposits|add:total_withdrawals|floatformat:2 }}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ✅ Filter Bar -->
+            <div class="filter-bar">
+                <form method="get" class="row g-2 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold small text-muted">From</label>
+                        <input type="date" name="from_date" class="form-control" value="{{ from_date }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold small text-muted">To</label>
+                        <input type="date" name="to_date" class="form-control" value="{{ to_date }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold small text-muted">Type</label>
+                        <select name="type" class="form-select">
+                            <option value="">All Types</option>
+                            {% for code, label in transaction_types %}
+                            <option value="{{ code }}" {% if selected_type == code %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary w-50">
+                            <i class="bi bi-filter"></i> Apply
+                        </button>
+                        <a href="{% url 'shareholder_cash_report' %}" class="btn btn-secondary w-50">
+                            <i class="bi bi-arrow-left"></i> Back
+                        </a>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- ✅ Transactions Table -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-white border-bottom">
+                    <h6 class="mb-0 fw-bold">
+                        <i class="bi bi-clock-history me-2"></i>
+                        Transaction History
+                        <span class="badge bg-light text-dark ms-2">{{ transactions|length }}</span>
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Date & Time</th>
+                                    <th>Type</th>
+                                    <th>Amount</th>
+                                    <th>Balance After</th>
+                                    <th>Description</th>
+                                    <th>Reference</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for trans in transactions %}
+                                <tr class="transaction-row type-{% if trans.transaction_type in 'deposit,dividend,balance_dividend,transfer_in' %}deposit{% else %}withdrawal{% endif %}">
+                                    <td>
+                                        <div class="fw-bold">{{ trans.created_at|date:"d-m-Y" }}</div>
+                                        <small class="text-muted">{{ trans.created_at|date:"H:i:s" }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge {% if trans.transaction_type in 'deposit,dividend,balance_dividend,transfer_in' %}badge-deposit{% else %}badge-withdrawal{% endif %}">
+                                            {{ trans.get_transaction_type_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold {% if trans.transaction_type in 'deposit,dividend,balance_dividend,transfer_in' %}text-success{% else %}text-danger{% endif %}">
+                                            {% if trans.transaction_type in 'deposit,dividend,balance_dividend,transfer_in' %}+{% else %}-{% endif %}
+                                            Rs. {{ trans.amount|floatformat:2 }}
+                                        </span>
+                                    </td>
+                                    <td>Rs. {{ trans.balance_after|floatformat:2 }}</td>
+                                    <td>{{ trans.description|default:"-" }}</td>
+                                    <td>
+                                        <span class="badge bg-light text-dark">
+                                            {{ trans.reference_no|default:"-" }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-4">
+                                        <i class="bi bi-inbox fs-2 d-block text-muted"></i>
+                                        <p class="text-muted mt-2">No transactions found</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ✅ Summary Footer -->
+            <div class="mt-3">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="fw-bold">Summary</h6>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <small class="text-muted">Total Transactions</small>
+                                        <div class="fw-bold">{{ transactions|length }}</div>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted">Unique Types</small>
+                                        <div class="fw-bold">
+                                            {% for code, label in transaction_types %}
+                                                {% if code == selected_type %}
+                                                    {{ label }}
+                                                {% endif %}
+                                            {% empty %}
+                                                All
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <small class="text-muted">
+                            <i class="bi bi-clock me-1"></i>
+                            Generated: {% now "d-m-Y H:i:s" %}
+                        </small>
+                        <br>
+                        <small class="text-muted">
+                            Period: {{ from_date }} to {{ to_date }}
+                        </small>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+{% endblock %}

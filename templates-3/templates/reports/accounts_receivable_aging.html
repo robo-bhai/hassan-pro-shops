@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Accounts Receivable Aging{% endblock %}
+{% block page_title %}📋 Accounts Receivable Aging Report{% endblock %}
+
+{% block extra_css %}
+<style>
+    .aging-card {
+        background: white;
+        border-radius: 12px;
+        padding: 15px;
+        text-align: center;
+        border: 1px solid #e9ecef;
+    }
+    .aging-0-30 { color: #10b981; }
+    .aging-31-60 { color: #f59e0b; }
+    .aging-61-90 { color: #ea580c; }
+    .aging-91 { color: #dc2626; }
+    .badge-0-30 { background: #d1fae5; color: #059669; }
+    .badge-31-60 { background: #fed7aa; color: #ea580c; }
+    .badge-61-90 { background: #fee2e2; color: #dc2626; }
+    .badge-91 { background: #fecaca; color: #b91c1c; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="aging-card">
+                <div class="small text-muted">0-30 Days</div>
+                <div class="h3 aging-0-30">PKR {{ aging_buckets.0_30|default:0|floatformat:0 }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="aging-card">
+                <div class="small text-muted">31-60 Days</div>
+                <div class="h3 aging-31-60">PKR {{ aging_buckets.31_60|default:0|floatformat:0 }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="aging-card">
+                <div class="small text-muted">61-90 Days</div>
+                <div class="h3 aging-61-90">PKR {{ aging_buckets.61_90|default:0|floatformat:0 }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="aging-card">
+                <div class="small text-muted">91+ Days</div>
+                <div class="h3 aging-91">PKR {{ aging_buckets.91_plus|default:0|floatformat:0 }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-white">
+            <strong><i class="bi bi-people"></i> Customer Aging Details</strong>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Customer</th>
+                            <th>Code</th>
+                            <th>Outstanding (PKR)</th>
+                            <th>Days Old</th>
+                            <th>Aging Bucket</th>
+                            <th>Oldest Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for customer in customer_details %}
+                        <tr>
+                            <td><strong>{{ customer.name }}</strong></td>
+                            <td>{{ customer.code|default:'—' }}</a></td>
+                            <td class="text-danger">PKR {{ customer.balance|floatformat:0 }}</a></td>
+                            <td>{{ customer.days_old }} days</a></td>
+                            <td>
+                                <span class="badge 
+                                    {% if customer.bucket == '0-30' %}badge-0-30
+                                    {% elif customer.bucket == '31-60' %}badge-31-60
+                                    {% elif customer.bucket == '61-90' %}badge-61-90
+                                    {% else %}badge-91{% endif %}">
+                                    {{ customer.bucket }}
+                                </span>
+                             </a>
+                            <td>{{ customer.oldest_date|date:"d-m-Y" }}</a></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" class="text-center text-success py-4">
+                            <i class="bi bi-check-circle-fill fs-1"></i><br>
+                            No aging data available - All payments are current! 🎉
+                         </a></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
