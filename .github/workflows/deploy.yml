@@ -282,7 +282,7 @@ jobs:
 
           CACHE_FILE = 'cloud_data_dump.sql.gz'
           TIME_FILE = 'cache_time.txt'
-          MAX_AGE = 15 * 60  # 15 minutes
+          MAX_AGE = 24 * 60 * 60  # 1 day (24 hours)
 
           use_cache = False
 
@@ -294,10 +294,10 @@ jobs:
                   age = time.time() - cached_timestamp
                   
                   if age <= MAX_AGE and os.path.getsize(CACHE_FILE) > 10240:
-                      print(f'VALID CACHE: Cache age is {round(age/60, 2)} mins (Under 15 mins).')
+                      print(f'VALID CACHE: Cache age is {round(age/3600, 2)} hours (Under 24 hours).')
                       use_cache = True
                   else:
-                      print(f'EXPIRED CACHE: Cache age is {round(age/60, 2)} mins (Exceeds 15 mins).')
+                      print(f'EXPIRED CACHE: Cache age is {round(age/3600, 2)} hours (Exceeds 24 hours).')
               except Exception as e:
                   print(f'Cache validation error: {e}')
 
@@ -327,6 +327,7 @@ jobs:
             echo "Fresh Safe Cloud Data Applied to Local MySQL Successfully."
           fi
 
+#+$+$+$+_((_+_(_("("(_("("(+)))))))
       # --- STEP 4: APPLY MIGRATIONS & CREATE SUPERUSER ON LOCAL DB ---
       - name: Sync Migrations & Ensure Superuser on Local DB
         env:
