@@ -106,9 +106,15 @@ jobs:
           echo "TARGET_RESTORE_FILE=$TARGET_FILE" >> $GITHUB_ENV
 
       # --- CONDITIONAL DATABASE FORCED RESTORE ROUTE FROM GDRIVE ---
+      # --- CONDITIONAL DATABASE FORCED RESTORE ROUTE FROM GDRIVE ---
       - name: Force Restore Database from Google Drive Snapshot
         if: env.RESTORE_REQUESTED == 'true'
         env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASS: ${{ secrets.DB_PASS }}
+          DB_NAME: ${{ secrets.DB_NAME }}
           RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
           BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
         run: |
@@ -117,20 +123,32 @@ jobs:
           echo "$RCLONE_CONFIG_DATA" > /home/runner/.config/rclone/rclone.conf
           
           RCLONE_REMOTE=$(rclone listremotes | head -n 1)
-          echo "Detected Rclone Remote: $RCLONE_REMOTE"
+          TARGET_DIR="${RCLONE_REMOTE}hassan_shops/"
+          echo "Detected Rclone Target Directory: $TARGET_DIR"
+
+          # --- FEATURE: LIST ALL UPLOADED BACKUPS IF REQUESTED ---
+          if [ "$TARGET_RESTORE_FILE" = "list" ] || [ "$TARGET_RESTORE_FILE" = "ls" ]; then
+            echo "=================================================="
+            echo "       AVAILABLE BACKUPS IN GOOGLE DRIVE          "
+            echo "=================================================="
+            rclone lsl "$TARGET_DIR" --include "^db_snapshot_*"
+            echo "=================================================="
+            echo "Listing completed. Skipping restore process."
+            exit 0
+          fi
 
           echo "=== EXECUTING FORCED RESTORE FROM GOOGLE DRIVE ==="
           
-          if [ "$TARGET_RESTORE_FILE" = "r" ] || [ "$TARGET_RESTORE_FILE" = "latest" ]; then
-            echo "Locating latest backup snapshot from Google Drive..."
-            RESTORE_FILE=$(rclone lsf "${RCLONE_REMOTE}" | grep "^db_snapshot_" | sort | tail -n 1)
+          if [ "$TARGET_RESTORE_FILE" = "r" ] || [ "$TARGET_RESTORE_FILE" = "latest" ] || [ -z "$TARGET_RESTORE_FILE" ]; then
+            echo "Locating latest backup snapshot from Google Drive (hassan_shops) using modification time..."
+            RESTORE_FILE=$(rclone lsf "$TARGET_DIR" --sort modtime | grep "^db_snapshot_" | tail -n 1)
           else
             RESTORE_FILE="$TARGET_RESTORE_FILE"
           fi
 
           echo "Selected Backup File: $RESTORE_FILE"
           
-          rclone copy "${RCLONE_REMOTE}${RESTORE_FILE}" ./
+          rclone copy "${TARGET_DIR}${RESTORE_FILE}" ./
           
           python -c "
           import os, base64
@@ -178,6 +196,10 @@ jobs:
           key: mysql-db-cache-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             mysql-db-cache-${{ runner.os }}-
+
+
+#((((($++$($($($+$+$+$+$+$+))))))))
+
 
       # --- STEP 2: APPLY MIGRATIONS & CREATE SUPERUSER ON CLOUD DB FIRST ---
       - name: Apply Migrations & Create Superuser on Cloud Aiven MySQL
@@ -464,10 +486,9 @@ jobs:
 
       # --- STEP 6: ENCRYPTED SNAPSHOT CREATION & RCLONE UPLOAD TO GDRIVE ---
       # --- STEP 6: ENCRYPTED SNAPSHOT CREATION & RCLONE UPLOAD TO GDRIVE (ONLY VIA TERMUX DISPATCH) ---
+      # --- STEP 6: ENCRYPTED SNAPSHOT CREATION & RCLONE UPLOAD TO GDRIVE (ONLY VIA TERMUX DISPATCH) ---
       - name: Create Encrypted Database Snapshot & Upload via Rclone
         if: always() && github.event.action == 'backup_now'
-
-        
         env:
           BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
           RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
@@ -513,9 +534,11 @@ jobs:
           print('Snapshot encrypted successfully as $SNAPSHOT_FILENAME')
           "
 
-          rclone copy "$SNAPSHOT_FILENAME" "$RCLONE_REMOTE"
-          echo "Successfully uploaded $SNAPSHOT_FILENAME to Google Drive ($RCLONE_REMOTE)!"
+          rclone copy "$SNAPSHOT_FILENAME" "${RCLONE_REMOTE}hassan_shops/"
+          echo "Successfully uploaded $SNAPSHOT_FILENAME to Google Drive (${RCLONE_REMOTE}hassan_shops/)!"
 
+
+#iushshhshshshshshsh
 
       - name: Save Updated DB Dump & Timestamp to GitHub Cache
         if: always()
