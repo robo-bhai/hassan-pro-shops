@@ -190,15 +190,38 @@ jobs:
 
           gunzip -c restored_snapshot.sql.gz > restored_snapshot.sql
           
-          echo "Wiping and applying data to Cloud DB..."
-          MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED -e "DROP DATABASE IF EXISTS \`$DB_NAME\`; CREATE DATABASE \`$DB_NAME\`;"
+          echo "Wiping existing tables and restoring data to Cloud DB..."
+          MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED -e "
+            SET FOREIGN_KEY_CHECKS = 0;
+            SET GROUP_CONCAT_MAX_LEN = 32768;
+            SET @tables = NULL;
+            SELECT GROUP_CONCAT('\`', table_name, '\`') INTO @tables
+              FROM information_schema.tables WHERE table_schema = '$DB_NAME';
+            SET @tables = CONCAT('DROP TABLE IF EXISTS ', @tables);
+            PREPARE stmt FROM @tables;
+            EXECUTE stmt;
+            DEALLOCATE PREPARE stmt;
+            SET FOREIGN_KEY_CHECKS = 1;
+          " || echo "Cloud Database was already clean."
           MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME" < restored_snapshot.sql
           
-          echo "Wiping and applying data to Local DB..."
-          MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root -e "DROP DATABASE IF EXISTS local_django_db; CREATE DATABASE local_django_db;"
+          echo "Wiping existing tables and restoring data to Local DB..."
+          MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root -e "
+            SET FOREIGN_KEY_CHECKS = 0;
+            SET GROUP_CONCAT_MAX_LEN = 32768;
+            SET @tables = NULL;
+            SELECT GROUP_CONCAT('\`', table_name, '\`') INTO @tables
+              FROM information_schema.tables WHERE table_schema = 'local_django_db';
+            SET @tables = CONCAT('DROP TABLE IF EXISTS ', @tables);
+            PREPARE stmt FROM @tables;
+            EXECUTE stmt;
+            DEALLOCATE PREPARE stmt;
+            SET FOREIGN_KEY_CHECKS = 1;
+          " || echo "Local Database was already clean."
           MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < restored_snapshot.sql
 
           echo "Forced Database Restoration Completed Successfully!"
+
 
       # --- STEP 1: RESTORE CACHE FILES FROM GITHUB CACHE ---
       - name: Restore Local DB Cache
