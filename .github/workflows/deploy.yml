@@ -455,14 +455,17 @@ jobs:
           BRANCH="${{ github.ref_name }}"
 
           for i in {1..36}; do
-            LATEST_RUN_ID=$(gh api "repos/$REPO/actions/runs?branch=$BRANCH&per_page=1" --jq '.workflow_runs[0].id' 2>/dev/null || echo "$CURRENT_RUN_ID")
-            
-            if [ "$LATEST_RUN_ID" -gt "$CURRENT_RUN_ID" ]; then
-              echo "A newer workflow run ($LATEST_RUN_ID) detected! Cancelling current log stream step..."
-              exit 0
-            fi
+            # 300 seconds total per cycle, broken into 5-second checks for instant abort
+            for s in {1..60}; do
+              LATEST_RUN_ID=$(gh api "repos/$REPO/actions/runs?branch=$BRANCH&per_page=1" --jq '.workflow_runs[0].id' 2>/dev/null || echo "$CURRENT_RUN_ID")
+              
+              if [ "$LATEST_RUN_ID" -gt "$CURRENT_RUN_ID" ]; then
+                echo "A newer workflow run ($LATEST_RUN_ID) detected! Instantly cancelling current log stream..."
+                exit 0
+              fi
+              sleep 5
+            done
 
-            sleep 300
             echo "------------------------------------------"
             echo "TIMESTAMP: $(date)"
             echo "--- SERVER HTTP ACCESS LOGS (Path - Status) ---"
@@ -471,6 +474,7 @@ jobs:
             grep -i -C 3 "error\|exception\|traceback\|500\|404" django.log || echo "No errors detected."
             echo "------------------------------------------"
           done
+
 
       # --- STEP 5: SAFE CACHE CREATION & SYNC BACK TO CLOUD ---
       - name: Sync Local Runner MySQL Back to Cloud Aiven MySQL
