@@ -12,10 +12,6 @@ on:
   repository_dispatch:
     types: [ backup_now, restore_now ]
 
-concurrency:
-  group: django-production-runner
-  cancel-in-progress: true
-
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -447,12 +443,25 @@ jobs:
           curl -d "$MESSAGE" ntfy.sh/hshshehgag
 
       - name: Realtime HTTP Access Logs & Error Stream
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           echo "=========================================="
           echo " LIVE HTTP SERVER ACCESS LOGS & ERRORS "
           echo "=========================================="
           
+          CURRENT_RUN_ID="${{ github.run_id }}"
+          REPO="${{ github.repository }}"
+          BRANCH="${{ github.ref_name }}"
+
           for i in {1..36}; do
+            LATEST_RUN_ID=$(gh api "repos/$REPO/actions/runs?branch=$BRANCH&per_page=1" --jq '.workflow_runs[0].id' 2>/dev/null || echo "$CURRENT_RUN_ID")
+            
+            if [ "$LATEST_RUN_ID" -gt "$CURRENT_RUN_ID" ]; then
+              echo "A newer workflow run ($LATEST_RUN_ID) detected! Cancelling current log stream step..."
+              exit 0
+            fi
+
             sleep 300
             echo "------------------------------------------"
             echo "TIMESTAMP: $(date)"
