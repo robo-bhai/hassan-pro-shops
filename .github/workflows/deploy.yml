@@ -24,11 +24,7 @@ jobs:
           MYSQL_DATABASE: local_django_db
         ports:
           - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=3
+        options: "--health-cmd=\"mysqladmin ping\" --health-interval=10s --health-timeout=5s --health-retries=3"
 
     env:
       DB_HOST: ${{ secrets.DB_HOST }}
@@ -70,11 +66,9 @@ jobs:
           BRANCH="${{ github.ref_name }}"
 
           while true; do
-            # Fetch the list of workflow runs that are currently in progress or queued
             ACTIVE_RUNS=$(gh api "repos/$REPO/actions/runs?branch=$BRANCH&status=in_progress&per_page=5" --jq "[.workflow_runs[].id | select(. != $CURRENT_RUN_ID)]")
             QUEUED_RUNS=$(gh api "repos/$REPO/actions/runs?branch=$BRANCH&status=queued&per_page=5" --jq "[.workflow_runs[].id | select(. != $CURRENT_RUN_ID)]")
             
-            # Combine active and queued check
             TOTAL_PENDING=$(echo "$ACTIVE_RUNS $QUEUED_RUNS" | jq -s 'add | length')
 
             if [ "$TOTAL_PENDING" -gt 0 ]; then
@@ -146,92 +140,87 @@ jobs:
           echo "---GDRIVE_FILE_LIST_END---"
           echo "=================================================="
 
-                        
-    - name: Force Restore Database from Google Drive Snapshot
-      if: env.RESTORE_REQUESTED == 'true'
-      env:
-        DB_HOST: ${{ secrets.DB_HOST }}
-        DB_PORT: ${{ secrets.DB_PORT }}
-        DB_USER: ${{ secrets.DB_USER }}
-        DB_PASS: ${{ secrets.DB_PASS }}
-        DB_NAME: ${{ secrets.DB_NAME }}
-        RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
-        BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
-      run: |
-        echo "=== SETTING UP RCLONE CONFIGURATION ==="
-        mkdir -p /home/runner/.config/rclone
-        echo "$RCLONE_CONFIG_DATA" > /home/runner/.config/rclone/rclone.conf
-        
-        RCLONE_REMOTE=$(rclone listremotes | head -n 1)
-        REMOTE_NAME=$(echo "$RCLONE_REMOTE" | tr -d ':')
-        TARGET_DIR="${REMOTE_NAME}:hassan_shops"
-        echo "Detected Rclone Target Directory: $TARGET_DIR"
+      - name: Force Restore Database from Google Drive Snapshot
+        if: env.RESTORE_REQUESTED == 'true'
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASS: ${{ secrets.DB_PASS }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
+          BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
+        run: |
+          echo "=== SETTING UP RCLONE CONFIGURATION ==="
+          mkdir -p /home/runner/.config/rclone
+          echo "$RCLONE_CONFIG_DATA" > /home/runner/.config/rclone/rclone.conf
+          
+          RCLONE_REMOTE=$(rclone listremotes | head -n 1)
+          REMOTE_NAME=$(echo "$RCLONE_REMOTE" | tr -d ':')
+          TARGET_DIR="${REMOTE_NAME}:hassan_shops"
+          echo "Detected Rclone Target Directory: $TARGET_DIR"
 
-        # --- FEATURE: LIST ALL UPLOADED BACKUPS IF REQUESTED ---
-        if [ "$TARGET_RESTORE_FILE" = "list" ] || [ "$TARGET_RESTORE_FILE" = "ls" ]; then
-          echo "=================================================="
-          echo "       AVAILABLE BACKUPS IN GOOGLE DRIVE          "
-          echo "=================================================="
-          rclone lsl "$TARGET_DIR" --include "^db_snapshot_*"
-          echo "=================================================="
-          echo "Listing completed. Skipping restore process."
-          exit 0
-        fi
+          if [ "$TARGET_RESTORE_FILE" = "list" ] || [ "$TARGET_RESTORE_FILE" = "ls" ]; then
+            echo "=================================================="
+            echo "       AVAILABLE BACKUPS IN GOOGLE DRIVE          "
+            echo "=================================================="
+            rclone lsl "$TARGET_DIR" --include "^db_snapshot_*"
+            echo "=================================================="
+            echo "Listing completed. Skipping restore process."
+            exit 0
+          fi
 
-        echo "=== EXECUTING FORCED RESTORE FROM GOOGLE DRIVE ==="
-        
-        if [ "$TARGET_RESTORE_FILE" = "r" ] || [ "$TARGET_RESTORE_FILE" = "latest" ] || [ -z "$TARGET_RESTORE_FILE" ]; then
-          echo "Locating latest backup snapshot from Google Drive (hassan_shops) using modification time..."
-          # Fixed: Replaced invalid '--sort' flag with rclone lsf format options and unix sort
-          RESTORE_FILE=$(rclone lsf "$TARGET_DIR" --format "pm" --files-only --include "db_snapshot_*" | sort -t';' -k2 | tail -n 1 | cut -d';' -f1)
-        else
-          RESTORE_FILE="$TARGET_RESTORE_FILE"
-        fi
+          echo "=== EXECUTING FORCED RESTORE FROM GOOGLE DRIVE ==="
+          
+          if [ "$TARGET_RESTORE_FILE" = "r" ] || [ "$TARGET_RESTORE_FILE" = "latest" ] || [ -z "$TARGET_RESTORE_FILE" ]; then
+            echo "Locating latest backup snapshot from Google Drive (hassan_shops) using modification time..."
+            RESTORE_FILE=$(rclone lsf "$TARGET_DIR" --format "pm" --files-only --include "db_snapshot_*" | sort -t';' -k2 | tail -n 1 | cut -d';' -f1)
+          else
+            RESTORE_FILE="$TARGET_RESTORE_FILE"
+          fi
 
-        # Safeguard: Ensure a file was actually found to prevent Python FileNotFoundError
-        if [ -z "$RESTORE_FILE" ]; then
-          echo "Error: No valid backup snapshot found matching 'db_snapshot_*' in $TARGET_DIR."
-          exit 1
-        fi
+          if [ -z "$RESTORE_FILE" ]; then
+            echo "Error: No valid backup snapshot found matching 'db_snapshot_*' in $TARGET_DIR."
+            exit 1
+          fi
 
-        echo "Selected Backup File: $RESTORE_FILE"
-        
-        rclone copyto "${TARGET_DIR}/${RESTORE_FILE}" "./${RESTORE_FILE}"
-        
-        python -c "
-        import os, base64
-        from cryptography.fernet import Fernet
-        from cryptography.hazmat.primitives import hashes
-        from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+          echo "Selected Backup File: $RESTORE_FILE"
+          
+          rclone copyto "${TARGET_DIR}/${RESTORE_FILE}" "./${RESTORE_FILE}"
+          
+          python -c "
+          import os, base64
+          from cryptography.fernet import Fernet
+          from cryptography.hazmat.primitives import hashes
+          from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-        secret = os.environ['BACKUP_SECRET_KEY'].encode()
-        salt = b'django_backup_salt_2026'
-        kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
-        key = base64.urlsafe_b64encode(kdf.derive(secret))
-        fernet = Fernet(key)
+          secret = os.environ['BACKUP_SECRET_KEY'].encode()
+          salt = b'django_backup_salt_2026'
+          kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
+          key = base64.urlsafe_b64encode(kdf.derive(secret))
+          fernet = Fernet(key)
 
-        with open('$RESTORE_FILE', 'rb') as f:
-            encrypted_data = f.read()
+          with open('$RESTORE_FILE', 'rb') as f:
+              encrypted_data = f.read()
 
-        decrypted_data = fernet.decrypt(encrypted_data)
+          decrypted_data = fernet.decrypt(encrypted_data)
 
-        with open('restored_snapshot.sql.gz', 'wb') as f:
-            f.write(decrypted_data)
-        print('Snapshot Decryption Successful!')
-        "
+          with open('restored_snapshot.sql.gz', 'wb') as f:
+              f.write(decrypted_data)
+          print('Snapshot Decryption Successful!')
+          "
 
-        gunzip -c restored_snapshot.sql.gz > restored_snapshot.sql
-        
-        echo "Wiping and applying data to Cloud DB..."
-        MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED -e "DROP DATABASE IF EXISTS \`$DB_NAME\`; CREATE DATABASE \`$DB_NAME\`;"
-        MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME" < restored_snapshot.sql
-        
-        echo "Wiping and applying data to Local DB..."
-        MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root -e "DROP DATABASE IF EXISTS local_django_db; CREATE DATABASE local_django_db;"
-        MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < restored_snapshot.sql
+          gunzip -c restored_snapshot.sql.gz > restored_snapshot.sql
+          
+          echo "Wiping and applying data to Cloud DB..."
+          MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED -e "DROP DATABASE IF EXISTS \`$DB_NAME\`; CREATE DATABASE \`$DB_NAME\`;"
+          MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME" < restored_snapshot.sql
+          
+          echo "Wiping and applying data to Local DB..."
+          MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root -e "DROP DATABASE IF EXISTS local_django_db; CREATE DATABASE local_django_db;"
+          MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < restored_snapshot.sql
 
-        echo "Forced Database Restoration Completed Successfully!"
-
+          echo "Forced Database Restoration Completed Successfully!"
 
       # --- STEP 1: RESTORE CACHE FILES FROM GITHUB CACHE ---
       - name: Restore Local DB Cache
@@ -360,7 +349,6 @@ jobs:
             echo "Fresh Safe Cloud Data Applied to Local MySQL Successfully."
           fi
 
-#+$+$+$+_((_+_(_("("(_("("(+)))))))
       # --- STEP 4: APPLY MIGRATIONS & CREATE SUPERUSER ON LOCAL DB ---
       - name: Sync Migrations & Ensure Superuser on Local DB
         env:
@@ -492,7 +480,6 @@ jobs:
           BRANCH="${{ github.ref_name }}"
 
           for i in {1..36}; do
-            # 300 seconds total per cycle, broken into 5-second checks for instant abort
             for s in {1..60}; do
               LATEST_RUN_ID=$(gh api "repos/$REPO/actions/runs?branch=$BRANCH&per_page=1" --jq '.workflow_runs[0].id' 2>/dev/null || echo "$CURRENT_RUN_ID")
               
@@ -511,7 +498,6 @@ jobs:
             grep -i -C 3 "error\|exception\|traceback\|500\|404" django.log || echo "No errors detected."
             echo "------------------------------------------"
           done
-
 
       # --- STEP 5: SAFE CACHE CREATION & SYNC BACK TO CLOUD ---
       - name: Sync Local Runner MySQL Back to Cloud Aiven MySQL
@@ -598,7 +584,6 @@ jobs:
           rclone copy "$SNAPSHOT_FILENAME" "${RCLONE_REMOTE}hassan_shops/"
           echo "Successfully uploaded $SNAPSHOT_FILENAME to Google Drive (${RCLONE_REMOTE}hassan_shops/)!"
 
-          # --- SEND NOTIFICATION TO NTFY.SH ---
           BACKUP_SIZE=$(du -h "$SNAPSHOT_FILENAME" | awk '{print $1}')
           CURRENT_TIME=$(date +"%Y-%m-%d %H:%M:%S")
 
@@ -616,7 +601,7 @@ jobs:
           * **Database:** local_django_db" \
                ntfy.sh/hassan_shops_db
 
-          echo "Notification sent to ntfy.sh/my_topic successfully!"
+          echo "Notification sent to ntfy.sh successfully!"
 
       - name: Save Updated DB Dump & Timestamp to GitHub Cache
         if: always()
