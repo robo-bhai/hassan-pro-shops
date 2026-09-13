@@ -61,7 +61,7 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Install pips & Tools
+      - name: Install Pips & System Tools (MySQL Client & Rclone)
         run: |
           python -m pip install --upgrade pip
           pip install pymysql gunicorn "django-import-export>=3.3.0" "django>=5.2,<5.3" django-dbbackup django-axes reportlab openpyxl pillow python-barcode qrcode cryptography sqlalchemy python-dotenv requests django-pwa whitenoise
@@ -105,7 +105,6 @@ jobs:
           echo "RESTORE_REQUESTED=$RESTORE_REQ" >> $GITHUB_ENV
           echo "TARGET_RESTORE_FILE=$TARGET_FILE" >> $GITHUB_ENV
 
-      # --- CONDITIONAL DATABASE FORCED RESTORE ROUTE FROM GDRIVE ---
       # --- CONDITIONAL DATABASE FORCED RESTORE ROUTE FROM GDRIVE ---
       - name: Force Restore Database from Google Drive Snapshot
         if: env.RESTORE_REQUESTED == 'true'
@@ -196,10 +195,6 @@ jobs:
           key: mysql-db-cache-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             mysql-db-cache-${{ runner.os }}-
-
-
-#((((($++$($($($+$+$+$+$+$+))))))))
-
 
       # --- STEP 2: APPLY MIGRATIONS & CREATE SUPERUSER ON CLOUD DB FIRST ---
       - name: Apply Migrations & Create Superuser on Cloud Aiven MySQL
@@ -484,8 +479,6 @@ jobs:
           
           echo "Sync Up Back to Cloud Completed Successfully!"
 
-      # --- STEP 6: ENCRYPTED SNAPSHOT CREATION & RCLONE UPLOAD TO GDRIVE ---
-      # --- STEP 6: ENCRYPTED SNAPSHOT CREATION & RCLONE UPLOAD TO GDRIVE (ONLY VIA TERMUX DISPATCH) ---
       # --- STEP 6: ENCRYPTED SNAPSHOT CREATION & RCLONE UPLOAD TO GDRIVE (ONLY VIA TERMUX DISPATCH) ---
       - name: Create Encrypted Database Snapshot & Upload via Rclone
         if: always() && github.event.action == 'backup_now'
@@ -531,14 +524,11 @@ jobs:
 
           with open('$SNAPSHOT_FILENAME', 'wb') as f:
               f.write(encrypted)
-          print('Snapshot encrypted successfully as $SNAPSHOT_FILENAME')
+          print(f'Snapshot encrypted successfully as {os.environ.get(\"SNAPSHOT_FILENAME\", \"snapshot.enc\")}')
           "
 
           rclone copy "$SNAPSHOT_FILENAME" "${RCLONE_REMOTE}hassan_shops/"
           echo "Successfully uploaded $SNAPSHOT_FILENAME to Google Drive (${RCLONE_REMOTE}hassan_shops/)!"
-
-
-#iushshhshshshshshsh
 
       - name: Save Updated DB Dump & Timestamp to GitHub Cache
         if: always()
