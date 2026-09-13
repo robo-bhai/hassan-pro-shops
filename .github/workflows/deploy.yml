@@ -190,38 +190,15 @@ jobs:
 
           gunzip -c restored_snapshot.sql.gz > restored_snapshot.sql
           
-          echo "Wiping existing tables and restoring data to Cloud DB..."
-          MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED -e "
-            SET FOREIGN_KEY_CHECKS = 0;
-            SET GROUP_CONCAT_MAX_LEN = 32768;
-            SET @tables = NULL;
-            SELECT GROUP_CONCAT('\`', table_name, '\`') INTO @tables
-              FROM information_schema.tables WHERE table_schema = '$DB_NAME';
-            SET @tables = CONCAT('DROP TABLE IF EXISTS ', @tables);
-            PREPARE stmt FROM @tables;
-            EXECUTE stmt;
-            DEALLOCATE PREPARE stmt;
-            SET FOREIGN_KEY_CHECKS = 1;
-          " || echo "Cloud Database was already clean."
+          echo "Wiping and applying data to Cloud DB..."
+          MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED -e "DROP DATABASE IF EXISTS \`$DB_NAME\`; CREATE DATABASE \`$DB_NAME\`;"
           MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME" < restored_snapshot.sql
           
-          echo "Wiping existing tables and restoring data to Local DB..."
-          MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root -e "
-            SET FOREIGN_KEY_CHECKS = 0;
-            SET GROUP_CONCAT_MAX_LEN = 32768;
-            SET @tables = NULL;
-            SELECT GROUP_CONCAT('\`', table_name, '\`') INTO @tables
-              FROM information_schema.tables WHERE table_schema = 'local_django_db';
-            SET @tables = CONCAT('DROP TABLE IF EXISTS ', @tables);
-            PREPARE stmt FROM @tables;
-            EXECUTE stmt;
-            DEALLOCATE PREPARE stmt;
-            SET FOREIGN_KEY_CHECKS = 1;
-          " || echo "Local Database was already clean."
+          echo "Wiping and applying data to Local DB..."
+          MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root -e "DROP DATABASE IF EXISTS local_django_db; CREATE DATABASE local_django_db;"
           MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < restored_snapshot.sql
 
           echo "Forced Database Restoration Completed Successfully!"
-
 
       # --- STEP 1: RESTORE CACHE FILES FROM GITHUB CACHE ---
       - name: Restore Local DB Cache
@@ -569,6 +546,26 @@ jobs:
 
           rclone copy "$SNAPSHOT_FILENAME" "${RCLONE_REMOTE}hassan_shops/"
           echo "Successfully uploaded $SNAPSHOT_FILENAME to Google Drive (${RCLONE_REMOTE}hassan_shops/)!"
+
+          # --- SEND NOTIFICATION TO NTFY.SH ---
+          BACKUP_SIZE=$(du -h "$SNAPSHOT_FILENAME" | awk '{print $1}')
+          CURRENT_TIME=$(date +"%Y-%m-%d %H:%M:%S")
+
+          curl -H "Title: 📦 Database Backup Successful" \
+               -H "Tags: white_check_mark,database,floppy_disk" \
+               -H "Markdown: yes" \
+               -d "Encrypted database backup uploaded successfully.
+
+          **Filename (Copyable):**
+          \`$SNAPSHOT_FILENAME\`
+
+          * **Size:** $BACKUP_SIZE
+          * **Timestamp:** $CURRENT_TIME
+          * **Destination:** \`${RCLONE_REMOTE}hassan_shops/$SNAPSHOT_FILENAME\`
+          * **Database:** local_django_db" \
+               ntfy.sh/my_topic
+
+          echo "Notification sent to ntfy.sh/my_topic successfully!"
 
       - name: Save Updated DB Dump & Timestamp to GitHub Cache
         if: always()
