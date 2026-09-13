@@ -106,6 +106,22 @@ jobs:
           echo "TARGET_RESTORE_FILE=$TARGET_FILE" >> $GITHUB_ENV
 
       # --- CONDITIONAL DATABASE FORCED RESTORE ROUTE FROM GDRIVE ---
+      # --- STEP: SYNC GDRIVE FILE LIST TO LOGS ---
+      - name: Fetch and Print Direct Google Drive Backup List
+        env:
+          RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
+        run: |
+          mkdir -p /home/runner/.config/rclone
+          echo "$RCLONE_CONFIG_DATA" > /home/runner/.config/rclone/rclone.conf
+          RCLONE_REMOTE=$(rclone listremotes | head -n 1)
+          
+          echo "=================================================="
+          echo "---GDRIVE_FILE_LIST_START---"
+          rclone lsf "${RCLONE_REMOTE}hassan_shops/" --include "db_snapshot_*.sql.gz.enc"
+          echo "---GDRIVE_FILE_LIST_END---"
+          echo "=================================================="
+
+                        
       - name: Force Restore Database from Google Drive Snapshot
         if: env.RESTORE_REQUESTED == 'true'
         env:
