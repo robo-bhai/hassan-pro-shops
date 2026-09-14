@@ -12,7 +12,7 @@ pymysql.install_as_MySQLdb()
 # --- KEYS & GENERAL CONFIGURATION ---
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 SALT_KEY = os.environ.get('DJANGO_SALT_KEY')
-DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
+DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
 # --- ALLOWED HOSTS ---
 env_allowed = os.environ.get('ALLOWED_HOSTS', '')
