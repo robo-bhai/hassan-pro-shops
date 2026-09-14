@@ -143,7 +143,7 @@ jobs:
           python manage.py makemigrations --merge || true
           python manage.py makemigrations
           
-          echo "--- 1. APPLYING MIGRATIONS TO CLOUD (VIA SECRETS) ---"
+          echo "--- 1. APPLYING MIGRATIONS & ENSURING SUPERUSER TO CLOUD (VIA SECRETS) ---"
           if python manage.py migrate --noinput; then
               echo "Cloud migration passed successfully!"
           else
@@ -151,8 +151,26 @@ jobs:
               python manage.py migrate --fake --noinput || true
               python manage.py migrate --run-syncdb --noinput
           fi
+
+          python manage.py shell -c "
+          import os
+          from django.contrib.auth import get_user_model
+          User = get_user_model()
+          username = os.environ.get('SUPERUSER_NAME')
+          email = os.environ.get('SUPERUSER_EMAIL')
+          password = os.environ.get('SUPERUSER_PASSWORD')
+          if username and password:
+              user, created = User.objects.get_or_create(username=username, defaults={'email': email})
+              user.set_password(password)
+              user.is_staff = True
+              user.is_superuser = True
+              user.save()
+              print(f'CLOUD DB: Superuser \'{username}\' verified and saved successfully.')
+          else:
+              print('CLOUD DB: Skipping superuser creation (Credentials not set in secrets).')
+          "
           
-          echo "--- 2. APPLYING MIGRATIONS TO LOCAL (HARDCODED) ---"
+          echo "--- 2. APPLYING MIGRATIONS & ENSURING SUPERUSER TO LOCAL (HARDCODED) ---"
           export DB_HOST="127.0.0.1"
           export DB_PORT="3306"
           export DB_USER="root"
@@ -166,9 +184,27 @@ jobs:
               python manage.py migrate --fake --noinput || true
               python manage.py migrate --run-syncdb --noinput
           fi
+
+          python manage.py shell -c "
+          import os
+          from django.contrib.auth import get_user_model
+          User = get_user_model()
+          username = os.environ.get('SUPERUSER_NAME')
+          email = os.environ.get('SUPERUSER_EMAIL')
+          password = os.environ.get('SUPERUSER_PASSWORD')
+          if username and password:
+              user, created = User.objects.get_or_create(username=username, defaults={'email': email})
+              user.set_password(password)
+              user.is_staff = True
+              user.is_superuser = True
+              user.save()
+              print(f'LOCAL DB: Superuser \'{username}\' verified and saved successfully.')
+          else:
+              print('LOCAL DB: Skipping superuser creation (Credentials not set in secrets).')
+          "
           
-          curl -d "Forced Django Migrations Executed Successfully for Both Cloud & Local! 🚀" ntfy.sh/hshshehgag
-          echo "Forced migration dispatch complete."
+          curl -d "Forced Django Migrations & Superuser Verification Executed Successfully for Both Cloud & Local! 🚀" ntfy.sh/hshshehgag
+          echo "Forced migration & superuser dispatch complete."
           exit 0
 
 
@@ -471,7 +507,7 @@ jobs:
                       resized_img = img.resize((width, height), Image.Resampling.LANCZOS)
                       output_path = os.path.join(target_dir, filename)
                       resized_img.save(output_path, 'PNG')
-                      print(f'Saved: {output_path}')
+                      print(cloth_saved := f'Saved: {output_path}')
           "
 
       - name: Collect Static Files
