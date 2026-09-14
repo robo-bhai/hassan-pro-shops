@@ -630,20 +630,24 @@ jobs:
           echo " 2. PUSHING UPDATED LOCAL DATA TO CLOUD MYSQL SAFELY "
           echo "=========================================="
           
-          echo "Ensuring Cloud DB schema tables exist before syncing runner data..."
-          python manage.py migrate --noinput || true
+          echo "Ensuring Cloud DB schema and all table structures match via migrate & syncdb..."
+          python manage.py migrate --run-syncdb --noinput || true
 
+          echo "Dumping local schema and data together to prevent missing table errors..."
           MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
             --set-gtid-purged=OFF \
             --column-statistics=0 \
-            --no-create-info \
-            --replace local_django_db > runner_updated_data.sql
+            --single-transaction \
+            --add-drop-table \
+            local_django_db > runner_updated_data.sql
 
           gzip -f runner_updated_data.sql
 
+          echo "Applying dump to Cloud MySQL..."
           gunzip -c runner_updated_data.sql.gz | MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME"
           
           echo "Sync Up Back to Cloud Completed Successfully!"
+
 
       # --- STEP 6: ENCRYPTED SNAPSHOT CREATION & RCLONE UPLOAD TO GDRIVE (ONLY VIA TERMUX DISPATCH) ---
       - name: Create Encrypted Database Snapshot & Upload via Rclone
