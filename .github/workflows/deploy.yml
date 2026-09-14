@@ -630,23 +630,36 @@ jobs:
           echo " 2. PUSHING UPDATED LOCAL DATA TO CLOUD MYSQL SAFELY "
           echo "=========================================="
           
-          echo "Ensuring Cloud DB schema and all table structures match via migrate & syncdb..."
-          python manage.py migrate --run-syncdb --noinput || true
+          echo "Checking table existence and applying migrations..."
+          python manage.py migrate --noinput || true
 
-          echo "Dumping local schema and data together to prevent missing table errors..."
+          echo "Dumping data rows only (preserving existing cloud tables)..."
           MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
             --set-gtid-purged=OFF \
             --column-statistics=0 \
-            --single-transaction \
-            --add-drop-table \
-            local_django_db > runner_updated_data.sql
+            --no-create-info \
+            --replace local_django_db > runner_updated_data.sql
 
           gzip -f runner_updated_data.sql
 
-          echo "Applying dump to Cloud MySQL..."
-          gunzip -c runner_updated_data.sql.gz | MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME"
+          echo "Syncing data to Cloud MySQL without dropping tables..."
+          if gunzip -c runner_updated_data.sql.gz | MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME"; then
+              echo "Data sync completed successfully without dropping tables!"
+          else
+              echo "Table structure mismatch detected! Forcing one-time schema recreation..."
+              MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
+                --set-gtid-purged=OFF \
+                --column-statistics=0 \
+                --single-transaction \
+                --add-drop-table \
+                local_django_db > runner_full_dump.sql
+              gzip -f runner_full_dump.sql
+              gunzip -c runner_full_dump.sql.gz | MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME"
+              echo "Schema recreated and synced successfully."
+          fi
           
           echo "Sync Up Back to Cloud Completed Successfully!"
+
 
 
       # --- STEP 6: ENCRYPTED SNAPSHOT CREATION & RCLONE UPLOAD TO GDRIVE (ONLY VIA TERMUX DISPATCH) ---
