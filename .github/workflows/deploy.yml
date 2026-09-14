@@ -130,31 +130,48 @@ jobs:
       - name: Force Execute Remote Migration (Repository Dispatch)
         if: github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now'
         env:
-          DB_HOST: "127.0.0.1"
-          DB_PORT: "3306"
-          DB_USER: "root"
-          DB_PASS: "root"
-          DB_NAME: "local_django_db"
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASS: ${{ secrets.DB_PASS }}
+          DB_NAME: ${{ secrets.DB_NAME }}
         run: |
-          echo "=========================================="
-          echo "     FORCING REMOTE MIGRATION EXECUTION   "
-          echo "=========================================="
+          echo "=================================================="
+          echo " FORCING MIGRATION (CLOUD & HARDCODED LOCAL DB)  "
+          echo "=================================================="
           
           python manage.py makemigrations --merge || true
           python manage.py makemigrations
           
-          echo "Attempting standard migration..."
+          echo "--- 1. APPLYING MIGRATIONS TO CLOUD (VIA SECRETS) ---"
           if python manage.py migrate --noinput; then
-              echo "Standard migration passed successfully!"
+              echo "Cloud migration passed successfully!"
           else
-              echo "Migration conflict detected. Forcing state sync with --fake and resetting unapplied app states..."
+              echo "Cloud migration conflict detected. Forcing state sync..."
               python manage.py migrate --fake --noinput || true
               python manage.py migrate --run-syncdb --noinput
           fi
           
-          curl -d "Forced Django Migrations Executed Successfully via API! 🚀" ntfy.sh/hshshehgag
+          echo "--- 2. APPLYING MIGRATIONS TO LOCAL (HARDCODED) ---"
+          export DB_HOST="127.0.0.1"
+          export DB_PORT="3306"
+          export DB_USER="root"
+          export DB_PASS="root"
+          export DB_NAME="local_django_db"
+          
+          if python manage.py migrate --noinput; then
+              echo "Local migration passed successfully!"
+          else
+              echo "Local migration conflict detected. Forcing state sync..."
+              python manage.py migrate --fake --noinput || true
+              python manage.py migrate --run-syncdb --noinput
+          fi
+          
+          curl -d "Forced Django Migrations Executed Successfully for Both Cloud & Local! 🚀" ntfy.sh/hshshehgag
           echo "Forced migration dispatch complete."
           exit 0
+
+
       
       - name: Fetch and Print Direct Google Drive Backup List
         env:
