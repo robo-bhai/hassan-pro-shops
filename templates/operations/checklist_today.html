@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Daily Checklist{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h2 class="mb-1">📋 Daily Checklist</h2>
+            <p class="text-muted mb-0">{{ today|date:"l, d F Y" }}</p>
+        </div>
+        {% if can_manage %}
+        <a href="{% url 'checklist_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Add Item
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Progress Card -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="mb-0">Today's Progress</h5>
+                <h3 class="mb-0 text-primary">{{ stats.percent|floatformat:0 }}%</h3>
+            </div>
+            <div class="progress" style="height:12px;">
+                <div class="progress-bar bg-success" style="width:{{ stats.percent }}%"></div>
+            </div>
+            <div class="d-flex justify-content-between mt-2 small">
+                <span class="text-success">✅ {{ stats.completed }} Completed</span>
+                <span class="text-warning">⏳ {{ stats.pending }} Pending</span>
+                <span>Total: {{ stats.total }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-2">
+                <div class="col-md-10">
+                    <select name="department" class="form-select">
+                        <option value="">All Departments</option>
+                        {% for value, label in departments %}
+                        <option value="{{ value }}" {% if selected_department == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-primary w-100"><i class="bi bi-filter"></i> Filter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Checklist -->
+    <div class="row g-3">
+        {% regroup checklist by get_department_display as dept_groups %}
+        {% for dept in dept_groups %}
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0">{{ dept.grouper }}</h6>
+                </div>
+                <div class="card-body">
+                    {% for item in dept.list %}
+                    <div class="form-check mb-3 py-2 border-bottom">
+                        <input class="form-check-input" type="checkbox" 
+                               id="item{{ item.pk }}"
+                               {% if item.is_completed %}checked disabled{% endif %}
+                               onchange="completeItem({{ item.pk }})">
+                        <label class="form-check-label w-100" for="item{{ item.pk }}">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <strong {% if item.is_completed %}style="text-decoration:line-through;color:#6c757d;"{% endif %}>
+                                        {{ item.title }}
+                                    </strong>
+                                    {% if item.is_mandatory %}
+                                    <span class="badge bg-danger ms-1">Required</span>
+                                    {% endif %}
+                                    {% if item.description %}
+                                    <br><small class="text-muted">{{ item.description }}</small>
+                                    {% endif %}
+                                </div>
+                                {% if item.is_completed %}
+                                <small class="text-success">
+                                    ✅ {{ item.completed_at|date:"H:i" }}
+                                </small>
+                                {% endif %}
+                            </div>
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-clipboard-check fs-1 text-muted"></i>
+                    <h4 class="mt-3">No Checklist Items</h4>
+                    {% if can_manage %}
+                    <a href="{% url 'checklist_create' %}" class="btn btn-primary mt-2">
+                        <i class="bi bi-plus"></i> Add First Item
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+
+<script>
+function completeItem(itemId) {
+    const csrf = '{{ csrf_token }}';
+    fetch(`/operations/checklist/${itemId}/complete/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrf,
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(r => {
+        if (r.ok) {
+            location.reload();
+        } else {
+            alert('Error completing item');
+        }
+    })
+    .catch(e => alert('Error: ' + e.message));
+}
+</script>
+{% endblock %}

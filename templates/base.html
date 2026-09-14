@@ -779,6 +779,84 @@
             .sidebar, .topbar, .btn, .no-print { display: none !important; }
             .main-wrapper { margin-left: 0 !important; }
         }
+        
+        /* ============================================ */
+        /* 🤖 CHATBOT TOPBAR BUTTON - THEME AWARE */
+        /* ============================================ */
+        .chatbot-topbar-btn {
+            position: relative;
+            background: transparent;
+            color: var(--text-primary);
+            border: none;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .chatbot-topbar-btn:hover {
+            transform: scale(1.1);
+            background: var(--bg-hover);
+        }
+        
+        .chatbot-topbar-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .chatbot-topbar-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .chatbot-topbar-btn i {
+            line-height: 1;
+        }
+        
+        .chatbot-topbar-badge {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            background: #ef4444;
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 0.65rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            border: 2px solid var(--topbar-bg);
+            animation: badgePulse 2s infinite;
+        }
+        
+        body.dark-theme .chatbot-topbar-badge {
+            border-color: #1a1d3a;
+        }
+        
+        @keyframes badgePulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+        }
+        
+        @media (max-width: 768px) {
+            .chatbot-topbar-btn {
+                width: 34px;
+                height: 34px;
+                font-size: 1.2rem;
+            }
+            
+            .chatbot-topbar-badge {
+                width: 16px;
+                height: 16px;
+                font-size: 0.6rem;
+            }
+        }
     </style>
     
     {% block extra_css %}{% endblock %}
@@ -798,32 +876,19 @@
                     <button class="btn btn-link d-lg-none text-dark p-0" onclick="toggleSidebar()" style="font-size: 1.3rem;">
                         <i class="bi bi-list"></i>
                     </button>
-                    <span class="page-title">{% block page_title %}Dashboard{% endblock %}</span>
+                    
                 </div>
                 <div class="d-flex align-items-center gap-3 user-menu">
-                    <!-- Theme Toggle Dropdown -->
-                    <div class="dropdown d-inline-block">
-                        <button class="btn btn-link text-dark p-0 dropdown-toggle" data-bs-toggle="dropdown" style="text-decoration: none; font-size: 1.2rem;" id="themeToggleBtn">
-                            <span id="themeIcon">🌙</span>
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li>
-                                <a class="dropdown-item" href="#" onclick="applyTheme('light'); return false;">
-                                    ☀️ Light Mode
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="#" onclick="applyTheme('dark'); return false;">
-                                    🌙 Dark Mode
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="#" onclick="applyTheme('auto'); return false;">
-                                    🖥️ Auto (System)
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
+                    
+                    <!-- ============================================ -->
+                    <!-- 🤖 CHATBOT BUTTON (Topbar) -->
+                    <!-- ============================================ -->
+                    <button class="chatbot-topbar-btn" id="chatbotTopbarBtn" title="Business Assistant">
+                        <i class="bi bi-chat-dots-fill"></i>
+                        <span class="chatbot-topbar-badge" id="chatbotTopbarBadge" style="display:none;">1</span>
+                    </button>
+                    
+                    
                     
                     <!-- Notification Bell -->
                     <div style="position: relative;">
@@ -843,13 +908,12 @@
                     </div>
                     
                     <!-- ========================================== -->
-                    <!-- ✅ UPDATED: USER DROPDOWN - SIRF CEO      -->
+                    <!-- USER DROPDOWN                              -->
                     <!-- ========================================== -->
                     <div class="dropdown">
                         <button class="btn btn-link text-dark p-0 dropdown-toggle" data-bs-toggle="dropdown" style="text-decoration: none;">
                             <i class="bi bi-person-circle"></i> {{ request.user.username|default:'User' }}
                             
-                            <!-- ✅ Sirf CEO Badge (Admin hataya) -->
                             {% if request.user.is_superuser %}
                                 <span class="badge bg-primary ms-1" style="font-size:0.6rem; padding:2px 6px;">👑 CEO</span>
                             {% elif request.user.groups.filter.name == 'CEO' %}
@@ -864,7 +928,6 @@
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><a class="dropdown-item" href="{% url 'dashboard' %}"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
                             
-                            <!-- ✅ CEO Panel - Only for Superuser -->
                             {% if request.user.is_superuser %}
                             <li><hr class="dropdown-divider"></li>
                             <li class="dropdown-header text-primary"><i class="bi bi-crown"></i> 👑 CEO Panel</li>
@@ -961,7 +1024,6 @@
                 localStorage.setItem('userTheme', theme);
             }
             
-            // Dispatch event for other components
             window.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme: actualTheme } }));
         }
         
@@ -980,7 +1042,6 @@
             }
         }
         
-        // Listen for system theme changes when in auto mode
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
             const userTheme = localStorage.getItem('userTheme') || THEMES.LIGHT;
             if (userTheme === THEMES.AUTO) {
@@ -988,7 +1049,6 @@
             }
         });
         
-        // Initialize theme on page load
         const savedTheme = localStorage.getItem('userTheme') || THEMES.LIGHT;
         applyTheme(savedTheme);
         
@@ -1180,7 +1240,7 @@
         });
         
         function showKeyboardShortcuts() {
-            const shortcuts = `⌨️ Keyboard Shortcuts:\n\nCtrl + S → Save form\nCtrl + N → Create new item\nCtrl + H → Go to Dashboard\nCtrl + L → Logout\nCtrl + / → Show this help\nCtrl + Space → Voice commands (on dashboard)\n\nClick OK to continue`;
+            const shortcuts = `⌨️ Keyboard Shortcuts:\n\nCtrl + S → Save form\nCtrl + N → Create new item\nCtrl + H → Go to Dashboard\nCtrl + L → Logout\nCtrl + / → Show this help\n\nClick OK to continue`;
             alert(shortcuts);
         }
         
@@ -1309,7 +1369,27 @@
         window.addEventListener('load', function() {
             hideGlobalLoader();
         });
+        
+        // ============================================
+        // 🎤 VOICE OUTPUT - User Name Setup
+        // ============================================
+        window.ERP_USER_NAME = "{{ request.user.get_full_name|default:request.user.username|escapejs }}";
     </script>
+    
+    <!-- ============================================ -->
+    <!-- 🎤 VOICE OUTPUT SYSTEM -->
+    <!-- ============================================ -->
+    <!-- 🔊 VOICE OUTPUT SYSTEM -->
+<script src="{% static 'js/voice_output.js' %}"></script>
+
+<!-- 📢 VOICE ANNOUNCER -->
+<script src="{% static 'js/voice_announcer.js' %}"></script>
+<script src="{% static 'js/announcement_events.js' %}"></script>
+    
+    <!-- ============================================ -->
+    <!-- 🤖 CHATBOT WIDGET -->
+    <!-- ============================================ -->
+    {% include 'chatbot/widget.html' %}
     
     {% block extra_js %}{% endblock %}
 </body>

@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}My Tasks{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <div class="mb-4">
+        <h2 class="mb-1">👤 My Tasks</h2>
+        <p class="text-muted mb-0">
+            {% if employee %}Assigned to: <strong>{{ employee.name }}</strong>{% else %}No employee linked to your account{% endif %}
+        </p>
+    </div>
+
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card border-start border-primary border-4">
+                <div class="card-body">
+                    <h6 class="text-muted small">Total</h6>
+                    <h3>{{ total }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-start border-warning border-4">
+                <div class="card-body">
+                    <h6 class="text-muted small">In Progress</h6>
+                    <h3 class="text-warning">{{ in_progress.count }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-start border-danger border-4">
+                <div class="card-body">
+                    <h6 class="text-muted small">Overdue</h6>
+                    <h3 class="text-danger">{{ overdue.count }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-start border-success border-4">
+                <div class="card-body">
+                    <h6 class="text-muted small">Today</h6>
+                    <h3 class="text-success">{{ today_tasks.count }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overdue -->
+    {% if overdue %}
+    <div class="card border-0 shadow-sm mb-4 border-start border-danger border-4">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Overdue Tasks</h5>
+        </div>
+        <div class="card-body">
+            {% for task in overdue %}
+            <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                <div>
+                    <a href="{% url 'task_detail' task.pk %}" class="text-decoration-none">
+                        <strong class="text-danger">{{ task.title }}</strong>
+                    </a>
+                    <br>
+                    <small class="text-danger">Due: {{ task.due_date|date:"d M Y, H:i" }}</small>
+                </div>
+                <a href="{% url 'task_detail' task.pk %}" class="btn btn-sm btn-danger">View</a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Today's Tasks -->
+    {% if today_tasks %}
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="bi bi-calendar-check"></i> Due Today</h5>
+        </div>
+        <div class="card-body">
+            {% for task in today_tasks %}
+            <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                <div>
+                    <a href="{% url 'task_detail' task.pk %}" class="text-decoration-none">
+                        <strong>{{ task.title }}</strong>
+                    </a>
+                    <br>
+                    <small class="text-muted">{{ task.get_priority_display }} • {{ task.plan.plan_no }}</small>
+                </div>
+                {{ task.status_badge|safe }}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- In Progress -->
+    {% if in_progress %}
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-warning">
+            <h5 class="mb-0"><i class="bi bi-hourglass-split"></i> In Progress</h5>
+        </div>
+        <div class="card-body">
+            {% for task in in_progress %}
+            <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                <div>
+                    <a href="{% url 'task_detail' task.pk %}" class="text-decoration-none">
+                        <strong>{{ task.title }}</strong>
+                    </a>
+                    <br>
+                    <small class="text-muted">Due: {{ task.due_date|date:"d M Y" }}</small>
+                </div>
+                <a href="{% url 'task_complete' task.pk %}" class="btn btn-sm btn-success">Complete</a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Pending -->
+    {% if pending %}
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0"><i class="bi bi-list-task"></i> Pending</h5>
+        </div>
+        <div class="card-body">
+            {% for task in pending %}
+            <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                <div>
+                    <a href="{% url 'task_detail' task.pk %}" class="text-decoration-none">
+                        <strong>{{ task.title }}</strong>
+                    </a>
+                    <br>
+                    <small class="text-muted">Due: {{ task.due_date|date:"d M Y" }}</small>
+                </div>
+                <form method="post" action="{% url 'task_start' task.pk %}">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-warning">Start</button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Completed -->
+    {% if completed %}
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0"><i class="bi bi-check-circle"></i> Recently Completed</h5>
+        </div>
+        <div class="card-body">
+            {% for task in completed %}
+            <div class="border-bottom py-2">
+                <a href="{% url 'task_detail' task.pk %}" class="text-decoration-none">
+                    <strong>{{ task.title }}</strong>
+                </a>
+                <br>
+                <small class="text-success">✅ {{ task.completed_at|date:"d M Y, H:i" }}</small>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if not pending and not in_progress and not overdue and not today_tasks %}
+    <div class="card border-0 shadow-sm">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-emoji-smile fs-1 text-success"></i>
+            <h4 class="mt-3">🎉 All Clear!</h4>
+            <p class="text-muted">You have no pending tasks</p>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

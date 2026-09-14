@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Alerts{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">🚨 Operation Alerts</h2>
+            <p class="text-muted mb-0">Stay updated with important notifications</p>
+        </div>
+        <a href="{% url 'operations_dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
+    </div>
+
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-start border-primary border-4">
+                <div class="card-body">
+                    <h6 class="text-muted small">Total</h6>
+                    <h3>{{ stats.total }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-start border-info border-4">
+                <div class="card-body">
+                    <h6 class="text-muted small">Unread</h6>
+                    <h3 class="text-info">{{ stats.unread }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-start border-warning border-4">
+                <div class="card-body">
+                    <h6 class="text-muted small">Unresolved</h6>
+                    <h3 class="text-warning">{{ stats.unresolved }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-start border-danger border-4">
+                <div class="card-body">
+                    <h6 class="text-muted small">Critical</h6>
+                    <h3 class="text-danger">{{ stats.critical }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-2">
+                <div class="col-md-5">
+                    <select name="status" class="form-select">
+                        <option value="">All Alerts</option>
+                        <option value="unread" {% if selected_status == 'unread' %}selected{% endif %}>Unread</option>
+                        <option value="unresolved" {% if selected_status == 'unresolved' %}selected{% endif %}>Unresolved</option>
+                        <option value="ai" {% if selected_status == 'ai' %}selected{% endif %}>AI Generated</option>
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <select name="severity" class="form-select">
+                        <option value="">All Severity</option>
+                        {% for value, label in severity_choices %}
+                        <option value="{{ value }}" {% if selected_severity == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-primary w-100"><i class="bi bi-filter"></i> Filter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Alerts List -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            {% for alert in alerts %}
+            <div class="alert-item p-3 border-bottom {% if not alert.is_read %}bg-light{% endif %}">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <div class="mb-2">
+                            <span class="badge bg-{% if alert.severity == 'critical' %}danger{% elif alert.severity == 'high' %}warning{% elif alert.severity == 'medium' %}info{% else %}success{% endif %}">
+                                {{ alert.get_severity_display }}
+                            </span>
+                            <span class="badge bg-secondary">{{ alert.get_alert_type_display }}</span>
+                            {% if alert.ai_generated %}
+                            <span class="badge bg-primary"><i class="bi bi-robot"></i> AI</span>
+                            {% endif %}
+                        </div>
+                        <h6 class="mb-1">{{ alert.title }}</h6>
+                        <p class="text-muted small mb-1">{{ alert.message }}</p>
+                        <small class="text-muted">
+                            <i class="bi bi-clock"></i> {{ alert.created_at|timesince }} ago
+                        </small>
+                    </div>
+                    <div class="d-flex gap-2">
+                        {% if not alert.is_resolved %}
+                        <form method="post" action="{% url 'alert_resolve' alert.pk %}" class="d-inline">
+                            {% csrf_token %}
+                            <button class="btn btn-sm btn-success">
+                                <i class="bi bi-check"></i> Resolve
+                            </button>
+                        </form>
+                        {% else %}
+                        <span class="badge bg-success">✅ Resolved</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-5">
+                <i class="bi bi-bell-slash fs-1 text-muted"></i>
+                <h4 class="mt-3">No Alerts</h4>
+                <p class="text-muted">All clear! No alerts to show.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+            </li>
+            {% endif %}
+            <li class="page-item active">
+                <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+            </li>
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+</div>
+
+<style>
+.alert-item { transition: all 0.2s ease; }
+.alert-item:hover { background: #f8f9fa; }
+</style>
+{% endblock %}

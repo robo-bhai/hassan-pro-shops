@@ -1,0 +1,546 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Business Operations Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- ============================================ -->
+    <!-- HEADER                                        -->
+    <!-- ============================================ -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h2 class="mb-1">🏢 Business Operations Dashboard</h2>
+            <p class="text-muted mb-0">{{ today|date:"l, d F Y" }}</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <button id="runAiBtn" class="btn btn-gradient-primary">
+                <i class="bi bi-robot"></i> Run AI Analysis
+            </button>
+            <a href="{% url 'operation_plan_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> New Plan
+            </a>
+            <a href="{% url 'task_create' %}" class="btn btn-success">
+                <i class="bi bi-plus"></i> New Task
+            </a>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- HEALTH SCORE + QUICK STATS                    -->
+    <!-- ============================================ -->
+    <div class="row g-3 mb-4">
+        
+        <!-- Health Score -->
+        <div class="col-lg-3 col-md-6">
+            <div class="card h-100 border-0 shadow-sm health-card">
+                <div class="card-body text-center">
+                    <div class="health-circle">
+                        <svg viewBox="0 0 100 100" class="health-svg">
+                            <circle cx="50" cy="50" r="45" class="health-bg"></circle>
+                            <circle cx="50" cy="50" r="45" class="health-fill" 
+                                    style="stroke-dasharray: {{ health_score|floatformat:0 }} 283;"></circle>
+                        </svg>
+                        <div class="health-text">
+                            <h2 class="mb-0">{{ health_score|floatformat:0 }}</h2>
+                            <small>Health</small>
+                        </div>
+                    </div>
+                    <h6 class="mt-3 mb-0">Operations Health</h6>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Tasks -->
+        <div class="col-lg-3 col-md-6">
+            <div class="card h-100 border-0 shadow-sm stat-card border-start border-primary border-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <p class="text-muted mb-1 small">Total Tasks</p>
+                            <h3 class="mb-0">{{ quick_stats.total_tasks }}</h3>
+                            <small class="text-success">
+                                <i class="bi bi-check-circle"></i> {{ quick_stats.completed_tasks }} done
+                            </small>
+                        </div>
+                        <div class="stat-icon bg-primary-light">
+                            <i class="bi bi-list-check text-primary"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- In Progress -->
+        <div class="col-lg-3 col-md-6">
+            <div class="card h-100 border-0 shadow-sm stat-card border-start border-warning border-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <p class="text-muted mb-1 small">In Progress</p>
+                            <h3 class="mb-0">{{ quick_stats.in_progress_tasks }}</h3>
+                            <small class="text-warning">
+                                <i class="bi bi-clock"></i> {{ quick_stats.pending_tasks }} pending
+                            </small>
+                        </div>
+                        <div class="stat-icon bg-warning-light">
+                            <i class="bi bi-hourglass-split text-warning"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Overdue -->
+        <div class="col-lg-3 col-md-6">
+            <div class="card h-100 border-0 shadow-sm stat-card border-start border-danger border-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <p class="text-muted mb-1 small">Overdue</p>
+                            <h3 class="mb-0 text-danger">{{ quick_stats.overdue_tasks }}</h3>
+                            <small class="text-danger">
+                                <i class="bi bi-exclamation-triangle"></i> Needs attention
+                            </small>
+                        </div>
+                        <div class="stat-icon bg-danger-light">
+                            <i class="bi bi-exclamation-triangle text-danger"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- AI INSIGHTS & SUGGESTIONS                     -->
+    <!-- ============================================ -->
+    <div class="row g-3 mb-4">
+        
+        <!-- AI Insights -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-gradient-ai text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-robot"></i> AI Insights</h5>
+                    <a href="{% url 'ai_insights_list' %}" class="btn btn-sm btn-light">View All</a>
+                </div>
+                <div class="card-body" style="max-height:400px;overflow-y:auto;">
+                    {% if ai_insights %}
+                        {% for insight in ai_insights %}
+                        <div class="ai-insight-item border-start border-4 border-{{ insight.severity_color }} ps-3 py-2 mb-3">
+                            <div class="d-flex justify-content-between align-items-start mb-1">
+                                <h6 class="mb-0">{{ insight.title }}</h6>
+                                <span class="badge bg-{{ insight.severity_color }}">
+                                    {{ insight.get_severity_display }}
+                                </span>
+                            </div>
+                            <p class="text-muted small mb-1">{{ insight.description|truncatechars:150 }}</p>
+                            {% if insight.recommendation %}
+                            <div class="bg-light p-2 rounded small mb-2">
+                                💡 <strong>AI Suggestion:</strong> {{ insight.recommendation|truncatechars:100 }}
+                            </div>
+                            {% endif %}
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">
+                                    <i class="bi bi-graph-up"></i> Confidence: {{ insight.confidence_score|floatformat:0 }}%
+                                </small>
+                                <form method="post" action="{% url 'ai_insight_resolve' insight.pk %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-success">
+                                        <i class="bi bi-check-circle"></i> Resolve
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-robot fs-1 text-muted"></i>
+                            <p class="text-muted mt-2">No AI insights yet</p>
+                            <button onclick="document.getElementById('runAiBtn').click()" 
+                                    class="btn btn-sm btn-primary">
+                                <i class="bi bi-play-circle"></i> Run AI Analysis
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Task Suggestions -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-gradient-success text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-lightbulb"></i> AI Suggestions</h5>
+                    <a href="{% url 'ai_task_suggestions' %}" class="btn btn-sm btn-light">View</a>
+                </div>
+                <div class="card-body" style="max-height:400px;overflow-y:auto;">
+                    {% if ai_suggestions %}
+                        {% for suggestion in ai_suggestions %}
+                        <div class="suggestion-item border rounded p-2 mb-2">
+                            <h6 class="mb-1 small">{{ suggestion.title|truncatechars:40 }}</h6>
+                            <p class="text-muted small mb-1">{{ suggestion.description|truncatechars:60 }}</p>
+                            <div class="d-flex gap-1">
+                                <a href="{% url 'ai_suggestion_accept' suggestion.pk %}" 
+                                   class="btn btn-xs btn-success flex-fill">
+                                    <i class="bi bi-check"></i> Accept
+                                </a>
+                                <form method="post" action="{% url 'ai_suggestion_reject' suggestion.pk %}" class="flex-fill">
+                                    {% csrf_token %}
+                                    <button class="btn btn-xs btn-outline-danger w-100">
+                                        <i class="bi bi-x"></i> Reject
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-lightbulb fs-1 text-muted"></i>
+                            <p class="text-muted small mt-2">No suggestions</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- TODAY'S TASKS & OVERDUE                       -->
+    <!-- ============================================ -->
+    <div class="row g-3 mb-4">
+        
+        <!-- Today's Tasks -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-calendar-check"></i> Today's Tasks</h5>
+                </div>
+                <div class="card-body" style="max-height:400px;overflow-y:auto;">
+                    {% if today_tasks %}
+                        {% for task in today_tasks %}
+                        <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                            <div class="flex-grow-1">
+                                <a href="{% url 'task_detail' task.pk %}" class="text-decoration-none">
+                                    <strong class="text-dark">{{ task.title }}</strong>
+                                </a>
+                                <br>
+                                <small class="text-muted">
+                                    {{ task.get_priority_display }} • 
+                                    {{ task.assigned_to.name|default:"Unassigned" }}
+                                </small>
+                            </div>
+                            <div class="text-end">
+                                {{ task.status_badge|safe }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-emoji-smile fs-1 text-success"></i>
+                            <p class="text-muted mt-2">🎉 No tasks today!</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Overdue Tasks -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Overdue Tasks</h5>
+                </div>
+                <div class="card-body" style="max-height:400px;overflow-y:auto;">
+                    {% if overdue_tasks %}
+                        {% for task in overdue_tasks %}
+                        <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                            <div class="flex-grow-1">
+                                <a href="{% url 'task_detail' task.pk %}" class="text-decoration-none">
+                                    <strong class="text-danger">{{ task.title }}</strong>
+                                </a>
+                                <br>
+                                <small class="text-danger">
+                                    <i class="bi bi-clock"></i> Due: {{ task.due_date|date:"d M Y" }} • 
+                                    {{ task.assigned_to.name|default:"Unassigned" }}
+                                </small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-check-circle fs-1 text-success"></i>
+                            <p class="text-muted mt-2">✅ No overdue tasks!</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- KPIs                                          -->
+    <!-- ============================================ -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Key Performance Indicators</h5>
+            <div>
+                <span class="badge bg-success">{{ kpi_summary.on_track }} On Track</span>
+                <span class="badge bg-warning">{{ kpi_summary.warning }} Warning</span>
+                <span class="badge bg-danger">{{ kpi_summary.critical }} Critical</span>
+                <span class="badge bg-primary">{{ kpi_summary.achieved }} Achieved</span>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if kpis %}
+                <div class="row g-3">
+                    {% for kpi in kpis %}
+                    <div class="col-lg-3 col-md-6">
+                        <div class="kpi-card border rounded p-3 h-100">
+                            <h6 class="mb-2">{{ kpi.name }}</h6>
+                            <div class="d-flex justify-content-between align-items-end mb-2">
+                                <h4 class="mb-0">{{ kpi.current_value|floatformat:0 }}</h4>
+                                <small class="text-muted">/ {{ kpi.target_value|floatformat:0 }}</small>
+                            </div>
+                            <div class="progress mb-2" style="height:8px;">
+                                <div class="progress-bar 
+                                    {% if kpi.status == 'achieved' %}bg-primary
+                                    {% elif kpi.status == 'on_track' %}bg-success
+                                    {% elif kpi.status == 'warning' %}bg-warning
+                                    {% else %}bg-danger{% endif %}" 
+                                    style="width:{{ kpi.progress_percent }}%"></div>
+                            </div>
+                            {{ kpi.status_badge|safe }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center py-4">
+                    <p class="text-muted">No KPIs configured</p>
+                    <a href="{% url 'kpi_create' %}" class="btn btn-primary btn-sm">
+                        <i class="bi bi-plus"></i> Create KPI
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- DEPARTMENT PERFORMANCE                        -->
+    <!-- ============================================ -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white">
+            <h5 class="mb-0"><i class="bi bi-building"></i> Department Performance</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                {% for dept in department_stats %}
+                <div class="col-lg-3 col-md-4">
+                    <div class="dept-card border rounded p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0">{{ dept.name }}</h6>
+                            <span class="badge bg-primary">{{ dept.percent|floatformat:0 }}%</span>
+                        </div>
+                        <div class="progress mb-2" style="height:8px;">
+                            <div class="progress-bar bg-success" style="width:{{ dept.percent }}%"></div>
+                        </div>
+                        <small class="text-muted">{{ dept.completed }}/{{ dept.total }} completed</small>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- WEEKLY CHART                                  -->
+    <!-- ============================================ -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white">
+            <h5 class="mb-0"><i class="bi bi-graph-up"></i> Weekly Task Activity</h5>
+        </div>
+        <div class="card-body">
+            <canvas id="weeklyChart" height="80"></canvas>
+        </div>
+    </div>
+
+</div>
+
+<!-- ============================================ -->
+<!-- STYLES                                        -->
+<!-- ============================================ -->
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+}
+.bg-gradient-primary:hover { color: white; opacity: 0.9; }
+
+.bg-gradient-ai {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.bg-gradient-success {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+}
+
+.bg-primary-light { background: rgba(0,123,255,0.1); }
+.bg-warning-light { background: rgba(255,193,7,0.1); }
+.bg-danger-light { background: rgba(220,53,69,0.1); }
+.bg-success-light { background: rgba(40,167,69,0.1); }
+
+.stat-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.health-card { background: #fff; }
+.health-circle {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    margin: 0 auto;
+}
+.health-svg { transform: rotate(-90deg); }
+.health-bg { fill: none; stroke: #e9ecef; stroke-width: 8; }
+.health-fill { fill: none; stroke: #28a745; stroke-width: 8; 
+    stroke-linecap: round; transition: stroke-dasharray 0.5s ease; }
+.health-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+.health-text h2 { font-size: 2rem; color: #28a745; }
+
+.ai-insight-item {
+    background: #f8f9fa;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+.ai-insight-item:hover { background: #e9ecef; }
+
+.suggestion-item {
+    background: #f8f9fa;
+    transition: all 0.2s ease;
+}
+.suggestion-item:hover { background: #e9ecef; transform: translateX(3px); }
+
+.btn-xs {
+    padding: 2px 8px;
+    font-size: 0.75rem;
+}
+
+.kpi-card, .dept-card {
+    transition: all 0.2s ease;
+    background: #fff;
+}
+.kpi-card:hover, .dept-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+    .health-circle { width: 100px; height: 100px; }
+    .health-text h2 { font-size: 1.5rem; }
+}
+</style>
+
+<!-- ============================================ -->
+<!-- SCRIPTS                                       -->
+<!-- ============================================ -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Weekly Chart
+const ctx = document.getElementById('weeklyChart').getContext('2d');
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: {{ weekly_labels|safe }},
+        datasets: [
+            {
+                label: 'Created',
+                data: {{ weekly_created|safe }},
+                backgroundColor: 'rgba(102, 126, 234, 0.7)',
+                borderRadius: 6,
+            },
+            {
+                label: 'Completed',
+                data: {{ weekly_completed|safe }},
+                backgroundColor: 'rgba(40, 167, 69, 0.7)',
+                borderRadius: 6,
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+            legend: { position: 'top' },
+        },
+        scales: {
+            y: { beginAtZero: true, ticks: { stepSize: 1 } }
+        }
+    }
+});
+
+// Run AI Analysis
+document.getElementById('runAiBtn').addEventListener('click', function() {
+    const btn = this;
+    const originalHTML = btn.innerHTML;
+    
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Analyzing...';
+    
+    fetch('{% url "run_ai_analysis" %}', {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+        
+        if (data.success) {
+            // Show success message
+            showToast('success', data.message);
+            // Reload page after 2 seconds
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            showToast('danger', data.message);
+        }
+    })
+    .catch(error => {
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+        showToast('danger', 'Error: ' + error.message);
+    });
+});
+
+// Toast notification
+function showToast(type, message) {
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type} position-fixed top-0 end-0 m-3 shadow`;
+    toast.style.zIndex = '9999';
+    toast.style.minWidth = '300px';
+    toast.innerHTML = `
+        <i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-triangle'}"></i>
+        ${message}
+        <button type="button" class="btn-close float-end" onclick="this.parentElement.remove()"></button>
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 5000);
+}
+</script>
+{% endblock %}

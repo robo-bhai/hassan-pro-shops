@@ -1,0 +1,403 @@
+{% extends 'base.html' %}
+{% load static humanize %}
+
+{% block title %}🧠 AI Self-Diagnostic Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ai-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 20px;
+        margin-bottom: 25px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .ai-header::before {
+        content: '🤖';
+        position: absolute;
+        right: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 8rem;
+        opacity: 0.1;
+    }
+    
+    .health-score-card {
+        background: white;
+        border-radius: 20px;
+        padding: 30px;
+        text-align: center;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        margin-bottom: 25px;
+    }
+    
+    .health-circle {
+        width: 180px;
+        height: 180px;
+        border-radius: 50%;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        background: conic-gradient(
+            var(--score-color) var(--score-percent),
+            #e9ecef var(--score-percent)
+        );
+    }
+    
+    .health-circle-inner {
+        width: 150px;
+        height: 150px;
+        background: white;
+        border-radius: 50%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .health-value {
+        font-size: 3rem;
+        font-weight: 800;
+        line-height: 1;
+    }
+    
+    .health-label {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-top: 5px;
+    }
+    
+    .insight-card {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 15px;
+        border-left: 5px solid;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        transition: all 0.3s;
+    }
+    
+    .insight-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    
+    .insight-card.critical { border-left-color: #dc3545; }
+    .insight-card.high { border-left-color: #fd7e14; }
+    .insight-card.medium { border-left-color: #ffc107; }
+    .insight-card.low { border-left-color: #28a745; }
+    .insight-card.info { border-left-color: #17a2b8; }
+    
+    .insight-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: 8px;
+        color: #1a1a2e;
+    }
+    
+    .insight-description {
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin-bottom: 15px;
+    }
+    
+    .insight-meta {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        align-items: center;
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    
+    .insight-meta span {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .confidence-bar {
+        height: 6px;
+        background: #e9ecef;
+        border-radius: 10px;
+        overflow: hidden;
+        width: 100px;
+    }
+    
+    .confidence-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        border-radius: 10px;
+    }
+    
+    .stat-mini {
+        background: white;
+        border-radius: 12px;
+        padding: 15px;
+        text-align: center;
+        border: 1px solid #eef0f5;
+        transition: all 0.3s;
+    }
+    
+    .stat-mini:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+    }
+    
+    .stat-mini .value {
+        font-size: 1.8rem;
+        font-weight: 800;
+        line-height: 1;
+    }
+    
+    .stat-mini .label {
+        font-size: 0.7rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-top: 5px;
+    }
+    
+    .stat-mini.critical .value { color: #dc3545; }
+    .stat-mini.high .value { color: #fd7e14; }
+    .stat-mini.medium .value { color: #ffc107; }
+    .stat-mini.low .value { color: #28a745; }
+    .stat-mini.total .value { color: #667eea; }
+    
+    .btn-ai {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 12px 25px;
+        border-radius: 10px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s;
+    }
+    
+    .btn-ai:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(102,126,234,0.4);
+        color: white;
+    }
+    
+    .category-pill {
+        display: inline-block;
+        padding: 5px 15px;
+        border-radius: 20px;
+        background: #f0f4ff;
+        color: #667eea;
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin: 3px;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+    
+    .category-pill:hover {
+        background: #667eea;
+        color: white;
+    }
+    
+    .category-pill.active {
+        background: #667eea;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Header -->
+    <div class="ai-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h2 class="mb-2 fw-bold">🧠 AI Self-Diagnostic Dashboard</h2>
+                <p class="mb-0 opacity-75">
+                    <i class="bi bi-robot me-2"></i>
+                    System find issues.
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <a href="?run=true" class="btn btn-light">
+                    <i class="bi bi-play-circle me-1"></i> Run AI Analysis
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Health Score -->
+    {% if latest_score %}
+    <div class="health-score-card">
+        <h5 class="mb-4">📊 System Health Score</h5>
+        <div class="health-circle" style="--score-percent: {{ latest_score.overall_score }}%; --score-color: {% if latest_score.overall_score >= 80 %}#28a745{% elif latest_score.overall_score >= 60 %}#ffc107{% else %}#dc3545{% endif %};">
+            <div class="health-circle-inner">
+                <div class="health-value" style="color: {% if latest_score.overall_score >= 80 %}#28a745{% elif latest_score.overall_score >= 60 %}#ffc107{% else %}#dc3545{% endif %};">
+                    {{ latest_score.overall_score|floatformat:0 }}
+                </div>
+                <div class="health-label">/ 100</div>
+            </div>
+        </div>
+        <p class="mt-3 mb-0">
+            {% if latest_score.overall_score >= 80 %}
+                <span class="badge bg-success fs-6">✅ System Healthy</span>
+            {% elif latest_score.overall_score >= 60 %}
+                <span class="badge bg-warning fs-6">⚠️ Needs Attention</span>
+            {% else %}
+                <span class="badge bg-danger fs-6">🔴 Critical</span>
+            {% endif %}
+        </p>
+        <small class="text-muted">Last updated: {{ latest_score.date|date:"d M Y" }}</small>
+    </div>
+    {% endif %}
+
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="stat-mini critical">
+                <div class="value">{{ critical_count }}</div>
+                <div class="label">🔴 Critical</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-mini high">
+                <div class="value">{{ high_count }}</div>
+                <div class="label">🟠 High</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-mini medium">
+                <div class="value">{{ medium_count }}</div>
+                <div class="label">🟡 Medium</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-mini low">
+                <div class="value">{{ low_count }}</div>
+                <div class="label">🟢 Low</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Categories Filter -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h6 class="fw-bold mb-3">Filter by Category</h6>
+            <a href="?" class="category-pill {% if not category_filter %}active{% endif %}">All</a>
+            {% for cat_code, cat_name in insight_categories %}
+                <a href="?category={{ cat_code }}" class="category-pill {% if category_filter == cat_code %}active{% endif %}">
+                    {{ cat_name }}
+                </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Insights List -->
+    <h5 class="mb-3">
+        🤖 AI Insights
+        <span class="badge bg-primary ms-2">{{ total_insights }}</span>
+    </h5>
+
+    {% for insight in insights %}
+    <div class="insight-card {{ insight.severity }}">
+        <div class="d-flex justify-content-between align-items-start">
+            <div class="flex-grow-1">
+                <div class="insight-title">
+                    {{ insight.type_icon }} {{ insight.title }}
+                </div>
+                <div class="insight-description">{{ insight.description }}</div>
+                
+                <div class="insight-meta">
+                    <span><i class="bi bi-tag"></i> {{ insight.get_category_display }}</span>
+                    <span><i class="bi bi-bar-chart"></i> Impact: {{ insight.impact_score }}/100</span>
+                    <span>
+                        <i class="bi bi-brain"></i> Confidence:
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" style="width: {{ insight.confidence_score }}%;"></div>
+                        </div>
+                        {{ insight.confidence_score|floatformat:0 }}%
+                    </span>
+                    <span><i class="bi bi-clock"></i> {{ insight.detected_at|timesince }} ago</span>
+                </div>
+
+                {% if insight.recommendation %}
+                <div class="mt-3 p-3" style="background: #f8f9fc; border-radius: 10px;">
+                    <strong class="text-primary">💡 AI Recommendation:</strong>
+                    <p class="mb-0 mt-1">{{ insight.recommendation }}</p>
+                </div>
+                {% endif %}
+            </div>
+            <div class="ms-3">
+                <span class="badge bg-{{ insight.severity_color }}">
+                    {{ insight.get_severity_display }}
+                </span>
+            </div>
+        </div>
+
+        <div class="mt-3 d-flex gap-2 flex-wrap">
+            {% if insight.fix_url %}
+            <a href="{{ insight.fix_url }}" class="btn btn-sm btn-primary">
+                <i class="bi bi-wrench me-1"></i> Fix Now
+            </a>
+            {% endif %}
+            <a href="{% url 'ai_insight_detail' insight.pk %}" class="btn btn-sm btn-outline-info">
+                <i class="bi bi-eye me-1"></i> Details
+            </a>
+            <form method="post" action="{% url 'ai_resolve_insight' insight.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-success">
+                    <i class="bi bi-check-circle me-1"></i> Mark Resolved
+                </button>
+            </form>
+            <form method="post" action="{% url 'ai_ignore_insight' insight.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-x-circle me-1"></i> Ignore
+                </button>
+            </form>
+        </div>
+    </div>
+    {% empty %}
+    <div class="card shadow-sm">
+        <div class="card-body text-center py-5">
+            <div style="font-size: 4rem; opacity: 0.2;">🎉</div>
+            <h4 class="mt-3">No Issues Found!</h4>
+            <p class="text-muted">AI not find any problem. System is healthy!</p>
+            <a href="?run=true" class="btn btn-ai">
+                <i class="bi bi-play-circle me-1"></i> Run Fresh Analysis
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <nav>
+        <ul class="pagination justify-content-center mt-4">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if category_filter %}&category={{ category_filter }}{% endif %}">Previous</a>
+            </li>
+            {% endif %}
+            <li class="page-item active">
+                <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+            </li>
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if category_filter %}&category={{ category_filter }}{% endif %}">Next</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+</div>
+{% endblock %}

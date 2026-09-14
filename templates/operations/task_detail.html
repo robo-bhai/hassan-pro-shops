@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}{{ task.task_no }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
+        <div>
+            <div class="mb-2">
+                <span class="badge bg-primary">{{ task.task_no }}</span>
+                {{ task.status_badge|safe }}
+                <span class="badge bg-{% if task.priority == 'urgent' %}danger{% elif task.priority == 'high' %}warning{% elif task.priority == 'medium' %}info{% else %}success{% endif %}">
+                    {{ task.get_priority_display }}
+                </span>
+            </div>
+            <h2 class="mb-1">{{ task.title }}</h2>
+            <p class="text-muted mb-0">Plan: 
+                <a href="{% url 'operation_plan_detail' task.plan.pk %}" class="text-decoration-none">
+                    {{ task.plan.plan_no }} - {{ task.plan.title }}
+                </a>
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if task.status == 'pending' %}
+            <form method="post" action="{% url 'task_start' task.pk %}">
+                {% csrf_token %}
+                <button class="btn btn-warning"><i class="bi bi-play-fill"></i> Start</button>
+            </form>
+            {% endif %}
+            {% if task.status == 'in_progress' %}
+            <a href="{% url 'task_complete' task.pk %}" class="btn btn-success">
+                <i class="bi bi-check-circle"></i> Complete
+            </a>
+            {% endif %}
+            {% if can_manage %}
+            <a href="{% url 'task_edit' task.pk %}" class="btn btn-outline-primary">
+                <i class="bi bi-pencil"></i>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if is_overdue %}
+    <div class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle"></i>
+        <strong>Overdue!</strong> This task was due on {{ task.due_date|date:"d M Y, H:i" }}
+    </div>
+    {% endif %}
+
+    <div class="row g-3">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-text-paragraph"></i> Description</h6>
+                </div>
+                <div class="card-body">
+                    <p>{{ task.description|default:"No description" }}</p>
+                </div>
+            </div>
+
+            {% if task.notes %}
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-sticky"></i> Notes</h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">{{ task.notes }}</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> Task Info</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <small class="text-muted">Assigned To</small>
+                        <p class="mb-0"><strong>{{ task.assigned_to.name|default:"Unassigned" }}</strong></p>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted">Due Date</small>
+                        <p class="mb-0">{{ task.due_date|date:"d M Y, H:i" }}</p>
+                    </div>
+                    {% if task.started_at %}
+                    <div class="mb-3">
+                        <small class="text-muted">Started</small>
+                        <p class="mb-0">{{ task.started_at|date:"d M Y, H:i" }}</p>
+                    </div>
+                    {% endif %}
+                    {% if task.completed_at %}
+                    <div class="mb-3">
+                        <small class="text-muted">Completed</small>
+                        <p class="mb-0 text-success">{{ task.completed_at|date:"d M Y, H:i" }}</p>
+                    </div>
+                    {% endif %}
+                    <div class="mb-3">
+                        <small class="text-muted">Estimated Hours</small>
+                        <p class="mb-0">{{ task.estimated_hours }}h</p>
+                    </div>
+                    {% if task.actual_hours > 0 %}
+                    <div class="mb-3">
+                        <small class="text-muted">Actual Hours</small>
+                        <p class="mb-0">{{ task.actual_hours }}h</p>
+                    </div>
+                    {% endif %}
+                    {% if task.ai_suggested %}
+                    <div class="alert alert-info py-2 small mb-0">
+                        <i class="bi bi-robot"></i> AI Suggested Task
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

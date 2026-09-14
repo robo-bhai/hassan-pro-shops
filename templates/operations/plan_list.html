@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}Business Plans{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h2 class="mb-1">📋 Business Plans</h2>
+            <p class="text-muted mb-0">Manage all operation plans</p>
+        </div>
+        {% if can_manage %}
+        <a href="{% url 'operation_plan_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> New Plan
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-start border-primary border-4">
+                <div class="card-body">
+                    <h6 class="text-muted small">Total Plans</h6>
+                    <h3>{{ total_plans }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-start border-warning border-4">
+                <div class="card-body">
+                    <h6 class="text-muted small">Active</h6>
+                    <h3 class="text-warning">{{ active_count }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-start border-success border-4">
+                <div class="card-body">
+                    <h6 class="text-muted small">Completed</h6>
+                    <h3 class="text-success">{{ completed_count }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-start border-secondary border-4">
+                <div class="card-body">
+                    <h6 class="text-muted small">Draft</h6>
+                    <h3 class="text-secondary">{{ draft_count }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-2">
+                <div class="col-md-3">
+                    <input type="text" name="search" value="{{ search }}" 
+                           class="form-control" placeholder="Search plans...">
+                </div>
+                <div class="col-md-2">
+                    <select name="type" class="form-select">
+                        <option value="">All Types</option>
+                        {% for value, label in plan_types %}
+                        <option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select name="department" class="form-select">
+                        <option value="">All Depts</option>
+                        {% for value, label in departments %}
+                        <option value="{{ value }}" {% if selected_department == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select name="status" class="form-select">
+                        <option value="">All Status</option>
+                        {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-primary w-100">
+                        <i class="bi bi-filter"></i> Filter
+                    </button>
+                </div>
+                <div class="col-md-1">
+                    <a href="{% url 'operation_plan_list' %}" class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Plans Grid -->
+    <div class="row g-3">
+        {% for plan in plans %}
+        <div class="col-lg-4 col-md-6">
+            <div class="card border-0 shadow-sm h-100 plan-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="badge bg-primary">{{ plan.plan_no }}</span>
+                        {{ plan.status_badge|safe }}
+                    </div>
+                    
+                    <h5 class="mb-2">
+                        <a href="{% url 'operation_plan_detail' plan.pk %}" class="text-decoration-none text-dark">
+                            {{ plan.title }}
+                        </a>
+                    </h5>
+                    
+                    <p class="text-muted small mb-3">{{ plan.description|truncatechars:80 }}</p>
+                    
+                    <div class="mb-2">
+                        {{ plan.priority_badge|safe }}
+                        <span class="badge bg-secondary">{{ plan.get_department_display }}</span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span>Progress</span>
+                            <strong>{{ plan.progress_percent|floatformat:0 }}%</strong>
+                        </div>
+                        <div class="progress" style="height:8px;">
+                            <div class="progress-bar bg-success" style="width:{{ plan.progress_percent }}%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between small text-muted mb-3">
+                        <span><i class="bi bi-calendar"></i> {{ plan.start_date|date:"d M" }}</span>
+                        <span><i class="bi bi-arrow-right"></i> {{ plan.end_date|date:"d M Y" }}</span>
+                    </div>
+                    
+                    {% if plan.assigned_to %}
+                    <div class="mb-2 small">
+                        <i class="bi bi-person-circle"></i> {{ plan.assigned_to.name }}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer bg-transparent">
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'operation_plan_detail' plan.pk %}" class="btn btn-sm btn-outline-primary flex-fill">
+                            <i class="bi bi-eye"></i> View
+                        </a>
+                        {% if can_manage %}
+                        <a href="{% url 'operation_plan_edit' plan.pk %}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-inbox fs-1 text-muted"></i>
+                    <h4 class="mt-3">No Plans Found</h4>
+                    {% if can_manage %}
+                    <a href="{% url 'operation_plan_create' %}" class="btn btn-primary mt-2">
+                        <i class="bi bi-plus-circle"></i> Create First Plan
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+            </li>
+            {% endif %}
+            <li class="page-item active">
+                <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+            </li>
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+</div>
+
+<style>
+.plan-card { transition: all 0.2s ease; }
+.plan-card:hover {
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    transform: translateY(-3px);
+}
+</style>
+{% endblock %}

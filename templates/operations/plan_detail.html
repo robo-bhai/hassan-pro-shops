@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+{% block title %}{{ plan.plan_no }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
+        <div>
+            <div class="mb-2">
+                <span class="badge bg-primary fs-6">{{ plan.plan_no }}</span>
+                {{ plan.status_badge|safe }}
+                {{ plan.priority_badge|safe }}
+                <span class="badge bg-secondary">{{ plan.get_department_display }}</span>
+            </div>
+            <h2 class="mb-1">{{ plan.title }}</h2>
+            <p class="text-muted mb-0">{{ plan.description }}</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'task_create' %}?plan={{ plan.pk }}" class="btn btn-success">
+                <i class="bi bi-plus"></i> Add Task
+            </a>
+            {% if can_manage %}
+                {% if plan.status == 'draft' %}
+                <form method="post" action="{% url 'operation_plan_approve' plan.pk %}" class="d-inline">
+                    {% csrf_token %}
+                    <button class="btn btn-primary"><i class="bi bi-check"></i> Approve</button>
+                </form>
+                {% endif %}
+                {% if plan.status in 'active,in_progress' %}
+                <form method="post" action="{% url 'operation_plan_complete' plan.pk %}" class="d-inline">
+                    {% csrf_token %}
+                    <button class="btn btn-success"><i class="bi bi-trophy"></i> Complete</button>
+                </form>
+                {% endif %}
+                <a href="{% url 'operation_plan_edit' plan.pk %}" class="btn btn-outline-primary">
+                    <i class="bi bi-pencil"></i>
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <!-- Left Column -->
+        <div class="col-lg-8">
+            
+            <!-- Progress Card -->
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <h6 class="mb-0">Progress</h6>
+                        <strong>{{ plan.progress_percent|floatformat:0 }}%</strong>
+                    </div>
+                    <div class="progress" style="height:12px;">
+                        <div class="progress-bar bg-success" style="width:{{ plan.progress_percent }}%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Task Stats -->
+            <div class="row g-2 mb-3">
+                <div class="col-6 col-md-3">
+                    <div class="card border-0 shadow-sm text-center">
+                        <div class="card-body py-3">
+                            <h3 class="mb-0">{{ task_stats.total }}</h3>
+                            <small class="text-muted">Total</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card border-0 shadow-sm text-center">
+                        <div class="card-body py-3">
+                            <h3 class="mb-0 text-warning">{{ task_stats.in_progress }}</h3>
+                            <small class="text-muted">In Progress</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card border-0 shadow-sm text-center">
+                        <div class="card-body py-3">
+                            <h3 class="mb-0 text-success">{{ task_stats.completed }}</h3>
+                            <small class="text-muted">Completed</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card border-0 shadow-sm text-center">
+                        <div class="card-body py-3">
+                            <h3 class="mb-0 text-danger">{{ task_stats.overdue }}</h3>
+                            <small class="text-muted">Overdue</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tasks -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-list-check"></i> Tasks</h5>
+                    <a href="{% url 'task_create' %}?plan={{ plan.pk }}" class="btn btn-sm btn-success">
+                        <i class="bi bi-plus"></i> Add Task
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    {% if tasks %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Task</th>
+                                    <th>Priority</th>
+                                    <th>Assigned To</th>
+                                    <th>Due Date</th>
+                                    <th>Status</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for task in tasks %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'task_detail' task.pk %}" class="text-decoration-none">
+                                            <strong>{{ task.title }}</strong>
+                                        </a>
+                                        <br>
+                                        <small class="text-muted">{{ task.task_no }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{% if task.priority == 'urgent' %}danger{% elif task.priority == 'high' %}warning{% elif task.priority == 'medium' %}info{% else %}success{% endif %}">
+                                            {{ task.get_priority_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ task.assigned_to.name|default:"-" }}</td>
+                                    <td>
+                                        {{ task.due_date|date:"d M Y" }}
+                                        {% if task.is_overdue %}
+                                        <br><small class="text-danger">Overdue</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ task.status_badge|safe }}</td>
+                                    <td>
+                                        <a href="{% url 'task_detail' task.pk %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-inbox fs-1 text-muted"></i>
+                        <p class="text-muted mt-2">No tasks yet</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="col-lg-4">
+            
+            <!-- Plan Info -->
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> Plan Information</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <small class="text-muted">Type</small>
+                        <p class="mb-0"><strong>{{ plan.get_plan_type_display }}</strong></p>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted">Department</small>
+                        <p class="mb-0"><strong>{{ plan.get_department_display }}</strong></p>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted">Timeline</small>
+                        <p class="mb-0">
+                            {{ plan.start_date|date:"d M Y" }} → {{ plan.end_date|date:"d M Y" }}
+                        </p>
+                    </div>
+                    {% if plan.assigned_to %}
+                    <div class="mb-3">
+                        <small class="text-muted">Main Assignee</small>
+                        <p class="mb-0"><strong>{{ plan.assigned_to.name }}</strong></p>
+                    </div>
+                    {% endif %}
+                    {% if plan.target_value > 0 %}
+                    <div class="mb-3">
+                        <small class="text-muted">Target</small>
+                        <p class="mb-0">
+                            <strong>{{ plan.target_value|floatformat:2 }} {{ plan.target_unit }}</strong>
+                        </p>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted">Achievement</small>
+                        <div class="progress mt-1" style="height:8px;">
+                            <div class="progress-bar bg-primary" style="width:{{ plan.achievement_percent }}%"></div>
+                        </div>
+                        <small>{{ plan.achievement_percent|floatformat:1 }}%</small>
+                    </div>
+                    {% endif %}
+                    {% if plan.created_by %}
+                    <div class="mb-3">
+                        <small class="text-muted">Created By</small>
+                        <p class="mb-0">{{ plan.created_by.username }}</p>
+                    </div>
+                    {% endif %}
+                    <div class="mb-0">
+                        <small class="text-muted">Created</small>
+                        <p class="mb-0">{{ plan.created_at|date:"d M Y, H:i" }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Goal -->
+            {% if plan.goal_description %}
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-target"></i> Goal</h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">{{ plan.goal_description }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Team -->
+            {% if plan.assigned_team.all %}
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-people"></i> Team</h6>
+                </div>
+                <div class="card-body">
+                    {% for member in plan.assigned_team.all %}
+                    <div class="d-flex align-items-center mb-2">
+                        <div class="avatar-circle me-2">
+                            {{ member.name|first|upper }}
+                        </div>
+                        <span>{{ member.name }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- AI Analysis -->
+            {% if plan.ai_recommendation %}
+            <div class="card border-0 shadow-sm bg-light">
+                <div class="card-header bg-gradient-ai text-white">
+                    <h6 class="mb-0"><i class="bi bi-robot"></i> AI Recommendation</h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0 small">{{ plan.ai_recommendation }}</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.avatar-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+}
+.bg-gradient-ai {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+}
+</style>
+{% endblock %}

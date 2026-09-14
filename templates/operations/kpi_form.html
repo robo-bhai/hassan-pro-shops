@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}{% if is_edit %}Edit{% else %}Create{% endif %} KPI{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>{% if is_edit %}✏️ Edit KPI{% else %}➕ New KPI{% endif %}</h2>
+                <a href="{% url 'kpi_list' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <label class="form-label">KPI Name <span class="text-danger">*</span></label>
+                                <input type="text" name="name" class="form-control" required
+                                       value="{{ kpi.name|default:'' }}"
+                                       placeholder="e.g., Daily Sales Target">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Category <span class="text-danger">*</span></label>
+                                <select name="category" class="form-select" required>
+                                    <option value="">Select</option>
+                                    {% for value, label in categories %}
+                                    <option value="{{ value }}" {% if kpi.category == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-12">
+                                <label class="form-label">Description</label>
+                                <textarea name="description" class="form-control" rows="2">{{ kpi.description|default:'' }}</textarea>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <label class="form-label">Target Value <span class="text-danger">*</span></label>
+                                <input type="number" step="0.01" name="target_value" class="form-control" required
+                                       value="{{ kpi.target_value|default:'' }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Current Value</label>
+                                <input type="number" step="0.01" name="current_value" class="form-control"
+                                       value="{{ kpi.current_value|default:0 }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Unit</label>
+                                <input type="text" name="unit" class="form-control"
+                                       placeholder="Rs., %, units"
+                                       value="{{ kpi.unit|default:'%' }}">
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label">Warning Threshold (%)</label>
+                                <input type="number" step="0.01" name="warning_threshold" class="form-control"
+                                       value="{{ kpi.warning_threshold|default:70 }}">
+                                <small class="text-muted">Alert when below this %</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Critical Threshold (%)</label>
+                                <input type="number" step="0.01" name="critical_threshold" class="form-control"
+                                       value="{{ kpi.critical_threshold|default:50 }}">
+                                <small class="text-muted">Alert when below this %</small>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label">Period Start <span class="text-danger">*</span></label>
+                                <input type="date" name="period_start" class="form-control" required
+                                       value="{{ kpi.period_start|date:'Y-m-d'|default:today }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Period End <span class="text-danger">*</span></label>
+                                <input type="date" name="period_end" class="form-control" required
+                                       value="{{ kpi.period_end|date:'Y-m-d'|default:month_end }}">
+                            </div>
+                            
+                            <div class="col-12">
+                                <div class="form-check form-switch">
+                                    <input type="checkbox" name="is_active" class="form-check-input" 
+                                           id="isActive" {% if kpi.is_active or not is_edit %}checked{% endif %}>
+                                    <label class="form-check-label" for="isActive">Active KPI</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-lg flex-fill">
+                        <i class="bi bi-check-circle"></i>
+                        {% if is_edit %}Update{% else %}Create{% endif %} KPI
+                    </button>
+                    <a href="{% url 'kpi_list' %}" class="btn btn-outline-secondary btn-lg">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

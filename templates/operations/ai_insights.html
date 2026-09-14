@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+{% block title %}AI Insights{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h2 class="mb-1">🤖 AI Operations Insights</h2>
+            <p class="text-muted mb-0">Intelligent insights for your business</p>
+        </div>
+        <div>
+            <a href="{% url 'operations_dashboard' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+            <button id="runAiBtn" class="btn btn-gradient-primary">
+                <i class="bi bi-robot"></i> Run Analysis
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-start border-primary border-4">
+                <div class="card-body">
+                    <h6 class="text-muted small">Total Insights</h6>
+                    <h3>{{ stats.total }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-start border-danger border-4">
+                <div class="card-body">
+                    <h6 class="text-muted small">Critical</h6>
+                    <h3 class="text-danger">{{ stats.critical }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-start border-warning border-4">
+                <div class="card-body">
+                    <h6 class="text-muted small">High Priority</h6>
+                    <h3 class="text-warning">{{ stats.high }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-start border-info border-4">
+                <div class="card-body">
+                    <h6 class="text-muted small">Medium</h6>
+                    <h3 class="text-info">{{ stats.medium }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-2">
+                <div class="col-md-3">
+                    <select name="type" class="form-select">
+                        <option value="">All Types</option>
+                        {% for value, label in insight_types %}
+                        <option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select name="severity" class="form-select">
+                        <option value="">All Severity</option>
+                        {% for value, label in severities %}
+                        <option value="{{ value }}" {% if selected_severity == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select name="status" class="form-select">
+                        <option value="">All Status</option>
+                        <option value="unresolved" {% if selected_status == 'unresolved' %}selected{% endif %}>Unresolved</option>
+                        <option value="resolved" {% if selected_status == 'resolved' %}selected{% endif %}>Resolved</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-filter"></i> Filter
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Insights List -->
+    <div class="row g-3">
+        {% for insight in insights %}
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100 insight-card border-start border-4 border-{{ insight.severity_color }}">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <span class="badge bg-{{ insight.severity_color }} me-2">
+                                {{ insight.get_severity_display }}
+                            </span>
+                            <span class="badge bg-secondary">
+                                {{ insight.get_insight_type_display }}
+                            </span>
+                        </div>
+                        <small class="text-muted">{{ insight.detected_at|timesince }} ago</small>
+                    </div>
+                    
+                    <h5 class="mb-2">{{ insight.title }}</h5>
+                    <p class="text-muted mb-3">{{ insight.description }}</p>
+                    
+                    {% if insight.recommendation %}
+                    <div class="bg-light p-3 rounded mb-3">
+                        <h6 class="mb-2"><i class="bi bi-lightbulb text-warning"></i> AI Recommendation</h6>
+                        <p class="mb-0 small">{{ insight.recommendation }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if insight.suggested_actions %}
+                    <div class="mb-3">
+                        <h6 class="small mb-2">Suggested Actions:</h6>
+                        <ul class="small mb-0">
+                            {% for action in insight.suggested_actions %}
+                            <li>{{ action }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-muted me-3">
+                                <i class="bi bi-graph-up"></i> Confidence: {{ insight.confidence_score|floatformat:0 }}%
+                            </small>
+                            <small class="text-muted">
+                                <i class="bi bi-speedometer"></i> Impact: {{ insight.impact_score }}/100
+                            </small>
+                        </div>
+                        {% if not insight.is_resolved %}
+                        <div>
+                            <form method="post" action="{% url 'ai_insight_resolve' insight.pk %}" class="d-inline">
+                                {% csrf_token %}
+                                <button class="btn btn-sm btn-success">
+                                    <i class="bi bi-check"></i> Resolve
+                                </button>
+                            </form>
+                            <form method="post" action="{% url 'ai_insight_ignore' insight.pk %}" class="d-inline">
+                                {% csrf_token %}
+                                <button class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-x"></i> Ignore
+                                </button>
+                            </form>
+                        </div>
+                        {% else %}
+                        <span class="badge bg-success">✅ Resolved</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-robot fs-1 text-muted"></i>
+                    <h4 class="mt-3">No AI Insights Yet</h4>
+                    <p class="text-muted">Run AI analysis to get intelligent insights about your business</p>
+                    <button onclick="document.getElementById('runAiBtn').click()" class="btn btn-primary">
+                        <i class="bi bi-play-circle"></i> Run AI Analysis
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_severity %}&severity={{ selected_severity }}{% endif %}">
+                    Previous
+                </a>
+            </li>
+            {% endif %}
+            
+            <li class="page-item active">
+                <span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+            </li>
+            
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_severity %}&severity={{ selected_severity }}{% endif %}">
+                    Next
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+</div>
+
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+}
+.bg-gradient-primary:hover { color: white; opacity: 0.9; }
+
+.insight-card {
+    transition: all 0.2s ease;
+}
+.insight-card:hover {
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    transform: translateY(-3px);
+}
+</style>
+
+<script>
+document.getElementById('runAiBtn')?.addEventListener('click', function() {
+    const btn = this;
+    const originalHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Analyzing...';
+    
+    fetch('{% url "run_ai_analysis" %}')
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+        alert(data.message);
+        if (data.success) location.reload();
+    });
+});
+</script>
+{% endblock %}
