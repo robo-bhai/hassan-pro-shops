@@ -276,9 +276,10 @@ jobs:
           if python manage.py migrate; then
               echo "Cloud DB migrations applied successfully!"
           else
-              echo "Conflict detected on Cloud DB. Retrying with --fake-initial..."
-              python manage.py migrate --fake-initial
+              echo "Conflict detected on Cloud DB. Forcing state sync with --fake..."
+              python manage.py migrate --fake
           fi
+
           echo "=== 4. ENSURING SUPERUSER CREATION ON CLOUD MYSQL ==="
           python manage.py shell -c "
           import os
@@ -363,13 +364,15 @@ jobs:
           DB_NAME: "local_django_db"
           BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
         run: |
+      #    echo "=== 1. APPLYING MIGRATIONS TO LOCAL DB ==="
           echo "=== 1. APPLYING MIGRATIONS TO LOCAL DB ==="
           if python manage.py migrate; then
               echo "Local DB migrations applied successfully!"
           else
-              echo "Conflict detected on Local DB. Retrying with --fake-initial..."
-              python manage.py migrate --fake-initial
+              echo "Conflict detected on Local DB. Forcing state sync with --fake..."
+              python manage.py migrate --fake
           fi
+
 
           echo "=== 2. ENSURING SUPERUSER CREATION ON LOCAL DB ==="
           python manage.py shell -c "
