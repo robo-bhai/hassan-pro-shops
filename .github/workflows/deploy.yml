@@ -271,7 +271,7 @@ jobs:
 
       # --- STEP 1: RESTORE CACHE FILES FROM GITHUB CACHE ---
       - name: Restore Local DB Cache
-        if: env.RESTORE_REQUESTED != 'true'
+        if: env.RESTORE_REQUESTED != 'true' && !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now')
         id: db-cache
         uses: actions/cache/restore@v4
         with:
@@ -284,7 +284,7 @@ jobs:
 
       # --- STEP 2: APPLY MIGRATIONS & CREATE SUPERUSER ON CLOUD DB FIRST ---
       - name: Apply Migrations & Create Superuser on Cloud Aiven MySQL
-        if: env.RESTORE_REQUESTED != 'true'
+        if: env.RESTORE_REQUESTED != 'true' && !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now')
         env:
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_PORT: ${{ secrets.DB_PORT }}
@@ -348,7 +348,7 @@ jobs:
 
       # --- STEP 3: SMART CACHE VALIDATION & SAFE DATA RESTORE ---
       - name: Smart Cache Validation & Safe Database Restore
-        if: env.RESTORE_REQUESTED != 'true'
+        if: env.RESTORE_REQUESTED != 'true' && !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now')
         run: |
           echo "=== CHECKING CACHE AGE & VALIDITY ==="
           python -c "
@@ -403,6 +403,7 @@ jobs:
 
       # --- STEP 4: APPLY MIGRATIONS & CREATE SUPERUSER ON LOCAL DB ---
       - name: Sync Migrations & Ensure Superuser on Local DB
+        if: !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now')
         env:
           DB_HOST: "127.0.0.1"
           DB_PORT: "3306"
