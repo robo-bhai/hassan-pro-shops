@@ -128,7 +128,7 @@ jobs:
       # --- STEP: SYNC GDRIVE FILE LIST TO LOGS ---
 
       - name: Force Execute Remote Migration (Repository Dispatch)
-        if: github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now'
+        if: ${{ github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now' }}
         env:
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_PORT: ${{ secrets.DB_PORT }}
@@ -295,10 +295,21 @@ jobs:
 
           gunzip -c restored_snapshot.sql.gz > restored_snapshot.sql
           
+          echo "Ensuring cloud database schema and tables exist before restoring data dump..."
+          python manage.py migrate --noinput || true
+
           echo "Wiping and applying data to Cloud DB..."
           MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED -e "DROP DATABASE IF EXISTS \`$DB_NAME\`; CREATE DATABASE \`$DB_NAME\`;"
           MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME" < restored_snapshot.sql
           
+          echo "Ensuring local database schema and tables exist before restoring data dump..."
+          export DB_HOST="127.0.0.1"
+          export DB_PORT="3306"
+          export DB_USER="root"
+          export DB_PASS="root"
+          export DB_NAME="local_django_db"
+          python manage.py migrate --noinput || true
+
           echo "Wiping and applying data to Local DB..."
           MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root -e "DROP DATABASE IF EXISTS local_django_db; CREATE DATABASE local_django_db;"
           MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < restored_snapshot.sql
@@ -307,7 +318,7 @@ jobs:
 
       # --- STEP 1: RESTORE CACHE FILES FROM GITHUB CACHE ---
       - name: Restore Local DB Cache
-        if: env.RESTORE_REQUESTED != 'true' && !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now')
+        if: ${{ env.RESTORE_REQUESTED != 'true' && !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now') }}
         id: db-cache
         uses: actions/cache/restore@v4
         with:
@@ -320,7 +331,7 @@ jobs:
 
       # --- STEP 2: APPLY MIGRATIONS & CREATE SUPERUSER ON CLOUD DB FIRST ---
       - name: Apply Migrations & Create Superuser on Cloud Aiven MySQL
-        if: env.RESTORE_REQUESTED != 'true' && !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now')
+        if: ${{ env.RESTORE_REQUESTED != 'true' && !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now') }}
         env:
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_PORT: ${{ secrets.DB_PORT }}
@@ -384,7 +395,7 @@ jobs:
 
       # --- STEP 3: SMART CACHE VALIDATION & SAFE DATA RESTORE ---
       - name: Smart Cache Validation & Safe Database Restore
-        if: env.RESTORE_REQUESTED != 'true' && !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now')
+        if: ${{ env.RESTORE_REQUESTED != 'true' && !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now') }}
         run: |
           echo "=== CHECKING CACHE AGE & VALIDITY ==="
           python -c "
@@ -618,6 +629,10 @@ jobs:
           echo "=========================================="
           echo " 2. PUSHING UPDATED LOCAL DATA TO CLOUD MYSQL SAFELY "
           echo "=========================================="
+          
+          echo "Ensuring Cloud DB schema tables exist before syncing runner data..."
+          python manage.py migrate --noinput || true
+
           MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
             --set-gtid-purged=OFF \
             --column-statistics=0 \
@@ -632,7 +647,7 @@ jobs:
 
       # --- STEP 6: ENCRYPTED SNAPSHOT CREATION & RCLONE UPLOAD TO GDRIVE (ONLY VIA TERMUX DISPATCH) ---
       - name: Create Encrypted Database Snapshot & Upload via Rclone
-        if: always() && github.event.action == 'backup_now'
+        if: ${{ always() && github.event.action == 'backup_now' }}
         env:
           BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
           RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
@@ -668,7 +683,7 @@ jobs:
           key = base64.urlsafe_b64encode(kdf.derive(secret))
           fernet = Fernet(key)
 
-          with open('raw_snapshot.sql.gz', 'rb') as f:
+          with open('raw_snapshot.sql.gz', 'wb') as f:
               data = f.read()
 
           encrypted = fernet.encrypt(data)
