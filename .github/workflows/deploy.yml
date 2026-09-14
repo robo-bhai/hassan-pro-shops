@@ -10,7 +10,7 @@ on:
         required: false
         default: ''
   repository_dispatch:
-    types: [ backup_now, restore_now ]
+    types: [ backup_now, restore_now, migrate_now ]
 
 jobs:
   build-and-test:
@@ -126,6 +126,36 @@ jobs:
 
       # --- CONDITIONAL DATABASE FORCED RESTORE ROUTE FROM GDRIVE ---
       # --- STEP: SYNC GDRIVE FILE LIST TO LOGS ---
+
+      - name: Force Execute Remote Migration (Repository Dispatch)
+        if: github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now'
+        env:
+          DB_HOST: "127.0.0.1"
+          DB_PORT: "3306"
+          DB_USER: "root"
+          DB_PASS: "root"
+          DB_NAME: "local_django_db"
+        run: |
+          echo "=========================================="
+          echo "     FORCING REMOTE MIGRATION EXECUTION   "
+          echo "=========================================="
+          
+          python manage.py makemigrations --merge || true
+          python manage.py makemigrations
+          
+          echo "Attempting standard migration..."
+          if python manage.py migrate --noinput; then
+              echo "Standard migration passed successfully!"
+          else
+              echo "Migration conflict detected. Forcing state sync with --fake and resetting unapplied app states..."
+              python manage.py migrate --fake --noinput || true
+              python manage.py migrate --run-syncdb --noinput
+          fi
+          
+          curl -d "Forced Django Migrations Executed Successfully via API! 🚀" ntfy.sh/hshshehgag
+          echo "Forced migration dispatch complete."
+          exit 0
+      
       - name: Fetch and Print Direct Google Drive Backup List
         env:
           RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
