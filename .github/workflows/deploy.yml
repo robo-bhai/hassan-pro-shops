@@ -209,19 +209,25 @@ jobs:
 
 
       
-      - name: Fetch and Print Direct Google Drive Backup List
+      - name: Fetch and Sync Google Drive Backup List to KV
         env:
           RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
+          WORKER_USER: ${{ secrets.WORKER_USER }}
+          WORKER_PASS: ${{ secrets.WORKER_PASS }}
         run: |
           mkdir -p /home/runner/.config/rclone
           echo "$RCLONE_CONFIG_DATA" > /home/runner/.config/rclone/rclone.conf
           RCLONE_REMOTE=$(rclone listremotes | head -n 1)
-          
-          echo "=================================================="
-          echo "---GDRIVE_FILE_LIST_START---"
-          rclone lsf "${RCLONE_REMOTE}hassan_shops/" --include "db_snapshot_*.sql.gz.enc"
-          echo "---GDRIVE_FILE_LIST_END---"
-          echo "=================================================="
+
+          # Drive se backup list fetch karke JSON array banana
+          FILES_JSON=$(rclone lsf "${RCLONE_REMOTE}hassan_shops/" --include "db_snapshot_*.sql.gz.enc" | sort -r | head -n 10 | jq -R . | jq -s .)
+
+          # Worker ki API par Basic Auth ke sath POST push karna
+          curl -X POST "https://uqn88.store/api/save-backups" \
+               -u "${WORKER_USER}:${WORKER_PASS}" \
+               -H "Content-Type: application/json" \
+               -d "{\"files\": $FILES_JSON}"
+
 
       - name: Force Restore Database from Google Drive Snapshot
         if: env.RESTORE_REQUESTED == 'true'
