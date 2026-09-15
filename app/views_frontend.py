@@ -35072,3 +35072,1249 @@ def announce_alerts_api(request):
             'alerts': [],
             'error': str(e),
         })
+        
+# ========================================== #
+# VOICE ANNOUNCEMENT SETTINGS VIEW           #
+# ========================================== #
+
+@login_required
+def voice_announcement_settings(request):
+    """Voice Announcement Settings Page"""
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'page_title': '🔊 Voice Announcement Settings',
+    }
+    return render(request, 'settings/voice_announcement.html', context)
+    
+# ============================================
+# AI-POWERED MONTHLY PURCHASE PLANNER
+# ============================================
+
+from .ai_purchase_planner import AIPurchasePlanner
+
+
+@login_required
+def ai_purchase_analysis(request):
+    """API: Get AI analysis for a product"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        return JsonResponse({'success': False, 'message': 'Access denied!'})
+    
+    try:
+        product_id = request.GET.get('product_id')
+        warehouse_id = request.GET.get('warehouse_id')
+        
+        if not product_id:
+            return JsonResponse({
+                'success': False,
+                'message': 'Product ID required'
+            })
+        
+        product = get_object_or_404(Product, pk=product_id)
+        warehouse = None
+        
+        if warehouse_id:
+            warehouse = get_object_or_404(Warehouse, pk=warehouse_id)
+        
+        # Run AI analysis
+        planner = AIPurchasePlanner(product, warehouse)
+        result = planner.analyze()
+        
+        return JsonResponse(result)
+        
+    except Exception as e:
+        logger.error(f"AI analysis API error: {e}")
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        })
+
+
+@login_required
+def ai_bulk_analysis(request):
+    """API: Get AI analysis for multiple products"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        return JsonResponse({'success': False, 'message': 'Access denied!'})
+    
+    try:
+        warehouse_id = request.GET.get('warehouse_id')
+        warehouse = None
+        
+        if warehouse_id:
+            warehouse = get_object_or_404(Warehouse, pk=warehouse_id)
+        
+        # Get products with sales activity
+        from django.db.models import Sum
+        from datetime import timedelta
+        
+        last_90 = localdate() - timedelta(days=90)
+        
+        active_products = Product.objects.filter(
+            is_active=True,
+            saleitem__sale__sale_date__date__gte=last_90
+        ).distinct()[:20]
+        
+        results = []
+        for product in active_products:
+            try:
+                planner = AIPurchasePlanner(product, warehouse)
+                result = planner.analyze()
+                
+                if result['success']:
+                    results.append({
+                        'product_id': product.id,
+                        'product_name': product.name,
+                        'suggested_quantity': result['suggested_quantity'],
+                        'confidence_score': result['confidence_score'],
+                        'confidence_level': result['confidence_level'],
+                        'risk_level': result['risk_level'],
+                        'estimated_cost': result['estimated_cost'],
+                        'is_urgent': result.get('is_urgent', False),
+                        'current_stock': result['current_stock'],
+                        'stock_coverage_days': result['stock_coverage_days'],
+                    })
+            except Exception as e:
+                logger.warning(f"Failed for {product.name}: {e}")
+                continue
+        
+        # Sort by urgency and confidence
+        results.sort(
+            key=lambda x: (
+                not x['is_urgent'],
+                -x['confidence_score'],
+                -x['estimated_cost']
+            )
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'analyses': results,
+            'total': len(results),
+        })
+        
+    except Exception as e:
+        logger.error(f"Bulk analysis error: {e}")
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        })
+
+
+@login_required
+def ai_purchase_planner_dashboard(request):
+    """AI Purchase Planner Dashboard"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIPurchaseAnalysis, AIPurchaseInsight
+    
+    # Recent analyses
+    recent_analyses = AIPurchaseAnalysis.objects.select_related(
+        'product', 'warehouse'
+    ).order_by('-created_at')[:20]
+    
+    # ✅ FIX: Python-level filter instead of JSON contains
+    all_analyses = AIPurchaseAnalysis.objects.filter(
+        user_accepted__isnull=True
+    ).select_related('product', 'warehouse').order_by('-created_at')[:50]
+    
+    urgent_items = []
+    for analysis in all_analyses:
+        # Python mein check karo
+        risk_factors = analysis.risk_factors or []
+        if 'urgent' in risk_factors or analysis.risk_level == 'danger':
+            urgent_items.append(analysis)
+            if len(urgent_items) >= 10:
+                break
+    
+    # Stats
+    stats = {
+        'total_analyses': AIPurchaseAnalysis.objects.count(),
+        'high_confidence': AIPurchaseAnalysis.objects.filter(
+            confidence_level='high'
+        ).count(),
+        'medium_confidence': AIPurchaseAnalysis.objects.filter(
+            confidence_level='medium'
+        ).count(),
+        'low_confidence': AIPurchaseAnalysis.objects.filter(
+            confidence_level='low'
+        ).count(),
+        'danger_risk': AIPurchaseAnalysis.objects.filter(
+            risk_level='danger'
+        ).count(),
+        'warning_risk': AIPurchaseAnalysis.objects.filter(
+            risk_level='warning'
+        ).count(),
+        'safe_risk': AIPurchaseAnalysis.objects.filter(
+            risk_level='safe'
+        ).count(),
+    }
+    
+    # Insights
+    insights = AIPurchaseInsight.objects.filter(
+        is_resolved=False
+    ).order_by('-impact_score')[:10]
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'recent_analyses': recent_analyses,
+        'urgent_items': urgent_items,
+        'stats': stats,
+        'insights': insights,
+        'now': now(),
+    }
+    return render(request, 'ai/purchase_planner_dashboard.html', context)
+
+
+@login_required
+def ai_accept_suggestion(request, pk):
+    """Accept AI suggestion and apply to plan"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        return JsonResponse({'success': False, 'message': 'Access denied!'})
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'POST required'})
+    
+    try:
+        import json
+        data = json.loads(request.body)
+        
+        analysis = get_object_or_404(AIPurchaseAnalysis, pk=pk)
+        modified_qty = data.get('quantity')
+        
+        analysis.user_accepted = True
+        analysis.user_modified_quantity = modified_qty
+        analysis.user_notes = data.get('notes', '')
+        analysis.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'✅ Suggestion accepted! Quantity: {modified_qty or analysis.suggested_quantity}'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+@login_required
+def ai_reject_suggestion(request, pk):
+    """Reject AI suggestion"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        return JsonResponse({'success': False, 'message': 'Access denied!'})
+    
+    analysis = get_object_or_404(AIPurchaseAnalysis, pk=pk)
+    analysis.user_accepted = False
+    analysis.save()
+    
+    return JsonResponse({'success': True, 'message': '❌ Suggestion rejected'})
+    
+# ============================================
+# AI CASH MODULE VIEWS
+# ============================================
+
+from .ai_cash_engine import AICashEngine
+
+
+@login_required
+def ai_cash_dashboard(request):
+    """AI Cash Dashboard"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AICashAnalysis, AICashAlert, AICashHealthHistory
+    
+    # Run AI analysis if requested
+    if request.GET.get('run') == 'true':
+        try:
+            engine = AICashEngine()
+            results = engine.run_full_analysis()
+            
+            messages.success(
+                request,
+                f"🤖 AI Cash Analysis Complete! "
+                f"Health Score: {results['health']['score']}/100 | "
+                f"{results['alerts_created']} alerts created"
+            )
+        except Exception as e:
+            messages.error(request, f"❌ Error: {e}")
+        
+        return redirect('ai_cash_dashboard')
+    
+    # Get latest analysis
+    latest_analysis = AICashAnalysis.objects.order_by('-created_at').first()
+    
+    # ==========================================
+    # ✅ FIX: First get base queryset, then filter, THEN slice
+    # ==========================================
+    base_alerts = AICashAlert.objects.filter(is_resolved=False)
+    
+    # ✅ Stats from FULL queryset (before slicing)
+    total_alerts = base_alerts.count()
+    critical_alerts = base_alerts.filter(severity='critical').count()
+    warning_alerts = base_alerts.filter(severity='warning').count()
+    high_alerts = base_alerts.filter(severity='high').count()
+    info_alerts = base_alerts.filter(severity='info').count()
+    
+    # ✅ Now slice for display (last 10)
+    alerts = base_alerts.order_by('-created_at')[:10]
+    
+    # Health history (last 30 days)
+    health_history = AICashHealthHistory.objects.order_by('-date')[:30]
+    
+    # Prepare chart data
+    chart_labels = []
+    chart_scores = []
+    chart_balances = []
+    
+    for h in reversed(list(health_history)):
+        chart_labels.append(h.date.strftime('%d-%b'))
+        chart_scores.append(h.health_score)
+        chart_balances.append(float(h.balance))
+    
+    import json
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'analysis': latest_analysis,
+        'alerts': alerts,              # ✅ Sliced for display
+        'total_alerts': total_alerts,  # ✅ From full queryset
+        'critical_alerts': critical_alerts,
+        'warning_alerts': warning_alerts,
+        'high_alerts': high_alerts,
+        'info_alerts': info_alerts,
+        'chart_labels': json.dumps(chart_labels),
+        'chart_scores': json.dumps(chart_scores),
+        'chart_balances': json.dumps(chart_balances),
+        'current_balance': CashBalance.get_balance(),
+        'today': localdate(),
+    }
+    return render(request, 'ai/cash_dashboard.html', context)
+
+
+@login_required
+def ai_cash_forecast(request):
+    """Detailed Cash Forecast"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AICashAnalysis
+    import json
+    
+    # Get latest or run new
+    analysis = AICashAnalysis.objects.order_by('-created_at').first()
+    
+    if not analysis or request.GET.get('refresh') == 'true':
+        engine = AICashEngine()
+        results = engine.run_full_analysis()
+        analysis = AICashAnalysis.objects.order_by('-created_at').first()
+    
+    # Prepare chart data
+    forecast_30 = analysis.forecast_30_days if analysis else []
+    
+    chart_labels = [d['date'] for d in forecast_30]
+    chart_data = [d['predicted_balance'] for d in forecast_30]
+    chart_negative = [d['day'] if d['is_negative'] else None for d in forecast_30]
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'analysis': analysis,
+        'forecast_30': forecast_30,
+        'chart_labels': json.dumps(chart_labels),
+        'chart_data': json.dumps(chart_data),
+        'has_negative': any(d['is_negative'] for d in forecast_30),
+    }
+    return render(request, 'ai/cash_forecast.html', context)
+
+
+@login_required
+def ai_cash_collections(request):
+    """AI Collection Forecast"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    engine = AICashEngine()
+    collections = engine.forecast_collections()
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'collections': collections,
+        'high_probability': collections['high_probability'],
+        'medium_probability': collections['medium_probability'],
+        'low_probability': collections['low_probability'],
+        'total_outstanding': collections['total_outstanding'],
+        'total_expected': collections['total_expected'],
+    }
+    return render(request, 'ai/cash_collections.html', context)
+
+
+@login_required
+def ai_cash_alerts(request):
+    """All Cash Alerts"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AICashAlert
+    
+    alerts = AICashAlert.objects.all().order_by('-created_at')
+    
+    severity = request.GET.get('severity', '')
+    if severity:
+        alerts = alerts.filter(severity=severity)
+    
+    alert_type = request.GET.get('type', '')
+    if alert_type:
+        alerts = alerts.filter(alert_type=alert_type)
+    
+    status = request.GET.get('status', 'active')
+    if status == 'active':
+        alerts = alerts.filter(is_resolved=False)
+    elif status == 'resolved':
+        alerts = alerts.filter(is_resolved=True)
+    
+    # Stats
+    stats = {
+        'total': alerts.count(),
+        'critical': alerts.filter(severity='critical').count(),
+        'high': alerts.filter(severity='high').count(),
+        'warning': alerts.filter(severity='warning').count(),
+        'info': alerts.filter(severity='info').count(),
+    }
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'alerts': alerts[:50],
+        'stats': stats,
+        'selected_severity': severity,
+        'selected_type': alert_type,
+        'selected_status': status,
+        'alert_types': AICashAlert.ALERT_TYPES,
+        'severity_levels': AICashAlert.SEVERITY_LEVELS,
+    }
+    return render(request, 'ai/cash_alerts.html', context)
+
+
+@login_required
+@require_POST
+def ai_cash_alert_resolve(request, pk):
+    """Resolve a cash alert"""
+    
+    from .models import AICashAlert
+    alert = get_object_or_404(AICashAlert, pk=pk)
+    
+    alert.is_resolved = True
+    alert.resolved_at = now()
+    alert.resolved_by = request.user
+    alert.save()
+    
+    messages.success(request, '✅ Alert resolved!')
+    return redirect('ai_cash_alerts')
+
+
+@login_required
+def ai_cash_health(request):
+    """Cash Health Score Details"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AICashHealthHistory
+    
+    # Run new analysis
+    engine = AICashEngine()
+    health = engine.calculate_health_score()
+    
+    # History
+    history = AICashHealthHistory.objects.order_by('-date')[:30]
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'health': health,
+        'history': history,
+    }
+    return render(request, 'ai/cash_health.html', context)
+    
+# ============================================
+# AI SHAREHOLDER MODULE VIEWS
+# ============================================
+
+from .ai_shareholder_engine import AIShareholderEngine
+
+
+@login_required
+def ai_shareholder_dashboard(request):
+    """AI Shareholder Dashboard"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import (
+        AIShareholderScore, AIShareholderChurn,
+        AIDividendRecommendation, AIShareholderAlert,
+        AIShareholderForecast
+    )
+    
+    # Run analysis if requested
+    if request.GET.get('run') == 'true':
+        try:
+            engine = AIShareholderEngine()
+            results = engine.run_full_analysis()
+            
+            messages.success(
+                request,
+                f"🤖 AI Analysis Complete! "
+                f"Scored: {results['scores_calculated']} | "
+                f"Churn: {results['churn_predictions']} | "
+                f"Fraud: {results['fraud_alerts']}"
+            )
+        except Exception as e:
+            messages.error(request, f"❌ Error: {e}")
+        
+        return redirect('ai_shareholder_dashboard')
+    
+    # Get data
+    top_shareholders = AIShareholderScore.objects.select_related(
+        'shareholder'
+    ).order_by('-overall_score')[:10]
+    
+    at_risk_shareholders = AIShareholderChurn.objects.select_related(
+        'shareholder'
+    ).filter(
+        risk_level__in=['high', 'critical']
+    ).order_by('-churn_probability')[:10]
+    
+    recent_alerts = AIShareholderAlert.objects.select_related(
+        'shareholder'
+    ).filter(
+        is_resolved=False
+    ).order_by('-created_at')[:10]
+    
+    dividend_recommendation = AIDividendRecommendation.objects.filter(
+        status='pending'
+    ).order_by('-created_at').first()
+    
+    forecast = AIShareholderForecast.objects.order_by('-forecast_date').first()
+    
+    # Stats
+    total_shareholders = Shareholder.objects.filter(status='active').count()
+    scored_shareholders = AIShareholderScore.objects.count()
+    critical_risk = AIShareholderChurn.objects.filter(
+        risk_level='critical'
+    ).count()
+    investment_at_risk = AIShareholderChurn.objects.filter(
+        risk_level__in=['high', 'critical']
+    ).aggregate(
+        total=Sum('investment_at_risk')
+    )['total'] or 0
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'top_shareholders': top_shareholders,
+        'at_risk_shareholders': at_risk_shareholders,
+        'recent_alerts': recent_alerts,
+        'dividend_recommendation': dividend_recommendation,
+        'forecast': forecast,
+        'total_shareholders': total_shareholders,
+        'scored_shareholders': scored_shareholders,
+        'critical_risk': critical_risk,
+        'investment_at_risk': investment_at_risk,
+        'total_alerts': recent_alerts.count(),
+    }
+    return render(request, 'ai/shareholder_dashboard.html', context)
+
+
+@login_required
+def ai_shareholder_scores(request):
+    """View all shareholder scores"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIShareholderScore
+    
+    scores = AIShareholderScore.objects.select_related('shareholder').all()
+    
+    # Filter
+    risk_level = request.GET.get('level', '')
+    if risk_level:
+        scores = scores.filter(risk_level=risk_level)
+    
+    # Stats
+    stats = {
+        'total': scores.count(),
+        'excellent': scores.filter(risk_level='excellent').count(),
+        'good': scores.filter(risk_level='good').count(),
+        'warning': scores.filter(risk_level='warning').count(),
+        'critical': scores.filter(risk_level='critical').count(),
+    }
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'scores': scores,
+        'stats': stats,
+        'selected_level': risk_level,
+    }
+    return render(request, 'ai/shareholder_scores.html', context)
+
+
+@login_required
+def ai_shareholder_churn(request):
+    """View churn predictions"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIShareholderChurn
+    
+    churn_data = AIShareholderChurn.objects.select_related('shareholder').all()
+    
+    risk_level = request.GET.get('level', '')
+    if risk_level:
+        churn_data = churn_data.filter(risk_level=risk_level)
+    
+    stats = {
+        'total': churn_data.count(),
+        'low': churn_data.filter(risk_level='low').count(),
+        'medium': churn_data.filter(risk_level='medium').count(),
+        'high': churn_data.filter(risk_level='high').count(),
+        'critical': churn_data.filter(risk_level='critical').count(),
+        'at_risk_amount': churn_data.filter(
+            risk_level__in=['high', 'critical']
+        ).aggregate(total=Sum('investment_at_risk'))['total'] or 0,
+    }
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'churn_data': churn_data,
+        'stats': stats,
+        'selected_level': risk_level,
+    }
+    return render(request, 'ai/shareholder_churn.html', context)
+
+
+@login_required
+def ai_dividend_recommendation(request):
+    """View dividend recommendations"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIDividendRecommendation
+    
+    # Get latest recommendation
+    recommendations = AIDividendRecommendation.objects.all().order_by('-created_at')
+    latest = recommendations.first()
+    
+    # Generate new if requested
+    if request.GET.get('generate') == 'true':
+        engine = AIShareholderEngine()
+        new_rec = engine.recommend_dividend()
+        
+        if new_rec:
+            messages.success(request, f"✅ New recommendation: {new_rec.recommended_percentage}%")
+        else:
+            messages.warning(request, "⚠️ Cannot generate recommendation (no profit)")
+        
+        return redirect('ai_dividend_recommendation')
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'recommendations': recommendations,
+        'latest': latest,
+    }
+    return render(request, 'ai/dividend_recommendation.html', context)
+
+
+@login_required
+def ai_shareholder_alerts(request):
+    """View all shareholder AI alerts"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIShareholderAlert
+    
+    alerts = AIShareholderAlert.objects.select_related('shareholder').all()
+    
+    alert_type = request.GET.get('type', '')
+    if alert_type:
+        alerts = alerts.filter(alert_type=alert_type)
+    
+    severity = request.GET.get('severity', '')
+    if severity:
+        alerts = alerts.filter(severity=severity)
+    
+    status = request.GET.get('status', 'active')
+    if status == 'active':
+        alerts = alerts.filter(is_resolved=False)
+    elif status == 'resolved':
+        alerts = alerts.filter(is_resolved=True)
+    
+    stats = {
+        'total': alerts.count(),
+        'critical': alerts.filter(severity='critical').count(),
+        'high': alerts.filter(severity='high').count(),
+        'medium': alerts.filter(severity='medium').count(),
+    }
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'alerts': alerts,
+        'stats': stats,
+        'selected_type': alert_type,
+        'selected_severity': severity,
+        'selected_status': status,
+        'alert_types': AIShareholderAlert.ALERT_TYPES,
+        'severity_levels': AIShareholderAlert.SEVERITY,
+    }
+    return render(request, 'ai/shareholder_alerts.html', context)
+
+
+@login_required
+def ai_shareholder_forecast(request):
+    """6-Month Shareholder Forecast"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIShareholderForecast
+    import json
+    
+    forecast = AIShareholderForecast.objects.order_by('-forecast_date').first()
+    
+    if request.GET.get('generate') == 'true':
+        engine = AIShareholderEngine()
+        forecast = engine.generate_forecast()
+        messages.success(request, "✅ New forecast generated!")
+        return redirect('ai_shareholder_forecast')
+    
+    # Chart data
+    chart_labels = []
+    chart_values = []
+    
+    if forecast and forecast.monthly_forecast:
+        for m in forecast.monthly_forecast:
+            chart_labels.append(m['month'])
+            chart_values.append(m['expected_shareholders'])
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'forecast': forecast,
+        'chart_labels': json.dumps(chart_labels),
+        'chart_values': json.dumps(chart_values),
+    }
+    return render(request, 'ai/shareholder_forecast.html', context)
+
+
+@login_required
+@require_POST
+def ai_shareholder_alert_resolve(request, pk):
+    """Resolve a shareholder alert"""
+    
+    from .models import AIShareholderAlert
+    alert = get_object_or_404(AIShareholderAlert, pk=pk)
+    
+    alert.is_resolved = True
+    alert.resolved_at = now()
+    alert.resolved_by = request.user
+    alert.save()
+    
+    messages.success(request, '✅ Alert resolved!')
+    return redirect('ai_shareholder_alerts')
+    
+# ============================================
+# AI BOARD ROOM VIEWS
+# ============================================
+
+from .ai_board_room import AIBoardRoom
+
+
+@login_required
+def ai_board_room_dashboard(request):
+    """Main AI Board Room Dashboard"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIBoardMeeting, AIBoardMember, AIBoardAlert, AIBoardKPI
+    
+    # Run meeting if requested
+    if request.GET.get('run') == 'true':
+        try:
+            board = AIBoardRoom()
+            results = board.run_full_board_meeting()
+            
+            if results['success']:
+                messages.success(
+                    request,
+                    f"🏢 Board Meeting Complete! "
+                    f"Health: {results['overall_health']}/100 | "
+                    f"Alerts: {results['alerts_created']} | "
+                    f"Impact: Rs. {results['total_savings'] + results['total_revenue']:,.0f}"
+                )
+            else:
+                messages.error(request, f"❌ Error: {results.get('error', 'Unknown')}")
+        except Exception as e:
+            messages.error(request, f"❌ Error: {e}")
+        
+        return redirect('ai_board_room_dashboard')
+    
+    # Get latest meeting
+    latest_meeting = AIBoardMeeting.objects.order_by('-meeting_date', '-created_at').first()
+    
+    # Get all members for latest
+    if latest_meeting:
+        members = latest_meeting.board_members.all().order_by('member_type')
+    else:
+        members = []
+    
+    # ==========================================
+    # ✅ FIX: Base queryset PEHLE banao
+    # ==========================================
+    base_alerts = AIBoardAlert.objects.filter(is_resolved=False)
+    
+    # ✅ Stats from FULL queryset (slice se PEHLE)
+    total_alerts = base_alerts.count()
+    critical_alerts = base_alerts.filter(severity='critical').count()
+    high_alerts = base_alerts.filter(severity='high').count()
+    medium_alerts = base_alerts.filter(severity='medium').count()
+    
+    # ✅ Ab slice karo display ke liye
+    alerts = base_alerts.order_by('-created_at')[:15]
+    
+    # KPI history
+    kpis = AIBoardKPI.objects.order_by('-date')[:30]
+    
+    # Chart data
+    kpi_labels = [k.date.strftime('%d-%b') for k in reversed(list(kpis))]
+    kpi_health = [k.overall_health for k in reversed(list(kpis))]
+    kpi_revenue = [float(k.revenue) for k in reversed(list(kpis))]
+    
+    # Stats
+    stats = {
+        'total_meetings': AIBoardMeeting.objects.count(),
+        'active_alerts': total_alerts,       # ✅ From base
+        'critical_alerts': critical_alerts,  # ✅ From base
+        'high_alerts': high_alerts,          # ✅ From base
+        'medium_alerts': medium_alerts,      # ✅ From base
+        'total_savings': AIBoardMeeting.objects.aggregate(
+            total=Sum('total_potential_savings')
+        )['total'] or 0,
+        'total_revenue': AIBoardMeeting.objects.aggregate(
+            total=Sum('total_potential_revenue')
+        )['total'] or 0,
+    }
+    
+    import json
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'meeting': latest_meeting,
+        'members': members,
+        'alerts': alerts,                # ✅ Sliced list for display
+        'stats': stats,
+        'kpi_labels': json.dumps(kpi_labels),
+        'kpi_health': json.dumps(kpi_health),
+        'kpi_revenue': json.dumps(kpi_revenue),
+        'today': localdate(),
+    }
+    return render(request, 'ai/board_room_dashboard.html', context)
+
+
+@login_required
+def ai_board_member_detail(request, member_type):
+    """View individual board member report"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIBoardMember
+    
+    # Get latest report for this member
+    member = AIBoardMember.objects.filter(
+        member_type=member_type
+    ).order_by('-report_date', '-created_at').first()
+    
+    if not member:
+        messages.warning(request, f"No report found for {member_type}. Run board meeting first.")
+        return redirect('ai_board_room_dashboard')
+    
+    # History
+    history = AIBoardMember.objects.filter(
+        member_type=member_type
+    ).order_by('-report_date')[:30]
+    
+    import json
+    chart_labels = [h.report_date.strftime('%d-%b') for h in reversed(list(history))]
+    chart_scores = [h.health_score for h in reversed(list(history))]
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'member': member,
+        'history': history,
+        'chart_labels': json.dumps(chart_labels),
+        'chart_scores': json.dumps(chart_scores),
+    }
+    return render(request, 'ai/board_member_detail.html', context)
+
+
+@login_required
+def ai_board_meetings_list(request):
+    """List all board meetings"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIBoardMeeting
+    
+    meetings = AIBoardMeeting.objects.order_by('-meeting_date', '-created_at')
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'meetings': meetings,
+    }
+    return render(request, 'ai/board_meetings_list.html', context)
+
+
+@login_required
+def ai_board_meeting_detail(request, pk):
+    """View detailed board meeting"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIBoardMeeting
+    
+    meeting = get_object_or_404(AIBoardMeeting, pk=pk)
+    members = meeting.board_members.all().order_by('member_type')
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'meeting': meeting,
+        'members': members,
+    }
+    return render(request, 'ai/board_meeting_detail.html', context)
+
+
+@login_required
+def ai_board_alerts(request):
+    """View all board alerts"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIBoardAlert
+    
+    alerts = AIBoardAlert.objects.all().order_by('-created_at')
+    
+    # Filters
+    severity = request.GET.get('severity', '')
+    if severity:
+        alerts = alerts.filter(severity=severity)
+    
+    source = request.GET.get('source', '')
+    if source:
+        alerts = alerts.filter(source=source)
+    
+    status = request.GET.get('status', 'active')
+    if status == 'active':
+        alerts = alerts.filter(is_resolved=False)
+    elif status == 'resolved':
+        alerts = alerts.filter(is_resolved=True)
+    
+    stats = {
+        'total': alerts.count(),
+        'critical': alerts.filter(severity='critical').count(),
+        'high': alerts.filter(severity='high').count(),
+        'medium': alerts.filter(severity='medium').count(),
+    }
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'alerts': alerts,
+        'stats': stats,
+        'selected_severity': severity,
+        'selected_source': source,
+        'selected_status': status,
+    }
+    return render(request, 'ai/board_alerts.html', context)
+
+
+@login_required
+@require_POST
+def ai_board_alert_resolve(request, pk):
+    """Resolve a board alert"""
+    
+    from .models import AIBoardAlert
+    alert = get_object_or_404(AIBoardAlert, pk=pk)
+    
+    alert.is_resolved = True
+    alert.resolved_at = now()
+    alert.resolved_by = request.user
+    alert.save()
+    
+    messages.success(request, '✅ Alert resolved!')
+    return redirect('ai_board_alerts')
+    
+# ============================================
+# CSO TECH VIEWS
+# ============================================
+
+from .ai_cso_tech import AICSOTechEngine
+
+
+@login_required
+def ai_cso_tech_dashboard(request):
+    """CSO Tech Dashboard"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import (
+        AIBugReport, AIPerformanceIssue, AIFeatureSuggestion,
+        AISystemHealth, AISecurityLog
+    )
+    
+    # Run analysis if requested
+    if request.GET.get('run') == 'true':
+        try:
+            engine = AICSOTechEngine()
+            report = engine.run_full_analysis()
+            
+            messages.success(
+                request,
+                f"💻 CSO Tech Analysis Complete! "
+                f"Health: {report['health_score']}/100 | "
+                f"Warnings: {len(report['warnings'])}"
+            )
+        except Exception as e:
+            messages.error(request, f"❌ Error: {e}")
+        
+        return redirect('ai_cso_tech_dashboard')
+    
+    # Get latest system health
+    latest_health = AISystemHealth.objects.order_by('-date').first()
+    
+    # Stats
+    active_bugs = AIBugReport.objects.filter(status__in=['new', 'investigating'])
+    performance_issues = AIPerformanceIssue.objects.filter(is_resolved=False)
+    pending_features = AIFeatureSuggestion.objects.filter(status='pending')
+    security_alerts = AISecurityLog.objects.filter(is_resolved=False)
+    
+    stats = {
+        'system_health': latest_health.health_score if latest_health else 100,
+        'active_bugs': active_bugs.count(),
+        'critical_bugs': active_bugs.filter(severity='critical').count(),
+        'performance_issues': performance_issues.count(),
+        'pending_features': pending_features.count(),
+        'security_alerts': security_alerts.count(),
+    }
+    
+    # Recent items
+    recent_bugs = active_bugs.order_by('-frequency')[:5]
+    recent_issues = performance_issues.order_by('-priority')[:5]
+    recent_features = pending_features.order_by('-roi_score')[:5]
+    recent_security = security_alerts.order_by('-created_at')[:5]
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'stats': stats,
+        'latest_health': latest_health,
+        'recent_bugs': recent_bugs,
+        'recent_issues': recent_issues,
+        'recent_features': recent_features,
+        'recent_security': recent_security,
+    }
+    return render(request, 'ai/cso_tech_dashboard.html', context)
+
+
+@login_required
+def ai_cso_tech_security(request):
+    """Security Dashboard"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AISecurityLog
+    
+    alerts = AISecurityLog.objects.all().order_by('-created_at')
+    
+    severity = request.GET.get('severity', '')
+    if severity:
+        alerts = alerts.filter(severity=severity)
+    
+    status = request.GET.get('status', 'active')
+    if status == 'active':
+        alerts = alerts.filter(is_resolved=False)
+    elif status == 'resolved':
+        alerts = alerts.filter(is_resolved=True)
+    
+    # Stats - BEFORE slice
+    stats = {
+        'total': alerts.count(),
+        'critical': alerts.filter(severity='critical').count(),
+        'high': alerts.filter(severity='high').count(),
+        'medium': alerts.filter(severity='medium').count(),
+    }
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'alerts': alerts[:50],
+        'stats': stats,
+    }
+    return render(request, 'ai/cso_tech_security.html', context)
+
+
+@login_required
+def ai_cso_tech_performance(request):
+    """Performance Dashboard"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIPerformanceIssue, AISystemHealth
+    
+    issues = AIPerformanceIssue.objects.all().order_by('-priority', '-created_at')
+    health_records = AISystemHealth.objects.order_by('-date')[:30]
+    
+    # Stats
+    stats = {
+        'total_issues': issues.count(),
+        'unresolved': issues.filter(is_resolved=False).count(),
+        'critical': issues.filter(priority__gte=8, is_resolved=False).count(),
+    }
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'issues': issues,
+        'health_records': health_records,
+        'stats': stats,
+    }
+    return render(request, 'ai/cso_tech_performance.html', context)
+
+
+@login_required
+def ai_cso_tech_bugs(request):
+    """Bugs Dashboard"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIBugReport
+    
+    bugs = AIBugReport.objects.all().order_by('-frequency', '-last_seen')
+    
+    status = request.GET.get('status', 'active')
+    if status == 'active':
+        bugs = bugs.filter(status__in=['new', 'investigating'])
+    elif status == 'fixed':
+        bugs = bugs.filter(status__in=['fixed', 'closed'])
+    
+    # Stats BEFORE slice
+    stats = {
+        'total': bugs.count(),
+        'critical': bugs.filter(severity='critical').count(),
+        'high': bugs.filter(severity='high').count(),
+        'medium': bugs.filter(severity='medium').count(),
+    }
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'bugs': bugs[:50],
+        'stats': stats,
+    }
+    return render(request, 'ai/cso_tech_bugs.html', context)
+
+
+@login_required
+def ai_cso_tech_features(request):
+    """Feature Suggestions Dashboard"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIFeatureSuggestion
+    
+    features = AIFeatureSuggestion.objects.all().order_by('-roi_score', '-created_at')
+    
+    status = request.GET.get('status', 'pending')
+    if status:
+        features = features.filter(status=status)
+    
+    stats = {
+        'total': features.count(),
+        'pending': features.filter(status='pending').count(),
+        'in_progress': features.filter(status='in_progress').count(),
+        'completed': features.filter(status='completed').count(),
+    }
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'features': features,
+        'stats': stats,
+    }
+    return render(request, 'ai/cso_tech_features.html', context)
+
+
+@login_required
+def ai_cso_tech_system(request):
+    """System Health Dashboard"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AISystemHealth
+    import json
+    
+    health_records = AISystemHealth.objects.order_by('-date')[:60]
+    
+    # Chart data
+    labels = [h.date.strftime('%d-%b %H:%M') for h in reversed(list(health_records))]
+    scores = [h.health_score for h in reversed(list(health_records))]
+    memory = [float(h.memory_usage) for h in reversed(list(health_records))]
+    disk = [float(h.disk_usage) for h in reversed(list(health_records))]
+    
+    # Latest
+    latest = health_records.first()
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'latest': latest,
+        'records': health_records,
+        'chart_labels': json.dumps(labels),
+        'chart_scores': json.dumps(scores),
+        'chart_memory': json.dumps(memory),
+        'chart_disk': json.dumps(disk),
+    }
+    return render(request, 'ai/cso_tech_system.html', context)

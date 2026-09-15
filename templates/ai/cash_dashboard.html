@@ -1,0 +1,328 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}🤖 AI Cash Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ai-cash-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 20px;
+        padding: 30px;
+        margin-bottom: 25px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .ai-cash-header h1 {
+        font-weight: 900;
+        font-size: 2rem;
+        margin-bottom: 10px;
+    }
+    
+    .health-circle {
+        width: 200px;
+        height: 200px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        margin: 0 auto;
+    }
+    
+    .health-circle-inner {
+        width: 160px;
+        height: 160px;
+        border-radius: 50%;
+        background: white;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .health-score-value {
+        font-size: 3.5rem;
+        font-weight: 900;
+        line-height: 1;
+    }
+    
+    .health-score-label {
+        font-size: 0.9rem;
+        color: #6b7280;
+        font-weight: 600;
+    }
+    
+    .alert-card {
+        padding: 15px;
+        border-radius: 12px;
+        margin-bottom: 10px;
+        border-left: 5px solid;
+        background: white;
+    }
+    
+    .alert-card.critical {
+        border-color: #dc2626;
+        background: linear-gradient(90deg, #fee2e2 0%, white 15%);
+    }
+    
+    .alert-card.high {
+        border-color: #ea580c;
+        background: linear-gradient(90deg, #fed7aa 0%, white 15%);
+    }
+    
+    .alert-card.warning {
+        border-color: #f59e0b;
+        background: linear-gradient(90deg, #fef3c7 0%, white 15%);
+    }
+    
+    .alert-card.info {
+        border-color: #3b82f6;
+        background: linear-gradient(90deg, #dbeafe 0%, white 15%);
+    }
+    
+    .quick-stat {
+        text-align: center;
+        padding: 20px;
+        border-radius: 16px;
+        color: white;
+    }
+    
+    .bg-gradient-green {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    }
+    
+    .bg-gradient-red {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    }
+    
+    .bg-gradient-orange {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    }
+    
+    .bg-gradient-blue {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Header -->
+    <div class="ai-cash-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1>🤖 AI Cash Intelligence</h1>
+                <p class="mb-0">
+                    Smart predictions • Health scoring • Risk alerts
+                    <br>
+                    <small>Powered by 10 AI diagnostic engines</small>
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                <a href="?run=true" class="btn btn-light btn-lg fw-bold">
+                    <i class="bi bi-play-circle"></i> Run AI Analysis
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="quick-stat bg-gradient-blue">
+                <small>Current Balance</small>
+                <h2 class="mt-2">Rs. {{ current_balance|floatformat:0 }}</h2>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="quick-stat bg-gradient-green">
+                <small>Health Score</small>
+                <h2 class="mt-2">
+                    {% if analysis %}{{ analysis.health_score }}{% else %}--{% endif %}/100
+                </h2>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="quick-stat bg-gradient-orange">
+                <small>Active Alerts</small>
+                <h2 class="mt-2">{{ total_alerts }}</h2>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="quick-stat bg-gradient-red">
+                <small>Critical</small>
+                <h2 class="mt-2">{{ critical_alerts }}</h2>
+            </div>
+        </div>
+    </div>
+
+    <!-- Health Circle + Alerts -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body text-center">
+                    <h5 class="fw-bold mb-4">❤️ Cash Health Score</h5>
+                    
+                    {% if analysis %}
+                    <div class="health-circle" style="background: linear-gradient(135deg, 
+                        {% if analysis.health_score >= 80 %}#10b981 0%, #059669 100%
+                        {% elif analysis.health_score >= 60 %}#3b82f6 0%, #2563eb 100%
+                        {% elif analysis.health_score >= 40 %}#f59e0b 0%, #d97706 100%
+                        {% else %}#ef4444 0%, #dc2626 100%{% endif %});">
+                        <div class="health-circle-inner">
+                            <div class="health-score-value 
+                                {% if analysis.health_score >= 80 %}text-success
+                                {% elif analysis.health_score >= 60 %}text-primary
+                                {% elif analysis.health_score >= 40 %}text-warning
+                                {% else %}text-danger{% endif %}">
+                                {{ analysis.health_score }}
+                            </div>
+                            <div class="health-score-label">/ 100</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <span class="badge bg-{{ analysis.health_color }} p-2" style="font-size: 1rem;">
+                            {{ analysis.health_label }}
+                        </span>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <div class="row g-2 text-start small">
+                            <div class="col-6">
+                                <strong>Liquidity:</strong> {{ analysis.liquidity_score }}/25
+                            </div>
+                            <div class="col-6">
+                                <strong>Buffer:</strong> {{ analysis.buffer_score }}/25
+                            </div>
+                            <div class="col-6">
+                                <strong>Inflow:</strong> {{ analysis.inflow_score }}/20
+                            </div>
+                            <div class="col-6">
+                                <strong>Outflow:</strong> {{ analysis.outflow_score }}/15
+                            </div>
+                            <div class="col-12">
+                                <strong>Predictability:</strong> {{ analysis.predictability_score }}/15
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Run analysis to see health score</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Alerts -->
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 fw-bold">🚨 Recent Alerts</h6>
+                    <a href="{% url 'ai_cash_alerts' %}" class="btn btn-sm btn-light">View All</a>
+                </div>
+                <div class="card-body" style="max-height: 500px; overflow-y: auto;">
+                    {% if alerts %}
+                        {% for alert in alerts %}
+                        <div class="alert-card {{ alert.severity }}">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <strong>{{ alert.title }}</strong>
+                                    <p class="mb-1 small">{{ alert.message }}</p>
+                                    {% if alert.suggested_action %}
+                                    <small class="text-primary">
+                                        <i class="bi bi-lightbulb"></i>
+                                        {{ alert.suggested_action }}
+                                    </small>
+                                    {% endif %}
+                                </div>
+                                <small class="text-muted">{{ alert.created_at|date:"H:i" }}</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-check-circle text-success" style="font-size: 3rem;"></i>
+                            <p class="mt-3">No active alerts! ✅</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Forecast Preview -->
+    {% if analysis %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-dark text-white d-flex justify-content-between">
+            <h6 class="mb-0 fw-bold">📊 30-Day Forecast</h6>
+            <a href="{% url 'ai_cash_forecast' %}" class="btn btn-sm btn-light">View Details</a>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="p-3 rounded" style="background:#f0fdf4;">
+                        <small>Avg Daily Inflow</small>
+                        <h4 class="text-success">Rs. {{ analysis.predicted_daily_inflow|floatformat:0 }}</h4>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-3 rounded" style="background:#fef2f2;">
+                        <small>Avg Daily Outflow</small>
+                        <h4 class="text-danger">Rs. {{ analysis.predicted_daily_outflow|floatformat:0 }}</h4>
+                    </div>
+                </div>
+            </div>
+            
+            {% if analysis.days_until_shortage %}
+            <div class="alert alert-danger mt-3">
+                <h5>🚨 SHORTAGE WARNING!</h5>
+                <p class="mb-0">
+                    Cash will go negative in <strong>{{ analysis.days_until_shortage }} days</strong>
+                    <br>
+                    Expected shortage: <strong>Rs. {{ analysis.predicted_shortage_amount|floatformat:2 }}</strong>
+                </p>
+            </div>
+            {% else %}
+            <div class="alert alert-success mt-3">
+                <h5>✅ No Shortage Predicted</h5>
+                <p class="mb-0">AI predicts positive cash for next 90 days</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Quick Actions -->
+    <div class="row g-3">
+        <div class="col-md-3">
+            <a href="{% url 'ai_cash_forecast' %}" class="btn btn-outline-primary w-100 py-3">
+                <i class="bi bi-graph-up" style="font-size: 1.5rem;"></i>
+                <br>Forecast
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{% url 'ai_cash_collections' %}" class="btn btn-outline-success w-100 py-3">
+                <i class="bi bi-cash-coin" style="font-size: 1.5rem;"></i>
+                <br>Collections
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{% url 'ai_cash_alerts' %}" class="btn btn-outline-warning w-100 py-3">
+                <i class="bi bi-bell" style="font-size: 1.5rem;"></i>
+                <br>Alerts
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{% url 'ai_cash_health' %}" class="btn btn-outline-danger w-100 py-3">
+                <i class="bi bi-heart-pulse" style="font-size: 1.5rem;"></i>
+                <br>Health
+            </a>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

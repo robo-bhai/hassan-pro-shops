@@ -1,0 +1,331 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ meeting.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .meeting-header {
+        background: linear-gradient(135deg, 
+            {% if meeting.overall_status == 'excellent' %}#10b981, #059669
+            {% elif meeting.overall_status == 'good' %}#3b82f6, #2563eb
+            {% elif meeting.overall_status == 'warning' %}#f59e0b, #d97706
+            {% else %}#ef4444, #dc2626{% endif %});
+        color: white;
+        border-radius: 20px;
+        padding: 40px;
+        margin-bottom: 25px;
+    }
+    
+    .meeting-header h1 {
+        font-weight: 900;
+        font-size: 2rem;
+        margin-bottom: 10px;
+    }
+    
+    .health-big {
+        font-size: 4rem;
+        font-weight: 900;
+        line-height: 1;
+    }
+    
+    .members-row {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 10px;
+        margin-bottom: 25px;
+    }
+    
+    @media (max-width: 768px) {
+        .members-row {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+    
+    .member-mini {
+        background: white;
+        border-radius: 12px;
+        padding: 12px;
+        text-align: center;
+        text-decoration: none;
+        color: inherit;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        transition: all 0.2s;
+        border: 2px solid transparent;
+    }
+    
+    .member-mini:hover {
+        transform: translateY(-3px);
+        border-color: #667eea;
+        color: inherit;
+    }
+    
+    .member-mini-emoji {
+        font-size: 1.8rem;
+        margin-bottom: 5px;
+    }
+    
+    .member-mini-score {
+        font-size: 1.3rem;
+        font-weight: 900;
+    }
+    
+    .member-mini-name {
+        font-size: 0.65rem;
+        color: #6b7280;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    
+    .summary-box {
+        background: linear-gradient(135deg, #f8f9fc 0%, #e0e7ff 100%);
+        border-radius: 16px;
+        padding: 25px;
+        border-left: 5px solid #667eea;
+    }
+    
+    .priority-card {
+        background: white;
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 10px;
+        border-left: 4px solid;
+        transition: all 0.2s;
+    }
+    
+    .priority-card:hover {
+        transform: translateX(5px);
+    }
+    
+    .priority-card.critical { border-color: #dc2626; background: linear-gradient(90deg, #fee2e2 0%, white 8%); }
+    .priority-card.high { border-color: #ea580c; background: linear-gradient(90deg, #fed7aa 0%, white 8%); }
+    .priority-card.medium { border-color: #f59e0b; background: linear-gradient(90deg, #fef3c7 0%, white 8%); }
+    .priority-card.low { border-color: #10b981; }
+    
+    .plan-box {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 15px;
+        border-top: 4px solid;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+    
+    .plan-box.seven-days { border-color: #dc2626; }
+    .plan-box.thirty-days { border-color: #f59e0b; }
+    .plan-box.ninety-days { border-color: #3b82f6; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Meeting Header -->
+    <div class="meeting-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1>🏢 {{ meeting.title }}</h1>
+                <p class="mb-0">
+                    📅 {{ meeting.meeting_date|date:"d M Y" }}
+                    | 🕐 {{ meeting.created_at|date:"H:i" }}
+                </p>
+            </div>
+            <div class="col-md-4 text-center">
+                <div class="health-big">{{ meeting.overall_health_score }}</div>
+                <small>Overall Health Score</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Back -->
+    <div class="mb-4">
+        <a href="{% url 'ai_board_meetings_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> All Meetings
+        </a>
+        <a href="{% url 'ai_board_room_dashboard' %}" class="btn btn-outline-primary">
+            <i class="bi bi-house"></i> Board Room
+        </a>
+    </div>
+
+    <!-- 6 Members Scores -->
+    <h4 class="fw-bold mb-3">👥 Board Members Scores</h4>
+    <div class="members-row">
+        {% for member in members %}
+        <a href="{% url 'ai_board_member_detail' member.member_type %}" class="member-mini">
+            <div class="member-mini-emoji">{{ member.emoji }}</div>
+            <div class="member-mini-score 
+                {% if member.health_score >= 80 %}text-success
+                {% elif member.health_score >= 60 %}text-primary
+                {% elif member.health_score >= 40 %}text-warning
+                {% else %}text-danger{% endif %}">
+                {{ member.health_score }}
+            </div>
+            <div class="member-mini-name">{{ member.get_member_type_display }}</div>
+        </a>
+        {% endfor %}
+    </div>
+
+    <!-- Executive Summary -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <h4 class="fw-bold mb-3">📝 Executive Summary</h4>
+            <div class="summary-box">
+                {{ meeting.executive_summary|linebreaks }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Financial Impact -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card text-center border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-bold">💰 SAVINGS</div>
+                    <h2 class="text-success fw-bold mt-2">Rs. {{ meeting.total_potential_savings|floatformat:0 }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-bold">📈 REVENUE</div>
+                    <h2 class="text-info fw-bold mt-2">Rs. {{ meeting.total_potential_revenue|floatformat:0 }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-bold">🎯 NET IMPACT</div>
+                    <h2 class="text-warning fw-bold mt-2">Rs. {{ meeting.net_impact|floatformat:0 }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Priorities -->
+    {% if meeting.top_priorities %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0 fw-bold">🎯 Top Priorities</h5>
+        </div>
+        <div class="card-body">
+            {% for priority in meeting.top_priorities %}
+            <div class="priority-card {{ priority.priority }}">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="badge bg-dark">{{ priority.source|upper }}</span>
+                            <strong>{{ priority.title }}</strong>
+                        </div>
+                        <p class="mb-0 small text-muted">{{ priority.description }}</p>
+                    </div>
+                    <span class="badge bg-{% if priority.priority == 'critical' %}danger{% elif priority.priority == 'high' %}warning text-dark{% elif priority.priority == 'medium' %}info{% else %}secondary{% endif %}">
+                        {{ priority.priority|upper }}
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Action Plan -->
+    {% if meeting.action_plan %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0 fw-bold">📋 Action Plan</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                {% if meeting.action_plan.next_7_days %}
+                <div class="col-md-4">
+                    <div class="plan-box seven-days">
+                        <h6 class="fw-bold text-danger">🔥 NEXT 7 DAYS</h6>
+                        <ul class="mb-0 small">
+                            {% for action in meeting.action_plan.next_7_days %}
+                            <li class="mb-2">{{ action.title }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if meeting.action_plan.next_30_days %}
+                <div class="col-md-4">
+                    <div class="plan-box thirty-days">
+                        <h6 class="fw-bold text-warning">⚡ NEXT 30 DAYS</h6>
+                        <ul class="mb-0 small">
+                            {% for action in meeting.action_plan.next_30_days %}
+                            <li class="mb-2">{{ action.title }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if meeting.action_plan.next_90_days %}
+                <div class="col-md-4">
+                    <div class="plan-box ninety-days">
+                        <h6 class="fw-bold text-primary">🎯 NEXT 90 DAYS</h6>
+                        <ul class="mb-0 small">
+                            {% for action in meeting.action_plan.next_90_days %}
+                            <li class="mb-2">{{ action.title }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Risks -->
+    {% if meeting.risks %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0 fw-bold">⚠️ Risks Detected</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-2">
+                {% for risk in meeting.risks %}
+                <div class="col-md-6">
+                    <div class="priority-card {{ risk.severity|default:'medium' }}">
+                        <strong>{{ risk.title }}</strong>
+                        <p class="mb-0 small text-muted">{{ risk.message }}</p>
+                        <small class="text-muted">Source: {{ risk.source|upper }}</small>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Opportunities -->
+    {% if meeting.opportunities %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0 fw-bold">🎯 Opportunities</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-2">
+                {% for opp in meeting.opportunities %}
+                <div class="col-md-6">
+                    <div class="priority-card {{ opp.priority|default:'medium' }}">
+                        <strong>🎯 {{ opp.title }}</strong>
+                        <p class="mb-0 small text-muted">{{ opp.description }}</p>
+                        {% if opp.impact %}
+                        <small class="text-success">💡 {{ opp.impact }}</small>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

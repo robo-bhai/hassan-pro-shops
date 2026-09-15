@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}🏢 Board Meetings History{% endblock %}
+
+{% block extra_css %}
+<style>
+    .meetings-header {
+        background: linear-gradient(135deg, #1a1d2e 0%, #2d3436 100%);
+        color: white;
+        border-radius: 20px;
+        padding: 40px;
+        margin-bottom: 25px;
+    }
+    
+    .meetings-header h1 {
+        font-weight: 900;
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+    }
+    
+    .meeting-card {
+        background: white;
+        border-radius: 16px;
+        padding: 25px;
+        margin-bottom: 15px;
+        border-left: 5px solid;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        transition: all 0.3s;
+        text-decoration: none;
+        color: inherit;
+        display: block;
+    }
+    
+    .meeting-card:hover {
+        transform: translateX(5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        color: inherit;
+    }
+    
+    .meeting-card.excellent { border-color: #10b981; }
+    .meeting-card.good { border-color: #3b82f6; }
+    .meeting-card.warning { border-color: #f59e0b; }
+    .meeting-card.critical { border-color: #ef4444; }
+    
+    .meeting-date {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: #6b7280;
+        font-weight: 700;
+        letter-spacing: 1px;
+    }
+    
+    .meeting-title {
+        font-size: 1.3rem;
+        font-weight: 800;
+        margin: 5px 0 10px 0;
+    }
+    
+    .score-circle-small {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 900;
+        flex-shrink: 0;
+    }
+    
+    .score-value-small {
+        font-size: 1.5rem;
+        line-height: 1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Header -->
+    <div class="meetings-header">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h1>🏢 Board Meetings History</h1>
+                <p class="mb-0">All past AI Board Room sessions</p>
+            </div>
+            <div>
+                <a href="{% url 'ai_board_room_dashboard' %}?run=true" class="btn btn-warning btn-lg fw-bold">
+                    <i class="bi bi-plus-circle"></i> New Meeting
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Meetings List -->
+    {% if meetings %}
+        {% for meeting in meetings %}
+        <a href="{% url 'ai_board_meeting_detail' meeting.pk %}" class="meeting-card {{ meeting.overall_status }}">
+            <div class="row align-items-center">
+                <div class="col-auto">
+                    <div class="score-circle-small" style="background: linear-gradient(135deg, 
+                        {% if meeting.overall_status == 'excellent' %}#10b981, #059669
+                        {% elif meeting.overall_status == 'good' %}#3b82f6, #2563eb
+                        {% elif meeting.overall_status == 'warning' %}#f59e0b, #d97706
+                        {% else %}#ef4444, #dc2626{% endif %});">
+                        <div class="score-value-small">{{ meeting.overall_health_score }}</div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="meeting-date">
+                        <i class="bi bi-calendar"></i> {{ meeting.meeting_date|date:"d M Y" }}
+                        <i class="bi bi-clock ms-3"></i> {{ meeting.created_at|date:"H:i" }}
+                    </div>
+                    <div class="meeting-title">{{ meeting.title }}</div>
+                    <div class="row g-2">
+                        <div class="col-md-3 col-6">
+                            <small class="text-muted">💰 Savings</small>
+                            <div class="fw-bold text-success">Rs. {{ meeting.total_potential_savings|floatformat:0 }}</div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <small class="text-muted">📈 Revenue</small>
+                            <div class="fw-bold text-info">Rs. {{ meeting.total_potential_revenue|floatformat:0 }}</div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <small class="text-muted">🎯 Priorities</small>
+                            <div class="fw-bold">{{ meeting.top_priorities|length }}</div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <small class="text-muted">🔔 Alerts</small>
+                            <div class="fw-bold">{{ meeting.alerts.count }}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <div class="text-end">
+                        <div class="row g-1">
+                            <div class="col-6">
+                                <span class="badge bg-{% if meeting.ceo_score >= 80 %}success{% elif meeting.ceo_score >= 60 %}primary{% else %}warning{% endif %} p-2">
+                                    👑 {{ meeting.ceo_score }}
+                                </span>
+                            </div>
+                            <div class="col-6">
+                                <span class="badge bg-{% if meeting.cfo_score >= 80 %}success{% elif meeting.cfo_score >= 60 %}primary{% else %}warning{% endif %} p-2">
+                                    💰 {{ meeting.cfo_score }}
+                                </span>
+                            </div>
+                            <div class="col-6">
+                                <span class="badge bg-{% if meeting.ca_score >= 80 %}success{% elif meeting.ca_score >= 60 %}primary{% else %}warning{% endif %} p-2">
+                                    📊 {{ meeting.ca_score }}
+                                </span>
+                            </div>
+                            <div class="col-6">
+                                <span class="badge bg-{% if meeting.coo_score >= 80 %}success{% elif meeting.coo_score >= 60 %}primary{% else %}warning{% endif %} p-2">
+                                    ⚙️ {{ meeting.coo_score }}
+                                </span>
+                            </div>
+                            <div class="col-6">
+                                <span class="badge bg-{% if meeting.cso_score >= 80 %}success{% elif meeting.cso_score >= 60 %}primary{% else %}warning{% endif %} p-2">
+                                    🎯 {{ meeting.cso_score }}
+                                </span>
+                            </div>
+                            <div class="col-6">
+                                <span class="badge bg-{% if meeting.csho_score >= 80 %}success{% elif meeting.csho_score >= 60 %}primary{% else %}warning{% endif %} p-2">
+                                    👥 {{ meeting.csho_score }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    {% else %}
+        <div class="card shadow-sm">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-calendar-event" style="font-size: 4rem; color: #6b7280;"></i>
+                <h4 class="mt-3">No Meetings Yet</h4>
+                <p class="text-muted">Run your first AI Board Meeting to see results</p>
+                <a href="{% url 'ai_board_room_dashboard' %}?run=true" class="btn btn-warning btn-lg mt-3">
+                    <i class="bi bi-play-circle"></i> Start First Meeting
+                </a>
+            </div>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

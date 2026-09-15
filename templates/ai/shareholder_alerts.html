@@ -1,0 +1,307 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}🔔 AI Shareholder Alerts{% endblock %}
+
+{% block extra_css %}
+<style>
+    .alerts-header {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: white;
+        border-radius: 20px;
+        padding: 30px;
+        margin-bottom: 25px;
+    }
+    
+    .alerts-header h1 {
+        font-weight: 900;
+        font-size: 2rem;
+        margin-bottom: 10px;
+    }
+    
+    .stat-pill {
+        background: white;
+        border-radius: 12px;
+        padding: 15px;
+        text-align: center;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    .stat-pill-value {
+        font-size: 1.8rem;
+        font-weight: 900;
+        line-height: 1;
+    }
+    
+    .stat-pill-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        color: #6b7280;
+        font-weight: 700;
+        margin-top: 5px;
+    }
+    
+    .filter-tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    
+    .filter-tab {
+        padding: 8px 18px;
+        border-radius: 20px;
+        background: white;
+        border: 2px solid #e5e7eb;
+        color: #374151;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.85rem;
+        transition: all 0.2s;
+    }
+    
+    .filter-tab:hover {
+        border-color: #f59e0b;
+        color: #f59e0b;
+    }
+    
+    .filter-tab.active {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: white;
+        border-color: transparent;
+    }
+    
+    .alert-card {
+        background: white;
+        border-radius: 12px;
+        padding: 18px;
+        margin-bottom: 12px;
+        border-left: 5px solid;
+        transition: all 0.2s;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    
+    .alert-card:hover {
+        transform: translateX(5px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+    }
+    
+    .alert-card.critical {
+        border-color: #dc2626;
+        background: linear-gradient(90deg, #fee2e2 0%, white 15%);
+    }
+    
+    .alert-card.high {
+        border-color: #ea580c;
+        background: linear-gradient(90deg, #fed7aa 0%, white 15%);
+    }
+    
+    .alert-card.medium {
+        border-color: #f59e0b;
+        background: linear-gradient(90deg, #fef3c7 0%, white 15%);
+    }
+    
+    .alert-card.low {
+        border-color: #10b981;
+        background: linear-gradient(90deg, #d1fae5 0%, white 15%);
+    }
+    
+    .alert-card.info {
+        border-color: #3b82f6;
+        background: linear-gradient(90deg, #dbeafe 0%, white 15%);
+    }
+    
+    .alert-title {
+        font-weight: 800;
+        font-size: 1rem;
+        margin-bottom: 5px;
+    }
+    
+    .alert-message {
+        color: #6b7280;
+        font-size: 0.9rem;
+        margin-bottom: 8px;
+    }
+    
+    .alert-action {
+        background: #f0f9ff;
+        border-left: 3px solid #3b82f6;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        color: #1e40af;
+    }
+    
+    .alert-type-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Header -->
+    <div class="alerts-header">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h1>🔔 AI Shareholder Alerts</h1>
+                <p class="mb-0">Smart notifications for investor management</p>
+            </div>
+            <div>
+                <a href="{% url 'ai_shareholder_dashboard' %}?run=true" class="btn btn-light btn-lg fw-bold">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="stat-pill">
+                <div class="stat-pill-value text-primary">{{ stats.total }}</div>
+                <div class="stat-pill-label">Total Alerts</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-pill">
+                <div class="stat-pill-value text-danger">{{ stats.critical }}</div>
+                <div class="stat-pill-label">🔴 Critical</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-pill">
+                <div class="stat-pill-value" style="color: #f97316;">{{ stats.high }}</div>
+                <div class="stat-pill-label">🟠 High</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-pill">
+                <div class="stat-pill-value text-warning">{{ stats.medium }}</div>
+                <div class="stat-pill-label">🟡 Medium</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Tabs -->
+    <div class="filter-tabs">
+        <a href="?status=active" class="filter-tab {% if selected_status == 'active' %}active{% endif %}">
+            🔔 Active
+        </a>
+        <a href="?status=resolved" class="filter-tab {% if selected_status == 'resolved' %}active{% endif %}">
+            ✅ Resolved
+        </a>
+        <a href="?status=" class="filter-tab {% if not selected_status %}active{% endif %}">
+            📋 All
+        </a>
+        <a href="?severity=critical" class="filter-tab {% if selected_severity == 'critical' %}active{% endif %}">
+            🔴 Critical
+        </a>
+        <a href="?severity=high" class="filter-tab {% if selected_severity == 'high' %}active{% endif %}">
+            🟠 High
+        </a>
+        <a href="?type=churn" class="filter-tab {% if selected_type == 'churn' %}active{% endif %}">
+            🚨 Churn
+        </a>
+        <a href="?type=fraud" class="filter-tab {% if selected_type == 'fraud' %}active{% endif %}">
+            🔒 Fraud
+        </a>
+    </div>
+
+    <!-- Alerts List -->
+    {% if alerts %}
+        {% for alert in alerts %}
+        <div class="alert-card {{ alert.severity }}">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                <div class="flex-grow-1">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="alert-type-badge bg-dark text-white">
+                            {{ alert.get_alert_type_display }}
+                        </span>
+                        <span class="badge bg-{% if alert.severity == 'critical' %}danger{% elif alert.severity == 'high' %}warning text-dark{% elif alert.severity == 'medium' %}info{% else %}secondary{% endif %}">
+                            {{ alert.get_severity_display }}
+                        </span>
+                        {% if alert.is_resolved %}
+                        <span class="badge bg-success">✅ Resolved</span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="alert-title">
+                        {% if alert.severity == 'critical' %}🔴
+                        {% elif alert.severity == 'high' %}🟠
+                        {% elif alert.severity == 'medium' %}🟡
+                        {% else %}🔵{% endif %}
+                        {{ alert.title }}
+                    </div>
+                    
+                    <div class="alert-message">{{ alert.message }}</div>
+                    
+                    {% if alert.shareholder %}
+                    <div class="mb-2">
+                        <a href="{% url 'shareholder_detail' alert.shareholder.pk %}" class="btn btn-sm btn-outline-primary">
+                            👤 {{ alert.shareholder.name }}
+                        </a>
+                    </div>
+                    {% endif %}
+                    
+                    {% if alert.suggested_action %}
+                    <div class="alert-action">
+                        <strong>💡 Suggested Action:</strong> {{ alert.suggested_action }}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            <i class="bi bi-clock"></i> {{ alert.created_at|date:"d M Y, H:i" }}
+                            {% if alert.amount_involved > 0 %}
+                            | <strong>Rs. {{ alert.amount_involved|floatformat:2 }}</strong>
+                            {% endif %}
+                        </small>
+                    </div>
+                </div>
+                
+                <div class="d-flex flex-column gap-2">
+                    {% if alert.action_url %}
+                    <a href="{{ alert.action_url }}" class="btn btn-sm btn-primary">
+                        <i class="bi bi-arrow-right"></i> Action
+                    </a>
+                    {% endif %}
+                    
+                    {% if not alert.is_resolved %}
+                    <form method="post" action="{% url 'ai_shareholder_alert_resolve' alert.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-success w-100" 
+                                onclick="return confirm('Mark this alert as resolved?')">
+                            <i class="bi bi-check"></i> Resolve
+                        </button>
+                    </form>
+                    {% else %}
+                    <small class="text-muted text-center">
+                        Resolved by {{ alert.resolved_by.username|default:"System" }}<br>
+                        {{ alert.resolved_at|date:"d M, H:i" }}
+                    </small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="card shadow-sm">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-bell-slash text-success" style="font-size: 4rem;"></i>
+                <h4 class="mt-3">No Active Alerts! ✅</h4>
+                <p class="text-muted">All shareholders are healthy and safe</p>
+                <a href="{% url 'ai_shareholder_dashboard' %}?run=true" class="btn btn-primary mt-3">
+                    <i class="bi bi-play-circle"></i> Run AI Analysis
+                </a>
+            </div>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

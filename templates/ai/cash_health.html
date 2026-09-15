@@ -1,0 +1,306 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}❤️ Cash Health Score{% endblock %}
+
+{% block extra_css %}
+<style>
+    .health-header {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+        border-radius: 20px;
+        padding: 30px;
+        margin-bottom: 25px;
+    }
+    
+    .health-header h1 {
+        font-weight: 900;
+        font-size: 2rem;
+        margin-bottom: 10px;
+    }
+    
+    .health-circle {
+        width: 220px;
+        height: 220px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        margin: 0 auto;
+    }
+    
+    .health-circle-inner {
+        width: 180px;
+        height: 180px;
+        border-radius: 50%;
+        background: white;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .health-score-value {
+        font-size: 4rem;
+        font-weight: 900;
+        line-height: 1;
+    }
+    
+    .health-score-label {
+        font-size: 0.9rem;
+        color: #6b7280;
+        font-weight: 600;
+    }
+    
+    .factor-card {
+        background: white;
+        border-radius: 12px;
+        padding: 18px;
+        margin-bottom: 12px;
+        border-left: 4px solid;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    .factor-card.excellent {
+        border-color: #10b981;
+        background: linear-gradient(90deg, #f0fdf4 0%, white 15%);
+    }
+    
+    .factor-card.good {
+        border-color: #3b82f6;
+        background: linear-gradient(90deg, #dbeafe 0%, white 15%);
+    }
+    
+    .factor-card.moderate {
+        border-color: #f59e0b;
+        background: linear-gradient(90deg, #fef3c7 0%, white 15%);
+    }
+    
+    .factor-card.poor {
+        border-color: #ef4444;
+        background: linear-gradient(90deg, #fee2e2 0%, white 15%);
+    }
+    
+    .factor-bar {
+        height: 10px;
+        border-radius: 10px;
+        background: #e5e7eb;
+        overflow: hidden;
+        margin-top: 10px;
+    }
+    
+    .factor-bar-fill {
+        height: 100%;
+        border-radius: 10px;
+        transition: width 0.5s;
+    }
+    
+    .history-chart {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Header -->
+    <div class="health-header">
+        <h1>❤️ Cash Health Score</h1>
+        <p class="mb-0">
+            Complete health analysis of your cash flow
+            <br>
+            <small>5-factor scoring system</small>
+        </p>
+    </div>
+
+    <!-- Health Circle -->
+    <div class="card shadow-sm mb-4 border-0">
+        <div class="card-body text-center py-5">
+            <div class="health-circle" style="background: linear-gradient(135deg, 
+                {% if health.score >= 80 %}#10b981 0%, #059669 100%
+                {% elif health.score >= 60 %}#3b82f6 0%, #2563eb 100%
+                {% elif health.score >= 40 %}#f59e0b 0%, #d97706 100%
+                {% else %}#ef4444 0%, #dc2626 100%{% endif %});">
+                <div class="health-circle-inner">
+                    <div class="health-score-value 
+                        {% if health.score >= 80 %}text-success
+                        {% elif health.score >= 60 %}text-primary
+                        {% elif health.score >= 40 %}text-warning
+                        {% else %}text-danger{% endif %}">
+                        {{ health.score }}
+                    </div>
+                    <div class="health-score-label">/ 100</div>
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <h2 class="fw-bold">{{ health.label }}</h2>
+                <p class="text-muted">
+                    {% if health.score >= 80 %}
+                    Your cash health is excellent! Keep up the good work.
+                    {% elif health.score >= 60 %}
+                    Your cash health is good but room for improvement.
+                    {% elif health.score >= 40 %}
+                    Your cash health is moderate. Take action to improve.
+                    {% else %}
+                    Your cash health is poor. Immediate action needed!
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Factor Breakdown -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h4 class="fw-bold mb-3">📊 Health Factors</h4>
+        </div>
+        
+        {% for factor_name, factor in health.factors.items %}
+        <div class="col-md-6">
+            <div class="factor-card {% if factor.status == 'Excellent' or factor.status == 'Very Stable' or factor.status == 'Growing' or factor.status == 'Controlled' %}excellent
+                                     {% elif factor.status == 'Good' or factor.status == 'Stable' or factor.status == 'Moderate' %}good
+                                     {% elif factor.status == 'Low' or factor.status == 'Declining' %}moderate
+                                     {% else %}poor{% endif %}">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <h6 class="fw-bold mb-1 text-capitalize">
+                            {% if factor_name == 'liquidity' %}💧 Liquidity
+                            {% elif factor_name == 'buffer' %}🛡️ Emergency Buffer
+                            {% elif factor_name == 'inflow' %}📥 Money Coming In
+                            {% elif factor_name == 'outflow' %}📤 Money Going Out
+                            {% elif factor_name == 'predictability' %}📊 Predictability
+                            {% else %}{{ factor_name|title }}{% endif %}
+                        </h6>
+                        <p class="text-muted small mb-1">{{ factor.description }}</p>
+                        <div class="d-flex gap-3">
+                            <span class="badge bg-light text-dark">{{ factor.value }}</span>
+                            <span class="badge 
+                                {% if factor.status == 'Excellent' or factor.status == 'Very Stable' or factor.status == 'Growing' or factor.status == 'Controlled' %}bg-success
+                                {% elif factor.status == 'Good' or factor.status == 'Stable' or factor.status == 'Moderate' %}bg-primary
+                                {% elif factor.status == 'Low' or factor.status == 'Declining' %}bg-warning text-dark
+                                {% else %}bg-danger{% endif %}">
+                                {{ factor.status }}
+                            </span>
+                        </div>
+                        
+                        <div class="factor-bar">
+                            <div class="factor-bar-fill 
+                                {% if factor.status == 'Excellent' or factor.status == 'Very Stable' or factor.status == 'Growing' or factor.status == 'Controlled' %}bg-success
+                                {% elif factor.status == 'Good' or factor.status == 'Stable' or factor.status == 'Moderate' %}bg-primary
+                                {% elif factor.status == 'Low' or factor.status == 'Declining' %}bg-warning
+                                {% else %}bg-danger{% endif %}" 
+                                style="width: {% widthratio factor.score factor.max 100 %}%"></div>
+                        </div>
+                    </div>
+                    <div class="text-end ms-3">
+                        <div class="fw-bold fs-4">{{ factor.score }}/{{ factor.max }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Health History -->
+    {% if history %}
+    <div class="history-chart mb-4">
+        <h4 class="fw-bold mb-3">📈 Health Score History</h4>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Score</th>
+                        <th>Balance</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for h in history %}
+                    <tr>
+                        <td>{{ h.date|date:"d M Y" }}</td>
+                        <td>
+                            <strong class="{% if h.health_score >= 80 %}text-success{% elif h.health_score >= 60 %}text-primary{% elif h.health_score >= 40 %}text-warning{% else %}text-danger{% endif %}">
+                                {{ h.health_score }}/100
+                            </strong>
+                        </td>
+                        <td>Rs. {{ h.balance|floatformat:0 }}</td>
+                        <td>
+                            {% if h.health_score >= 80 %}
+                            <span class="badge bg-success">🟢 Excellent</span>
+                            {% elif h.health_score >= 60 %}
+                            <span class="badge bg-primary">🟡 Good</span>
+                            {% elif h.health_score >= 40 %}
+                            <span class="badge bg-warning text-dark">🟠 Moderate</span>
+                            {% else %}
+                            <span class="badge bg-danger">🔴 Poor</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recommendations -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-dark text-white">
+            <h6 class="mb-0 fw-bold">💡 AI Recommendations</h6>
+        </div>
+        <div class="card-body">
+            <ul class="mb-0">
+                {% if health.factors.liquidity.score < 15 %}
+                <li class="mb-2">
+                    <strong>💧 Improve Liquidity:</strong>
+                    Try to maintain at least 60 days of expenses in cash.
+                </li>
+                {% endif %}
+                
+                {% if health.factors.buffer.score < 15 %}
+                <li class="mb-2">
+                    <strong>🛡️ Build Emergency Fund:</strong>
+                    Create a 3-month expense buffer for emergencies.
+                </li>
+                {% endif %}
+                
+                {% if health.factors.inflow.score < 12 %}
+                <li class="mb-2">
+                    <strong>📥 Increase Inflow:</strong>
+                    Focus on sales and customer collections.
+                </li>
+                {% endif %}
+                
+                {% if health.factors.outflow.score < 10 %}
+                <li class="mb-2">
+                    <strong>📤 Control Outflow:</strong>
+                    Review expenses and negotiate with vendors.
+                </li>
+                {% endif %}
+                
+                {% if health.factors.predictability.score < 10 %}
+                <li class="mb-2">
+                    <strong>📊 Stabilize Cash Flow:</strong>
+                    Create predictable income and expense patterns.
+                </li>
+                {% endif %}
+                
+                {% if health.score >= 80 %}
+                <li class="mb-2 text-success">
+                    <strong>✅ Excellent Cash Health!</strong>
+                    Keep maintaining your current practices.
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

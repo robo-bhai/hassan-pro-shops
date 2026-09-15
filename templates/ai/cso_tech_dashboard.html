@@ -1,0 +1,255 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}💻 CSO Tech Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .cso-header {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+        border-radius: 20px;
+        padding: 40px;
+        margin-bottom: 25px;
+    }
+    
+    .cso-header h1 {
+        font-weight: 900;
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        text-align: center;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        transition: all 0.2s;
+        height: 100%;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    }
+    
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: 900;
+        line-height: 1;
+        margin-top: 10px;
+    }
+    
+    .stat-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: #6b7280;
+        font-weight: 700;
+    }
+    
+    .quick-link {
+        background: white;
+        border-radius: 16px;
+        padding: 25px;
+        text-align: center;
+        text-decoration: none;
+        color: inherit;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        transition: all 0.3s;
+        border: 2px solid transparent;
+        display: block;
+    }
+    
+    .quick-link:hover {
+        transform: translateY(-5px);
+        border-color: #3b82f6;
+        color: inherit;
+        box-shadow: 0 10px 30px rgba(59,130,246,0.2);
+    }
+    
+    .quick-link .icon {
+        font-size: 3rem;
+        margin-bottom: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Header -->
+    <div class="cso-header">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h1>💻 CSO Tech Dashboard</h1>
+                <p class="mb-0">
+                    Chief Software Officer AI
+                    <br>
+                    <small>Managing all software & technology aspects</small>
+                </p>
+            </div>
+            <div>
+                <a href="?run=true" class="btn btn-light btn-lg fw-bold">
+                    <i class="bi bi-play-circle"></i> Run Analysis
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="stat-card">
+                <div class="stat-label">System Health</div>
+                <div class="stat-value text-success">{{ stats.system_health }}</div>
+                <small class="text-muted">/ 100</small>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-card">
+                <div class="stat-label">Active Bugs</div>
+                <div class="stat-value text-danger">{{ stats.active_bugs }}</div>
+                <small class="text-muted">{{ stats.critical_bugs }} critical</small>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-card">
+                <div class="stat-label">Performance Issues</div>
+                <div class="stat-value text-warning">{{ stats.performance_issues }}</div>
+                <small class="text-muted">To fix</small>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-card">
+                <div class="stat-label">Security Alerts</div>
+                <div class="stat-value text-info">{{ stats.security_alerts }}</div>
+                <small class="text-muted">Active</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <a href="{% url 'ai_cso_tech_system' %}" class="quick-link">
+                <div class="icon">🏥</div>
+                <h5>System Health</h5>
+                <small class="text-muted">Monitor system</small>
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{% url 'ai_cso_tech_security' %}" class="quick-link">
+                <div class="icon">🔐</div>
+                <h5>Security</h5>
+                <small class="text-muted">Threats & alerts</small>
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{% url 'ai_cso_tech_performance' %}" class="quick-link">
+                <div class="icon">⚡</div>
+                <h5>Performance</h5>
+                <small class="text-muted">Speed optimization</small>
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{% url 'ai_cso_tech_bugs' %}" class="quick-link">
+                <div class="icon">🐛</div>
+                <h5>Bug Tracker</h5>
+                <small class="text-muted">Detected bugs</small>
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-danger text-white">
+                    <h6 class="mb-0 fw-bold">🐛 Recent Bugs</h6>
+                </div>
+                <div class="card-body">
+                    {% for bug in recent_bugs %}
+                    <div class="border-bottom pb-2 mb-2">
+                        <div class="d-flex justify-content-between">
+                            <strong class="small">{{ bug.title|truncatechars:40 }}</strong>
+                            <span class="badge bg-danger">{{ bug.frequency }}x</span>
+                        </div>
+                        <small class="text-muted">{{ bug.url_endpoint|default:"N/A" }}</small>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted mb-0">No active bugs ✅</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-warning text-dark">
+                    <h6 class="mb-0 fw-bold">⚡ Performance Issues</h6>
+                </div>
+                <div class="card-body">
+                    {% for issue in recent_issues %}
+                    <div class="border-bottom pb-2 mb-2">
+                        <div class="d-flex justify-content-between">
+                            <strong class="small">{{ issue.title|truncatechars:40 }}</strong>
+                            <span class="badge bg-warning text-dark">P{{ issue.priority }}</span>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted mb-0">No performance issues ✅</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white d-flex justify-content-between">
+                    <h6 class="mb-0 fw-bold">💡 Feature Suggestions</h6>
+                    <a href="{% url 'ai_cso_tech_features' %}" class="btn btn-sm btn-light">View All</a>
+                </div>
+                <div class="card-body">
+                    {% for feature in recent_features %}
+                    <div class="border-bottom pb-2 mb-2">
+                        <div class="d-flex justify-content-between">
+                            <strong class="small">{{ feature.title }}</strong>
+                            <span class="badge bg-success">ROI {{ feature.roi_score }}</span>
+                        </div>
+                        <small class="text-muted">{{ feature.description|truncatechars:60 }}</small>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted mb-0">No pending features</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-info text-white d-flex justify-content-between">
+                    <h6 class="mb-0 fw-bold">🔐 Recent Security Events</h6>
+                    <a href="{% url 'ai_cso_tech_security' %}" class="btn btn-sm btn-light">View All</a>
+                </div>
+                <div class="card-body">
+                    {% for event in recent_security %}
+                    <div class="border-bottom pb-2 mb-2">
+                        <div class="d-flex justify-content-between">
+                            <strong class="small">{{ event.title|truncatechars:40 }}</strong>
+                            <span class="badge bg-{% if event.severity == 'critical' %}danger{% elif event.severity == 'high' %}warning text-dark{% else %}info{% endif %}">
+                                {{ event.severity|upper }}
+                            </span>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted mb-0">No security issues ✅</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
