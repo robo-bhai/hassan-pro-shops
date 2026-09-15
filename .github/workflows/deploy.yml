@@ -547,6 +547,84 @@ jobs:
           pkill -f "cloudflared" || true
           sleep 2
 
+#+++&&&&&&&&&&&(((((((((())))))))))
+
+
+      - name: Create Encrypted Database Snapshot & Upload via Rclone
+        if: ${{ always() && github.event.action == 'backup_now' }}
+        env:
+          BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
+          RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
+        run: |
+          echo "=========================================="
+          echo " SETTING UP RCLONE CONFIG & ENCRYPTING DB "
+          echo "=========================================="
+
+          mkdir -p /home/runner/.config/rclone
+          echo "$RCLONE_CONFIG_DATA" > /home/runner/.config/rclone/rclone.conf
+
+          RCLONE_REMOTE=$(rclone listremotes | head -n 1)
+          echo "Target Rclone Remote: $RCLONE_REMOTE"
+
+          TIMESTAMP=$(date +"%d-%m-%y_%H-%M")
+          SNAPSHOT_FILENAME="db_snapshot_${TIMESTAMP}.sql.gz.enc"
+
+          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
+            --set-gtid-purged=OFF \
+            --column-statistics=0 \
+            --single-transaction \
+            local_django_db | gzip > raw_snapshot.sql.gz
+
+          python -c "
+          import os, base64
+          from cryptography.fernet import Fernet
+          from cryptography.hazmat.primitives import hashes
+          from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+          secret = os.environ['BACKUP_SECRET_KEY'].encode()
+          salt = b'django_backup_salt_2026'
+          kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
+          key = base64.urlsafe_b64encode(kdf.derive(secret))
+          fernet = Fernet(key)
+
+          with open('raw_snapshot.sql.gz', 'rb') as f:
+              data = f.read()
+
+          encrypted = fernet.encrypt(data)
+
+          with open('$SNAPSHOT_FILENAME', 'wb') as f:
+              f.write(encrypted)
+          print('Snapshot encrypted successfully as $SNAPSHOT_FILENAME')
+          "
+
+          rclone copy "$SNAPSHOT_FILENAME" "${RCLONE_REMOTE}hassan_shops/"
+          echo "Successfully uploaded $SNAPSHOT_FILENAME to Google Drive (${RCLONE_REMOTE}hassan_shops/)!"
+
+          BACKUP_SIZE=$(du -h "$SNAPSHOT_FILENAME" | awk '{print $1}')
+          CURRENT_TIME=$(date +"%Y-%m-%d %H:%M:%S")
+
+          curl -H "Title: 📦 Database Backup Successful" \
+               -H "Tags: white_check_mark,database,floppy_disk" \
+               -H "Markdown: yes" \
+               -d "Encrypted database backup uploaded successfully.
+
+          **Filename (Copyable):**
+          \`$SNAPSHOT_FILENAME\`
+
+          * **Size:** $BACKUP_SIZE
+          * **Timestamp:** $CURRENT_TIME
+          * **Destination:** \`${RCLONE_REMOTE}hassan_shops/$SNAPSHOT_FILENAME\`
+          * **Database:** local_django_db" \
+               ntfy.sh/hassan_shops_db
+
+          echo "Notification sent to ntfy.sh successfully!"
+
+
+
+
+#((((((++56&__&5---66-----&&&&--&&))))))
+
+
       - name: Start Django Server & Permanent Cloudflare Tunnel
         env:
           DB_HOST: "127.0.0.1"
@@ -663,74 +741,7 @@ jobs:
 
 
       # --- STEP 6: ENCRYPTED SNAPSHOT CREATION & RCLONE UPLOAD TO GDRIVE (ONLY VIA TERMUX DISPATCH) ---
-      - name: Create Encrypted Database Snapshot & Upload via Rclone
-        if: ${{ always() && github.event.action == 'backup_now' }}
-        env:
-          BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
-          RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
-        run: |
-          echo "=========================================="
-          echo " SETTING UP RCLONE CONFIG & ENCRYPTING DB "
-          echo "=========================================="
 
-          mkdir -p /home/runner/.config/rclone
-          echo "$RCLONE_CONFIG_DATA" > /home/runner/.config/rclone/rclone.conf
-
-          RCLONE_REMOTE=$(rclone listremotes | head -n 1)
-          echo "Target Rclone Remote: $RCLONE_REMOTE"
-
-          TIMESTAMP=$(date +"%d-%m-%y_%H-%M")
-          SNAPSHOT_FILENAME="db_snapshot_${TIMESTAMP}.sql.gz.enc"
-
-          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
-            --set-gtid-purged=OFF \
-            --column-statistics=0 \
-            --single-transaction \
-            local_django_db | gzip > raw_snapshot.sql.gz
-
-          python -c "
-          import os, base64
-          from cryptography.fernet import Fernet
-          from cryptography.hazmat.primitives import hashes
-          from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-
-          secret = os.environ['BACKUP_SECRET_KEY'].encode()
-          salt = b'django_backup_salt_2026'
-          kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
-          key = base64.urlsafe_b64encode(kdf.derive(secret))
-          fernet = Fernet(key)
-
-          with open('raw_snapshot.sql.gz', 'rb') as f:
-              data = f.read()
-
-          encrypted = fernet.encrypt(data)
-
-          with open('$SNAPSHOT_FILENAME', 'wb') as f:
-              f.write(encrypted)
-          print('Snapshot encrypted successfully as $SNAPSHOT_FILENAME')
-          "
-
-          rclone copy "$SNAPSHOT_FILENAME" "${RCLONE_REMOTE}hassan_shops/"
-          echo "Successfully uploaded $SNAPSHOT_FILENAME to Google Drive (${RCLONE_REMOTE}hassan_shops/)!"
-
-          BACKUP_SIZE=$(du -h "$SNAPSHOT_FILENAME" | awk '{print $1}')
-          CURRENT_TIME=$(date +"%Y-%m-%d %H:%M:%S")
-
-          curl -H "Title: 📦 Database Backup Successful" \
-               -H "Tags: white_check_mark,database,floppy_disk" \
-               -H "Markdown: yes" \
-               -d "Encrypted database backup uploaded successfully.
-
-          **Filename (Copyable):**
-          \`$SNAPSHOT_FILENAME\`
-
-          * **Size:** $BACKUP_SIZE
-          * **Timestamp:** $CURRENT_TIME
-          * **Destination:** \`${RCLONE_REMOTE}hassan_shops/$SNAPSHOT_FILENAME\`
-          * **Database:** local_django_db" \
-               ntfy.sh/hassan_shops_db
-
-          echo "Notification sent to ntfy.sh successfully!"
 
 
       - name: Save Updated DB Dump & Timestamp to GitHub Cache
