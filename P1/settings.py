@@ -181,11 +181,42 @@ USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
+import os
+
+# ============================================
+# STATIC FILES & MEDIA
+# ============================================
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 STATIC_URL = '/static/'
+STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = [
-    BASE_DIR / 'static',
-]
+
+# ============================================
+# ✅ DYNAMIC STORAGE SETTINGS (Termux / CI / Prod)
+# ============================================
+
+# Environment variable check karein (Default: False)
+IS_TERMUX = os.getenv('RUNNING_IN_TERMUX', 'false').lower() == 'true'
+
+if IS_TERMUX:
+    # Android / Termux ke liye custom storage
+    DEFAULT_FILE_STORAGE_BACKEND = "app.custom_storage.TermuxFileSystemStorage"
+else:
+    # GitHub Actions / Linux / Standard Server ke liye default storage
+    DEFAULT_FILE_STORAGE_BACKEND = "django.core.files.storage.FileSystemStorage"
+
+STORAGES = {
+    "default": {
+        "BACKEND": DEFAULT_FILE_STORAGE_BACKEND,
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
+
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
