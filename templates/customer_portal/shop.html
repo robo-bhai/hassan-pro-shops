@@ -1,0 +1,286 @@
+{% extends 'customer_portal/base_shop.html' %}
+{% load static %}
+
+{% block title %}{{ company_name }} - Shop{% endblock %}
+
+{% block content %}
+
+<!-- Hero Banner -->
+<div class="hero-banner">
+    <div class="container">
+        <h1>🛍️ {{ company_name }}</h1>
+        <p>Quality products, delivered to your door</p>
+    </div>
+</div>
+
+<div class="container py-4">
+
+    <!-- Search + Filter Bar -->
+    <div class="filter-bar">
+        <form method="get" class="row g-2">
+            <div class="col-md-4">
+                <div class="search-box-wrapper">
+                    <i class="bi bi-search search-box-icon"></i>
+                    <input type="text" 
+                           name="search" 
+                           class="form-control search-box-input" 
+                           placeholder="Search products..."
+                           value="{{ search }}">
+                </div>
+            </div>
+            <div class="col-md-2">
+                <select name="category" class="form-select">
+                    <option value="">📁 All Categories</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat.id }}" {% if selected_category == cat.id|stringformat:"s" %}selected{% endif %}>
+                        {{ cat.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="brand" class="form-select">
+                    <option value="">🏷️ All Brands</option>
+                    {% for b in brands %}
+                    <option value="{{ b.id }}" {% if selected_brand == b.id|stringformat:"s" %}selected{% endif %}>
+                        {{ b.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="sort" class="form-select">
+                    <option value="newest" {% if selected_sort == 'newest' %}selected{% endif %}>🆕 Newest</option>
+                    <option value="price_low" {% if selected_sort == 'price_low' %}selected{% endif %}>💵 Price: Low → High</option>
+                    <option value="price_high" {% if selected_sort == 'price_high' %}selected{% endif %}>💰 Price: High → Low</option>
+                    <option value="name" {% if selected_sort == 'name' %}selected{% endif %}>🔤 Name</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Search
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Results Count -->
+    <div class="d-flex justify-content-between align-items-center my-3">
+        <p class="text-muted mb-0">
+            <strong>{{ total_products }}</strong> products found
+        </p>
+        {% if search or selected_category or selected_brand %}
+        <a href="{% url 'shop_home' %}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-x-circle"></i> Clear Filters
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Products Grid -->
+    <div class="row g-3">
+        {% for product in products %}
+        <div class="col-6 col-md-4 col-lg-3">
+            <div class="product-card">
+                
+                <!-- Product Image -->
+                <a href="{% url 'shop_product_detail' product.pk %}">
+                    <div class="product-image">
+                        {% if product.image %}
+                            <img src="{{ product.image.url }}" alt="{{ product.name }}">
+                        {% else %}
+                            <div class="product-placeholder">
+                                <i class="bi bi-box-seam"></i>
+                            </div>
+                        {% endif %}
+                        
+                        <!-- Stock Badge -->
+                        {% if product.available_stock <= 0 %}
+                            <span class="badge-stock out">
+                                <i class="bi bi-x-circle"></i> Out of Stock
+                            </span>
+                        {% elif product.available_stock < 10 %}
+                            <span class="badge-stock low">
+                                <i class="bi bi-exclamation-triangle"></i> Only {{ product.available_stock }} left
+                            </span>
+                        {% else %}
+                            <span class="badge-stock in">
+                                <i class="bi bi-check-circle"></i> In Stock
+                            </span>
+                        {% endif %}
+                        
+                        <!-- Batch Price Badge -->
+                        {% if product.has_batch_price %}
+                        <span class="badge-batch">
+                            <i class="bi bi-tag-fill"></i> Batch Price
+                        </span>
+                        {% endif %}
+                    </div>
+                </a>
+                
+                <!-- Product Info -->
+                <div class="product-info">
+                    
+                    {% if product.category %}
+                    <div class="product-category">
+                        {{ product.category.name }}
+                    </div>
+                    {% endif %}
+                    
+                    <h6 class="product-name">
+                        <a href="{% url 'shop_product_detail' product.pk %}">
+                            {{ product.name|truncatechars:40 }}
+                        </a>
+                    </h6>
+                    
+                    {% if product.brand %}
+                    <small class="text-muted d-block mb-1">
+                        <i class="bi bi-bookmark"></i> {{ product.brand.name }}
+                    </small>
+                    {% endif %}
+                    
+                    <div class="product-price">
+                        Rs. {{ product.price|floatformat:0 }}
+                        {% if product.has_batch_price %}
+                        <span class="price-source">from batch</span>
+                        {% endif %}
+                    </div>
+                    
+                    {% if product.available_stock > 0 %}
+                    <small class="text-success d-block mb-2">
+                        <i class="bi bi-check-circle-fill"></i>
+                        {{ product.available_stock }} available
+                    </small>
+                    {% else %}
+                    <small class="text-danger d-block mb-2">
+                        <i class="bi bi-x-circle-fill"></i>
+                        Out of stock
+                    </small>
+                    {% endif %}
+                    
+                    {% if product.available_stock > 0 %}
+                    <button class="btn btn-primary btn-sm w-100 mt-2 add-to-cart-btn"
+                            data-product-id="{{ product.id }}">
+                        <i class="bi bi-cart-plus"></i> Add to Cart
+                    </button>
+                    {% else %}
+                    <button class="btn btn-secondary btn-sm w-100 mt-2" disabled>
+                        <i class="bi bi-x-circle"></i> Out of Stock
+                    </button>
+                    {% endif %}
+                    
+                </div>
+                
+            </div>
+        </div>
+        {% empty %}
+        
+        <div class="col-12 text-center py-5">
+            <i class="bi bi-inbox" style="font-size: 5rem; color: #ccc;"></i>
+            <h4 class="mt-3">No products found</h4>
+            <p class="text-muted">Try different search or filters</p>
+            <a href="{% url 'shop_home' %}" class="btn btn-primary btn-lg mt-2">
+                <i class="bi bi-shop"></i> View All Products
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if selected_brand %}&brand={{ selected_brand }}{% endif %}{% if selected_sort %}&sort={{ selected_sort }}{% endif %}">
+                    <i class="bi bi-chevron-left"></i> Previous
+                </a>
+            </li>
+            {% endif %}
+            
+            <li class="page-item active">
+                <span class="page-link">
+                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                </span>
+            </li>
+            
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if selected_brand %}&brand={{ selected_brand }}{% endif %}{% if selected_sort %}&sort={{ selected_sort }}{% endif %}">
+                    Next <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+</div>
+
+<!-- Toast -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="cartToast" class="toast" role="alert">
+        <div class="toast-header bg-success text-white">
+            <i class="bi bi-check-circle me-2"></i>
+            <strong class="me-auto">Success</strong>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body" id="cartToastMessage">
+            Product added to cart!
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('.add-to-cart-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const productId = this.dataset.productId;
+        const originalText = this.innerHTML;
+        
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Adding...';
+        
+        fetch('{% url "add_to_cart" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                product_id: productId,
+                quantity: 1
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                document.querySelectorAll('.cart-count').forEach(el => {
+                    el.textContent = data.cart_count;
+                });
+                
+                document.getElementById('cartToastMessage').textContent = data.message;
+                const toast = new bootstrap.Toast(document.getElementById('cartToast'));
+                toast.show();
+                
+                this.innerHTML = '<i class="bi bi-check"></i> Added!';
+                setTimeout(() => {
+                    this.innerHTML = originalText;
+                    this.disabled = false;
+                }, 1500);
+            } else {
+                alert(data.message);
+                this.innerHTML = originalText;
+                this.disabled = false;
+            }
+        })
+        .catch(err => {
+            alert('Error: ' + err);
+            this.innerHTML = originalText;
+            this.disabled = false;
+        });
+    });
+});
+</script>
+{% endblock %}

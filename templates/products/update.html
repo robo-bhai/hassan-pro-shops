@@ -1,364 +1,320 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Edit Product{% endblock %}
-{% block page_title %}✏️ Edit Product{% endblock %}
-
-{% block extra_css %}
-<style>
-    :root {
-        --border: #eef0f5;
-        --text: #1a1a2e;
-        --text-light: #6b7280;
-        --accent: #0d6efd;
-    }
-    
-    .form-container { max-width: 800px; margin: 0 auto; }
-    
-    .form-card {
-        background: white;
-        border-radius: 16px;
-        border: 1px solid var(--border);
-        padding: 30px 35px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
-    }
-    
-    .form-card .form-header { margin-bottom: 25px; }
-    
-    .form-card .form-header h4 {
-        font-weight: 800;
-        font-size: 1.2rem;
-        color: var(--text);
-        margin: 0;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-    
-    .form-card .form-header p {
-        color: var(--text-light);
-        font-size: 0.85rem;
-        margin: 5px 0 0;
-    }
-    
-    .form-section { margin-bottom: 25px; }
-    
-    .form-section-title {
-        font-weight: 700;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 2px;
-        color: #8a8fa0;
-        margin-bottom: 15px;
-        padding-bottom: 10px;
-        border-bottom: 2px solid #f0f2f7;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    
-    .section-icon {
-        width: 28px; height: 28px;
-        border-radius: 8px;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 0.85rem;
-    }
-    
-    .icon-basic { background: #eef2ff; color: #667eea; }
-    .icon-barcode { background: #e8f5e9; color: #4caf50; }
-    .icon-category { background: #fff3cd; color: #f2994a; }
-    .icon-stock { background: #fce4ec; color: #e91e63; }
-    
-    .form-label-custom {
-        font-weight: 700; font-size: 0.72rem;
-        text-transform: uppercase; letter-spacing: 1px;
-        color: #5a6070; margin-bottom: 5px;
-        display: flex; align-items: center; gap: 5px;
-    }
-    
-    .form-label-custom .required { color: #dc3545; }
-    
-    .form-control-custom, .form-select-custom {
-        border-radius: 10px; border: 2px solid #eef0f5;
-        padding: 11px 15px; font-size: 0.9rem; font-weight: 500;
-        background: #fafbfc; width: 100%; transition: all 0.2s;
-        margin-bottom: 14px; color: var(--text);
-    }
-    
-    .form-control-custom:focus, .form-select-custom:focus {
-        border-color: var(--accent);
-        box-shadow: 0 0 0 4px rgba(13,110,253,0.08);
-        background: white; outline: none;
-    }
-    
-    textarea.form-control-custom { resize: vertical; min-height: 80px; }
-    
-    .help-text {
-        font-size: 0.72rem; color: #8a8fa0;
-        margin-top: -8px; margin-bottom: 14px;
-        display: flex; align-items: center; gap: 4px;
-    }
-    
-    .current-barcode {
-        background: #f0fff4; border: 2px solid #4caf50;
-        border-radius: 12px; padding: 15px; text-align: center;
-        font-family: 'Courier New', monospace;
-        font-size: 1.1rem; font-weight: 700; color: #2e7d32;
-        letter-spacing: 2px; margin-bottom: 14px;
-    }
-    
-    .current-barcode span {
-        display: block; font-size: 0.7rem; color: #6b7280;
-        font-weight: 500; letter-spacing: 1px; margin-bottom: 3px;
-        font-family: 'Segoe UI', sans-serif;
-    }
-    
-    .no-barcode {
-        background: #fafafa; border: 2px dashed #e0e3eb;
-        border-radius: 12px; padding: 15px; text-align: center;
-        color: #c0c5d0; font-size: 0.85rem; margin-bottom: 14px;
-    }
-    
-    .btn-submit {
-        width: 100%; padding: 15px; border-radius: 12px;
-        font-weight: 700; font-size: 1rem; border: none; cursor: pointer;
-        background: linear-gradient(135deg, #f2994a, #f2c94c);
-        color: #333; display: flex; align-items: center;
-        justify-content: center; gap: 8px; transition: all 0.3s;
-        box-shadow: 0 4px 15px rgba(242,201,76,0.25);
-    }
-    
-    .btn-submit:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 10px 30px rgba(242,201,76,0.4);
-    }
-    
-    .btn-back {
-        width: 100%; padding: 12px; border-radius: 10px;
-        font-weight: 600; font-size: 0.9rem;
-        border: 2px solid #e0e3eb; background: white;
-        color: #5a6070; cursor: pointer; margin-top: 10px;
-        display: flex; align-items: center; justify-content: center;
-        gap: 6px; text-decoration: none; transition: all 0.2s;
-    }
-    
-    .btn-back:hover { background: #f8f9fc; border-color: #c0c5d0; color: #333; }
-    
-    #scannerContainer {
-        border: 2px solid #f0a500; border-radius: 12px;
-        overflow: hidden; max-width: 400px;
-    }
-    
-    @media (max-width: 768px) {
-        .form-card { padding: 20px 16px; border-radius: 12px; }
-        .form-card .form-header h4 { font-size: 1rem; }
-        .form-control-custom, .form-select-custom { padding: 10px 12px; font-size: 0.85rem; }
-        .btn-submit { padding: 13px; }
-    }
-</style>
-{% endblock %}
+{% block title %}✏️ Edit Product{% endblock %}
 
 {% block content %}
+<div class="container-fluid py-4">
 
-<div class="form-container">
-    
-    <form method="POST" id="productForm">
+    <!-- Header -->
+    <div class="card border-0 mb-4" style="background: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%); color: white;">
+        <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="fw-bold mb-1">✏️ Edit Product</h2>
+                    <p class="mb-0 opacity-75">{{ product.name }}</p>
+                </div>
+                <a href="{% url 'product_list' %}" class="btn btn-light">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Form -->
+    <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
-        
-        <div class="form-card">
-            
-            <div class="form-header">
-                <h4>✏️ Edit Product: {{ product.name }}</h4>
-                <p>Update product details</p>
+
+        <div class="row g-4">
+
+            <!-- Left Column: Basic Info -->
+            <div class="col-md-8">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-dark text-white">
+                        <h6 class="mb-0 fw-bold">📝 Basic Information</h6>
+                    </div>
+                    <div class="card-body">
+
+                        <div class="row g-3">
+
+                            <!-- Name -->
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold">
+                                    Product Name <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" 
+                                       name="name" 
+                                       class="form-control form-control-lg" 
+                                       required
+                                       value="{{ product.name }}">
+                            </div>
+
+                            <!-- Serial -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Serial Number</label>
+                                <input type="text" 
+                                       name="serial_no" 
+                                       class="form-control" 
+                                       value="{{ product.serial_no|default:'' }}">
+                            </div>
+
+                            <!-- Barcode -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Barcode</label>
+                                <input type="text" 
+                                       name="barcode" 
+                                       class="form-control" 
+                                       value="{{ product.barcode|default:'' }}">
+                            </div>
+
+                            <!-- Description -->
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold">Description</label>
+                                <textarea name="description" 
+                                          class="form-control" 
+                                          rows="3">{{ product.description|default:'' }}</textarea>
+                            </div>
+
+                            <!-- Used For -->
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold">Used For</label>
+                                <textarea name="used" 
+                                          class="form-control" 
+                                          rows="2">{{ product.used|default:'' }}</textarea>
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Categories -->
+                <div class="card shadow-sm border-0 mt-3">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0 fw-bold">📂 Categories</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+
+                            <!-- Category -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Category</label>
+                                <select name="category" class="form-select">
+                                    <option value="">--- Select Category ---</option>
+                                    {% for cat in categories %}
+                                    <option value="{{ cat.id }}" {% if product.category_id == cat.id %}selected{% endif %}>
+                                        {{ cat.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Brand -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Brand</label>
+                                <select name="brand" class="form-select">
+                                    <option value="">--- Select Brand ---</option>
+                                    {% for b in brands %}
+                                    <option value="{{ b.id }}" {% if product.brand_id == b.id %}selected{% endif %}>
+                                        {{ b.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Type -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Type</label>
+                                <select name="types" class="form-select">
+                                    <option value="">--- Select Type ---</option>
+                                    {% for t in types %}
+                                    <option value="{{ t.id }}" {% if product.types_id == t.id %}selected{% endif %}>
+                                        {{ t.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Unit -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Unit</label>
+                                <select name="unit" class="form-select">
+                                    <option value="">--- Select Unit ---</option>
+                                    {% for u in units %}
+                                    <option value="{{ u.id }}" {% if product.unit_id == u.id %}selected{% endif %}>
+                                        {{ u.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Location -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Location</label>
+                                <select name="location" class="form-select">
+                                    <option value="">--- Select Location ---</option>
+                                    {% for loc in locations %}
+                                    <option value="{{ loc.id }}" {% if product.location_id == loc.id %}selected{% endif %}>
+                                        {{ loc.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Low Stock Threshold -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Low Stock Alert</label>
+                                <input type="number" 
+                                       name="low_stock_threshold" 
+                                       class="form-control" 
+                                       value="{{ product.low_stock_threshold }}"
+                                       step="0.01">
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
             </div>
-            
-            <!-- Section 1: Basic Information -->
-            <div class="form-section">
-                <div class="form-section-title">
-                    <span class="section-icon icon-basic">📋</span> Basic Information
+
+            <!-- Right Column: Image + Status -->
+            <div class="col-md-4">
+
+                <!-- Product Image -->
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-success text-white">
+                        <h6 class="mb-0 fw-bold">📸 Product Image</h6>
+                    </div>
+                    <div class="card-body text-center">
+
+                        <!-- Existing Image -->
+                        {% if product.image %}
+                        <div id="existingImage" class="mb-3">
+                            <img src="{{ product.image.url }}" 
+                                 alt="{{ product.name }}" 
+                                 class="img-fluid rounded"
+                                 style="max-height: 250px; border: 3px solid #10b981;">
+                        </div>
+                        
+                        <!-- Remove checkbox -->
+                        <div class="form-check mb-3">
+                            <input type="checkbox" 
+                                   name="remove_image" 
+                                   class="form-check-input" 
+                                   id="removeImage">
+                            <label class="form-check-label text-danger fw-bold" for="removeImage">
+                                <i class="bi bi-trash"></i> Current image hatao
+                            </label>
+                        </div>
+                        {% endif %}
+
+                        <!-- New Image Preview -->
+                        <div id="imagePreview" style="display: none;" class="mb-3">
+                            <img id="previewImg" 
+                                 src="" 
+                                 alt="Preview" 
+                                 class="img-fluid rounded"
+                                 style="max-height: 250px; border: 3px solid #f59e0b;">
+                            <p class="text-warning small mt-1">
+                                <i class="bi bi-info-circle"></i> Naya image (purana replace hoga)
+                            </p>
+                            <button type="button" 
+                                    class="btn btn-sm btn-danger w-100" 
+                                    onclick="removePreview()">
+                                <i class="bi bi-x-circle"></i> New Image Hatao
+                            </button>
+                        </div>
+
+                        <!-- Placeholder (if no image) -->
+                        {% if not product.image %}
+                        <div id="imagePlaceholder" class="mb-3">
+                            <div style="font-size: 5rem; color: #ddd;">📷</div>
+                            <p class="text-muted small">Koi image nahi</p>
+                        </div>
+                        {% endif %}
+
+                        <!-- Upload Button -->
+                        <input type="file" 
+                               name="image" 
+                               class="form-control" 
+                               accept="image/*"
+                               id="imageInput">
+
+                        <small class="text-muted d-block mt-2">
+                            {% if product.image %}
+                            Naya image upload karein
+                            {% else %}
+                            JPG, PNG, WEBP — Max 5MB
+                            {% endif %}
+                        </small>
+                    </div>
                 </div>
-                
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label-custom">Product Name <span class="required">*</span></label>
-                        <input type="text" name="name" class="form-control-custom" value="{{ product.name }}" required>
+
+                <!-- Status -->
+                <div class="card shadow-sm border-0 mt-3">
+                    <div class="card-header bg-warning text-dark">
+                        <h6 class="mb-0 fw-bold">⚙️ Status</h6>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label-custom">Serial Number</label>
-                        <input type="text" name="serial_no" class="form-control-custom" value="{{ product.serial_no|default:'' }}">
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label-custom">Description</label>
-                        <textarea name="description" class="form-control-custom">{{ product.description|default:'' }}</textarea>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label-custom">Used For</label>
-                        <input type="text" name="used" class="form-control-custom" value="{{ product.used|default:'' }}">
+                    <div class="card-body">
+                        <div class="form-check form-switch">
+                            <input type="checkbox" 
+                                   name="is_active" 
+                                   class="form-check-input" 
+                                   id="isActive"
+                                   {% if product.is_active %}checked{% endif %}>
+                            <label class="form-check-label fw-bold" for="isActive">
+                                Product Active
+                            </label>
+                        </div>
                     </div>
                 </div>
+
+                <!-- Save Button -->
+                <div class="d-grid gap-2 mt-3">
+                    <button type="submit" class="btn btn-primary btn-lg fw-bold">
+                        <i class="bi bi-check-circle"></i> Update Product
+                    </button>
+                    <a href="{% url 'product_list' %}" class="btn btn-outline-secondary">
+                        Cancel
+                    </a>
+                </div>
+
             </div>
-            
-            <!-- Section 2: Barcode -->
-            <div class="form-section">
-                <div class="form-section-title">
-                    <span class="section-icon icon-barcode">🔢</span> Barcode
-                </div>
-                
-                {% if product.barcode %}
-                <div class="current-barcode">
-                    <span>Current Barcode {% if product.use_custom_barcode %}(Custom){% else %}(Auto){% endif %}</span>
-                    {{ product.barcode }}
-                </div>
-                {% else %}
-                <div class="no-barcode">
-                    <i class="bi bi-upc-scan"></i> No barcode assigned
-                </div>
-                {% endif %}
-                
-                <!-- Camera Scanner Button -->
-                <div class="row g-2 mb-3">
-                    <div class="col-md-6">
-                        <button class="btn btn-success w-100" type="button" onclick="startBarcodeScanner()" id="scanBtn" style="border-radius:10px; padding:12px; font-weight:700;">
-                            <i class="bi bi-camera-video"></i> Scan Supplier Barcode
-                        </button>
-                        <button class="btn btn-danger w-100 d-none" type="button" onclick="stopBarcodeScanner()" id="stopBtn" style="border-radius:10px; padding:12px; font-weight:700;">
-                            <i class="bi bi-stop-circle"></i> Stop Camera
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Camera Preview -->
-                <div class="d-none mb-3" id="scannerContainer">
-                    <div id="barcodeReader" style="width:100%;"></div>
-                </div>
-                
-                <label class="form-label-custom">Update Barcode</label>
-                <input type="text" name="barcode" id="barcodeInput" class="form-control-custom" 
-                       placeholder="Scan or type new barcode...">
-                <div class="help-text">
-                    <i class="bi bi-info-circle"></i> Scan supplier barcode or leave blank to keep current
-                </div>
-            </div>
-            
-            <!-- Section 3: Categorization -->
-            <div class="form-section">
-                <div class="form-section-title">
-                    <span class="section-icon icon-category">📂</span> Categorization
-                </div>
-                
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label-custom">Category</label>
-                        <select name="category" class="form-select-custom">
-                            <option value="">None</option>
-                            {% for c in categories %}
-                            <option value="{{ c.id }}" {% if product.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label-custom">Brand</label>
-                        <select name="brand" class="form-select-custom">
-                            <option value="">None</option>
-                            {% for b in brands %}
-                            <option value="{{ b.id }}" {% if product.brand_id == b.id %}selected{% endif %}>{{ b.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label-custom">Unit</label>
-                        <select name="unit" class="form-select-custom">
-                            <option value="">None</option>
-                            {% for u in units %}
-                            <option value="{{ u.id }}" {% if product.unit_id == u.id %}selected{% endif %}>{{ u.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label-custom">Location</label>
-                        <select name="location" class="form-select-custom">
-                            <option value="">None</option>
-                            {% for l in locations %}
-                            <option value="{{ l.id }}" {% if product.location_id == l.id %}selected{% endif %}>{{ l.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label-custom">Type</label>
-                        <select name="types" class="form-select-custom">
-                            <option value="">None</option>
-                            {% for t in types %}
-                            <option value="{{ t.id }}" {% if product.types_id == t.id %}selected{% endif %}>{{ t.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Section 4: Stock Settings -->
-            <div class="form-section">
-                <div class="form-section-title">
-                    <span class="section-icon icon-stock">⚠️</span> Stock Alert Settings
-                </div>
-                
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label-custom">Low Stock Threshold</label>
-                        <input type="number" name="low_stock_threshold" class="form-control-custom" 
-                               value="{{ product.low_stock_threshold }}" min="0" step="1">
-                        <div class="help-text"><i class="bi bi-exclamation-triangle"></i> Alert when stock goes below this level</div>
-                    </div>
-                </div>
-            </div>
-            
-            <button type="submit" class="btn-submit"><i class="bi bi-check-circle"></i> Update Product</button>
-            <a href="{% url 'product_list' %}" class="btn-back"><i class="bi bi-arrow-left"></i> Back to Products</a>
         </div>
     </form>
 </div>
 
-{% endblock %}
-
-{% block extra_js %}
-<script src="https://unpkg.com/html5-qrcode"></script>
 <script>
-    let html5QrCode = null;
-    
-    function startBarcodeScanner() {
-        document.getElementById('scannerContainer').classList.remove('d-none');
-        document.getElementById('scanBtn').classList.add('d-none');
-        document.getElementById('stopBtn').classList.remove('d-none');
-        
-        html5QrCode = new Html5Qrcode("barcodeReader");
-        html5QrCode.start(
-            { facingMode: "environment" },
-            { fps: 10, qrbox: { width: 250, height: 120 } },
-            onScanSuccess,
-            onScanFailure
-        ).catch(err => {
-            alert("❌ Camera access denied!");
-            stopBarcodeScanner();
-        });
-    }
-    
-    function stopBarcodeScanner() {
-        if (html5QrCode) {
-            html5QrCode.stop().then(() => {
-                html5QrCode.clear();
-                document.getElementById('scannerContainer').classList.add('d-none');
-                document.getElementById('scanBtn').classList.remove('d-none');
-                document.getElementById('stopBtn').classList.add('d-none');
-            }).catch(err => {});
+// New image preview
+document.getElementById('imageInput')?.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+        if (file.size > 5 * 1024 * 1024) {
+            alert('❌ Image 5MB se zyada hai!');
+            this.value = '';
+            return;
         }
+        
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            document.getElementById('previewImg').src = event.target.result;
+            document.getElementById('imagePreview').style.display = 'block';
+            
+            const placeholder = document.getElementById('imagePlaceholder');
+            if (placeholder) placeholder.style.display = 'none';
+        };
+        reader.readAsDataURL(file);
     }
+});
+
+function removePreview() {
+    document.getElementById('imageInput').value = '';
+    document.getElementById('imagePreview').style.display = 'none';
     
-    function onScanSuccess(decodedText) {
-        document.getElementById('barcodeInput').value = decodedText;
-        stopBarcodeScanner();
-        try { new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACAf39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f4B/f3+Af39/gH9/f3+Af39/gH9/f3+Af39/gH9/f3+Af39/gH9/f3+Af39/gH9/f3+Af39/gH9/f3+Af39/gH9/f3+Af39/gH9/f3+Af39/gA==').play().catch(()=>{}); } catch(e) {}
-        alert('✅ Barcode scanned: ' + decodedText);
-    }
-    
-    function onScanFailure(error) {}
+    {% if not product.image %}
+    const placeholder = document.getElementById('imagePlaceholder');
+    if (placeholder) placeholder.style.display = 'block';
+    {% endif %}
+}
 </script>
+
 {% endblock %}

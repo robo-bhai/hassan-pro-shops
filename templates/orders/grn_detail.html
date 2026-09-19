@@ -176,6 +176,12 @@
         color: #856404;
     }
     
+    .alert-danger-custom {
+        background: #f8d7da;
+        border-color: #dc3545;
+        color: #721c24;
+    }
+    
     @media (max-width: 768px) {
         .detail-header { padding: 20px; }
         .info-card { padding: 15px; }
@@ -194,7 +200,11 @@
                 <h3 class="mb-0 me-3">📦 {{ grn.grn_no }}</h3>
                 <span class="status-badge status-{{ grn.status|default:'received' }}">
                     {% if grn.converted_to_purchase %}
-                        ✅ Converted to Purchase
+                        {% if grn.purchase %}
+                            ✅ Converted to Purchase
+                        {% else %}
+                            ⚠️ Marked as Converted
+                        {% endif %}
                     {% else %}
                         📥 Received
                     {% endif %}
@@ -218,17 +228,38 @@
 
 <!-- Conversion Status Alert -->
 {% if grn.converted_to_purchase %}
-    <div class="alert-custom alert-success-custom">
-        <i class="bi bi-check-circle-fill fs-4"></i>
-        <div>
-            <strong>✅ GRN Already Converted to Purchase!</strong>
-            <br>
-            <small>Purchase Bill: {{ grn.purchase.bill_no|default:"N/A" }} - 
-                <a href="{% url 'purchase_detail' grn.purchase.pk %}" class="fw-bold">View Purchase</a>
-            </small>
+    {% if grn.purchase %}
+        {# ✅ Case 1: Properly converted #}
+        <div class="alert-custom alert-success-custom">
+            <i class="bi bi-check-circle-fill fs-4"></i>
+            <div>
+                <strong>✅ GRN Already Converted to Purchase!</strong>
+                <br>
+                <small>
+                    Purchase Bill: {{ grn.purchase.bill_no|default:"N/A" }} - 
+                    <a href="{% url 'purchase_detail' grn.purchase.pk %}" class="fw-bold">
+                        View Purchase
+                    </a>
+                </small>
+            </div>
         </div>
-    </div>
+    {% else %}
+        {# ⚠️ Case 2: Data inconsistency - show info only #}
+        <div class="alert-custom alert-danger-custom">
+            <i class="bi bi-exclamation-triangle-fill fs-4"></i>
+            <div>
+                <strong>⚠️ Data Inconsistency Detected</strong>
+                <br>
+                <small>
+                    This GRN is marked as <strong>"Converted"</strong> but no Purchase record is linked.
+                    <br>
+                    <em>Please contact administrator to fix this data.</em>
+                </small>
+            </div>
+        </div>
+    {% endif %}
 {% else %}
+    {# ⏳ Case 3: Not converted yet #}
     <div class="alert-custom alert-warning-custom">
         <i class="bi bi-exclamation-triangle-fill fs-4"></i>
         <div>
@@ -415,7 +446,11 @@
                 <span class="info-label">Status:</span>
                 <span class="info-value">
                     {% if grn.converted_to_purchase %}
-                        <span class="badge bg-success">✅ Converted</span>
+                        {% if grn.purchase %}
+                            <span class="badge bg-success">✅ Converted</span>
+                        {% else %}
+                            <span class="badge bg-danger">⚠️ Invalid</span>
+                        {% endif %}
                     {% else %}
                         <span class="badge bg-warning text-dark">⏳ Pending</span>
                     {% endif %}
@@ -431,8 +466,9 @@
             
             <div class="d-grid gap-2">
                 
-                <!-- ✅ CONVERT TO PURCHASE - MAIN ACTION -->
+                <!-- ✅ MAIN ACTION: Convert to Purchase OR View Purchase -->
                 {% if not grn.converted_to_purchase %}
+                    {# Case: Not converted - show Convert button #}
                     <a href="{% url 'grn_convert_to_purchase' grn.pk %}" 
                        class="action-btn btn-success-custom"
                        onclick="return confirm('GRN ko Purchase mein convert karein?\n\nGRN: {{ grn.grn_no }}\nVendor: {{ grn.vendor.name }}\nAmount: Rs. {{ total_amount|floatformat:2 }}\n\nYeh action undo nahi ho sakti!')">
@@ -440,11 +476,23 @@
                         <span>Convert to Purchase</span>
                     </a>
                 {% else %}
-                    <a href="{% url 'purchase_detail' grn.purchase.pk %}" 
-                       class="action-btn btn-info-custom">
-                        <i class="bi bi-eye"></i> 
-                        <span>View Purchase</span>
-                    </a>
+                    {# Case: Converted - show Purchase link ONLY if exists #}
+                    {% if grn.purchase %}
+                        <a href="{% url 'purchase_detail' grn.purchase.pk %}" 
+                           class="action-btn btn-info-custom">
+                            <i class="bi bi-eye"></i> 
+                            <span>View Purchase</span>
+                        </a>
+                    {% else %}
+                        {# Data inconsistency - just show warning #}
+                        <div class="alert alert-danger mb-0 text-center">
+                            <small>
+                                <i class="bi bi-exclamation-triangle"></i>
+                                <strong>Invalid GRN</strong><br>
+                                Purchase record missing
+                            </small>
+                        </div>
+                    {% endif %}
                 {% endif %}
                 
                 <!-- Print GRN -->
@@ -502,7 +550,9 @@
             {% if grn.converted_to_purchase %}
             <div class="info-row">
                 <span class="info-label">Converted:</span>
-                <span class="info-value text-success">✅ Yes</span>
+                <span class="info-value {% if grn.purchase %}text-success{% else %}text-danger{% endif %}">
+                    {% if grn.purchase %}✅ Yes{% else %}⚠️ Invalid{% endif %}
+                </span>
             </div>
             {% endif %}
         </div>

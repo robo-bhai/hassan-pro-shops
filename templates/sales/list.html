@@ -238,7 +238,7 @@
     .sale-table {
         width: 100%;
         border-collapse: collapse;
-        min-width: 1000px;
+        min-width: 1150px;
     }
     
     .sale-table thead th {
@@ -331,16 +331,26 @@
     
     .status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
     
+    /* ✅ Status Badges — 4 States */
     .status-paid {
         background: #d4edda; color: #155724;
         padding: 5px 14px; border-radius: 20px; font-size: 0.78rem; font-weight: 600;
         display: inline-flex; align-items: center; gap: 5px;
+        white-space: nowrap;
     }
     
-    .status-pending {
+    .status-partial {
         background: #fff3cd; color: #856404;
         padding: 5px 14px; border-radius: 20px; font-size: 0.78rem; font-weight: 600;
         display: inline-flex; align-items: center; gap: 5px;
+        white-space: nowrap;
+    }
+    
+    .status-credit {
+        background: #f8d7da; color: #721c24;
+        padding: 5px 14px; border-radius: 20px; font-size: 0.78rem; font-weight: 600;
+        display: inline-flex; align-items: center; gap: 5px;
+        white-space: nowrap;
     }
     
     .status-converted {
@@ -348,27 +358,76 @@
         color: white;
         padding: 5px 14px; border-radius: 20px; font-size: 0.78rem; font-weight: 600;
         display: inline-flex; align-items: center; gap: 5px;
+        white-space: nowrap;
     }
     
     .status-paid .status-dot { background: #28a745; }
-    .status-pending .status-dot { background: #f2994a; }
+    .status-partial .status-dot { background: #f2994a; }
+    .status-credit .status-dot { background: #dc3545; }
     .status-converted .status-dot { background: white; }
+    
+    /* ✅ Payment Type Badges */
+    .type-cash {
+        background: #d4edda; color: #155724;
+        padding: 4px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 600;
+        display: inline-flex; align-items: center; gap: 4px;
+        white-space: nowrap;
+    }
+    
+    .type-credit {
+        background: #eef2ff; color: #4338ca;
+        padding: 4px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 600;
+        display: inline-flex; align-items: center; gap: 4px;
+        white-space: nowrap;
+    }
+    
+    .type-mixed {
+        background: #fff3cd; color: #856404;
+        padding: 4px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 600;
+        display: inline-flex; align-items: center; gap: 4px;
+        white-space: nowrap;
+    }
+    
+    /* ✅ Action Buttons */
+    .action-buttons {
+        display: flex;
+        gap: 4px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
     
     .btn-action {
         width: 34px;
         height: 34px;
         border-radius: 8px;
-        border: 1px solid #e0e3eb;
-        background: white;
+        border: none;
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        color: #5a6070;
+        color: white;
         transition: all 0.2s;
+        text-decoration: none;
+        font-size: 0.85rem;
     }
     
-    .btn-action:hover { background: #f0f2f7; color: #1a1a2e; }
+    .btn-action:hover {
+        transform: scale(1.1);
+        color: white;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .btn-action.detail { background: #667eea; }
+    .btn-action.detail:hover { background: #5a67d8; }
+    
+    .btn-action.pay { background: #28a745; }
+    .btn-action.pay:hover { background: #20c997; }
+    
+    .btn-action.ledger { background: #17a2b8; }
+    .btn-action.ledger:hover { background: #138496; }
+    
+    .btn-action.pdf { background: #dc3545; }
+    .btn-action.pdf:hover { background: #b02a37; }
     
     .empty-state { text-align: center; padding: 60px 20px; color: #8a8fa0; }
     .empty-state .empty-icon { font-size: 4rem; margin-bottom: 15px; opacity: 0.5; }
@@ -380,11 +439,13 @@
         .stat-card-mini .stat-value { font-size: 1.1rem; }
         .filter-bar .row > div { margin-bottom: 8px; }
         .table-header { padding: 12px 15px; }
-        .sale-table { min-width: 800px; }
-        .sale-table thead th, .sale-table tbody td { padding: 10px 12px; font-size: 0.8rem; }
+        .sale-table { min-width: 1050px; }
+        .sale-table thead th, .sale-table tbody td { padding: 10px 12px; font-size: 0.78rem; }
         .bulk-convert-bar { flex-direction: column; align-items: stretch; }
         .bulk-convert-bar .bulk-info { justify-content: center; flex-wrap: wrap; }
         .bulk-convert-bar .bulk-actions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+        .action-buttons { gap: 3px; }
+        .btn-action { width: 28px; height: 28px; font-size: 0.7rem; }
     }
     
     @media (max-width: 480px) {
@@ -469,11 +530,12 @@
             <input type="date" name="date_to" class="form-control" value="{{ date_to }}">
         </div>
         <div class="col-md-2 col-sm-6">
-            <label class="form-label small fw-bold text-muted">📊 Status</label>
+            <label class="form-label small fw-bold text-muted">📊 Payment Status</label>
             <select name="status" class="form-select">
-                <option value="">All</option>
-                <option value="paid" {% if status == 'paid' %}selected{% endif %}>✅ Paid</option>
-                <option value="pending" {% if status == 'pending' %}selected{% endif %}>⚠️ Pending</option>
+                <option value="">All Statuses</option>
+                <option value="paid" {% if status == 'paid' %}selected{% endif %}>✅ Fully Paid</option>
+                <option value="partial" {% if status == 'partial' %}selected{% endif %}>🟡 Partial</option>
+                <option value="credit" {% if status == 'credit' %}selected{% endif %}>⏳ Credit</option>
             </select>
         </div>
         <div class="col-md-2 col-sm-6">
@@ -521,12 +583,12 @@
                     <th>Warehouse</th>
                     <th class="text-center">Items</th>
                     <th class="text-right">Total</th>
-                    <th class="text-right">Discount</th>
                     <th class="text-right">Paid</th>
                     <th class="text-right">Outstanding</th>
                     <th class="text-right">Profit</th>
-                    <th>Status</th>
-                    <th></th>
+                    <th class="text-center">Payment Type</th>
+                    <th class="text-center">Payment Status</th>
+                    <th class="text-center" style="min-width:150px;">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -534,7 +596,6 @@
                 {% with customer_code=sale.customer.customer_code|default:''|lower %}
                 {% with customer_name=sale.customer.name|lower %}
                 
-                <!-- ✅ FIXED: if ke andar with properly close -->
                 {% if customer_code == 'cus-self' or customer_name == 'self' %}
                     {% with is_self=True %}
                         <tr class="clickable" onclick="window.location='{% url 'sale_detail' sale.pk %}'">
@@ -579,11 +640,6 @@
                                 <span class="badge bg-light text-dark fw-bold">{{ sale.saleitem_set.count }}</span>
                             </td>
                             <td class="text-right amount-neutral">Rs. {{ sale.total_without_discount|floatformat:0 }}</td>
-                            <td class="text-right">
-                                {% if sale.discount_value > 0 %}
-                                <span class="text-danger">Rs. {{ sale.discount_value|floatformat:0 }}</span>
-                                {% else %}<span style="color:#ccc;">-</span>{% endif %}
-                            </td>
                             <td class="text-right amount-positive">Rs. {{ sale.paid|floatformat:0 }}</td>
                             <td class="text-right">
                                 {% with out=sale.outstanding_balance %}
@@ -592,48 +648,70 @@
                                 {% endwith %}
                             </td>
                             <td class="text-right amount-positive">Rs. {{ sale.total_profit|floatformat:0 }}</td>
-                            <td>
-                                {% if sale.is_converted_to_expense %}
-                                <span class="status-converted"><span class="status-dot"></span> 💰 Expense</span>
-                                {% elif sale.outstanding_balance <= 0 %}
-                                <span class="status-paid"><span class="status-dot"></span> Paid</span>
+                            
+                            <td class="text-center">
+                                {% if sale.payment_type == 'cash' %}
+                                    <span class="type-cash"><i class="bi bi-cash"></i> Cash</span>
+                                {% elif sale.payment_type == 'mixed' %}
+                                    <span class="type-mixed"><i class="bi bi-arrow-left-right"></i> Mixed</span>
                                 {% else %}
-                                <span class="status-pending"><span class="status-dot"></span> Pending</span>
+                                    <span class="type-credit"><i class="bi bi-card-list"></i> Credit</span>
                                 {% endif %}
                             </td>
-                            <td onclick="event.stopPropagation();">
-                                <div class="dropdown action-dropdown">
-                                    <button class="btn-action" data-bs-toggle="dropdown">⋮</button>
-                                    <ul class="dropdown-menu dropdown-menu-end shadow">
-                                        <li><a class="dropdown-item" href="{% url 'sale_detail' sale.pk %}"><i class="bi bi-eye"></i> View</a></li>
-                                        <li><a class="dropdown-item" href="{% url 'admin:generate_invoice' sale.pk %}" target="_blank"><i class="bi bi-file-pdf"></i> PDF</a></li>
-                                        
-                                        {% if not sale.is_converted_to_expense %}
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li>
-                                            <a class="dropdown-item" href="#" onclick="convertSingleSale({{ sale.id }})" style="color:#f5576c;">
-                                                <i class="bi bi-currency-exchange"></i> Convert to Self Expense
-                                            </a>
-                                        </li>
-                                        {% endif %}
-                                        
-                                        {% if sale.customer.contact_number %}
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li>
-                                            <a class="dropdown-item" href="#" onclick="sendSaleWhatsApp('{{ sale.customer.contact_number }}', '{{ sale.customer.name|escapejs }}', '{{ sale.bill_no }}', '{{ sale.total_amount|floatformat:0 }}')">
-                                                <i class="bi bi-whatsapp" style="color:#25D366;"></i> WhatsApp Invoice
-                                            </a>
-                                        </li>
-                                        {% endif %}
-                                        
-                                        {% if sale.outstanding_balance > 0 and sale.customer.contact_number %}
-                                        <li>
-                                            <a class="dropdown-item" href="https://wa.me/92{{ sale.customer.contact_number|slice:'1:' }}?text=Payment%20Reminder%3A%20Outstanding%20Rs.%20{{ sale.outstanding_balance|floatformat:0 }}%20for%20Invoice%20%23{{ sale.bill_no }}" target="_blank">
-                                                <i class="bi bi-exclamation-triangle" style="color:#ff9800;"></i> Payment Reminder
-                                            </a>
-                                        </li>
-                                        {% endif %}
-                                    </ul>
+                            
+                            <td class="text-center">
+                                {% if sale.is_converted_to_expense %}
+                                    <span class="status-converted">
+                                        <span class="status-dot"></span> 💰 Expense
+                                    </span>
+                                {% elif sale.outstanding_balance <= 0 %}
+                                    <span class="status-paid">
+                                        <span class="status-dot"></span> ✅ Fully Paid
+                                    </span>
+                                {% elif sale.paid > 0 %}
+                                    <span class="status-partial">
+                                        <span class="status-dot"></span> 🟡 Partial
+                                    </span>
+                                {% else %}
+                                    <span class="status-credit">
+                                        <span class="status-dot"></span> ⏳ Credit
+                                    </span>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- ✅ ACTION BUTTONS -->
+                            <td class="text-center" onclick="event.stopPropagation();">
+                                <div class="action-buttons">
+                                    <!-- 1. Detail -->
+                                    <a href="{% url 'sale_detail' sale.pk %}" 
+                                       class="btn-action detail" 
+                                       title="View Sale Detail">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    
+                                    <!-- 2. Receive Payment (only if outstanding) -->
+                                    {% if sale.outstanding_balance > 0 %}
+                                    <a href="{% url 'sale_detail' sale.pk %}#receivePaymentModal" 
+                                       class="btn-action pay" 
+                                       title="Receive Payment (Rs. {{ sale.outstanding_balance|floatformat:0 }})">
+                                        <i class="bi bi-cash-coin"></i>
+                                    </a>
+                                    {% endif %}
+                                    
+                                    <!-- 3. Customer Ledger -->
+                                    <a href="{% url 'customer_ledger' sale.customer.pk %}" 
+                                       class="btn-action ledger" 
+                                       title="Customer Ledger">
+                                        <i class="bi bi-book"></i>
+                                    </a>
+                                    
+                                    <!-- 4. PDF Invoice -->
+                                    <a href="{% url 'admin:generate_invoice' sale.pk %}" 
+                                       target="_blank" 
+                                       class="btn-action pdf" 
+                                       title="Download Invoice PDF">
+                                        <i class="bi bi-file-pdf"></i>
+                                    </a>
                                 </div>
                             </td>
                         </tr>
@@ -669,11 +747,6 @@
                                 <span class="badge bg-light text-dark fw-bold">{{ sale.saleitem_set.count }}</span>
                             </td>
                             <td class="text-right amount-neutral">Rs. {{ sale.total_without_discount|floatformat:0 }}</td>
-                            <td class="text-right">
-                                {% if sale.discount_value > 0 %}
-                                <span class="text-danger">Rs. {{ sale.discount_value|floatformat:0 }}</span>
-                                {% else %}<span style="color:#ccc;">-</span>{% endif %}
-                            </td>
                             <td class="text-right amount-positive">Rs. {{ sale.paid|floatformat:0 }}</td>
                             <td class="text-right">
                                 {% with out=sale.outstanding_balance %}
@@ -682,50 +755,77 @@
                                 {% endwith %}
                             </td>
                             <td class="text-right amount-positive">Rs. {{ sale.total_profit|floatformat:0 }}</td>
-                            <td>
-                                {% if sale.is_converted_to_expense %}
-                                <span class="status-converted"><span class="status-dot"></span> 💰 Expense</span>
-                                {% elif sale.outstanding_balance <= 0 %}
-                                <span class="status-paid"><span class="status-dot"></span> Paid</span>
+                            
+                            <td class="text-center">
+                                {% if sale.payment_type == 'cash' %}
+                                    <span class="type-cash"><i class="bi bi-cash"></i> Cash</span>
+                                {% elif sale.payment_type == 'mixed' %}
+                                    <span class="type-mixed"><i class="bi bi-arrow-left-right"></i> Mixed</span>
                                 {% else %}
-                                <span class="status-pending"><span class="status-dot"></span> Pending</span>
+                                    <span class="type-credit"><i class="bi bi-card-list"></i> Credit</span>
                                 {% endif %}
                             </td>
-                            <td onclick="event.stopPropagation();">
-                                <div class="dropdown action-dropdown">
-                                    <button class="btn-action" data-bs-toggle="dropdown">⋮</button>
-                                    <ul class="dropdown-menu dropdown-menu-end shadow">
-                                        <li><a class="dropdown-item" href="{% url 'sale_detail' sale.pk %}"><i class="bi bi-eye"></i> View</a></li>
-                                        <li><a class="dropdown-item" href="{% url 'admin:generate_invoice' sale.pk %}" target="_blank"><i class="bi bi-file-pdf"></i> PDF</a></li>
-                                        
-                                        {% if sale.customer.contact_number %}
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li>
-                                            <a class="dropdown-item" href="#" onclick="sendSaleWhatsApp('{{ sale.customer.contact_number }}', '{{ sale.customer.name|escapejs }}', '{{ sale.bill_no }}', '{{ sale.total_amount|floatformat:0 }}')">
-                                                <i class="bi bi-whatsapp" style="color:#25D366;"></i> WhatsApp Invoice
-                                            </a>
-                                        </li>
-                                        {% endif %}
-                                        
-                                        {% if sale.outstanding_balance > 0 and sale.customer.contact_number %}
-                                        <li>
-                                            <a class="dropdown-item" href="https://wa.me/92{{ sale.customer.contact_number|slice:'1:' }}?text=Payment%20Reminder%3A%20Outstanding%20Rs.%20{{ sale.outstanding_balance|floatformat:0 }}%20for%20Invoice%20%23{{ sale.bill_no }}" target="_blank">
-                                                <i class="bi bi-exclamation-triangle" style="color:#ff9800;"></i> Payment Reminder
-                                            </a>
-                                        </li>
-                                        {% endif %}
-                                    </ul>
+                            
+                            <td class="text-center">
+                                {% if sale.outstanding_balance <= 0 %}
+                                    <span class="status-paid">
+                                        <span class="status-dot"></span> ✅ Fully Paid
+                                    </span>
+                                {% elif sale.paid > 0 %}
+                                    <span class="status-partial">
+                                        <span class="status-dot"></span> 🟡 Partial
+                                    </span>
+                                {% else %}
+                                    <span class="status-credit">
+                                        <span class="status-dot"></span> ⏳ Credit
+                                    </span>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- ✅ ACTION BUTTONS -->
+                            <td class="text-center" onclick="event.stopPropagation();">
+                                <div class="action-buttons">
+                                    <!-- 1. Detail -->
+                                    <a href="{% url 'sale_detail' sale.pk %}" 
+                                       class="btn-action detail" 
+                                       title="View Sale Detail">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    
+                                    <!-- 2. Receive Payment (only if outstanding) -->
+                                    {% if sale.outstanding_balance > 0 %}
+                                    <a href="{% url 'sale_detail' sale.pk %}#receivePaymentModal" 
+                                       class="btn-action pay" 
+                                       title="Receive Payment (Rs. {{ sale.outstanding_balance|floatformat:0 }})">
+                                        <i class="bi bi-cash-coin"></i>
+                                    </a>
+                                    {% endif %}
+                                    
+                                    <!-- 3. Customer Ledger -->
+                                    <a href="{% url 'customer_ledger' sale.customer.pk %}" 
+                                       class="btn-action ledger" 
+                                       title="Customer Ledger">
+                                        <i class="bi bi-book"></i>
+                                    </a>
+                                    
+                                    <!-- 4. PDF Invoice -->
+                                    <a href="{% url 'admin:generate_invoice' sale.pk %}" 
+                                       target="_blank" 
+                                       class="btn-action pdf" 
+                                       title="Download Invoice PDF">
+                                        <i class="bi bi-file-pdf"></i>
+                                    </a>
                                 </div>
                             </td>
                         </tr>
                     {% endwith %}
                 {% endif %}
                 
-                {% endwith %}  <!-- customer_name -->
-                {% endwith %}  <!-- customer_code -->
+                {% endwith %}
+                {% endwith %}
                 {% empty %}
                 <tr>
-                    <td colspan="13">
+                    <td colspan="14">
                         <div class="empty-state">
                             <div class="empty-icon">📭</div>
                             <h5>No Sales Found</h5>
@@ -741,7 +841,6 @@
         </table>
     </div>
     
-    <!-- Pagination -->
     {% include 'components/pagination.html' %}
 </div>
 
@@ -749,23 +848,16 @@
 
 {% block extra_js %}
 <script>
-    // ============================================
-    // BULK CONVERT TO SELF EXPENSE
-    // ============================================
-    
     let selectedSaleIds = [];
     
     function toggleAllSales() {
-        // ✅ Dono selectAll checkboxes sync karo
         const selectAll1 = document.getElementById('selectAll');
         const selectAll2 = document.getElementById('selectAllSales');
         const isChecked = selectAll1 ? selectAll1.checked : false;
         
-        // ✅ Dono ko sync karo
         if (selectAll2) selectAll2.checked = isChecked;
         if (selectAll1) selectAll1.checked = isChecked;
         
-        // ✅ Sirf enabled checkboxes ko select karo (not disabled)
         const checkboxes = document.querySelectorAll('.sale-checkbox:not(:disabled)');
         checkboxes.forEach(cb => {
             cb.checked = isChecked;
@@ -840,16 +932,7 @@
             },
             body: JSON.stringify({ sale_ids: selectedSaleIds })
         })
-        .then(response => {
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                return response.text().then(text => {
-                    console.error('Server returned HTML:', text.substring(0, 500));
-                    throw new Error('Server error - check console for details');
-                });
-            }
-            return response.json();
-        })
+        .then(response => response.json())
         .then(data => {
             if (data.success) {
                 alert('✅ ' + data.message);
@@ -867,10 +950,6 @@
             btn.innerHTML = `<i class="bi bi-currency-exchange"></i> Convert ${count} Sale${count > 1 ? 's' : ''} to Expense`;
         });
     }
-    
-    // ============================================
-    // SINGLE SALE CONVERT
-    // ============================================
     
     function convertSingleSale(saleId) {
         if (!confirm('⚠️ Convert this sale to SELF EXPENSE?')) {
@@ -903,25 +982,7 @@
         });
     }
     
-    // Row click navigation
-    document.querySelectorAll('.clickable').forEach(row => {
-        row.addEventListener('click', function(e) {
-            if (e.target.closest('a, button, .dropdown, input')) return;
-            window.location = this.getAttribute('onclick').replace("window.location='", "").replace("'", "");
-        });
-    });
-    
-    // Send WhatsApp from Sales List
-    function sendSaleWhatsApp(phone, name, billNo, amount) {
-        const message = `🧾 *INVOICE*\n━━━━━━━━━━━━━━━━\n📋 Bill No: *${billNo}*\n👤 Customer: *${name}*\n💰 Total: *Rs. ${amount}*\n━━━━━━━━━━━━━━━━\n\nThank you for your business! 🙏`;
-        const encodedMsg = encodeURIComponent(message);
-        const url = `https://wa.me/92${phone.replace(/^0+/, '')}?text=${encodedMsg}`;
-        window.open(url, '_blank');
-    }
-    
-    // ✅ DOM Ready
     document.addEventListener('DOMContentLoaded', function() {
-        // Already converted checkboxes disable
         document.querySelectorAll('.sale-checkbox').forEach(cb => {
             if (cb.dataset.converted === 'true') {
                 cb.disabled = true;
@@ -929,7 +990,6 @@
             }
         });
         
-        // Self customer check
         const selfCheckboxes = document.querySelectorAll('.sale-checkbox.self-customer:not(:disabled)');
         const selectAll = document.getElementById('selectAll');
         if (selfCheckboxes.length === 0) {
@@ -937,13 +997,6 @@
                 selectAll.disabled = true;
                 selectAll.title = 'No "Self" customer sales available to convert';
             }
-        }
-        
-        // ✅ Dono selectAll sync
-        const selectAll2 = document.getElementById('selectAllSales');
-        if (selectAll && selectAll2) {
-            selectAll.checked = false;
-            selectAll2.checked = false;
         }
         
         updateSelectedCount();

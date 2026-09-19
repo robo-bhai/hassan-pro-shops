@@ -82,6 +82,21 @@
         background: linear-gradient(135deg, #c82333, #a71d2a);
         color: white;
     }
+    /* ✅ NEW: Pay Button */
+    .btn-pay {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: white;
+        padding: 10px 24px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.35);
+    }
+    .btn-pay:hover {
+        background: linear-gradient(135deg, #20c997, #17a673);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(40, 167, 69, 0.45);
+    }
 
     /* Status Badge */
     .status-badge-lg {
@@ -307,6 +322,43 @@
     .payment-badge.credit { background: #eef2ff; color: #4338ca; }
     .payment-badge.mixed { background: #fff3cd; color: #856404; }
 
+    /* ✅ NEW: Payment Modal Styling */
+    .payment-modal .modal-header {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: white;
+        border-bottom: none;
+        border-radius: 16px 16px 0 0;
+    }
+    .payment-modal .modal-content {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    }
+    .payment-modal .modal-body {
+        padding: 24px;
+    }
+    .payment-modal .modal-footer {
+        border-top: 1px solid var(--border);
+        padding: 16px 24px;
+    }
+    .payment-modal .form-control,
+    .payment-modal .form-select {
+        border-radius: 10px;
+        border: 2px solid var(--border);
+        padding: 10px 14px;
+        font-size: 0.95rem;
+    }
+    .payment-modal .form-control:focus,
+    .payment-modal .form-select:focus {
+        border-color: #28a745;
+        box-shadow: 0 0 0 4px rgba(40, 167, 69, 0.15);
+    }
+    .payment-modal .form-control-lg,
+    .payment-modal .form-select-lg {
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+
     /* Responsive */
     @media (max-width: 768px) {
         .page-header {
@@ -416,6 +468,23 @@
             </div>
         </div>
         <div class="header-actions">
+
+            {# ✅ NEW: PAY NOW BUTTON #}
+            {% if purchase.outstanding_balance > 0 %}
+                <button type="button"
+                        class="btn btn-pay"
+                        data-bs-toggle="modal"
+                        data-bs-target="#payModal">
+                    <i class="bi bi-cash-coin"></i>
+                    <span>Pay Now (Rs. {{ purchase.outstanding_balance|floatformat:2 }})</span>
+                </button>
+            {% else %}
+                <span class="btn" style="background:#d4edda;color:#155724;cursor:default;">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <span>Fully Paid</span>
+                </span>
+            {% endif %}
+
             <a href="{% url 'purchase_list' %}" class="btn btn-back">
                 <i class="bi bi-arrow-left"></i> <span>Back</span>
             </a>
@@ -672,4 +741,199 @@
     {% endif %}
 
 </div>
+
+<!-- ========== PAYMENT MODAL ========== -->
+{% if purchase.outstanding_balance > 0 %}
+<div class="modal fade payment-modal" id="payModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-cash-coin me-2"></i>
+                    Pay to {{ purchase.vendor.name }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white"
+                        data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+
+                <!-- Outstanding Alert -->
+                <div class="alert alert-warning mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <strong>Outstanding Amount:</strong>
+                        <span class="fw-bold fs-4">Rs. {{ purchase.outstanding_balance|floatformat:2 }}</span>
+                    </div>
+                </div>
+
+                <form id="paymentForm">
+                    {% csrf_token %}
+
+                    <!-- Amount -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Amount *</label>
+                        <input type="number"
+                               name="amount"
+                               id="payAmount"
+                               class="form-control form-control-lg"
+                               step="0.01"
+                               min="0.01"
+                               max="{{ purchase.outstanding_balance }}"
+                               value="{{ purchase.outstanding_balance|floatformat:2 }}"
+                               required>
+                        <small class="text-muted">
+                            Max: Rs. {{ purchase.outstanding_balance|floatformat:2 }}
+                        </small>
+                    </div>
+
+                    <!-- Payment Method -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Payment Method *</label>
+                        <select name="payment_method" id="payMethod" class="form-select form-select-lg">
+                            <option value="Cash">💵 Cash</option>
+                            <option value="Bank Transfer">🏦 Bank Transfer</option>
+                            <option value="Cheque">📄 Cheque</option>
+                            <option value="JazzCash">📱 JazzCash</option>
+                            <option value="EasyPaisa">📱 EasyPaisa</option>
+                        </select>
+                    </div>
+
+                    <!-- Reference No -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Reference No</label>
+                        <input type="text"
+                               name="reference_no"
+                               id="payRef"
+                               class="form-control"
+                               placeholder="e.g., TRX-001, Cheque No">
+                    </div>
+
+                    <!-- Notes -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Notes</label>
+                        <textarea name="notes"
+                                  id="payNotes"
+                                  class="form-control"
+                                  rows="2"
+                                  placeholder="Optional notes"></textarea>
+                    </div>
+
+                    <!-- Cash Summary -->
+                    <div class="alert alert-info mb-0">
+                        <div class="d-flex justify-content-between">
+                            <span>Current Cash Balance:</span>
+                            <strong>Rs. {{ cash_balance|floatformat:2 }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mt-1">
+                            <span>After Payment:</span>
+                            <strong id="afterBalance" style="color:#28a745;">
+                                Rs. {{ cash_balance|floatformat:2 }}
+                            </strong>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button"
+                        class="btn btn-secondary"
+                        data-bs-dismiss="modal">
+                    Cancel
+                </button>
+                <button type="button"
+                        class="btn btn-success btn-lg"
+                        id="paySubmitBtn">
+                    <i class="bi bi-check-circle"></i>
+                    Pay Rs. <span id="payAmountDisplay">{{ purchase.outstanding_balance|floatformat:2 }}</span>
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- ========== PAYMENT SCRIPT ========== -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+    const amountInput = document.getElementById('payAmount');
+    const submitBtn = document.getElementById('paySubmitBtn');
+    const amountDisplay = document.getElementById('payAmountDisplay');
+    const afterBalance = document.getElementById('afterBalance');
+
+    const currentBalance = {{ cash_balance|default:0 }};
+    const maxAmount = {{ purchase.outstanding_balance|default:0 }};
+
+    // Update display on amount change
+    amountInput.addEventListener('input', function() {
+        const amount = parseFloat(this.value) || 0;
+        amountDisplay.textContent = amount.toFixed(2);
+
+        const after = currentBalance - amount;
+        afterBalance.textContent = 'Rs. ' + after.toFixed(2);
+        afterBalance.style.color = after < 0 ? '#dc3545' : '#28a745';
+    });
+
+    // Submit payment
+    submitBtn.addEventListener('click', function() {
+        const amount = parseFloat(amountInput.value);
+
+        // Validation
+        if (!amount || amount <= 0) {
+            alert('❌ Please enter a valid amount!');
+            return;
+        }
+
+        if (amount > maxAmount) {
+            alert(`❌ Amount exceeds outstanding: Rs. ${maxAmount.toFixed(2)}`);
+            return;
+        }
+
+        if (amount > currentBalance) {
+            alert(`❌ Insufficient cash! Available: Rs. ${currentBalance.toFixed(2)}`);
+            return;
+        }
+
+        // Confirm
+        if (!confirm(`Confirm payment of Rs. ${amount.toFixed(2)}?\n\nThis will deduct from cash balance.`)) {
+            return;
+        }
+
+        // Disable button
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '⏳ Processing...';
+
+        // Send AJAX
+        fetch('{% url "purchase_pay" purchase.pk %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: new FormData(document.getElementById('paymentForm'))
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert(data.message);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-check-circle"></i> Pay Rs. ' + amount.toFixed(2);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('❌ Error: ' + error.message);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-check-circle"></i> Pay Rs. ' + amount.toFixed(2);
+        });
+    });
+});
+</script>
+{% endif %}
+
 {% endblock %}

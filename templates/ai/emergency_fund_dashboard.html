@@ -1,0 +1,207 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}🛡️ Emergency Fund{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Header -->
+    <div class="card border-0 mb-4" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white;">
+        <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="fw-bold mb-1">🛡️ Emergency Fund</h2>
+                    <p class="mb-0 opacity-75">
+                        Bure waqt ke liye bachat — {{ fund.name }}
+                    </p>
+                </div>
+                <a href="{% url 'emergency_fund_settings' %}" class="btn btn-light">
+                    <i class="bi bi-gear"></i> Settings
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Card -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <h5 class="fw-bold mb-3">📊 Progress</h5>
+                    
+                    <!-- Progress Bar -->
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="fw-bold text-success fs-4">
+                            Rs. {{ fund.current_amount|floatformat:0 }}
+                        </span>
+                        <span class="text-muted fs-5">
+                            / Rs. {{ fund.target_amount|floatformat:0 }}
+                        </span>
+                    </div>
+                    
+                    <div class="progress mb-3" style="height: 25px;">
+                        <div class="progress-bar bg-success fw-bold" 
+                             style="width: {{ progress }}%;">
+                            {{ progress|floatformat:0 }}%
+                        </div>
+                    </div>
+
+                    <div class="row g-2 mt-3">
+                        <div class="col-6">
+                            <small class="text-muted">Baqi chahiye:</small>
+                            <h6 class="fw-bold text-danger mb-0">
+                                Rs. {{ remaining|floatformat:0 }}
+                            </h6>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Kitne mahine ka:</small>
+                            <h6 class="fw-bold text-primary mb-0">
+                                {{ months_covered|floatformat:1 }} mahine
+                            </h6>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 h-100 bg-light">
+                <div class="card-body text-center">
+                    <div style="font-size: 4rem;">🛡️</div>
+                    <h5 class="fw-bold">
+                        {% if months_covered >= 6 %}
+                            🟢 Excellent
+                        {% elif months_covered >= 3 %}
+                            🔵 Good
+                        {% elif months_covered >= 1 %}
+                            🟡 Moderate
+                        {% else %}
+                            🔴 Critical
+                        {% endif %}
+                    </h5>
+                    <small class="text-muted">
+                        Har mahine ka kharcha: Rs. {{ monthly_expense|floatformat:0 }}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-success text-white">
+                    <h6 class="mb-0 fw-bold">💰 Paisa Add Karein</h6>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'emergency_fund_add' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="fund_id" value="{{ fund.id }}">
+                        
+                        <div class="mb-2">
+                            <label class="form-label small">Amount (Rs.)</label>
+                            <input type="number" name="amount" class="form-control" 
+                                   placeholder="10,000" step="0.01" required>
+                        </div>
+                        
+                        <div class="mb-2">
+                            <label class="form-label small">Description</label>
+                            <input type="text" name="description" class="form-control" 
+                                   placeholder="Mahine ki bachat...">
+                        </div>
+                        
+                        <button type="submit" class="btn btn-success w-100 fw-bold">
+                            <i class="bi bi-plus-circle"></i> Add Karein
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-danger text-white">
+                    <h6 class="mb-0 fw-bold">💸 Paisa Nikalein</h6>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'emergency_fund_withdraw' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="fund_id" value="{{ fund.id }}">
+                        
+                        <div class="mb-2">
+                            <label class="form-label small">Amount (Rs.)</label>
+                            <input type="number" name="amount" class="form-control" 
+                                   placeholder="5,000" step="0.01" required>
+                        </div>
+                        
+                        <div class="mb-2">
+                            <label class="form-label small">Wajah</label>
+                            <input type="text" name="reason" class="form-control" 
+                                   placeholder="Kyun nikaal rahe ho...">
+                        </div>
+                        
+                        <button type="submit" class="btn btn-danger w-100 fw-bold"
+                                onclick="return confirm('Pakka nikaalna hai?')">
+                            <i class="bi bi-dash-circle"></i> Nikalein
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transactions -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-dark text-white">
+            <h6 class="mb-0 fw-bold">📋 Recent Transactions</h6>
+        </div>
+        <div class="card-body p-0">
+            {% if transactions %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Amount</th>
+                            <th>Balance</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in transactions %}
+                        <tr>
+                            <td>{{ t.created_at|date:"d M Y, H:i" }}</td>
+                            <td>
+                                {% if t.transaction_type == 'deposit' %}
+                                <span class="badge bg-success">💰 Add</span>
+                                {% else %}
+                                <span class="badge bg-danger">💸 Nikala</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong class="{% if t.transaction_type == 'deposit' %}text-success{% else %}text-danger{% endif %}">
+                                    {% if t.transaction_type == 'deposit' %}+{% else %}-{% endif %}
+                                    Rs. {{ t.amount|floatformat:2 }}
+                                </strong>
+                            </td>
+                            <td>Rs. {{ t.balance_after|floatformat:2 }}</td>
+                            <td>{{ t.description|default:"-" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <div style="font-size: 4rem;">📭</div>
+                <p class="text-muted">Abhi koi transaction nahi hui</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}

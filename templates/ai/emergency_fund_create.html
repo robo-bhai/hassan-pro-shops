@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}🛡️ Create Emergency Fund{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Header -->
+    <div class="card border-0 mb-4" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white;">
+        <div class="card-body p-4 text-center">
+            <div style="font-size: 4rem;">🛡️</div>
+            <h1 class="fw-bold mb-2">Emergency Fund Banao</h1>
+            <p class="mb-0 opacity-75">
+                Bure waqt ke liye paisa bachao — 3 se 6 mahine ka kharcha
+            </p>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+
+            <!-- Information Card -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-body">
+                    <h5 class="fw-bold mb-3">💡 Emergency Fund Kya Hai?</h5>
+                    
+                    <div class="alert alert-info">
+                        <strong>🛡️ Emergency Fund = Bure waqt ke liye bachaya hua paisa</strong>
+                        <p class="mb-0 mt-2">
+                            Yeh paisa ALAG rakha jata hai — rozmarra ke kaam mein use NAHI hota.
+                            Sirf tab use hota hai jab:
+                        </p>
+                        <ul class="mb-0 mt-2">
+                            <li>😷 Bimari ho jaye</li>
+                            <li>🚗 Gaari kharab ho</li>
+                            <li>📉 Sale band ho jaye</li>
+                            <li>💼 Koi business emergency ho</li>
+                        </ul>
+                    </div>
+
+                    <div class="row g-3 mt-3">
+                        <div class="col-md-4">
+                            <div class="p-3 rounded text-center" style="background: #f0fdf4;">
+                                <div style="font-size: 2rem;">📊</div>
+                                <small class="text-muted">Aap ka Monthly Kharcha</small>
+                                <h5 class="fw-bold text-success mb-0">
+                                    Rs. {{ monthly_expense|floatformat:0 }}
+                                </h5>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 rounded text-center" style="background: #fef3c7;">
+                                <div style="font-size: 2rem;">🎯</div>
+                                <small class="text-muted">Suggested Target (3 mahine)</small>
+                                <h5 class="fw-bold text-warning mb-0">
+                                    Rs. {{ suggested_target|floatformat:0 }}
+                                </h5>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 rounded text-center" style="background: #dbeafe;">
+                                <div style="font-size: 2rem;">💰</div>
+                                <small class="text-muted">Suggested Monthly</small>
+                                <h5 class="fw-bold text-primary mb-0">
+                                    Rs. {{ suggested_monthly|floatformat:0 }}
+                                </h5>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Create Form -->
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0 fw-bold">➕ Naya Emergency Fund Banao</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <!-- Name -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Fund Name</label>
+                            <input type="text" name="name" class="form-control" 
+                                   value="Emergency Fund" required
+                                   placeholder="e.g. Business Emergency">
+                        </div>
+
+                        <!-- Fund Type -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Fund Type</label>
+                            <select name="fund_type" class="form-select">
+                                {% for type_key, type_label in fund_types %}
+                                <option value="{{ type_key }}" {% if type_key == 'business' %}selected{% endif %}>
+                                    {{ type_label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Description (Optional)</label>
+                            <textarea name="description" class="form-control" rows="2"
+                                      placeholder="Kuch notes likh sakte ho..."></textarea>
+                        </div>
+
+                        <!-- Target Amount -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                🎯 Target Amount (Rs.)
+                                <small class="text-muted">— Kitna chahiye</small>
+                            </label>
+                            <input type="number" name="target_amount" class="form-control" 
+                                   step="0.01" required
+                                   value="{{ suggested_target|floatformat:0 }}"
+                                   placeholder="e.g. 30000">
+                            <small class="text-muted">
+                                💡 Suggested: 3 mahine ka kharcha = Rs. {{ suggested_target|floatformat:0 }}
+                            </small>
+                        </div>
+
+                        <!-- Monthly Contribution -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                💰 Monthly Contribution (Rs.)
+                                <small class="text-muted">— Har mahine kitna rakhein</small>
+                            </label>
+                            <input type="number" name="monthly_contribution" class="form-control" 
+                                   step="0.01"
+                                   value="{{ suggested_monthly|floatformat:0 }}"
+                                   placeholder="e.g. 5000">
+                            <small class="text-muted">
+                                💡 Suggested: 10% of monthly kharcha = Rs. {{ suggested_monthly|floatformat:0 }}
+                            </small>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success btn-lg flex-grow-1 fw-bold">
+                                <i class="bi bi-shield-fill-check"></i> Emergency Fund Banao
+                            </button>
+                            <a href="{% url 'ai_cash_dashboard' %}" class="btn btn-outline-secondary btn-lg">
+                                Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+{% endblock %}

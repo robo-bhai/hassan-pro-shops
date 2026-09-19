@@ -1,0 +1,552 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}{{ member.get_member_type_display }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .member-header {
+        color: white;
+        border-radius: 20px;
+        padding: 40px;
+        margin-bottom: 25px;
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(135deg, 
+            {% if member.member_type == 'ceo' %}#667eea, #764ba2
+            {% elif member.member_type == 'cfo' %}#10b981, #059669
+            {% elif member.member_type == 'ca' %}#f59e0b, #d97706
+            {% elif member.member_type == 'coo' %}#3b82f6, #2563eb
+            {% elif member.member_type == 'cso' %}#8b5cf6, #6d28d9
+            {% elif member.member_type == 'cso_tech' %}#0ea5e9, #0284c7
+            {% else %}#ec4899, #be185d{% endif %});
+    }
+    
+    .member-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: rotate 30s linear infinite;
+    }
+    
+    @keyframes rotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    
+    .member-header > * {
+        position: relative;
+        z-index: 1;
+    }
+    
+    .member-emoji-big {
+        font-size: 5rem;
+        line-height: 1;
+    }
+    
+    .member-header h1 {
+        font-weight: 900;
+        font-size: 2.5rem;
+        margin: 10px 0;
+    }
+    
+    .score-badge-large {
+        display: inline-block;
+        padding: 15px 35px;
+        border-radius: 30px;
+        background: rgba(255,255,255,0.2);
+        backdrop-filter: blur(10px);
+        font-weight: 900;
+        font-size: 1.5rem;
+    }
+    
+    /* Health Card */
+    .health-card {
+        border-radius: 16px;
+        padding: 25px;
+        color: white;
+        text-align: center;
+        height: 100%;
+        background: linear-gradient(135deg, 
+            {% if member.health_score >= 80 %}#10b981, #059669
+            {% elif member.health_score >= 60 %}#3b82f6, #2563eb
+            {% elif member.health_score >= 40 %}#f59e0b, #d97706
+            {% else %}#ef4444, #dc2626{% endif %});
+    }
+    
+    .health-value {
+        font-size: 4rem;
+        font-weight: 900;
+        line-height: 1;
+    }
+    
+    /* ✅ IMPROVED METRIC CARD */
+    .metric-card {
+        background: white;
+        border-radius: 12px;
+        padding: 18px 15px;
+        text-align: center;
+        border: 2px solid #e5e7eb;
+        transition: all 0.2s;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        min-height: 100px;
+    }
+    
+    .metric-card:hover {
+        border-color: #667eea;
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(102,126,234,0.15);
+    }
+    
+    /* ✅ FIXED METRIC LABEL */
+    .metric-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        color: #6b7280;
+        font-weight: 700;
+        margin-bottom: 10px;
+        letter-spacing: 0.8px;
+        word-spacing: 3px;
+        line-height: 1.5;
+        min-height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        width: 100%;
+        padding: 0 5px;
+    }
+    
+    .metric-value {
+        font-size: 1.5rem;
+        font-weight: 900;
+        color: #1f2937;
+        line-height: 1.2;
+        word-break: break-word;
+    }
+    
+    /* Section Cards */
+    .section-card {
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        border-left: 5px solid;
+    }
+    
+    .item-box {
+        background: white;
+        border-radius: 10px;
+        padding: 12px 15px;
+        margin-bottom: 8px;
+        border-left: 3px solid #e5e7eb;
+    }
+    
+    .item-box.priority-urgent {
+        border-left-color: #dc2626;
+        background: linear-gradient(90deg, #fee2e2 0%, white 10%);
+    }
+    
+    .item-box.priority-high {
+        border-left-color: #ea580c;
+        background: linear-gradient(90deg, #fed7aa 0%, white 10%);
+    }
+    
+    .item-box.priority-medium {
+        border-left-color: #f59e0b;
+    }
+    
+    .item-box.priority-low {
+        border-left-color: #10b981;
+    }
+    
+    /* ✅ STRATEGY ALLOCATION STYLES */
+    .strategy-row {
+        padding: 12px;
+        background: #f9fafb;
+        border-radius: 8px;
+        border-left: 3px solid #667eea;
+        transition: all 0.2s;
+    }
+    
+    .strategy-row:hover {
+        background: #f3f4f6;
+        border-left-color: #764ba2;
+        transform: translateX(3px);
+    }
+    
+    .strategy-row .progress {
+        background-color: #e5e7eb;
+        border-radius: 10px;
+    }
+    
+    .strategy-row .progress-bar {
+        border-radius: 10px;
+        transition: width 0.6s ease;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Member Header -->
+    <div class="member-header">
+        <div class="row align-items-center">
+            <div class="col-md-2 text-center">
+                <div class="member-emoji-big">{{ member.emoji }}</div>
+            </div>
+            <div class="col-md-7">
+                <h1>{{ member.get_member_type_display }}</h1>
+                <p class="mb-3 fs-5">Complete Analysis Report</p>
+                <div>
+                    <span class="badge bg-light text-dark p-2 me-2">
+                        📅 {{ member.report_date|date:"d M Y" }}
+                    </span>
+                    <span class="badge bg-light text-dark p-2">
+                        🎯 Confidence: {{ member.confidence_score|floatformat:0 }}%
+                    </span>
+                </div>
+            </div>
+            <div class="col-md-3 text-center">
+                <div class="score-badge-large">
+                    {{ member.health_score }}/100
+                </div>
+                <div class="mt-2">
+                    <span class="badge bg-white text-dark p-2">{{ member.get_status_display }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Back Button -->
+    <div class="mb-4">
+        <a href="{% url 'ai_board_room_dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Board Room
+        </a>
+        <a href="?run=true" class="btn btn-primary float-end">
+            <i class="bi bi-arrow-clockwise"></i> Re-run Analysis
+        </a>
+    </div>
+
+    <!-- Summary -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <h4 class="fw-bold mb-3">📝 Executive Summary</h4>
+            <p class="mb-0 fs-5">{{ member.summary }}</p>
+        </div>
+    </div>
+
+    <!-- Financial Impact -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="metric-card">
+                <div class="metric-label">💰 Potential Savings</div>
+                <div class="metric-value text-success">Rs. {{ member.potential_savings|floatformat:0 }}</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="metric-card">
+                <div class="metric-label">📈 Potential Revenue</div>
+                <div class="metric-value text-info">Rs. {{ member.potential_revenue|floatformat:0 }}</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="metric-card">
+                <div class="metric-label">🎯 Total Impact</div>
+                <div class="metric-value text-primary">
+                    Rs. {{ member.potential_savings|add:member.potential_revenue|floatformat:0 }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ KEY METRICS - FIXED SECTION -->
+    {% if member.key_metrics %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0 fw-bold">📊 Key Metrics</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                {% for key, value in member.key_metrics.items %}
+                <div class="col-md-4 col-6">
+                    <div class="metric-card">
+                        <div class="metric-label">{{ key|humanize_key }}</div>
+                        <div class="metric-value">
+                            {% if value|floatformat:0|length > 6 %}
+                                {{ value|floatformat:2 }}
+                            {% else %}
+                                {{ value }}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ============================================ -->
+    <!-- ✅ STRATEGY ALLOCATION (CEO Only)            -->
+    <!-- ============================================ -->
+    {% if member.member_type == 'ceo' %}
+        {% with strategy=member.data_snapshot.strategy_allocation %}
+            {% if strategy %}
+                {% if strategy.active %}
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header text-white" style="background: linear-gradient(135deg, #667eea, #764ba2);">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 fw-bold">💼 Strategy Allocation</h5>
+                            <span class="badge bg-white text-dark">{{ strategy.profile_name }}</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        
+                        <!-- Summary Row -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <div class="metric-card">
+                                    <div class="metric-label">💵 Total Cash</div>
+                                    <div class="metric-value text-primary">
+                                        Rs. {{ strategy.total_allocated|floatformat:0 }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="metric-card">
+                                    <div class="metric-label">📊 Avg ROI</div>
+                                    <div class="metric-value text-info">
+                                        {{ strategy.avg_roi|floatformat:1 }}%
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="metric-card">
+                                    <div class="metric-label">💰 Expected Profit</div>
+                                    <div class="metric-value text-success">
+                                        Rs. {{ strategy.expected_profit|floatformat:0 }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Strategy Breakdown -->
+                        <h6 class="fw-bold mb-3">📋 Allocation Breakdown:</h6>
+                        
+                        {% for s in strategy.strategies %}
+                        <div class="strategy-row mb-2">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap">
+                                <div class="mb-2 mb-md-0" style="flex: 1; min-width: 200px;">
+                                    <strong>{{ s.name }}</strong>
+                                    <span class="badge bg-{% if s.risk == 'low' %}success{% elif s.risk == 'medium' %}warning text-dark{% else %}danger{% endif %} ms-2">
+                                        {{ s.risk|upper }} RISK
+                                    </span>
+                                </div>
+                                <div class="text-end" style="min-width: 220px;">
+                                    <strong class="text-primary">{{ s.percentage|floatformat:1 }}%</strong>
+                                    <span class="text-muted mx-2">→</span>
+                                    <strong>Rs. {{ s.amount|floatformat:0 }}</strong>
+                                    <br>
+                                    <small class="text-success">
+                                        ROI: {{ s.roi|floatformat:1 }}% | Profit: Rs. {{ s.expected_profit|floatformat:0 }}
+                                    </small>
+                                </div>
+                            </div>
+                            <!-- Progress bar -->
+                            <div class="progress mt-2" style="height: 8px;">
+                                <div class="progress-bar 
+                                    {% if s.risk == 'low' %}bg-success
+                                    {% elif s.risk == 'medium' %}bg-warning
+                                    {% else %}bg-danger{% endif %}" 
+                                    role="progressbar" 
+                                    style="width: {{ s.percentage }}%">
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        
+                        <!-- Footer Note -->
+                        <div class="alert alert-info mt-3 mb-0 small">
+                            💡 <strong>Note:</strong> These allocations are based on your active strategy profile 
+                            "<strong>{{ strategy.profile_name }}</strong>". 
+                            Expected annual profit: <strong>Rs. {{ strategy.expected_profit|floatformat:0 }}</strong>
+                        </div>
+                        
+                    </div>
+                </div>
+                {% else %}
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-body text-center py-4">
+                        <div style="font-size: 3rem;">💼</div>
+                        <h5 class="mt-2">No Active Strategy Profile</h5>
+                        <p class="text-muted">CEO could not find an active strategy allocation.</p>
+                        <a href="{% url 'strategy_allocations_list' %}" class="btn btn-primary">
+                            <i class="bi bi-gear"></i> Setup Strategy Allocation
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+            {% endif %}
+        {% endwith %}
+    {% endif %}
+
+    <!-- ============================================ -->
+    <!-- FINDINGS                                     -->
+    <!-- ============================================ -->
+    {% if member.findings %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0 fw-bold">🔍 Findings</h5>
+        </div>
+        <div class="card-body">
+            {% for finding in member.findings %}
+            <div class="item-box priority-{% if finding.type == 'negative' %}urgent{% elif finding.type == 'positive' %}low{% else %}medium{% endif %}">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <strong>{{ finding.title }}</strong>
+                        {% if finding.detail %}
+                        <p class="mb-0 small text-muted mt-1">{{ finding.detail }}</p>
+                        {% endif %}
+                    </div>
+                    <span class="badge bg-{% if finding.type == 'positive' %}success{% elif finding.type == 'negative' %}danger{% else %}info{% endif %} ms-2">
+                        {{ finding.type|upper }}
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ============================================ -->
+    <!-- WARNINGS                                     -->
+    <!-- ============================================ -->
+    {% if member.warnings %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0 fw-bold">⚠️ Warnings</h5>
+        </div>
+        <div class="card-body">
+            {% for warning in member.warnings %}
+            <div class="item-box priority-high">
+                <strong>⚠️ {{ warning }}</strong>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ============================================ -->
+    <!-- RECOMMENDATIONS                              -->
+    <!-- ============================================ -->
+    {% if member.recommendations %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0 fw-bold">💡 Recommendations</h5>
+        </div>
+        <div class="card-body">
+            {% for rec in member.recommendations %}
+            <div class="item-box priority-{{ rec.priority|default:'medium' }}">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <strong>{{ rec.title }}</strong>
+                        {% if rec.detail %}
+                        <p class="mb-0 small text-muted mt-1">{{ rec.detail }}</p>
+                        {% endif %}
+                        {% if rec.impact %}
+                        <small class="text-success d-block mt-1">
+                            💰 Impact: Rs. {{ rec.impact|floatformat:0 }}
+                        </small>
+                        {% endif %}
+                    </div>
+                    <span class="badge bg-{% if rec.priority == 'critical' %}danger{% elif rec.priority == 'high' %}warning{% else %}info{% endif %} ms-2">
+                        {{ rec.priority|upper }}
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ============================================ -->
+    <!-- OPPORTUNITIES                                -->
+    <!-- ============================================ -->
+    {% if member.opportunities %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0 fw-bold">🎯 Opportunities</h5>
+        </div>
+        <div class="card-body">
+            {% for opp in member.opportunities %}
+            <div class="item-box priority-{{ opp.priority|default:'medium' }}">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <strong>🎯 {{ opp.title }}</strong>
+                        {% if opp.description %}
+                        <p class="mb-0 small text-muted mt-1">{{ opp.description }}</p>
+                        {% endif %}
+                        {% if opp.impact %}
+                        <small class="text-success d-block mt-1">💡 Impact: {{ opp.impact }}</small>
+                        {% endif %}
+                    </div>
+                    {% if opp.priority %}
+                    <span class="badge bg-primary ms-2">{{ opp.priority|upper }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ============================================ -->
+    <!-- SCORE HISTORY                                -->
+    <!-- ============================================ -->
+    {% if history.count > 1 %}
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0 fw-bold">📈 Score History</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Score</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for h in history|slice:"1:10" %}
+                        <tr>
+                            <td>{{ h.report_date|date:"d M Y" }}</td>
+                            <td>
+                                <strong class="{% if h.health_score >= 80 %}text-success{% elif h.health_score >= 60 %}text-primary{% elif h.health_score >= 40 %}text-warning{% else %}text-danger{% endif %}">
+                                    {{ h.health_score }}/100
+                                </strong>
+                            </td>
+                            <td>{{ h.get_status_display }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

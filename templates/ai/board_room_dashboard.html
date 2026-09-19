@@ -1,0 +1,600 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}🏢 AI Board Room{% endblock %}
+
+{% block extra_css %}
+<style>
+    .board-header {
+        background: linear-gradient(135deg, #1a1d2e 0%, #2d3436 100%);
+        color: white;
+        border-radius: 20px;
+        padding: 40px;
+        margin-bottom: 25px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .board-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(102,126,234,0.15) 0%, transparent 70%);
+        animation: rotate 30s linear infinite;
+    }
+    
+    @keyframes rotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    
+    .board-header h1 {
+        position: relative;
+        z-index: 1;
+        font-weight: 900;
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+    }
+    
+    .board-header p {
+        position: relative;
+        z-index: 1;
+        opacity: 0.9;
+    }
+    
+    .health-circle {
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        background: linear-gradient(135deg, 
+            {% if meeting.overall_health_score >= 80 %}#10b981, #059669
+            {% elif meeting.overall_health_score >= 60 %}#3b82f6, #2563eb
+            {% elif meeting.overall_health_score >= 40 %}#f59e0b, #d97706
+            {% else %}#ef4444, #dc2626{% endif %});
+    }
+    
+    .health-circle-inner {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: #1a1d2e;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: white;
+    }
+    
+    .health-score-value {
+        font-size: 3rem;
+        font-weight: 900;
+        line-height: 1;
+    }
+    
+    /* ============================================ */
+    /* 7 MEMBER CARDS                                */
+    /* ============================================ */
+    .member-card {
+        background: white;
+        border-radius: 16px;
+        padding: 25px;
+        margin-bottom: 20px;
+        border-top: 5px solid;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        transition: all 0.3s;
+        cursor: pointer;
+        height: 100%;
+    }
+    
+    .member-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+    }
+    
+    .member-card.ceo { border-color: #667eea; }
+    .member-card.cfo { border-color: #10b981; }
+    .member-card.ca { border-color: #f59e0b; }
+    .member-card.coo { border-color: #3b82f6; }
+    .member-card.cso { border-color: #8b5cf6; }
+    .member-card.csho { border-color: #ec4899; }
+    .member-card.cso_tech { border-color: #0ea5e9; }
+    
+    .member-emoji {
+        font-size: 3rem;
+        margin-bottom: 10px;
+    }
+    
+    .member-name {
+        font-weight: 800;
+        font-size: 1.1rem;
+        margin-bottom: 5px;
+    }
+    
+    .member-role {
+        font-size: 0.8rem;
+        color: #6b7280;
+        margin-bottom: 15px;
+    }
+    
+    .member-score {
+        font-size: 2.5rem;
+        font-weight: 900;
+        line-height: 1;
+    }
+    
+    .member-score-max {
+        font-size: 1rem;
+        color: #6b7280;
+        font-weight: 600;
+    }
+    
+    /* ============================================ */
+    /* CASH UTILIZATION CARD                         */
+    /* ============================================ */
+    .cash-utilization-card {
+        background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+        border: 2px solid #10b981;
+        border-radius: 16px;
+        padding: 25px;
+        margin-bottom: 25px;
+    }
+    
+    .cash-metric {
+        text-align: center;
+        padding: 15px;
+        border-right: 1px solid #e5e7eb;
+    }
+    
+    .cash-metric:last-child {
+        border-right: none;
+    }
+    
+    .cash-metric .label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: #6b7280;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+    
+    .cash-metric .value {
+        font-size: 1.8rem;
+        font-weight: 900;
+    }
+    
+    .action-plan-card {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 15px;
+        border-left: 4px solid;
+    }
+    
+    .action-plan-card.urgent {
+        border-color: #dc2626;
+        background: linear-gradient(90deg, #fee2e2 0%, white 10%);
+    }
+    
+    .action-plan-card.high {
+        border-color: #ea580c;
+        background: linear-gradient(90deg, #fed7aa 0%, white 10%);
+    }
+    
+    .action-plan-card.medium {
+        border-color: #f59e0b;
+        background: linear-gradient(90deg, #fef3c7 0%, white 10%);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Header -->
+    <div class="board-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1>🏢 AI Board Room</h1>
+                <p class="mb-2">
+                    <strong>7 AI Experts</strong> working together for your business
+                </p>
+                <div class="d-flex gap-2 flex-wrap">
+                    <span class="badge bg-light text-dark">👑 CEO</span>
+                    <span class="badge bg-light text-dark">💰 CFO</span>
+                    <span class="badge bg-light text-dark">📊 CA</span>
+                    <span class="badge bg-light text-dark">⚙️ COO</span>
+                    <span class="badge bg-light text-dark">🎯 CSO</span>
+                    <span class="badge bg-light text-dark">👥 CSHO</span>
+                    <span class="badge bg-info text-dark">💻 CSO Tech</span>
+                </div>
+            </div>
+            <div class="col-md-4 text-end">
+                <a href="?run=true" class="btn btn-warning btn-lg fw-bold mb-2">
+                    <i class="bi bi-play-circle"></i> Run Board Meeting
+                </a>
+                <br>
+                <a href="{% url 'cash_strategies_list' %}" class="btn btn-success btn-sm">
+                    💰 Cash Strategies
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% if meeting %}
+    <!-- Overall Health -->
+    <div class="card border-0 shadow-sm mb-4" style="background: #1a1d2e; color: white;">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-3 text-center">
+                    <div class="health-circle">
+                        <div class="health-circle-inner">
+                            <div class="health-score-value">{{ meeting.overall_health_score }}</div>
+                            <div style="font-size: 0.8rem;">/ 100</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-9">
+                    <h3 class="fw-bold">📊 Overall Business Health</h3>
+                    <p class="mb-3">{{ meeting.executive_summary|truncatewords:30 }}</p>
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <small class="opacity-75">💰 Potential Savings</small>
+                            <h5 class="mb-0">Rs. {{ meeting.total_potential_savings|floatformat:0 }}</h5>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="opacity-75">📈 Potential Revenue</small>
+                            <h5 class="mb-0">Rs. {{ meeting.total_potential_revenue|floatformat:0 }}</h5>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="opacity-75">🎯 Net Impact</small>
+                            <h5 class="mb-0 text-warning">Rs. {{ meeting.net_impact|floatformat:0 }}</h5>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="opacity-75">📅 Meeting Date</small>
+                            <h5 class="mb-0">{{ meeting.meeting_date|date:"d M Y" }}</h5>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ CASH UTILIZATION CARD -->
+    <div class="cash-utilization-card">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="mb-0">
+                💰 Cash Utilization Analysis
+                <small class="text-muted fs-6">— Your cash working for you</small>
+            </h4>
+            <a href="{% url 'cash_strategies_list' %}" class="btn btn-success">
+                🎯 View Investment Strategies →
+            </a>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-3">
+                <div class="cash-metric">
+                    <div class="label">💰 Total Cash</div>
+                    <div class="value text-primary">
+                        Rs. {{ meeting.cfo_cash_balance|floatformat:0 }}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="cash-metric">
+                    <div class="label">⚠️ Idle Cash</div>
+                    <div class="value text-warning">
+                        Rs. {{ meeting.idle_cash|floatformat:0 }}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="cash-metric">
+                    <div class="label">📊 Utilization Rate</div>
+                    <div class="value 
+                        {% if meeting.utilization_rate >= 70 %}text-success
+                        {% elif meeting.utilization_rate >= 50 %}text-info
+                        {% elif meeting.utilization_rate >= 30 %}text-warning
+                        {% else %}text-danger{% endif %}">
+                        {{ meeting.utilization_rate|floatformat:1 }}%
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="cash-metric">
+                    <div class="label">🎯 Potential Profit/Year</div>
+                    <div class="value text-success">
+                        Rs. {{ meeting.potential_cash_profit|floatformat:0 }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Progress Bar -->
+        <div class="mt-3">
+            <div class="progress" style="height: 25px; border-radius: 12px;">
+                <div class="progress-bar bg-success" 
+                     role="progressbar" 
+                     style="width: {{ meeting.utilization_rate }}%; border-radius: 12px;"
+                     aria-valuenow="{{ meeting.utilization_rate }}" 
+                     aria-valuemin="0" 
+                     aria-valuemax="100">
+                    {% if meeting.utilization_rate >= 15 %}
+                    <strong>{{ meeting.utilization_rate|floatformat:1 }}%</strong>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="d-flex justify-content-between mt-1">
+                <small class="text-muted">🔴 0% (All Idle)</small>
+                <small class="text-muted">🟡 50% (Moderate)</small>
+                <small class="text-muted">🟢 100% (Fully Working)</small>
+            </div>
+        </div>
+        
+        <!-- Recommendation Alert -->
+        {% if meeting.idle_cash > 50000 %}
+        <div class="alert alert-info mt-3 mb-0">
+            <strong>💡 AI Recommendation:</strong>
+            Rs. {{ meeting.idle_cash|floatformat:0 }} idle cash ko invest karo. 
+            Expected profit: <strong>Rs. {{ meeting.potential_cash_profit|floatformat:0 }}/year</strong>
+            <br>
+            <a href="{% url 'cash_strategies_list' %}" class="alert-link">
+                → View detailed strategies
+            </a>
+        </div>
+        {% elif meeting.utilization_rate >= 70 %}
+        <div class="alert alert-success mt-3 mb-0">
+            <strong>✅ Excellent!</strong>
+            Aapka cash achhi tarah invest hai. {{ meeting.utilization_rate|floatformat:1 }}% utilization.
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 7 Board Members -->
+    <h4 class="fw-bold mb-3">👥 Your AI Board Members (7)</h4>
+    <div class="row g-3 mb-4">
+        {% for member in members %}
+        <div class="col-6 col-md-4 col-lg-3">
+            <a href="{% url 'ai_board_member_detail' member.member_type %}" class="text-decoration-none">
+                <div class="member-card {{ member.member_type }}">
+                    <div class="member-emoji">{{ member.emoji }}</div>
+                    <div class="member-name">{{ member.get_member_type_display }}</div>
+                    <div class="member-role">{{ member.report_date|date:"d M Y" }}</div>
+                    <div class="d-flex align-items-baseline">
+                        <div class="member-score 
+                            {% if member.health_score >= 80 %}text-success
+                            {% elif member.health_score >= 60 %}text-primary
+                            {% elif member.health_score >= 40 %}text-warning
+                            {% else %}text-danger{% endif %}">
+                            {{ member.health_score }}
+                        </div>
+                        <div class="member-score-max">/100</div>
+                    </div>
+                    <div class="mt-2">
+                        <span class="badge bg-{{ member.status_color }}">
+                            {{ member.get_status_display }}
+                        </span>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Top Priorities & Action Plan -->
+    {% if meeting.top_priorities %}
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0 fw-bold">🎯 Top Priorities</h5>
+                </div>
+                <div class="card-body">
+                    {% for priority in meeting.top_priorities|slice:":5" %}
+                    <div class="action-plan-card {% if priority.priority == 'critical' %}urgent{% elif priority.priority == 'high' %}high{% else %}medium{% endif %}">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <strong>{{ priority.title }}</strong>
+                                {% if priority.detail %}
+                                <p class="small mb-0 text-muted">{{ priority.detail }}</p>
+                                {% endif %}
+                            </div>
+                            <span class="badge bg-secondary">{{ priority.source|upper }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Action Plan -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0 fw-bold">📋 Action Plan</h5>
+                </div>
+                <div class="card-body">
+                    {% if meeting.action_plan.immediate %}
+                    <h6 class="fw-bold text-danger">🔥 Immediate</h6>
+                    <ul class="small">
+                        {% for action in meeting.action_plan.immediate %}
+                        <li>{{ action }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                    
+                    {% if meeting.action_plan.short_term %}
+                    <h6 class="fw-bold text-warning mt-3">⚡ Short Term</h6>
+                    <ul class="small">
+                        {% for action in meeting.action_plan.short_term %}
+                        <li>{{ action }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                    
+                    {% if meeting.action_plan.long_term %}
+                    <h6 class="fw-bold text-info mt-3">🎯 Long Term</h6>
+                    <ul class="small">
+                        {% for action in meeting.action_plan.long_term %}
+                        <li>{{ action }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Alerts -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-dark text-white d-flex justify-content-between">
+            <h5 class="mb-0 fw-bold">🔔 Recent Alerts</h5>
+            <a href="{% url 'ai_board_alerts' %}" class="btn btn-sm btn-light">
+                View All
+                {% if stats.active_alerts > 0 %}
+                <span class="badge bg-danger">{{ stats.active_alerts }}</span>
+                {% endif %}
+            </a>
+        </div>
+        <div class="card-body">
+            {% for alert in alerts %}
+            <div class="d-flex align-items-start gap-3 mb-3 pb-3 {% if not forloop.last %}border-bottom{% endif %}">
+                <div style="font-size: 1.5rem;">
+                    {% if alert.severity == 'critical' %}🔴
+                    {% elif alert.severity == 'high' %}🟠
+                    {% elif alert.severity == 'medium' %}🟡
+                    {% else %}🔵{% endif %}
+                </div>
+                <div class="flex-grow-1">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <strong>{{ alert.source_emoji }} {{ alert.title }}</strong>
+                            <p class="mb-1 small text-muted">{{ alert.message|truncatewords:15 }}</p>
+                        </div>
+                        <span class="badge bg-secondary">{{ alert.get_source_display }}</span>
+                    </div>
+                </div>
+                <small class="text-muted">{{ alert.created_at|date:"H:i" }}</small>
+            </div>
+            {% empty %}
+            <p class="text-center text-muted py-3 mb-0">✅ No active alerts</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <a href="{% url 'ai_board_meetings_list' %}" class="btn btn-outline-primary w-100 py-3">
+                <i class="bi bi-calendar-event" style="font-size: 1.5rem;"></i>
+                <br>All Meetings
+            </a>
+        </div>
+        <div class="col-6 col-md-3">
+            <a href="{% url 'ai_board_alerts' %}" class="btn btn-outline-warning w-100 py-3">
+                <i class="bi bi-bell" style="font-size: 1.5rem;"></i>
+                <br>All Alerts
+            </a>
+        </div>
+        <div class="col-6 col-md-3">
+            <a href="{% url 'ai_board_member_detail' 'cfo' %}" class="btn btn-outline-success w-100 py-3">
+                <i class="bi bi-cash-stack" style="font-size: 1.5rem;"></i>
+                <br>CFO Report
+            </a>
+        </div>
+        <div class="col-6 col-md-3">
+            <a href="{% url 'cash_strategies_list' %}" class="btn btn-success w-100 py-3">
+                <i class="bi bi-lightbulb" style="font-size: 1.5rem;"></i>
+                <br>Cash Strategies
+            </a>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- No Meeting Yet -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-people" style="font-size: 5rem; color: #667eea;"></i>
+            <h2 class="mt-3 fw-bold">Welcome to AI Board Room</h2>
+            <p class="text-muted fs-5">Your 7 AI experts are ready to help grow your business</p>
+            
+            <div class="row justify-content-center mt-4">
+                <div class="col-md-10">
+                    <div class="row g-3 text-start">
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded h-100">
+                                <div style="font-size: 1.5rem;">👑</div>
+                                <strong>CEO</strong>
+                                <p class="small text-muted mb-0">Overall vision & growth</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded h-100">
+                                <div style="font-size: 1.5rem;">💰</div>
+                                <strong>CFO</strong>
+                                <p class="small text-muted mb-0">Financial control + Cash utilization</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded h-100">
+                                <div style="font-size: 1.5rem;">📊</div>
+                                <strong>CA</strong>
+                                <p class="small text-muted mb-0">Tax & compliance</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded h-100">
+                                <div style="font-size: 1.5rem;">⚙️</div>
+                                <strong>COO</strong>
+                                <p class="small text-muted mb-0">Operations</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded h-100">
+                                <div style="font-size: 1.5rem;">🎯</div>
+                                <strong>CSO</strong>
+                                <p class="small text-muted mb-0">Strategy + Investment</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded h-100">
+                                <div style="font-size: 1.5rem;">👥</div>
+                                <strong>CSHO</strong>
+                                <p class="small text-muted mb-0">Shareholders</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded h-100">
+                                <div style="font-size: 1.5rem;">💻</div>
+                                <strong>CSO Tech</strong>
+                                <p class="small text-muted mb-0">System health</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded h-100" style="background: #f0fdf4;">
+                                <div style="font-size: 1.5rem;">💰</div>
+                                <strong>Cash Strategies</strong>
+                                <p class="small text-muted mb-0">Profit from idle cash</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <a href="?run=true" class="btn btn-warning btn-lg fw-bold mt-5">
+                <i class="bi bi-play-circle"></i> Start First Board Meeting
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

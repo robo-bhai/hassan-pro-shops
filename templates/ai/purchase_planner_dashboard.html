@@ -1,0 +1,573 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}🤖 AI Purchase Planner Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ai-header-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 20px;
+        padding: 30px;
+        margin-bottom: 25px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .ai-header-card::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: rotate 20s linear infinite;
+    }
+    
+    @keyframes rotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    
+    .ai-header-card h1 {
+        position: relative;
+        z-index: 1;
+        font-weight: 900;
+        font-size: 2rem;
+        margin-bottom: 10px;
+    }
+    
+    .ai-header-card p {
+        position: relative;
+        z-index: 1;
+        opacity: 0.9;
+        margin: 0;
+    }
+    
+    .ai-brain-anim {
+        font-size: 3rem;
+        position: relative;
+        z-index: 1;
+        animation: brainPulse 2s infinite;
+    }
+    
+    @keyframes brainPulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.2); }
+    }
+    
+    /* Stats Cards */
+    .ai-stat-card {
+        border-radius: 16px;
+        padding: 20px;
+        transition: all 0.3s;
+        position: relative;
+        overflow: hidden;
+        border: none;
+        color: white;
+        height: 100%;
+    }
+    
+    .ai-stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+    }
+    
+    .ai-stat-card .stat-icon {
+        position: absolute;
+        right: 15px;
+        top: 15px;
+        font-size: 3rem;
+        opacity: 0.15;
+    }
+    
+    .ai-stat-card .stat-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        opacity: 0.9;
+        font-weight: 700;
+    }
+    
+    .ai-stat-card .stat-number {
+        font-size: 2rem;
+        font-weight: 900;
+        margin: 8px 0 5px 0;
+        line-height: 1;
+    }
+    
+    .ai-stat-card .stat-sub {
+        font-size: 0.75rem;
+        opacity: 0.8;
+    }
+    
+    .bg-gradient-purple {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .bg-gradient-green {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    }
+    
+    .bg-gradient-orange {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    }
+    
+    .bg-gradient-red {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    }
+    
+    .bg-gradient-blue {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    }
+    
+    /* Quick Action Card */
+    .quick-action {
+        background: white;
+        border-radius: 16px;
+        padding: 25px;
+        text-align: center;
+        transition: all 0.3s;
+        text-decoration: none;
+        color: #1f2937;
+        display: block;
+        border: 2px solid #e5e7eb;
+        height: 100%;
+    }
+    
+    .quick-action:hover {
+        border-color: #667eea;
+        transform: translateY(-5px);
+        box-shadow: 0 15px 35px rgba(102, 126, 234, 0.2);
+        color: #667eea;
+    }
+    
+    .quick-action .qa-icon {
+        font-size: 2.5rem;
+        margin-bottom: 15px;
+        display: block;
+    }
+    
+    .quick-action .qa-title {
+        font-weight: 800;
+        font-size: 1rem;
+        margin-bottom: 5px;
+    }
+    
+    .quick-action .qa-desc {
+        font-size: 0.8rem;
+        color: #6b7280;
+    }
+    
+    /* Analysis Cards */
+    .analysis-card {
+        background: white;
+        border-radius: 12px;
+        padding: 18px;
+        margin-bottom: 12px;
+        border-left: 5px solid;
+        transition: all 0.2s;
+    }
+    
+    .analysis-card:hover {
+        transform: translateX(5px);
+        box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+    }
+    
+    .analysis-card.high {
+        border-color: #10b981;
+        background: linear-gradient(90deg, #f0fdf4 0%, white 20%);
+    }
+    
+    .analysis-card.medium {
+        border-color: #f59e0b;
+        background: linear-gradient(90deg, #fffbeb 0%, white 20%);
+    }
+    
+    .analysis-card.low {
+        border-color: #ef4444;
+        background: linear-gradient(90deg, #fef2f2 0%, white 20%);
+    }
+    
+    .analysis-card .product-name {
+        font-weight: 700;
+        font-size: 1rem;
+        color: #1f2937;
+        margin-bottom: 5px;
+    }
+    
+    .analysis-card .metric {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 15px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        margin-right: 5px;
+        margin-top: 5px;
+    }
+    
+    .metric-confidence-high {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    
+    .metric-confidence-medium {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    
+    .metric-confidence-low {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .metric-urgent {
+        background: #fee2e2;
+        color: #991b1b;
+        animation: urgentPulse 1.5s infinite;
+    }
+    
+    @keyframes urgentPulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
+    }
+    
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #6b7280;
+    }
+    
+    .empty-state .empty-icon {
+        font-size: 4rem;
+        margin-bottom: 15px;
+        opacity: 0.5;
+    }
+    
+    /* Buttons */
+    .btn-ai {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-weight: 700;
+        transition: all 0.2s;
+    }
+    
+    .btn-ai:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        color: white;
+    }
+    
+    .btn-run-full-ai {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        border: none;
+        padding: 12px 25px;
+        border-radius: 12px;
+        font-weight: 800;
+        font-size: 1rem;
+        transition: all 0.2s;
+    }
+    
+    .btn-run-full-ai:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 30px rgba(16, 185, 129, 0.4);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- ========================================== -->
+    <!-- HEADER                                      -->
+    <!-- ========================================== -->
+    <div class="ai-header-card">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1>
+                    <span class="ai-brain-anim">🤖</span>
+                    AI Purchase Planner Dashboard
+                </h1>
+                <p>
+                    Smart recommendations based on 15 AI diagnostic engines
+                    <br>
+                    <small>Real-time analysis • Confidence scoring • Risk assessment</small>
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                <a href="{% url 'monthly_purchase_planner' %}" class="btn btn-light btn-lg fw-bold">
+                    <i class="bi bi-calendar-check"></i> Go to Planner
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- STATS CARDS                                 -->
+    <!-- ========================================== -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="ai-stat-card bg-gradient-purple">
+                <i class="bi bi-clipboard-data stat-icon"></i>
+                <div class="stat-label">Total Analyses</div>
+                <div class="stat-number">{{ stats.total_analyses|default:0 }}</div>
+                <div class="stat-sub">All time</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="ai-stat-card bg-gradient-green">
+                <i class="bi bi-check-circle stat-icon"></i>
+                <div class="stat-label">High Confidence</div>
+                <div class="stat-number">{{ stats.high_confidence|default:0 }}</div>
+                <div class="stat-sub">85%+ sure</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="ai-stat-card bg-gradient-orange">
+                <i class="bi bi-exclamation-triangle stat-icon"></i>
+                <div class="stat-label">Warnings</div>
+                <div class="stat-number">{{ stats.warning_risk|default:0 }}</div>
+                <div class="stat-sub">Needs attention</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="ai-stat-card bg-gradient-red">
+                <i class="bi bi-shield-exclamation stat-icon"></i>
+                <div class="stat-label">Critical Risk</div>
+                <div class="stat-number">{{ stats.danger_risk|default:0 }}</div>
+                <div class="stat-sub">Avoid these</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- CONFIDENCE BREAKDOWN                        -->
+    <!-- ========================================== -->
+    <div class="card shadow-sm mb-4 border-0">
+        <div class="card-header bg-dark text-white">
+            <h6 class="mb-0 fw-bold">
+                <i class="bi bi-bar-chart"></i> Confidence Breakdown
+            </h6>
+        </div>
+        <div class="card-body">
+            <div class="row text-center g-3">
+                <div class="col-md-4">
+                    <div class="p-3 rounded" style="background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);">
+                        <h6 class="fw-bold mb-2">🟢 High Confidence (85%+)</h6>
+                        <h2 class="mb-1 text-success">{{ stats.high_confidence|default:0 }}</h2>
+                        <small class="text-muted">Reliable predictions</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="p-3 rounded" style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);">
+                        <h6 class="fw-bold mb-2">🟡 Medium Confidence (60-85%)</h6>
+                        <h2 class="mb-1 text-warning">{{ stats.medium_confidence|default:0 }}</h2>
+                        <small class="text-muted">Moderate reliability</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="p-3 rounded" style="background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);">
+                        <h6 class="fw-bold mb-2">🔴 Low Confidence (&lt;60%)</h6>
+                        <h2 class="mb-1 text-danger">{{ stats.low_confidence|default:0 }}</h2>
+                        <small class="text-muted">Verify manually</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- QUICK ACTIONS                               -->
+    <!-- ========================================== -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6">
+            <a href="{% url 'monthly_purchase_planner' %}" class="quick-action">
+                <span class="qa-icon">📊</span>
+                <div class="qa-title">New Analysis</div>
+                <div class="qa-desc">Run AI on any product</div>
+            </a>
+        </div>
+        <div class="col-md-3 col-6">
+            <a href="{% url 'ai_insights_list' %}" class="quick-action">
+                <span class="qa-icon">🧠</span>
+                <div class="qa-title">AI Insights</div>
+                <div class="qa-desc">Business intelligence</div>
+            </a>
+        </div>
+        <div class="col-md-3 col-6">
+            <a href="{% url 'ai_dashboard' %}" class="quick-action">
+                <span class="qa-icon">🩺</span>
+                <div class="qa-title">Full Diagnostic</div>
+                <div class="qa-desc">Complete system scan</div>
+            </a>
+        </div>
+        <div class="col-md-3 col-6">
+            <a href="{% url 'monthly_plan_history' %}" class="quick-action">
+                <span class="qa-icon">📜</span>
+                <div class="qa-title">Plan History</div>
+                <div class="qa-desc">Past purchase plans</div>
+            </a>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- URGENT ITEMS                                -->
+    <!-- ========================================== -->
+    {% if urgent_items %}
+    <div class="card shadow-sm mb-4 border-0" style="border-left: 5px solid #dc2626 !important;">
+        <div class="card-header" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white;">
+            <h6 class="mb-0 fw-bold">
+                🚨 URGENT - Immediate Action Required
+                <span class="badge bg-white text-danger ms-2">{{ urgent_items|length }}</span>
+            </h6>
+        </div>
+        <div class="card-body">
+            {% for item in urgent_items %}
+            <div class="analysis-card low">
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                    <div>
+                        <div class="product-name">🚨 {{ item.product.name }}</div>
+                        <div class="text-muted small">
+                            Suggested: <strong>{{ item.suggested_quantity }} units</strong>
+                            | Cost: <strong>Rs. {{ item.estimated_cost|floatformat:0 }}</strong>
+                        </div>
+                        <div>
+                            <span class="metric metric-urgent">⚠️ URGENT</span>
+                            <span class="metric metric-confidence-low">Confidence: {{ item.confidence_score|floatformat:0 }}%</span>
+                        </div>
+                    </div>
+                    <a href="{% url 'monthly_purchase_planner' %}" class="btn btn-sm btn-ai">
+                        <i class="bi bi-arrow-right"></i> Review
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ========================================== -->
+    <!-- RECENT ANALYSES                             -->
+    <!-- ========================================== -->
+    <div class="card shadow-sm mb-4 border-0">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h6 class="mb-0 fw-bold">
+                <i class="bi bi-clock-history"></i> Recent AI Analyses
+            </h6>
+            <a href="{% url 'monthly_purchase_planner' %}" class="btn btn-sm btn-light">
+                <i class="bi bi-plus-circle"></i> New
+            </a>
+        </div>
+        <div class="card-body">
+            {% if recent_analyses %}
+                {% for analysis in recent_analyses %}
+                <div class="analysis-card {{ analysis.confidence_level }}">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                        <div class="flex-grow-1">
+                            <div class="product-name">
+                                {{ analysis.product.name }}
+                                {% if analysis.is_urgent %}
+                                <span class="badge bg-danger ms-2">🚨 URGENT</span>
+                                {% endif %}
+                            </div>
+                            <div class="text-muted small mb-1">
+                                <i class="bi bi-calendar"></i>
+                                {{ analysis.created_at|date:"d M Y, H:i" }}
+                                {% if analysis.warehouse %}
+                                | 🏭 {{ analysis.warehouse.name }}
+                                {% endif %}
+                            </div>
+                            <div>
+                                <span class="metric metric-confidence-{{ analysis.confidence_level }}">
+                                    🎯 {{ analysis.confidence_score|floatformat:0 }}% Confidence
+                                </span>
+                                <span class="metric" style="background:#e0e7ff; color:#3730a3;">
+                                    📦 {{ analysis.suggested_quantity }} units
+                                </span>
+                                <span class="metric" style="background:#fee2e2; color:#991b1b;">
+                                    💰 Rs. {{ analysis.estimated_cost|floatformat:0 }}
+                                </span>
+                                {% if analysis.risk_level == 'safe' %}
+                                <span class="metric" style="background:#d1fae5; color:#065f46;">
+                                    ✅ Safe
+                                </span>
+                                {% elif analysis.risk_level == 'warning' %}
+                                <span class="metric" style="background:#fef3c7; color:#92400e;">
+                                    ⚠️ Warning
+                                </span>
+                                {% else %}
+                                <span class="metric" style="background:#fee2e2; color:#991b1b;">
+                                    🚨 Danger
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <a href="{% url 'monthly_purchase_planner' %}" class="btn btn-sm btn-ai">
+                                <i class="bi bi-arrow-repeat"></i> Re-analyze
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">🤖</div>
+                    <h5>No AI Analyses Yet</h5>
+                    <p>Start by running AI analysis on products in your purchase planner</p>
+                    <a href="{% url 'monthly_purchase_planner' %}" class="btn btn-ai mt-3">
+                        <i class="bi bi-play-circle"></i> Run First Analysis
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- AI INSIGHTS                                 -->
+    <!-- ========================================== -->
+    {% if insights %}
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-dark text-white">
+            <h6 class="mb-0 fw-bold">
+                <i class="bi bi-lightbulb"></i> AI Business Insights
+            </h6>
+        </div>
+        <div class="card-body">
+            {% for insight in insights %}
+            <div class="alert alert-{% if insight.insight_type == 'risk' %}danger{% elif insight.insight_type == 'warning' %}warning{% elif insight.insight_type == 'opportunity' %}success{% else %}info{% endif %} mb-2">
+                <strong>{{ insight.title }}</strong>
+                <p class="mb-1 small">{{ insight.description }}</p>
+                {% if insight.affected_products %}
+                <small class="text-muted">
+                    Affected products: {{ insight.affected_products|length }}
+                </small>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ========================================== -->
+    <!-- FOOTER INFO                                 -->
+    <!-- ========================================== -->
+    <div class="text-center mt-4 mb-3">
+        <small class="text-muted">
+            <i class="bi bi-robot"></i>
+            Powered by 15 AI diagnostic engines
+            | Updated: {{ now|date:"d M Y, H:i" }}
+        </small>
+    </div>
+
+</div>
+{% endblock %}

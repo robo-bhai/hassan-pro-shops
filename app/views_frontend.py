@@ -95,18 +95,10 @@ def profile_view(request):
 
 @login_required
 def purchase_detail(request, pk):
-    """Purchase detail view - FIXED"""
-    from django.db.models import Sum
-    from decimal import Decimal
-    from .models import Purchase, PurchaseRetrn, GoodsReceivedNote, CompanyInfo
-
     purchase = get_object_or_404(
         Purchase.objects.select_related(
-            'vendor',
-            'warehouse',
-            'vendor__group',
-            'created_by',
-            'monthly_purchase'
+            'vendor', 'warehouse', 'vendor__group',
+            'created_by', 'monthly_purchase'
         ).prefetch_related(
             'purchaseitem_set__product',
             'purchaseitem_set__product__unit',
@@ -114,12 +106,10 @@ def purchase_detail(request, pk):
         ),
         pk=pk
     )
+    
     items = purchase.purchaseitem_set.select_related('product', 'product__unit').all()
     
-    # Get returns with calculated totals
     returns = PurchaseRetrn.objects.filter(purchase=purchase)
-    
-    # ✅ Calculate total return amount for each return
     for ret in returns:
         ret.total_return_amount = sum(item.total_amt for item in ret.return_items.all())
     
@@ -127,12 +117,11 @@ def purchase_detail(request, pk):
         total=Sum('return_items__total_amt')
     )['total'] or Decimal('0.0')
     
-    # Get related GRNs
     related_grns = []
     try:
-        if hasattr(purchase, 'converted_from_order') and purchase.converted_from_order:
-            po = purchase.converted_from_order
-            related_grns = GoodsReceivedNote.objects.filter(purchase_order=po)
+        if hasattr(purchase, 'converted_from_grn'):
+            grn = purchase.converted_from_grn
+            related_grns = [grn]
     except:
         pass
     
@@ -150,6 +139,8 @@ def purchase_detail(request, pk):
         'total_paid': purchase.paid,
         'item_count': items.count(),
         'total_qty': items.aggregate(total=Sum('qty'))['total'] or 0,
+        # ✅ NEW: Cash balance for payment modal
+        'cash_balance': CashBalance.get_balance(),
     }
     return render(request, 'purchases/purchase_detail.html', context)
 
@@ -9931,6 +9922,15 @@ def dashboard_view(request):
     Performance: 80% faster, 90% fewer queries
     """
     
+    # ========================================== #
+    # ✅ CHECK: Agar shareholder hai (aur admin nahi hai) #
+    # to shareholder dashboard par bhejo         #
+    # ========================================== #
+    if (hasattr(request.user, 'shareholder_profile') 
+        and not request.user.is_superuser 
+        and not request.user.is_staff):
+        return redirect('shareholder_portal_dashboard')
+    
     today = localdate()
     month_ago = today - timedelta(days=30)
     month_start = today.replace(day=1)
@@ -11791,12 +11791,20 @@ def product_update(request, pk):
             product.brand_id = request.POST.get('brand') or None
             product.location_id = request.POST.get('location') or None
             product.types_id = request.POST.get('types') or None
+            product.is_active = request.POST.get('is_active') == 'on'
             
-            # Barcode update
             new_barcode = request.POST.get('barcode', '').strip()
             if new_barcode:
                 product.barcode = new_barcode
                 product.use_custom_barcode = True
+            
+            # ✅ Image upload
+            if request.FILES.get('image'):
+                product.image = request.FILES['image']
+            
+            # ✅ Image remove
+            if request.POST.get('remove_image') == 'on':
+                product.image = None
             
             product.save()
             messages.success(request, f'✅ Product "{product.name}" updated!')
@@ -12045,7 +12053,6 @@ def sale_create(request):
     return render(request, 'sales/create.html', context)
 
 
-# ✅ NEW CODE
 @login_required
 def sale_detail(request, pk):
     sale = get_object_or_404(
@@ -13741,11 +13748,15 @@ def product_create(request):
                 brand_id=request.POST.get('brand') or None,
                 location_id=request.POST.get('location') or None,
                 types_id=request.POST.get('types') or None,
+                is_active=request.POST.get('is_active') == 'on',
             )
             
-            # Agar barcode manually enter kiya to custom barcode use karo
             if request.POST.get('barcode', '').strip():
                 product.use_custom_barcode = True
+            
+            # ✅ Image upload
+            if request.FILES.get('image'):
+                product.image = request.FILES['image']
             
             product.save()
             messages.success(request, f'✅ Product "{product.name}" created successfully!')
@@ -13764,7 +13775,6 @@ def product_create(request):
         'types': Types.objects.all(),
     }
     return render(request, 'products/create.html', context)
-
 # ============================================
 # SHAREHOLDER CASH BALANCE VIEWS (NEW)
 # ============================================
@@ -30331,22 +30341,59 @@ def terms_preview(request, pk):
 def shareholder_terms(request):
     """Show Terms & Conditions to shareholder"""
     
+    # ========================================== #
+    # 1. Check: Is user a shareholder?           #
+    # ========================================== #
     if not hasattr(request.user, 'shareholder_profile'):
         messages.error(request, 'Access denied!')
         return redirect('dashboard')
     
     shareholder = request.user.shareholder_profile
     
+    # ========================================== #
+    # 2. Check: Already accepted?                #
+    # ========================================== #
     if hasattr(shareholder, 'terms_acceptance'):
         messages.info(request, '✅ You have already accepted the terms.')
         return redirect('shareholder_portal_dashboard')
     
+    # ========================================== #
+    # 3. Get active terms OR use fallback        #
+    # ========================================== #
     terms = TermsAndConditions.objects.filter(is_active=True).first()
     
+    # ✅ FALLBACK: Agar terms DB mein nahi hain toh placeholder use karo
     if not terms:
-        messages.error(request, '❌ Terms & Conditions not found. Please contact admin.')
-        return redirect('dashboard')
+        terms = TermsAndConditions(
+            version='1.0',
+            title='Shareholder Terms & Conditions',
+            content='''1. All information provided must be accurate and complete.
+2. Company reserves the right to verify all documents.
+3. Investment is subject to company policies and approval.
+4. Shareholder must keep login credentials confidential.
+5. Any misuse of the portal will result in account suspension.
+6. Company is not liable for market-related losses.
+7. Shareholder must comply with all applicable laws.
+8. Disputes will be resolved through arbitration.
+9. Company may modify terms with prior notice.
+10. Continued use implies acceptance of updated terms.''',
+            urdu_content='''1. تمام فراہم کردہ معلومات درست اور مکمل ہونی چاہئیں۔
+2. کمپنی تمام دستاویزات کی تصدیق کا حق محفوظ رکھتی ہے۔
+3. سرمایہ کاری کمپنی کی پالیسیوں اور منظوری کے تابع ہے۔
+4. شیئر ہولڈر کو لاگ ان کی معلومات خفیہ رکھنی ہوں گی۔
+5. پورٹل کا غلط استعمال اکاؤنٹ معطلی کا باعث بنے گا۔
+6. مارکیٹ کے نقصانات کے لیے کمپنی ذمہ دار نہیں ہوگی۔
+7. شیئر ہولڈر تمام قابل اطلاق قوانین کی پاسداری کرے گا۔
+8. تنازعات ثالثی کے ذریعے حل کیے جائیں گے۔
+9. کمپنی پیشگی اطلاع کے ساتھ شرائط تبدیل کر سکتی ہے۔
+10. مسلسل استعمال کا مطلب ہے کہ آپ اپ ڈیٹڈ شرائط سے متفق ہیں۔''',
+            is_active=True,
+            effective_date=date.today(),
+        )
     
+    # ========================================== #
+    # 4. POST: Handle acceptance                 #
+    # ========================================== #
     if request.method == 'POST':
         if request.POST.get('agree'):
             ShareholderTermsAcceptance.objects.create(
@@ -30362,9 +30409,12 @@ def shareholder_terms(request):
             messages.error(request, '❌ Please accept the terms to continue.')
             return redirect('shareholder_terms')
     
+    # ========================================== #
+    # 5. Render                                  #
+    # ========================================== #
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
-        'terms': terms,  # ✅ Both content and urdu_content available
+        'terms': terms,
         'shareholder': shareholder,
     }
     return render(request, 'terms/terms.html', context)
@@ -31061,7 +31111,7 @@ def shareholder_request_detail(request, pk):
     
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
-        'request': request_obj,
+        'request_obj': request_obj,
         'can_act': request_obj.status == 'pending',
         'show_credentials': show_credentials,
         'username': username,
@@ -31076,9 +31126,7 @@ def shareholder_request_detail(request, pk):
 
 @login_required
 def shareholder_request_approve(request, pk):
-    """
-    Admin: Approve request - Shareholder create ho ga
-    """
+    """Admin: Approve request"""
     
     if not request.user.is_superuser and not request.user.is_staff:
         messages.error(request, '❌ Access denied!')
@@ -31093,28 +31141,15 @@ def shareholder_request_approve(request, pk):
     if request.method == 'POST':
         try:
             result = request_obj.approve(request.user)
-            
-            messages.success(
-                request, 
-                f'✅ Request approved!\n'
-                f'👤 Shareholder: {result["shareholder"].name}\n'
-                f'🔑 Username: {result["username"]}\n'
-                f'🔐 Password: {result["password"]}\n'
-                f'📧 Login credentials sent to {request_obj.email}'
-            )
-            
-            # Send email with credentials (optional)
-            # send_login_credentials_email(request_obj.email, result["username"], result["password"])
-            
+            messages.success(request, f'✅ Request approved!')
             return redirect('shareholder_requests_list')
-            
         except Exception as e:
             messages.error(request, f'❌ Error: {str(e)}')
             return redirect('shareholder_request_detail', pk=pk)
     
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
-        'request': request_obj,
+        'request_obj': request_obj,
     }
     return render(request, 'shareholders/admin/request_approve.html', context)
 
@@ -33045,48 +33080,144 @@ def grn_detail(request, pk):
 @login_required
 @transaction.atomic
 def grn_convert_to_purchase(request, pk):
-    """Convert GRN to Purchase"""
-    grn = get_object_or_404(GoodsReceivedNote, pk=pk)
+    """
+    Convert Goods Received Note (GRN) to Purchase
+    - Creates a Purchase record from GRN
+    - Copies all items
+    - Links GRN to Purchase (BOTH fields set)
+    - Updates GRN status
+    """
+    from django.db import transaction as db_transaction
+    from django.utils.timezone import now
     
-    # ✅ Check if already converted
+    grn = get_object_or_404(
+        GoodsReceivedNote.objects.select_related('vendor', 'warehouse'),
+        pk=pk
+    )
+    
+    # ========================================== #
+    # ✅ CHECK 1: Already converted?            #
+    # ========================================== #
     if grn.converted_to_purchase:
-        messages.warning(request, '⚠️ This GRN is already converted to purchase!')
+        messages.warning(
+            request, 
+            f'⚠️ GRN {grn.grn_no} is already converted to purchase!'
+        )
+        return redirect('grn_detail', pk=grn.pk)
+    
+    # ========================================== #
+    # ✅ CHECK 2: Does GRN have items?          #
+    # ========================================== #
+    if not grn.items.exists():
+        messages.error(
+            request, 
+            f'❌ Cannot convert! GRN {grn.grn_no} has no items.'
+        )
+        return redirect('grn_detail', pk=grn.pk)
+    
+    # ========================================== #
+    # ✅ CHECK 3: Permission check              #
+    # ========================================== #
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied! Only admins can convert GRN.')
         return redirect('grn_detail', pk=grn.pk)
     
     try:
-        # ✅ Create Purchase from GRN
-        purchase = Purchase.objects.create(
-            vendor=grn.vendor,
-            warehouse=grn.warehouse,
-            bill_no=grn.invoice_no or f"BILL-{grn.grn_no}",
-            pur_date=now(),
-            created_by=request.user,
-            paid=0
-        )
-        
-        # ✅ Copy all items
-        for item in grn.items.all():
-            PurchaseItem.objects.create(
-                purchase=purchase,
-                product=item.product,
-                qty=item.qty,
-                price=item.price
+        with db_transaction.atomic():
+            # ========================================== #
+            # STEP 1: Create Purchase                   #
+            # ========================================== #
+            purchase = Purchase.objects.create(
+                vendor=grn.vendor,
+                warehouse=grn.warehouse,
+                bill_no=grn.invoice_no or f"BILL-{grn.grn_no}",
+                pur_date=now(),
+                paid=0,
+                previous_balance=0,
+                payment_type='credit',
+                cash_used=0,
+                created_by=request.user,
+                waiting_for_bill=False,
             )
-        
-        # ✅ Mark GRN as converted
-        grn.converted_to_purchase = True
-        grn.save()
-        
-        messages.success(
-            request, 
-            f'✅ GRN {grn.grn_no} successfully converted to Purchase #{purchase.bill_no}!\n'
-            f'Total Amount: Rs. {purchase.total_amount():,.2f}'
-        )
-        
-        return redirect('purchase_detail', pk=purchase.pk)
-        
+            
+            # ========================================== #
+            # STEP 2: Copy all items                    #
+            # ========================================== #
+            items_created = 0
+            for item in grn.items.all():
+                PurchaseItem.objects.create(
+                    purchase=purchase,
+                    product=item.product,
+                    qty=float(item.qty),
+                    price=item.price,
+                )
+                items_created += 1
+            
+            # ========================================== #
+            # STEP 3: ✅ CRITICAL — Set BOTH fields!   #
+            # ========================================== #
+            grn.purchase = purchase              # ← Purchase object link
+            grn.converted_to_purchase = True     # ← Conversion flag
+            grn.save()                            # ← Save both together
+            
+            # ========================================== #
+            # STEP 4: Update PO status if linked        #
+            # ========================================== #
+            if grn.purchase_order:
+                try:
+                    grn.purchase_order.update_receive_status()
+                except Exception as e:
+                    # Not critical — log and continue
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        f"PO status update failed: {e}"
+                    )
+            
+            # ========================================== #
+            # STEP 5: Create notification               #
+            # ========================================== #
+            try:
+                from .models import Notification
+                Notification.send(
+                    user=request.user,
+                    title="✅ GRN Converted to Purchase",
+                    message=(
+                        f"GRN {grn.grn_no} converted to Purchase "
+                        f"#{purchase.bill_no} — "
+                        f"Amount: Rs. {purchase.total_amount():,.2f}"
+                    ),
+                    notification_type='success',
+                    category='purchases',
+                    link=f"/purchases/{purchase.pk}/"
+                )
+            except Exception:
+                pass  # Notification fail ho toh bhi kaam chalein
+            
+            # ========================================== #
+            # STEP 6: Success message                   #
+            # ========================================== #
+            messages.success(
+                request,
+                f'✅ GRN {grn.grn_no} successfully converted!\n'
+                f'📦 Purchase: #{purchase.bill_no}\n'
+                f'💰 Amount: Rs. {purchase.total_amount():,.2f}\n'
+                f'📋 Items: {items_created}'
+            )
+            
+            return redirect('purchase_detail', pk=purchase.pk)
+    
     except Exception as e:
-        messages.error(request, f'❌ Conversion failed: {str(e)}')
+        # ========================================== #
+        # Error handling — atomic rollback happens  #
+        # ========================================== #
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"GRN conversion error for {grn.grn_no}: {e}")
+        
+        messages.error(
+            request,
+            f'❌ Failed to convert GRN {grn.grn_no}: {str(e)}'
+        )
         return redirect('grn_detail', pk=grn.pk)
 
 
@@ -35072,3 +35203,2254 @@ def announce_alerts_api(request):
             'alerts': [],
             'error': str(e),
         })
+        
+# ========================================== #
+# VOICE ANNOUNCEMENT SETTINGS VIEW           #
+# ========================================== #
+
+@login_required
+def voice_announcement_settings(request):
+    """Voice Announcement Settings Page"""
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'page_title': '🔊 Voice Announcement Settings',
+    }
+    return render(request, 'settings/voice_announcement.html', context)
+    
+# ============================================
+# AI-POWERED MONTHLY PURCHASE PLANNER
+# ============================================
+
+from .ai_purchase_planner import AIPurchasePlanner
+
+
+@login_required
+def ai_purchase_analysis(request):
+    """API: Get AI analysis for a product"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        return JsonResponse({'success': False, 'message': 'Access denied!'})
+    
+    try:
+        product_id = request.GET.get('product_id')
+        warehouse_id = request.GET.get('warehouse_id')
+        
+        if not product_id:
+            return JsonResponse({
+                'success': False,
+                'message': 'Product ID required'
+            })
+        
+        product = get_object_or_404(Product, pk=product_id)
+        warehouse = None
+        
+        if warehouse_id:
+            warehouse = get_object_or_404(Warehouse, pk=warehouse_id)
+        
+        # Run AI analysis
+        planner = AIPurchasePlanner(product, warehouse)
+        result = planner.analyze()
+        
+        return JsonResponse(result)
+        
+    except Exception as e:
+        logger.error(f"AI analysis API error: {e}")
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        })
+
+
+@login_required
+def ai_bulk_analysis(request):
+    """API: Get AI analysis for multiple products"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        return JsonResponse({'success': False, 'message': 'Access denied!'})
+    
+    try:
+        warehouse_id = request.GET.get('warehouse_id')
+        warehouse = None
+        
+        if warehouse_id:
+            warehouse = get_object_or_404(Warehouse, pk=warehouse_id)
+        
+        # Get products with sales activity
+        from django.db.models import Sum
+        from datetime import timedelta
+        
+        last_90 = localdate() - timedelta(days=90)
+        
+        active_products = Product.objects.filter(
+            is_active=True,
+            saleitem__sale__sale_date__date__gte=last_90
+        ).distinct()[:20]
+        
+        results = []
+        for product in active_products:
+            try:
+                planner = AIPurchasePlanner(product, warehouse)
+                result = planner.analyze()
+                
+                if result['success']:
+                    results.append({
+                        'product_id': product.id,
+                        'product_name': product.name,
+                        'suggested_quantity': result['suggested_quantity'],
+                        'confidence_score': result['confidence_score'],
+                        'confidence_level': result['confidence_level'],
+                        'risk_level': result['risk_level'],
+                        'estimated_cost': result['estimated_cost'],
+                        'is_urgent': result.get('is_urgent', False),
+                        'current_stock': result['current_stock'],
+                        'stock_coverage_days': result['stock_coverage_days'],
+                    })
+            except Exception as e:
+                logger.warning(f"Failed for {product.name}: {e}")
+                continue
+        
+        # Sort by urgency and confidence
+        results.sort(
+            key=lambda x: (
+                not x['is_urgent'],
+                -x['confidence_score'],
+                -x['estimated_cost']
+            )
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'analyses': results,
+            'total': len(results),
+        })
+        
+    except Exception as e:
+        logger.error(f"Bulk analysis error: {e}")
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        })
+
+
+@login_required
+def ai_purchase_planner_dashboard(request):
+    """AI Purchase Planner Dashboard"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIPurchaseAnalysis, AIPurchaseInsight
+    
+    # Recent analyses
+    recent_analyses = AIPurchaseAnalysis.objects.select_related(
+        'product', 'warehouse'
+    ).order_by('-created_at')[:20]
+    
+    # ✅ FIX: Python-level filter instead of JSON contains
+    all_analyses = AIPurchaseAnalysis.objects.filter(
+        user_accepted__isnull=True
+    ).select_related('product', 'warehouse').order_by('-created_at')[:50]
+    
+    urgent_items = []
+    for analysis in all_analyses:
+        # Python mein check karo
+        risk_factors = analysis.risk_factors or []
+        if 'urgent' in risk_factors or analysis.risk_level == 'danger':
+            urgent_items.append(analysis)
+            if len(urgent_items) >= 10:
+                break
+    
+    # Stats
+    stats = {
+        'total_analyses': AIPurchaseAnalysis.objects.count(),
+        'high_confidence': AIPurchaseAnalysis.objects.filter(
+            confidence_level='high'
+        ).count(),
+        'medium_confidence': AIPurchaseAnalysis.objects.filter(
+            confidence_level='medium'
+        ).count(),
+        'low_confidence': AIPurchaseAnalysis.objects.filter(
+            confidence_level='low'
+        ).count(),
+        'danger_risk': AIPurchaseAnalysis.objects.filter(
+            risk_level='danger'
+        ).count(),
+        'warning_risk': AIPurchaseAnalysis.objects.filter(
+            risk_level='warning'
+        ).count(),
+        'safe_risk': AIPurchaseAnalysis.objects.filter(
+            risk_level='safe'
+        ).count(),
+    }
+    
+    # Insights
+    insights = AIPurchaseInsight.objects.filter(
+        is_resolved=False
+    ).order_by('-impact_score')[:10]
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'recent_analyses': recent_analyses,
+        'urgent_items': urgent_items,
+        'stats': stats,
+        'insights': insights,
+        'now': now(),
+    }
+    return render(request, 'ai/purchase_planner_dashboard.html', context)
+
+
+@login_required
+def ai_accept_suggestion(request, pk):
+    """Accept AI suggestion and apply to plan"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        return JsonResponse({'success': False, 'message': 'Access denied!'})
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'POST required'})
+    
+    try:
+        import json
+        data = json.loads(request.body)
+        
+        analysis = get_object_or_404(AIPurchaseAnalysis, pk=pk)
+        modified_qty = data.get('quantity')
+        
+        analysis.user_accepted = True
+        analysis.user_modified_quantity = modified_qty
+        analysis.user_notes = data.get('notes', '')
+        analysis.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'✅ Suggestion accepted! Quantity: {modified_qty or analysis.suggested_quantity}'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+@login_required
+def ai_reject_suggestion(request, pk):
+    """Reject AI suggestion"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        return JsonResponse({'success': False, 'message': 'Access denied!'})
+    
+    analysis = get_object_or_404(AIPurchaseAnalysis, pk=pk)
+    analysis.user_accepted = False
+    analysis.save()
+    
+    return JsonResponse({'success': True, 'message': '❌ Suggestion rejected'})
+    
+# ============================================
+# AI CASH MODULE VIEWS
+# ============================================
+
+from .ai_cash_engine import AICashEngine
+
+
+@login_required
+def ai_cash_dashboard(request):
+    """AI Cash Dashboard"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AICashAnalysis, AICashAlert, AICashHealthHistory
+    
+    # Run AI analysis if requested
+    if request.GET.get('run') == 'true':
+        try:
+            engine = AICashEngine()
+            results = engine.run_full_analysis()
+            
+            messages.success(
+                request,
+                f"🤖 AI Cash Analysis Complete! "
+                f"Health Score: {results['health']['score']}/100 | "
+                f"{results['alerts_created']} alerts created"
+            )
+        except Exception as e:
+            messages.error(request, f"❌ Error: {e}")
+        
+        return redirect('ai_cash_dashboard')
+    
+    # Get latest analysis
+    latest_analysis = AICashAnalysis.objects.order_by('-created_at').first()
+    
+    # ==========================================
+    # ✅ FIX: First get base queryset, then filter, THEN slice
+    # ==========================================
+    base_alerts = AICashAlert.objects.filter(is_resolved=False)
+    
+    # ✅ Stats from FULL queryset (before slicing)
+    total_alerts = base_alerts.count()
+    critical_alerts = base_alerts.filter(severity='critical').count()
+    warning_alerts = base_alerts.filter(severity='warning').count()
+    high_alerts = base_alerts.filter(severity='high').count()
+    info_alerts = base_alerts.filter(severity='info').count()
+    
+    # ✅ Now slice for display (last 10)
+    alerts = base_alerts.order_by('-created_at')[:10]
+    
+    # Health history (last 30 days)
+    health_history = AICashHealthHistory.objects.order_by('-date')[:30]
+    
+    # Prepare chart data
+    chart_labels = []
+    chart_scores = []
+    chart_balances = []
+    
+    for h in reversed(list(health_history)):
+        chart_labels.append(h.date.strftime('%d-%b'))
+        chart_scores.append(h.health_score)
+        chart_balances.append(float(h.balance))
+    
+    import json
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'analysis': latest_analysis,
+        'alerts': alerts,              # ✅ Sliced for display
+        'total_alerts': total_alerts,  # ✅ From full queryset
+        'critical_alerts': critical_alerts,
+        'warning_alerts': warning_alerts,
+        'high_alerts': high_alerts,
+        'info_alerts': info_alerts,
+        'chart_labels': json.dumps(chart_labels),
+        'chart_scores': json.dumps(chart_scores),
+        'chart_balances': json.dumps(chart_balances),
+        'current_balance': CashBalance.get_balance(),
+        'today': localdate(),
+    }
+    return render(request, 'ai/cash_dashboard.html', context)
+
+
+@login_required
+def ai_cash_forecast(request):
+    """Detailed Cash Forecast"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AICashAnalysis
+    import json
+    
+    # Get latest or run new
+    analysis = AICashAnalysis.objects.order_by('-created_at').first()
+    
+    if not analysis or request.GET.get('refresh') == 'true':
+        engine = AICashEngine()
+        results = engine.run_full_analysis()
+        analysis = AICashAnalysis.objects.order_by('-created_at').first()
+    
+    # Prepare chart data
+    forecast_30 = analysis.forecast_30_days if analysis else []
+    
+    chart_labels = [d['date'] for d in forecast_30]
+    chart_data = [d['predicted_balance'] for d in forecast_30]
+    chart_negative = [d['day'] if d['is_negative'] else None for d in forecast_30]
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'analysis': analysis,
+        'forecast_30': forecast_30,
+        'chart_labels': json.dumps(chart_labels),
+        'chart_data': json.dumps(chart_data),
+        'has_negative': any(d['is_negative'] for d in forecast_30),
+    }
+    return render(request, 'ai/cash_forecast.html', context)
+
+
+@login_required
+def ai_cash_collections(request):
+    """AI Collection Forecast"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    engine = AICashEngine()
+    collections = engine.forecast_collections()
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'collections': collections,
+        'high_probability': collections['high_probability'],
+        'medium_probability': collections['medium_probability'],
+        'low_probability': collections['low_probability'],
+        'total_outstanding': collections['total_outstanding'],
+        'total_expected': collections['total_expected'],
+    }
+    return render(request, 'ai/cash_collections.html', context)
+
+
+@login_required
+def ai_cash_alerts(request):
+    """All Cash Alerts"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AICashAlert
+    
+    alerts = AICashAlert.objects.all().order_by('-created_at')
+    
+    severity = request.GET.get('severity', '')
+    if severity:
+        alerts = alerts.filter(severity=severity)
+    
+    alert_type = request.GET.get('type', '')
+    if alert_type:
+        alerts = alerts.filter(alert_type=alert_type)
+    
+    status = request.GET.get('status', 'active')
+    if status == 'active':
+        alerts = alerts.filter(is_resolved=False)
+    elif status == 'resolved':
+        alerts = alerts.filter(is_resolved=True)
+    
+    # Stats
+    stats = {
+        'total': alerts.count(),
+        'critical': alerts.filter(severity='critical').count(),
+        'high': alerts.filter(severity='high').count(),
+        'warning': alerts.filter(severity='warning').count(),
+        'info': alerts.filter(severity='info').count(),
+    }
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'alerts': alerts[:50],
+        'stats': stats,
+        'selected_severity': severity,
+        'selected_type': alert_type,
+        'selected_status': status,
+        'alert_types': AICashAlert.ALERT_TYPES,
+        'severity_levels': AICashAlert.SEVERITY_LEVELS,
+    }
+    return render(request, 'ai/cash_alerts.html', context)
+
+
+@login_required
+@require_POST
+def ai_cash_alert_resolve(request, pk):
+    """Resolve a cash alert"""
+    
+    from .models import AICashAlert
+    alert = get_object_or_404(AICashAlert, pk=pk)
+    
+    alert.is_resolved = True
+    alert.resolved_at = now()
+    alert.resolved_by = request.user
+    alert.save()
+    
+    messages.success(request, '✅ Alert resolved!')
+    return redirect('ai_cash_alerts')
+
+
+@login_required
+def ai_cash_health(request):
+    """Cash Health Score Details"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AICashHealthHistory
+    
+    # Run new analysis
+    engine = AICashEngine()
+    health = engine.calculate_health_score()
+    
+    # History
+    history = AICashHealthHistory.objects.order_by('-date')[:30]
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'health': health,
+        'history': history,
+    }
+    return render(request, 'ai/cash_health.html', context)
+    
+# ============================================
+# AI SHAREHOLDER MODULE VIEWS
+# ============================================
+
+from .ai_shareholder_engine import AIShareholderEngine
+
+
+@login_required
+def ai_shareholder_dashboard(request):
+    """AI Shareholder Dashboard"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import (
+        AIShareholderScore, AIShareholderChurn,
+        AIDividendRecommendation, AIShareholderAlert,
+        AIShareholderForecast
+    )
+    
+    # Run analysis if requested
+    if request.GET.get('run') == 'true':
+        try:
+            engine = AIShareholderEngine()
+            results = engine.run_full_analysis()
+            
+            messages.success(
+                request,
+                f"🤖 AI Analysis Complete! "
+                f"Scored: {results['scores_calculated']} | "
+                f"Churn: {results['churn_predictions']} | "
+                f"Fraud: {results['fraud_alerts']}"
+            )
+        except Exception as e:
+            messages.error(request, f"❌ Error: {e}")
+        
+        return redirect('ai_shareholder_dashboard')
+    
+    # Get data
+    top_shareholders = AIShareholderScore.objects.select_related(
+        'shareholder'
+    ).order_by('-overall_score')[:10]
+    
+    at_risk_shareholders = AIShareholderChurn.objects.select_related(
+        'shareholder'
+    ).filter(
+        risk_level__in=['high', 'critical']
+    ).order_by('-churn_probability')[:10]
+    
+    recent_alerts = AIShareholderAlert.objects.select_related(
+        'shareholder'
+    ).filter(
+        is_resolved=False
+    ).order_by('-created_at')[:10]
+    
+    dividend_recommendation = AIDividendRecommendation.objects.filter(
+        status='pending'
+    ).order_by('-created_at').first()
+    
+    forecast = AIShareholderForecast.objects.order_by('-forecast_date').first()
+    
+    # Stats
+    total_shareholders = Shareholder.objects.filter(status='active').count()
+    scored_shareholders = AIShareholderScore.objects.count()
+    critical_risk = AIShareholderChurn.objects.filter(
+        risk_level='critical'
+    ).count()
+    investment_at_risk = AIShareholderChurn.objects.filter(
+        risk_level__in=['high', 'critical']
+    ).aggregate(
+        total=Sum('investment_at_risk')
+    )['total'] or 0
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'top_shareholders': top_shareholders,
+        'at_risk_shareholders': at_risk_shareholders,
+        'recent_alerts': recent_alerts,
+        'dividend_recommendation': dividend_recommendation,
+        'forecast': forecast,
+        'total_shareholders': total_shareholders,
+        'scored_shareholders': scored_shareholders,
+        'critical_risk': critical_risk,
+        'investment_at_risk': investment_at_risk,
+        'total_alerts': recent_alerts.count(),
+    }
+    return render(request, 'ai/shareholder_dashboard.html', context)
+
+
+@login_required
+def ai_shareholder_scores(request):
+    """View all shareholder scores"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIShareholderScore
+    
+    scores = AIShareholderScore.objects.select_related('shareholder').all()
+    
+    # Filter
+    risk_level = request.GET.get('level', '')
+    if risk_level:
+        scores = scores.filter(risk_level=risk_level)
+    
+    # Stats
+    stats = {
+        'total': scores.count(),
+        'excellent': scores.filter(risk_level='excellent').count(),
+        'good': scores.filter(risk_level='good').count(),
+        'warning': scores.filter(risk_level='warning').count(),
+        'critical': scores.filter(risk_level='critical').count(),
+    }
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'scores': scores,
+        'stats': stats,
+        'selected_level': risk_level,
+    }
+    return render(request, 'ai/shareholder_scores.html', context)
+
+
+@login_required
+def ai_shareholder_churn(request):
+    """View churn predictions"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIShareholderChurn
+    
+    churn_data = AIShareholderChurn.objects.select_related('shareholder').all()
+    
+    risk_level = request.GET.get('level', '')
+    if risk_level:
+        churn_data = churn_data.filter(risk_level=risk_level)
+    
+    stats = {
+        'total': churn_data.count(),
+        'low': churn_data.filter(risk_level='low').count(),
+        'medium': churn_data.filter(risk_level='medium').count(),
+        'high': churn_data.filter(risk_level='high').count(),
+        'critical': churn_data.filter(risk_level='critical').count(),
+        'at_risk_amount': churn_data.filter(
+            risk_level__in=['high', 'critical']
+        ).aggregate(total=Sum('investment_at_risk'))['total'] or 0,
+    }
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'churn_data': churn_data,
+        'stats': stats,
+        'selected_level': risk_level,
+    }
+    return render(request, 'ai/shareholder_churn.html', context)
+
+
+@login_required
+def ai_dividend_recommendation(request):
+    """View dividend recommendations"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIDividendRecommendation
+    
+    # Get latest recommendation
+    recommendations = AIDividendRecommendation.objects.all().order_by('-created_at')
+    latest = recommendations.first()
+    
+    # Generate new if requested
+    if request.GET.get('generate') == 'true':
+        engine = AIShareholderEngine()
+        new_rec = engine.recommend_dividend()
+        
+        if new_rec:
+            messages.success(request, f"✅ New recommendation: {new_rec.recommended_percentage}%")
+        else:
+            messages.warning(request, "⚠️ Cannot generate recommendation (no profit)")
+        
+        return redirect('ai_dividend_recommendation')
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'recommendations': recommendations,
+        'latest': latest,
+    }
+    return render(request, 'ai/dividend_recommendation.html', context)
+
+
+@login_required
+def ai_shareholder_alerts(request):
+    """View all shareholder AI alerts"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIShareholderAlert
+    
+    alerts = AIShareholderAlert.objects.select_related('shareholder').all()
+    
+    alert_type = request.GET.get('type', '')
+    if alert_type:
+        alerts = alerts.filter(alert_type=alert_type)
+    
+    severity = request.GET.get('severity', '')
+    if severity:
+        alerts = alerts.filter(severity=severity)
+    
+    status = request.GET.get('status', 'active')
+    if status == 'active':
+        alerts = alerts.filter(is_resolved=False)
+    elif status == 'resolved':
+        alerts = alerts.filter(is_resolved=True)
+    
+    stats = {
+        'total': alerts.count(),
+        'critical': alerts.filter(severity='critical').count(),
+        'high': alerts.filter(severity='high').count(),
+        'medium': alerts.filter(severity='medium').count(),
+    }
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'alerts': alerts,
+        'stats': stats,
+        'selected_type': alert_type,
+        'selected_severity': severity,
+        'selected_status': status,
+        'alert_types': AIShareholderAlert.ALERT_TYPES,
+        'severity_levels': AIShareholderAlert.SEVERITY,
+    }
+    return render(request, 'ai/shareholder_alerts.html', context)
+
+
+@login_required
+def ai_shareholder_forecast(request):
+    """6-Month Shareholder Forecast"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIShareholderForecast
+    import json
+    
+    forecast = AIShareholderForecast.objects.order_by('-forecast_date').first()
+    
+    if request.GET.get('generate') == 'true':
+        engine = AIShareholderEngine()
+        forecast = engine.generate_forecast()
+        messages.success(request, "✅ New forecast generated!")
+        return redirect('ai_shareholder_forecast')
+    
+    # Chart data
+    chart_labels = []
+    chart_values = []
+    
+    if forecast and forecast.monthly_forecast:
+        for m in forecast.monthly_forecast:
+            chart_labels.append(m['month'])
+            chart_values.append(m['expected_shareholders'])
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'forecast': forecast,
+        'chart_labels': json.dumps(chart_labels),
+        'chart_values': json.dumps(chart_values),
+    }
+    return render(request, 'ai/shareholder_forecast.html', context)
+
+
+@login_required
+@require_POST
+def ai_shareholder_alert_resolve(request, pk):
+    """Resolve a shareholder alert"""
+    
+    from .models import AIShareholderAlert
+    alert = get_object_or_404(AIShareholderAlert, pk=pk)
+    
+    alert.is_resolved = True
+    alert.resolved_at = now()
+    alert.resolved_by = request.user
+    alert.save()
+    
+    messages.success(request, '✅ Alert resolved!')
+    return redirect('ai_shareholder_alerts')
+    
+# ============================================
+# AI BOARD ROOM VIEWS
+# ============================================
+
+from .ai_board_room import AIBoardRoom
+
+
+@login_required
+def ai_board_room_dashboard(request):
+    """Main AI Board Room Dashboard"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIBoardMeeting, AIBoardMember, AIBoardAlert, AIBoardKPI
+    
+    # Run meeting if requested
+    if request.GET.get('run') == 'true':
+        try:
+            board = AIBoardRoom()
+            results = board.run_full_board_meeting()
+            
+            if results['success']:
+                messages.success(
+                    request,
+                    f"🏢 Board Meeting Complete! "
+                    f"Health: {results['overall_health']}/100 | "
+                    f"Alerts: {results['alerts_created']} | "
+                    f"Impact: Rs. {results['total_savings'] + results['total_revenue']:,.0f}"
+                )
+            else:
+                messages.error(request, f"❌ Error: {results.get('error', 'Unknown')}")
+        except Exception as e:
+            messages.error(request, f"❌ Error: {e}")
+        
+        return redirect('ai_board_room_dashboard')
+    
+    # Get latest meeting
+    latest_meeting = AIBoardMeeting.objects.order_by('-meeting_date', '-created_at').first()
+    
+    # Get all members for latest
+    if latest_meeting:
+        members = latest_meeting.board_members.all().order_by('member_type')
+    else:
+        members = []
+    
+    # ==========================================
+    # ✅ FIX: Base queryset PEHLE banao
+    # ==========================================
+    base_alerts = AIBoardAlert.objects.filter(is_resolved=False)
+    
+    # ✅ Stats from FULL queryset (slice se PEHLE)
+    total_alerts = base_alerts.count()
+    critical_alerts = base_alerts.filter(severity='critical').count()
+    high_alerts = base_alerts.filter(severity='high').count()
+    medium_alerts = base_alerts.filter(severity='medium').count()
+    
+    # ✅ Ab slice karo display ke liye
+    alerts = base_alerts.order_by('-created_at')[:15]
+    
+    # KPI history
+    kpis = AIBoardKPI.objects.order_by('-date')[:30]
+    
+    # Chart data
+    kpi_labels = [k.date.strftime('%d-%b') for k in reversed(list(kpis))]
+    kpi_health = [k.overall_health for k in reversed(list(kpis))]
+    kpi_revenue = [float(k.revenue) for k in reversed(list(kpis))]
+    
+    # Stats
+    stats = {
+        'total_meetings': AIBoardMeeting.objects.count(),
+        'active_alerts': total_alerts,       # ✅ From base
+        'critical_alerts': critical_alerts,  # ✅ From base
+        'high_alerts': high_alerts,          # ✅ From base
+        'medium_alerts': medium_alerts,      # ✅ From base
+        'total_savings': AIBoardMeeting.objects.aggregate(
+            total=Sum('total_potential_savings')
+        )['total'] or 0,
+        'total_revenue': AIBoardMeeting.objects.aggregate(
+            total=Sum('total_potential_revenue')
+        )['total'] or 0,
+    }
+    
+    import json
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'meeting': latest_meeting,
+        'members': members,
+        'alerts': alerts,                # ✅ Sliced list for display
+        'stats': stats,
+        'kpi_labels': json.dumps(kpi_labels),
+        'kpi_health': json.dumps(kpi_health),
+        'kpi_revenue': json.dumps(kpi_revenue),
+        'today': localdate(),
+    }
+    return render(request, 'ai/board_room_dashboard.html', context)
+
+
+@login_required
+def ai_board_member_detail(request, member_type):
+    """View individual board member report"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIBoardMember
+    
+    # Get latest report for this member
+    member = AIBoardMember.objects.filter(
+        member_type=member_type
+    ).order_by('-report_date', '-created_at').first()
+    
+    if not member:
+        messages.warning(request, f"No report found for {member_type}. Run board meeting first.")
+        return redirect('ai_board_room_dashboard')
+    
+    # History
+    history = AIBoardMember.objects.filter(
+        member_type=member_type
+    ).order_by('-report_date')[:30]
+    
+    import json
+    chart_labels = [h.report_date.strftime('%d-%b') for h in reversed(list(history))]
+    chart_scores = [h.health_score for h in reversed(list(history))]
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'member': member,
+        'history': history,
+        'chart_labels': json.dumps(chart_labels),
+        'chart_scores': json.dumps(chart_scores),
+    }
+    return render(request, 'ai/board_member_detail.html', context)
+
+
+@login_required
+def ai_board_meetings_list(request):
+    """List all board meetings"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIBoardMeeting
+    
+    meetings = AIBoardMeeting.objects.order_by('-meeting_date', '-created_at')
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'meetings': meetings,
+    }
+    return render(request, 'ai/board_meetings_list.html', context)
+
+
+@login_required
+def ai_board_meeting_detail(request, pk):
+    """View detailed board meeting"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIBoardMeeting
+    
+    meeting = get_object_or_404(AIBoardMeeting, pk=pk)
+    members = meeting.board_members.all().order_by('member_type')
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'meeting': meeting,
+        'members': members,
+    }
+    return render(request, 'ai/board_meeting_detail.html', context)
+
+
+@login_required
+def ai_board_alerts(request):
+    """View all board alerts"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIBoardAlert
+    
+    alerts = AIBoardAlert.objects.all().order_by('-created_at')
+    
+    # Filters
+    severity = request.GET.get('severity', '')
+    if severity:
+        alerts = alerts.filter(severity=severity)
+    
+    source = request.GET.get('source', '')
+    if source:
+        alerts = alerts.filter(source=source)
+    
+    status = request.GET.get('status', 'active')
+    if status == 'active':
+        alerts = alerts.filter(is_resolved=False)
+    elif status == 'resolved':
+        alerts = alerts.filter(is_resolved=True)
+    
+    stats = {
+        'total': alerts.count(),
+        'critical': alerts.filter(severity='critical').count(),
+        'high': alerts.filter(severity='high').count(),
+        'medium': alerts.filter(severity='medium').count(),
+    }
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'alerts': alerts,
+        'stats': stats,
+        'selected_severity': severity,
+        'selected_source': source,
+        'selected_status': status,
+    }
+    return render(request, 'ai/board_alerts.html', context)
+
+
+@login_required
+@require_POST
+def ai_board_alert_resolve(request, pk):
+    """Resolve a board alert"""
+    
+    from .models import AIBoardAlert
+    alert = get_object_or_404(AIBoardAlert, pk=pk)
+    
+    alert.is_resolved = True
+    alert.resolved_at = now()
+    alert.resolved_by = request.user
+    alert.save()
+    
+    messages.success(request, '✅ Alert resolved!')
+    return redirect('ai_board_alerts')
+    
+# ============================================
+# CSO TECH VIEWS
+# ============================================
+
+from .ai_cso_tech import AICSOTechEngine
+
+
+@login_required
+def ai_cso_tech_dashboard(request):
+    """CSO Tech Dashboard"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import (
+        AIBugReport, AIPerformanceIssue, AIFeatureSuggestion,
+        AISystemHealth, AISecurityLog
+    )
+    
+    # Run analysis if requested
+    if request.GET.get('run') == 'true':
+        try:
+            engine = AICSOTechEngine()
+            report = engine.run_full_analysis()
+            
+            messages.success(
+                request,
+                f"💻 CSO Tech Analysis Complete! "
+                f"Health: {report['health_score']}/100 | "
+                f"Warnings: {len(report['warnings'])}"
+            )
+        except Exception as e:
+            messages.error(request, f"❌ Error: {e}")
+        
+        return redirect('ai_cso_tech_dashboard')
+    
+    # Get latest system health
+    latest_health = AISystemHealth.objects.order_by('-date').first()
+    
+    # Stats
+    active_bugs = AIBugReport.objects.filter(status__in=['new', 'investigating'])
+    performance_issues = AIPerformanceIssue.objects.filter(is_resolved=False)
+    pending_features = AIFeatureSuggestion.objects.filter(status='pending')
+    security_alerts = AISecurityLog.objects.filter(is_resolved=False)
+    
+    stats = {
+        'system_health': latest_health.health_score if latest_health else 100,
+        'active_bugs': active_bugs.count(),
+        'critical_bugs': active_bugs.filter(severity='critical').count(),
+        'performance_issues': performance_issues.count(),
+        'pending_features': pending_features.count(),
+        'security_alerts': security_alerts.count(),
+    }
+    
+    # Recent items
+    recent_bugs = active_bugs.order_by('-frequency')[:5]
+    recent_issues = performance_issues.order_by('-priority')[:5]
+    recent_features = pending_features.order_by('-roi_score')[:5]
+    recent_security = security_alerts.order_by('-created_at')[:5]
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'stats': stats,
+        'latest_health': latest_health,
+        'recent_bugs': recent_bugs,
+        'recent_issues': recent_issues,
+        'recent_features': recent_features,
+        'recent_security': recent_security,
+    }
+    return render(request, 'ai/cso_tech_dashboard.html', context)
+
+
+@login_required
+def ai_cso_tech_security(request):
+    """Security Dashboard"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AISecurityLog
+    
+    alerts = AISecurityLog.objects.all().order_by('-created_at')
+    
+    severity = request.GET.get('severity', '')
+    if severity:
+        alerts = alerts.filter(severity=severity)
+    
+    status = request.GET.get('status', 'active')
+    if status == 'active':
+        alerts = alerts.filter(is_resolved=False)
+    elif status == 'resolved':
+        alerts = alerts.filter(is_resolved=True)
+    
+    # Stats - BEFORE slice
+    stats = {
+        'total': alerts.count(),
+        'critical': alerts.filter(severity='critical').count(),
+        'high': alerts.filter(severity='high').count(),
+        'medium': alerts.filter(severity='medium').count(),
+    }
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'alerts': alerts[:50],
+        'stats': stats,
+    }
+    return render(request, 'ai/cso_tech_security.html', context)
+
+
+@login_required
+def ai_cso_tech_performance(request):
+    """Performance Dashboard"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIPerformanceIssue, AISystemHealth
+    
+    issues = AIPerformanceIssue.objects.all().order_by('-priority', '-created_at')
+    health_records = AISystemHealth.objects.order_by('-date')[:30]
+    
+    # Stats
+    stats = {
+        'total_issues': issues.count(),
+        'unresolved': issues.filter(is_resolved=False).count(),
+        'critical': issues.filter(priority__gte=8, is_resolved=False).count(),
+    }
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'issues': issues,
+        'health_records': health_records,
+        'stats': stats,
+    }
+    return render(request, 'ai/cso_tech_performance.html', context)
+
+
+@login_required
+def ai_cso_tech_bugs(request):
+    """Bugs Dashboard"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIBugReport
+    
+    bugs = AIBugReport.objects.all().order_by('-frequency', '-last_seen')
+    
+    status = request.GET.get('status', 'active')
+    if status == 'active':
+        bugs = bugs.filter(status__in=['new', 'investigating'])
+    elif status == 'fixed':
+        bugs = bugs.filter(status__in=['fixed', 'closed'])
+    
+    # Stats BEFORE slice
+    stats = {
+        'total': bugs.count(),
+        'critical': bugs.filter(severity='critical').count(),
+        'high': bugs.filter(severity='high').count(),
+        'medium': bugs.filter(severity='medium').count(),
+    }
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'bugs': bugs[:50],
+        'stats': stats,
+    }
+    return render(request, 'ai/cso_tech_bugs.html', context)
+
+
+@login_required
+def ai_cso_tech_features(request):
+    """Feature Suggestions Dashboard"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AIFeatureSuggestion
+    
+    features = AIFeatureSuggestion.objects.all().order_by('-roi_score', '-created_at')
+    
+    status = request.GET.get('status', 'pending')
+    if status:
+        features = features.filter(status=status)
+    
+    stats = {
+        'total': features.count(),
+        'pending': features.filter(status='pending').count(),
+        'in_progress': features.filter(status='in_progress').count(),
+        'completed': features.filter(status='completed').count(),
+    }
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'features': features,
+        'stats': stats,
+    }
+    return render(request, 'ai/cso_tech_features.html', context)
+
+
+@login_required
+def ai_cso_tech_system(request):
+    """System Health Dashboard"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import AISystemHealth
+    import json
+    
+    health_records = AISystemHealth.objects.order_by('-date')[:60]
+    
+    # Chart data
+    labels = [h.date.strftime('%d-%b %H:%M') for h in reversed(list(health_records))]
+    scores = [h.health_score for h in reversed(list(health_records))]
+    memory = [float(h.memory_usage) for h in reversed(list(health_records))]
+    disk = [float(h.disk_usage) for h in reversed(list(health_records))]
+    
+    # Latest
+    latest = health_records.first()
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'latest': latest,
+        'records': health_records,
+        'chart_labels': json.dumps(labels),
+        'chart_scores': json.dumps(scores),
+        'chart_memory': json.dumps(memory),
+        'chart_disk': json.dumps(disk),
+    }
+    return render(request, 'ai/cso_tech_system.html', context)
+    
+# ============================================
+# CASH INVESTMENT STRATEGY VIEWS
+# ============================================
+
+@login_required
+def cash_strategies_list(request):
+    """List all cash investment strategies"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import CashInvestmentStrategy
+    
+    strategies = CashInvestmentStrategy.objects.all().order_by('-expected_profit')
+    
+    # Filters
+    status = request.GET.get('status', '')
+    if status:
+        strategies = strategies.filter(status=status)
+    
+    strategy_type = request.GET.get('type', '')
+    if strategy_type:
+        strategies = strategies.filter(strategy_type=strategy_type)
+    
+    # Stats
+    total = strategies.count()
+    recommended = strategies.filter(status='recommended').count()
+    approved = strategies.filter(status='approved').count()
+    executing = strategies.filter(status='executing').count()
+    completed = strategies.filter(status='completed').count()
+    
+    total_amount = strategies.aggregate(total=Sum('amount'))['total'] or 0
+    total_expected_profit = strategies.aggregate(total=Sum('expected_profit'))['total'] or 0
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'strategies': strategies,
+        'total': total,
+        'recommended': recommended,
+        'approved': approved,
+        'executing': executing,
+        'completed': completed,
+        'total_amount': total_amount,
+        'total_expected_profit': total_expected_profit,
+        'selected_status': status,
+        'selected_type': strategy_type,
+        'strategy_types': CashInvestmentStrategy.STRATEGY_TYPES,
+        'status_choices': CashInvestmentStrategy.STATUS_CHOICES,
+    }
+    return render(request, 'ai/cash_strategies.html', context)
+
+
+@login_required
+def cash_strategy_detail(request, pk):
+    """View strategy details"""
+    
+    from .models import CashInvestmentStrategy
+    strategy = get_object_or_404(CashInvestmentStrategy, pk=pk)
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'strategy': strategy,
+    }
+    return render(request, 'ai/cash_strategy_detail.html', context)
+
+
+@login_required
+@require_POST
+def cash_strategy_approve(request, pk):
+    """Approve a cash strategy"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import CashInvestmentStrategy
+    strategy = get_object_or_404(CashInvestmentStrategy, pk=pk)
+    strategy.approve(request.user)
+    
+    messages.success(request, f'✅ Strategy "{strategy.name}" approved!')
+    return redirect('cash_strategies_list')
+
+
+@login_required
+@require_POST
+def cash_strategy_execute(request, pk):
+    """Start executing strategy"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import CashInvestmentStrategy
+    strategy = get_object_or_404(CashInvestmentStrategy, pk=pk)
+    strategy.start_execution()
+    
+    messages.success(request, f'⚙️ Strategy "{strategy.name}" started!')
+    return redirect('cash_strategies_list')
+
+
+@login_required
+def cash_strategy_complete(request, pk):
+    """Complete a strategy with actual results"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import CashInvestmentStrategy
+    strategy = get_object_or_404(CashInvestmentStrategy, pk=pk)
+    
+    if request.method == 'POST':
+        try:
+            actual_profit = Decimal(request.POST.get('actual_profit', 0))
+            actual_amount = Decimal(request.POST.get('actual_amount', 0))
+            notes = request.POST.get('notes', '')
+            
+            strategy.complete(actual_profit, actual_amount)
+            if notes:
+                strategy.notes = notes
+                strategy.save()
+            
+            actual_roi = strategy.calculate_actual_roi()
+            messages.success(
+                request,
+                f'🎯 Strategy completed! Actual ROI: {actual_roi:.1f}%'
+            )
+            return redirect('cash_strategy_detail', pk=pk)
+        except Exception as e:
+            messages.error(request, f'❌ Error: {e}')
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'strategy': strategy,
+    }
+    return render(request, 'ai/cash_strategy_complete.html', context)
+
+
+@login_required
+@require_POST
+def cash_strategy_cancel(request, pk):
+    """Cancel a strategy"""
+    
+    if not request.user.is_superuser:
+        messages.error(request, '❌ Only superuser can cancel strategies!')
+        return redirect('cash_strategies_list')
+    
+    from .models import CashInvestmentStrategy
+    strategy = get_object_or_404(CashInvestmentStrategy, pk=pk)
+    reason = request.POST.get('reason', '')
+    strategy.cancel(reason)
+    
+    messages.success(request, f'❌ Strategy "{strategy.name}" cancelled!')
+    return redirect('cash_strategies_list')
+    
+# ============================================
+# STRATEGY ALLOCATION VIEWS
+# ============================================
+
+@login_required
+def strategy_allocations_list(request):
+    """List all strategy allocation profiles"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import StrategyAllocation
+    
+    allocations = StrategyAllocation.objects.all().order_by('-is_active', '-updated_at')
+    active_allocation = StrategyAllocation.get_active()
+    
+    # Add normalized + ROI data
+    for allocation in allocations:
+        allocation.normalized = allocation.get_normalized_percentages()
+        allocation.avg_roi = allocation.get_average_roi()
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'allocations': allocations,
+        'active_allocation': active_allocation,
+        'total_profiles': allocations.count(),
+    }
+    return render(request, 'strategy/allocations_list.html', context)
+
+
+@login_required
+def strategy_allocation_create(request):
+    """Create new strategy allocation with Fast-Moving"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import StrategyAllocation
+    
+    templates = {
+        'safe': {
+            'name': '🟢 Safe Profile',
+            'description': 'Low risk, steady returns',
+            'bulk_purchase': 40, 'seasonal_stock': 20,
+            'customer_credit': 0, 'vendor_advance': 15,
+            'new_product': 0, 'fast_moving': 25,
+            'bulk_purchase_roi': 25, 'seasonal_stock_roi': 35,
+            'customer_credit_roi': 18, 'vendor_advance_roi': 28,
+            'new_product_roi': 35, 'fast_moving_roi': 25,
+        },
+        'balanced': {
+            'name': '🟡 Balanced Profile',
+            'description': 'Recommended mix for most businesses',
+            'bulk_purchase': 25, 'seasonal_stock': 20,
+            'customer_credit': 15, 'vendor_advance': 10,
+            'new_product': 10, 'fast_moving': 20,
+            'bulk_purchase_roi': 25, 'seasonal_stock_roi': 35,
+            'customer_credit_roi': 18, 'vendor_advance_roi': 28,
+            'new_product_roi': 35, 'fast_moving_roi': 30,
+        },
+        'fast_moving': {
+            'name': '⚡ Fast-Moving Focus',
+            'description': 'Focus on fast-moving products',
+            'bulk_purchase': 20, 'seasonal_stock': 10,
+            'customer_credit': 5, 'vendor_advance': 10,
+            'new_product': 5, 'fast_moving': 50,
+            'bulk_purchase_roi': 25, 'seasonal_stock_roi': 35,
+            'customer_credit_roi': 18, 'vendor_advance_roi': 28,
+            'new_product_roi': 35, 'fast_moving_roi': 35,
+        },
+        'aggressive': {
+            'name': '🔴 Aggressive Profile',
+            'description': 'High risk, high reward',
+            'bulk_purchase': 20, 'seasonal_stock': 25,
+            'customer_credit': 10, 'vendor_advance': 5,
+            'new_product': 25, 'fast_moving': 15,
+            'bulk_purchase_roi': 30, 'seasonal_stock_roi': 40,
+            'customer_credit_roi': 22, 'vendor_advance_roi': 30,
+            'new_product_roi': 45, 'fast_moving_roi': 30,
+        },
+        'boom': {
+            'name': '🔥 Boom Mode',
+            'description': 'Maximum growth',
+            'bulk_purchase': 10, 'seasonal_stock': 25,
+            'customer_credit': 5, 'vendor_advance': 0,
+            'new_product': 30, 'fast_moving': 30,
+            'bulk_purchase_roi': 25, 'seasonal_stock_roi': 40,
+            'customer_credit_roi': 20, 'vendor_advance_roi': 28,
+            'new_product_roi': 50, 'fast_moving_roi': 35,
+        },
+        'retail': {
+            'name': '🏪 Retail Shop',
+            'description': 'Retail optimized',
+            'bulk_purchase': 25, 'seasonal_stock': 20,
+            'customer_credit': 10, 'vendor_advance': 15,
+            'new_product': 5, 'fast_moving': 25,
+            'bulk_purchase_roi': 28, 'seasonal_stock_roi': 38,
+            'customer_credit_roi': 20, 'vendor_advance_roi': 25,
+            'new_product_roi': 30, 'fast_moving_roi': 32,
+        },
+        'wholesale': {
+            'name': '🏭 Wholesale Business',
+            'description': 'Wholesale optimized',
+            'bulk_purchase': 35, 'seasonal_stock': 15,
+            'customer_credit': 20, 'vendor_advance': 10,
+            'new_product': 5, 'fast_moving': 15,
+            'bulk_purchase_roi': 22, 'seasonal_stock_roi': 30,
+            'customer_credit_roi': 16, 'vendor_advance_roi': 25,
+            'new_product_roi': 30, 'fast_moving_roi': 25,
+        },
+    }
+    
+    if request.method == 'POST':
+        try:
+            from decimal import Decimal
+            
+            # Allocation
+            bulk = Decimal(request.POST.get('bulk_purchase', 25))
+            seasonal = Decimal(request.POST.get('seasonal_stock', 20))
+            credit = Decimal(request.POST.get('customer_credit', 15))
+            advance = Decimal(request.POST.get('vendor_advance', 10))
+            new_prod = Decimal(request.POST.get('new_product', 10))
+            fast_moving = Decimal(request.POST.get('fast_moving', 20))
+            
+            # ROI
+            bulk_roi = Decimal(request.POST.get('bulk_purchase_roi', 25))
+            seasonal_roi = Decimal(request.POST.get('seasonal_stock_roi', 35))
+            credit_roi = Decimal(request.POST.get('customer_credit_roi', 18))
+            advance_roi = Decimal(request.POST.get('vendor_advance_roi', 28))
+            new_roi = Decimal(request.POST.get('new_product_roi', 35))
+            fast_roi = Decimal(request.POST.get('fast_moving_roi', 30))
+            
+            total = bulk + seasonal + credit + advance + new_prod + fast_moving
+            
+            if total <= 0:
+                messages.error(request, '❌ Total must be greater than 0!')
+                return redirect('strategy_allocation_create')
+            
+            allocation = StrategyAllocation.objects.create(
+                profile_name=request.POST.get('profile_name'),
+                profile_description=request.POST.get('profile_description', ''),
+                bulk_purchase=bulk,
+                seasonal_stock=seasonal,
+                customer_credit=credit,
+                vendor_advance=advance,
+                new_product=new_prod,
+                fast_moving=fast_moving,
+                bulk_purchase_roi=bulk_roi,
+                seasonal_stock_roi=seasonal_roi,
+                customer_credit_roi=credit_roi,
+                vendor_advance_roi=advance_roi,
+                new_product_roi=new_roi,
+                fast_moving_roi=fast_roi,
+                is_active=request.POST.get('is_active') == 'on',
+                created_by=request.user,
+                updated_by=request.user,
+            )
+            
+            messages.success(
+                request,
+                f'✅ Profile "{allocation.profile_name}" created! '
+                f'Avg ROI: {allocation.get_average_roi()}%'
+            )
+            return redirect('strategy_allocations_list')
+            
+        except Exception as e:
+            messages.error(request, f'❌ Error: {str(e)}')
+            return redirect('strategy_allocation_create')
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'templates': templates,
+        'is_edit': False,
+    }
+    return render(request, 'strategy/allocation_form.html', context)
+
+
+@login_required
+def strategy_allocation_edit(request, pk):
+    """Edit strategy allocation with Fast-Moving"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import StrategyAllocation
+    
+    allocation = get_object_or_404(StrategyAllocation, pk=pk)
+    
+    if request.method == 'POST':
+        try:
+            from decimal import Decimal
+            
+            # Allocation
+            bulk = Decimal(request.POST.get('bulk_purchase', 25))
+            seasonal = Decimal(request.POST.get('seasonal_stock', 20))
+            credit = Decimal(request.POST.get('customer_credit', 15))
+            advance = Decimal(request.POST.get('vendor_advance', 10))
+            new_prod = Decimal(request.POST.get('new_product', 10))
+            fast_moving = Decimal(request.POST.get('fast_moving', 20))
+            
+            # ROI
+            bulk_roi = Decimal(request.POST.get('bulk_purchase_roi', 25))
+            seasonal_roi = Decimal(request.POST.get('seasonal_stock_roi', 35))
+            credit_roi = Decimal(request.POST.get('customer_credit_roi', 18))
+            advance_roi = Decimal(request.POST.get('vendor_advance_roi', 28))
+            new_roi = Decimal(request.POST.get('new_product_roi', 35))
+            fast_roi = Decimal(request.POST.get('fast_moving_roi', 30))
+            
+            total = bulk + seasonal + credit + advance + new_prod + fast_moving
+            
+            if total <= 0:
+                messages.error(request, '❌ Total must be greater than 0!')
+                return redirect('strategy_allocation_edit', pk=pk)
+            
+            allocation.profile_name = request.POST.get('profile_name')
+            allocation.profile_description = request.POST.get('profile_description', '')
+            allocation.bulk_purchase = bulk
+            allocation.seasonal_stock = seasonal
+            allocation.customer_credit = credit
+            allocation.vendor_advance = advance
+            allocation.new_product = new_prod
+            allocation.fast_moving = fast_moving
+            allocation.bulk_purchase_roi = bulk_roi
+            allocation.seasonal_stock_roi = seasonal_roi
+            allocation.customer_credit_roi = credit_roi
+            allocation.vendor_advance_roi = advance_roi
+            allocation.new_product_roi = new_roi
+            allocation.fast_moving_roi = fast_roi
+            allocation.is_active = request.POST.get('is_active') == 'on'
+            allocation.updated_by = request.user
+            allocation.save()
+            
+            messages.success(
+                request,
+                f'✅ Profile "{allocation.profile_name}" updated! '
+                f'Avg ROI: {allocation.get_average_roi()}%'
+            )
+            return redirect('strategy_allocations_list')
+            
+        except Exception as e:
+            messages.error(request, f'❌ Error: {str(e)}')
+            return redirect('strategy_allocation_edit', pk=pk)
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'allocation': allocation,
+        'is_edit': True,
+    }
+    return render(request, 'strategy/allocation_form.html', context)
+
+
+@login_required
+def strategy_allocation_activate(request, pk):
+    """Activate a strategy allocation"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+    
+    from .models import StrategyAllocation
+    
+    allocation = get_object_or_404(StrategyAllocation, pk=pk)
+    
+    if request.method == 'POST':
+        StrategyAllocation.objects.exclude(pk=pk).update(is_active=False)
+        allocation.is_active = True
+        allocation.updated_by = request.user
+        allocation.save()
+        
+        messages.success(
+            request, 
+            f'✅ Profile "{allocation.profile_name}" is now ACTIVE! '
+            f'Avg ROI: {allocation.get_average_roi()}%'
+        )
+    
+    return redirect('strategy_allocations_list')
+
+
+@login_required
+def strategy_allocation_delete(request, pk):
+    """Delete a strategy allocation"""
+    
+    if not request.user.is_superuser:
+        messages.error(request, '❌ Only superuser can delete profiles!')
+        return redirect('strategy_allocations_list')
+    
+    from .models import StrategyAllocation
+    
+    allocation = get_object_or_404(StrategyAllocation, pk=pk)
+    
+    if allocation.is_active:
+        messages.error(request, '❌ Cannot delete active profile! Activate another first.')
+        return redirect('strategy_allocations_list')
+    
+    if request.method == 'POST':
+        name = allocation.profile_name
+        allocation.delete()
+        messages.success(request, f'🗑️ Profile "{name}" deleted!')
+    
+    return redirect('strategy_allocations_list')
+
+@login_required
+def strategy_allocation_preview(request, pk):
+    """Preview with Fast-Moving + Custom ROI"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        return JsonResponse({'success': False, 'message': 'Access denied!'})
+    
+    from .models import StrategyAllocation
+    
+    allocation = get_object_or_404(StrategyAllocation, pk=pk)
+    
+    cash_balance = CashBalance.get_balance()
+    allocation_dict = allocation.get_allocation_dict()
+    roi_dict = allocation.get_roi_dict()
+    
+    raw = {
+        'bulk_purchase': float(allocation.bulk_purchase),
+        'seasonal_stock': float(allocation.seasonal_stock),
+        'customer_credit': float(allocation.customer_credit),
+        'vendor_advance': float(allocation.vendor_advance),
+        'new_product': float(allocation.new_product),
+        'fast_moving': float(allocation.fast_moving),
+    }
+    raw_total = sum(raw.values())
+    
+    normalized = allocation.get_normalized_percentages()
+    
+    preview = []
+    
+    # 6 Strategies
+    strategies_config = [
+        ('bulk_purchase', 'Bulk Purchase Discount', 'low', 4),
+        ('seasonal_stock', 'Seasonal Stock', 'medium', 3),
+        ('customer_credit', 'Customer Credit', 'medium', 3),
+        ('vendor_advance', 'Vendor Advance', 'low', 2),
+        ('new_product', 'New Product Line', 'high', 6),
+        ('fast_moving', 'Fast-Moving Product', 'low', 1),
+    ]
+    
+    for key, name, risk, timeline in strategies_config:
+        if allocation_dict[key] > 0:
+            amt = cash_balance * Decimal(str(allocation_dict[key]))
+            roi = roi_dict[key]
+            profit = amt * Decimal(str(roi / 100))
+            preview.append({
+                'name': name,
+                'raw_percentage': raw[key],
+                'normalized_percentage': normalized[key],
+                'amount': float(amt),
+                'roi': roi,
+                'profit': float(profit),
+                'risk': risk,
+                'timeline': timeline,
+            })
+    
+    total_profit = sum(p['profit'] for p in preview)
+    
+    return JsonResponse({
+        'success': True,
+        'cash_balance': float(cash_balance),
+        'raw_total': raw_total,
+        'raw_percentages': raw,
+        'normalized': normalized,
+        'roi_dict': roi_dict,
+        'average_roi': allocation.get_average_roi(),
+        'strategies': preview,
+        'total_profit': total_profit,
+        'total_roi': (total_profit / float(cash_balance) * 100) if cash_balance > 0 else 0,
+    })
+    
+@login_required
+def grn_reset_conversion(request, pk):
+    """Reset GRN conversion status if data inconsistency detected"""
+    grn = get_object_or_404(GoodsReceivedNote, pk=pk)
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('grn_detail', pk=pk)
+    
+    if request.method == 'POST':
+        old_status = grn.converted_to_purchase
+        grn.converted_to_purchase = False
+        grn.purchase = None
+        grn.save()
+        
+        messages.success(
+            request, 
+            f'✅ GRN {grn.grn_no} reset to Pending!\n'
+            f'Ab aap isse dobara convert kar sakte ho.'
+        )
+        return redirect('grn_detail', pk=pk)
+    
+    return redirect('grn_detail', pk=pk)
+
+@login_required
+@require_POST
+def purchase_pay(request, pk):
+    """
+    Pay vendor for a specific purchase
+    Credit → Paid
+    """
+    from decimal import Decimal
+    from .models import VendorPayment, PaymentMethod, CashBalance
+    
+    purchase = get_object_or_404(Purchase, pk=pk)
+    
+    # ========================================== #
+    # Validation                                 #
+    # ========================================== #
+    if not request.user.is_superuser and not request.user.is_staff:
+        return JsonResponse({
+            'success': False,
+            'message': '❌ Access denied!'
+        })
+    
+    if purchase.outstanding_balance() <= 0:
+        return JsonResponse({
+            'success': False,
+            'message': '⚠️ This purchase is already fully paid!'
+        })
+    
+    try:
+        # Get form data
+        amount = Decimal(request.POST.get('amount', 0))
+        payment_method_name = request.POST.get('payment_method', 'Cash')
+        reference_no = request.POST.get('reference_no', '')
+        notes = request.POST.get('notes', '')
+        
+        # ========================================== #
+        # Amount validation                          #
+        # ========================================== #
+        if amount <= 0:
+            return JsonResponse({
+                'success': False,
+                'message': '❌ Amount must be greater than zero!'
+            })
+        
+        if amount > purchase.outstanding_balance():
+            return JsonResponse({
+                'success': False,
+                'message': f'❌ Amount exceeds outstanding: Rs. {purchase.outstanding_balance():,.2f}'
+            })
+        
+        # ========================================== #
+        # Cash balance check                         #
+        # ========================================== #
+        current_cash = CashBalance.get_balance()
+        if amount > current_cash:
+            return JsonResponse({
+                'success': False,
+                'message': f'❌ Insufficient cash! Available: Rs. {current_cash:,.2f}'
+            })
+        
+        # ========================================== #
+        # Get or create PaymentMethod                #
+        # ========================================== #
+        method, _ = PaymentMethod.objects.get_or_create(
+            name=payment_method_name,
+            defaults={'is_active': True}
+        )
+        
+        # ========================================== #
+        # Process payment (atomic)                   #
+        # ========================================== #
+        with transaction.atomic():
+            # 1. Update purchase paid amount
+            purchase.paid += amount
+            purchase.save(update_fields=['paid'])
+            
+            # 2. Create vendor payment record
+            vendor_payment = VendorPayment.objects.create(
+                vendor=purchase.vendor,
+                purchase=purchase,
+                amount=amount,
+                payment_date=now(),
+                payment_method=method,
+                reference_no=reference_no,
+                notes=notes or f"Payment for {purchase.bill_no}",
+                created_by=request.user,
+            )
+            
+            # 3. Deduct from cash balance
+            CashBalance.update_balance(
+                amount=amount,
+                transaction_type='withdraw',
+                user=request.user,
+                description=f"Vendor payment: {purchase.vendor.name} - {purchase.bill_no}"
+            )
+        
+        # ========================================== #
+        # Success response                           #
+        # ========================================== #
+        new_outstanding = purchase.outstanding_balance()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'✅ Payment of Rs. {amount:,.2f} successful!',
+            'new_paid': float(purchase.paid),
+            'new_outstanding': float(new_outstanding),
+            'is_fully_paid': new_outstanding <= 0,
+            'payment_id': vendor_payment.id,
+        })
+    
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Purchase payment error: {e}")
+        
+        return JsonResponse({
+            'success': False,
+            'message': f'❌ Error: {str(e)}'
+        })
+        
+@login_required
+@require_POST
+def sale_receive_payment(request, pk):
+    """Receive payment from customer for a specific sale"""
+    from decimal import Decimal
+    from .models import CustomerPayment, PaymentMethod, CashBalance
+    
+    sale = get_object_or_404(Sale, pk=pk)
+    
+    # Permission Check
+    if not request.user.is_superuser and not request.user.is_staff:
+        return JsonResponse({'success': False, 'message': '❌ Access denied!'})
+    
+    # Already Paid?
+    if sale.outstanding_balance() <= 0:
+        return JsonResponse({'success': False, 'message': '⚠️ Already fully paid!'})
+    
+    # Converted Sale?
+    if sale.is_converted_to_expense:
+        return JsonResponse({'success': False, 'message': '⚠️ Cannot receive payment for converted sales!'})
+    
+    try:
+        amount = Decimal(request.POST.get('amount', 0))
+        method_name = request.POST.get('payment_method', 'Cash')
+        reference_no = request.POST.get('reference_no', '')
+        notes = request.POST.get('notes', '')
+        
+        # Validations
+        if amount <= 0:
+            return JsonResponse({'success': False, 'message': '❌ Amount must be greater than zero!'})
+        
+        if amount > sale.outstanding_balance():
+            return JsonResponse({
+                'success': False,
+                'message': f'❌ Amount exceeds outstanding: Rs. {sale.outstanding_balance():,.2f}'
+            })
+        
+        # Get or create Payment Method
+        method, _ = PaymentMethod.objects.get_or_create(
+            name=method_name,
+            defaults={'is_active': True}
+        )
+        
+        with transaction.atomic():
+            # 1. Update sale.paid
+            sale.paid += amount
+            sale.save(update_fields=['paid'])
+            
+            # 2. Create customer payment record
+            CustomerPayment.objects.create(
+                customer=sale.customer,
+                sale=sale,
+                amount=amount,
+                payment_date=now(),
+                payment_method=method,
+                reference_no=reference_no,
+                notes=notes or f"Payment for {sale.bill_no}",
+                created_by=request.user,
+            )
+            
+            # 3. Add to cash balance (INFLOW)
+            CashBalance.update_balance(
+                amount=amount,
+                transaction_type='sale',
+                user=request.user,
+                description=f"Customer payment: {sale.customer.name} - {sale.bill_no}"
+            )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'✅ Received Rs. {amount:,.2f} from {sale.customer.name}!',
+            'new_paid': float(sale.paid),
+            'new_outstanding': float(sale.outstanding_balance()),
+        })
+    
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Payment error: {e}")
+        return JsonResponse({'success': False, 'message': f'❌ Error: {str(e)}'})
+        
+# ==========================================
+# EMERGENCY FUND VIEWS
+# ==========================================
+
+from decimal import Decimal
+from django.db.models import Sum
+from datetime import date, timedelta
+
+
+@login_required
+def emergency_fund_dashboard(request):
+    """Emergency Fund Dashboard"""
+    
+    from .models import EmergencyFund, EmergencyFundTransaction, Expense
+    
+    # Fund nikalo
+    fund = EmergencyFund.get_active_fund()
+    
+    # Agar nahi hai to banao
+    if not fund:
+        if request.method == 'POST':
+            # Create new fund
+            target = Decimal(request.POST.get('target_amount', 0))
+            monthly = Decimal(request.POST.get('monthly_contribution', 0))
+            
+            fund = EmergencyFund.objects.create(
+                name=request.POST.get('name', 'Emergency Fund'),
+                fund_type=request.POST.get('fund_type', 'business'),
+                description=request.POST.get('description', ''),
+                target_amount=target,
+                monthly_contribution=monthly,
+                is_active=True,
+                created_by=request.user,
+            )
+            
+            messages.success(request, f'✅ Emergency Fund banaya gaya!')
+            return redirect('emergency_fund_dashboard')
+        
+        # Show creation form
+        # Monthly expense nikalo
+        last_30 = date.today() - timedelta(days=30)
+        monthly_expense = Expense.objects.filter(
+            expense_date__gte=last_30,
+            status__in=['approved', 'paid']
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('10000')
+        
+        context = {
+            'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+            'fund': None,
+            'suggested_target': monthly_expense * 3,
+            'suggested_monthly': monthly_expense * Decimal('0.1'),
+            'monthly_expense': monthly_expense,
+            'fund_types': EmergencyFund.FUND_TYPES,
+        }
+        return render(request, 'ai/emergency_fund_create.html', context)
+    
+    # Transactions
+    transactions = fund.transactions.all().order_by('-created_at')[:20]
+    
+    # Calculate stats
+    monthly_expense = Decimal('0')
+    last_30 = date.today() - timedelta(days=30)
+    monthly_expense = Expense.objects.filter(
+        expense_date__gte=last_30,
+        status__in=['approved', 'paid']
+    ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'fund': fund,
+        'transactions': transactions,
+        'monthly_expense': monthly_expense,
+        'months_covered': fund.months_covered,
+        'progress': fund.progress_percent,
+        'remaining': fund.remaining_amount,
+        'months_remaining': fund.months_remaining,
+        'is_completed': fund.is_completed,
+    }
+    return render(request, 'ai/emergency_fund_dashboard.html', context)
+
+
+@login_required
+@require_POST
+def emergency_fund_add(request):
+    """Emergency Fund mein paisa daalo"""
+    
+    from .models import EmergencyFund, EmergencyFundTransaction
+    
+    fund_id = request.POST.get('fund_id')
+    amount = Decimal(request.POST.get('amount', 0))
+    description = request.POST.get('description', '')
+    
+    if amount <= 0:
+        messages.error(request, '❌ Amount 0 se zyada hona chahiye')
+        return redirect('emergency_fund_dashboard')
+    
+    try:
+        with transaction.atomic():
+            if fund_id:
+                fund = EmergencyFund.objects.get(id=fund_id)
+            else:
+                fund = EmergencyFund.get_or_create_default()
+            
+            # Add money
+            new_balance = fund.add_money(amount, request.user, description)
+            
+            # Transaction record
+            EmergencyFundTransaction.objects.create(
+                fund=fund,
+                transaction_type='deposit',
+                amount=amount,
+                balance_after=new_balance,
+                description=description,
+                created_by=request.user,
+            )
+            
+            messages.success(
+                request, 
+                f'✅ Rs. {amount:,.2f} Emergency Fund mein add ho gaya!\n'
+                f'💰 New Balance: Rs. {new_balance:,.2f}'
+            )
+    
+    except Exception as e:
+        messages.error(request, f'❌ Error: {str(e)}')
+    
+    return redirect('emergency_fund_dashboard')
+
+
+@login_required
+@require_POST
+def emergency_fund_withdraw(request):
+    """Emergency Fund se paisa nikalo"""
+    
+    from .models import EmergencyFund, EmergencyFundTransaction
+    
+    fund_id = request.POST.get('fund_id')
+    amount = Decimal(request.POST.get('amount', 0))
+    reason = request.POST.get('reason', '')
+    
+    if amount <= 0:
+        messages.error(request, '❌ Amount 0 se zyada hona chahiye')
+        return redirect('emergency_fund_dashboard')
+    
+    try:
+        with transaction.atomic():
+            fund = EmergencyFund.objects.get(id=fund_id)
+            
+            # Withdraw money
+            new_balance = fund.withdraw_money(amount, request.user, reason)
+            
+            # Transaction record
+            EmergencyFundTransaction.objects.create(
+                fund=fund,
+                transaction_type='withdraw',
+                amount=amount,
+                balance_after=new_balance,
+                description=reason,
+                created_by=request.user,
+            )
+            
+            messages.success(
+                request, 
+                f'💸 Rs. {amount:,.2f} Emergency Fund se nikala gaya\n'
+                f'💰 Remaining: Rs. {new_balance:,.2f}'
+            )
+    
+    except Exception as e:
+        messages.error(request, f'❌ Error: {str(e)}')
+    
+    return redirect('emergency_fund_dashboard')
+
+
+@login_required
+def emergency_fund_settings(request):
+    """Emergency Fund ki settings"""
+    
+    from .models import EmergencyFund
+    
+    fund = EmergencyFund.get_active_fund()
+    
+    if request.method == 'POST':
+        if fund:
+            fund.name = request.POST.get('name', fund.name)
+            fund.fund_type = request.POST.get('fund_type', fund.fund_type)
+            fund.description = request.POST.get('description', '')
+            fund.target_amount = Decimal(request.POST.get('target_amount', 0))
+            fund.monthly_contribution = Decimal(request.POST.get('monthly_contribution', 0))
+            fund.auto_deduct = request.POST.get('auto_deduct') == 'on'
+            fund.save()
+            
+            messages.success(request, '✅ Settings update ho gayi!')
+        else:
+            # Create new
+            fund = EmergencyFund.objects.create(
+                name=request.POST.get('name', 'Emergency Fund'),
+                fund_type=request.POST.get('fund_type', 'business'),
+                description=request.POST.get('description', ''),
+                target_amount=Decimal(request.POST.get('target_amount', 0)),
+                monthly_contribution=Decimal(request.POST.get('monthly_contribution', 0)),
+                auto_deduct=request.POST.get('auto_deduct') == 'on',
+                is_active=True,
+                created_by=request.user,
+            )
+            messages.success(request, '✅ Emergency Fund banaya gaya!')
+        
+        return redirect('emergency_fund_dashboard')
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'fund': fund,
+        'fund_types': EmergencyFund.FUND_TYPES,
+    }
+    return render(request, 'ai/emergency_fund_settings.html', context)
+    
+# ==========================================
+# BUSINESS RATIOS DASHBOARD
+# ==========================================
+
+@login_required
+def business_ratios_dashboard(request):
+    """CFO-Level Business Ratios Dashboard"""
+    
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied! Only admins can view ratios.')
+        return redirect('dashboard')
+    
+    from .business_ratios import BusinessRatios
+    from datetime import datetime, timedelta
+    
+    # Date filters
+    from_date_str = request.GET.get('from_date', (date.today() - timedelta(days=365)).strftime('%Y-%m-%d'))
+    to_date_str = request.GET.get('to_date', date.today().strftime('%Y-%m-%d'))
+    
+    try:
+        from_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
+        to_date = datetime.strptime(to_date_str, '%Y-%m-%d').date()
+    except:
+        from_date = date.today() - timedelta(days=365)
+        to_date = date.today()
+    
+    # Calculate ratios
+    calculator = BusinessRatios()
+    ratios = calculator.get_all_ratios(from_date, to_date)
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'ratios': ratios,
+        'from_date': from_date_str,
+        'to_date': to_date_str,
+        'today': date.today(),
+    }
+    return render(request, 'reports/business_ratios.html', context)

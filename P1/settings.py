@@ -104,7 +104,7 @@ ROOT_URLCONF = 'P1.urls'
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'BACKEND': 'django.template.backends.DjangoTemplates',
         'DIRS': [os.path.join(BASE_DIR, "templates")],
         'APP_DIRS': True,
         'OPTIONS': {
@@ -181,12 +181,33 @@ USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
+# --- STATIC & MEDIA FILES ---
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+
+# --- AUTOMATIC STORAGE DETECTION (Termux vs CI/GitHub/Server) ---
+IS_TERMUX = 'com.termux' in sys.prefix or 'com.termux' in os.environ.get('PREFIX', '')
+
+if IS_TERMUX:
+    DEFAULT_STORAGE_BACKEND = "app.custom_storage.TermuxFileSystemStorage"
+else:
+    DEFAULT_STORAGE_BACKEND = "django.core.files.storage.FileSystemStorage"
+
+STORAGES = {
+    "default": {
+        "BACKEND": DEFAULT_STORAGE_BACKEND,
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

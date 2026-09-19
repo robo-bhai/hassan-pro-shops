@@ -1,0 +1,313 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}🚨 Churn Risk Analysis{% endblock %}
+
+{% block extra_css %}
+<style>
+    .churn-header {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+        border-radius: 20px;
+        padding: 30px;
+        margin-bottom: 25px;
+    }
+    
+    .churn-header h1 {
+        font-weight: 900;
+        font-size: 2rem;
+        margin-bottom: 10px;
+    }
+    
+    .stat-pill {
+        background: white;
+        border-radius: 12px;
+        padding: 15px;
+        text-align: center;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    .stat-pill-value {
+        font-size: 1.8rem;
+        font-weight: 900;
+        line-height: 1;
+    }
+    
+    .stat-pill-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        color: #6b7280;
+        font-weight: 700;
+        margin-top: 5px;
+    }
+    
+    .filter-tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    
+    .filter-tab {
+        padding: 8px 18px;
+        border-radius: 20px;
+        background: white;
+        border: 2px solid #e5e7eb;
+        color: #374151;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.85rem;
+        transition: all 0.2s;
+    }
+    
+    .filter-tab:hover {
+        border-color: #ef4444;
+        color: #ef4444;
+    }
+    
+    .filter-tab.active {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+        border-color: transparent;
+    }
+    
+    .churn-card {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 15px;
+        border-left: 5px solid;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        transition: all 0.2s;
+    }
+    
+    .churn-card:hover {
+        transform: translateX(5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    
+    .churn-card.low { border-color: #10b981; }
+    .churn-card.medium { border-color: #f59e0b; }
+    .churn-card.high { border-color: #f97316; }
+    .churn-card.critical {
+        border-color: #dc2626;
+        animation: pulse-warning 2s infinite;
+    }
+    
+    @keyframes pulse-warning {
+        0%, 100% { box-shadow: 0 4px 15px rgba(220, 38, 38, 0.1); }
+        50% { box-shadow: 0 4px 25px rgba(220, 38, 38, 0.3); }
+    }
+    
+    .probability-circle {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        color: white;
+        font-weight: 900;
+        flex-shrink: 0;
+    }
+    
+    .probability-value {
+        font-size: 1.5rem;
+        line-height: 1;
+    }
+    
+    .retention-action {
+        background: #f0f9ff;
+        border-left: 3px solid #3b82f6;
+        padding: 8px 12px;
+        border-radius: 6px;
+        margin: 3px 0;
+        font-size: 0.85rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Header -->
+    <div class="churn-header">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h1>🚨 Churn Risk Analysis</h1>
+                <p class="mb-0">AI predicts which shareholders may leave</p>
+            </div>
+            <div>
+                <a href="{% url 'ai_shareholder_dashboard' %}?run=true" class="btn btn-light btn-lg fw-bold">
+                    <i class="bi bi-arrow-clockwise"></i> Recalculate
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="stat-pill">
+                <div class="stat-pill-value text-success">{{ stats.low }}</div>
+                <div class="stat-pill-label">🟢 Low Risk</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-pill">
+                <div class="stat-pill-value text-warning">{{ stats.medium }}</div>
+                <div class="stat-pill-label">🟡 Medium</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-pill">
+                <div class="stat-pill-value" style="color: #f97316;">{{ stats.high }}</div>
+                <div class="stat-pill-label">🟠 High Risk</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-pill">
+                <div class="stat-pill-value text-danger">{{ stats.critical }}</div>
+                <div class="stat-pill-label">🔴 Critical</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- At Risk Value -->
+    {% if stats.at_risk_amount > 0 %}
+    <div class="alert alert-danger mb-4">
+        <div class="d-flex align-items-center gap-3">
+            <i class="bi bi-exclamation-triangle-fill" style="font-size: 2rem;"></i>
+            <div>
+                <h5 class="mb-1">⚠️ Investment at Risk</h5>
+                <h3 class="mb-0">Rs. {{ stats.at_risk_amount|floatformat:2 }}</h3>
+                <small>From {{ stats.high|add:stats.critical }} high-risk shareholders</small>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Filter Tabs -->
+    <div class="filter-tabs">
+        <a href="{% url 'ai_shareholder_churn' %}" class="filter-tab {% if not selected_level %}active{% endif %}">
+            📊 All ({{ stats.total }})
+        </a>
+        <a href="?level=critical" class="filter-tab {% if selected_level == 'critical' %}active{% endif %}">
+            🔴 Critical
+        </a>
+        <a href="?level=high" class="filter-tab {% if selected_level == 'high' %}active{% endif %}">
+            🟠 High
+        </a>
+        <a href="?level=medium" class="filter-tab {% if selected_level == 'medium' %}active{% endif %}">
+            🟡 Medium
+        </a>
+        <a href="?level=low" class="filter-tab {% if selected_level == 'low' %}active{% endif %}">
+            🟢 Low
+        </a>
+    </div>
+
+    <!-- Churn Cards -->
+    {% if churn_data %}
+        {% for churn in churn_data %}
+        <div class="churn-card {{ churn.risk_level }}">
+            <div class="row align-items-center">
+                <div class="col-auto">
+                    <div class="probability-circle" style="background: linear-gradient(135deg, 
+                        {% if churn.risk_level == 'low' %}#10b981, #059669
+                        {% elif churn.risk_level == 'medium' %}#f59e0b, #d97706
+                        {% elif churn.risk_level == 'high' %}#f97316, #ea580c
+                        {% else %}#ef4444, #dc2626{% endif %});">
+                        <div class="probability-value">{{ churn.churn_probability|floatformat:0 }}%</div>
+                    </div>
+                </div>
+                <div class="col">
+                    <h5 class="mb-1 fw-bold">
+                        {{ churn.shareholder.name }}
+                        <span class="badge bg-secondary ms-2">{{ churn.shareholder.shareholder_code }}</span>
+                        <span class="badge bg-{% if churn.risk_level == 'critical' %}danger{% elif churn.risk_level == 'high' %}warning text-dark{% elif churn.risk_level == 'medium' %}info{% else %}success{% endif %} ms-2">
+                            {{ churn.get_risk_level_display }}
+                        </span>
+                    </h5>
+                    
+                    <div class="row g-2 mt-2">
+                        <div class="col-md-3 col-6">
+                            <small class="text-muted">📅 Last Activity</small>
+                            <div class="fw-bold">
+                                {% if churn.days_since_last_activity %}
+                                {{ churn.days_since_last_activity }} days ago
+                                {% else %}
+                                Never
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <small class="text-muted">💵 Last Deposit</small>
+                            <div class="fw-bold">
+                                {% if churn.days_since_last_deposit %}
+                                {{ churn.days_since_last_deposit }} days ago
+                                {% else %}
+                                Never
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <small class="text-muted">💰 At Risk</small>
+                            <div class="fw-bold text-danger">Rs. {{ churn.investment_at_risk|floatformat:0 }}</div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <small class="text-muted">⚠️ Withdrawals</small>
+                            <div class="fw-bold">{{ churn.withdrawal_requests_count }} recent</div>
+                        </div>
+                    </div>
+                    
+                    {% if churn.risk_factors %}
+                    <div class="mt-3">
+                        <small class="fw-bold text-danger">⚠️ Risk Factors:</small>
+                        <ul class="mb-0 mt-1 small">
+                            {% for factor in churn.risk_factors %}
+                            <li>{{ factor }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    
+                    {% if churn.retention_actions %}
+                    <div class="mt-3">
+                        <small class="fw-bold text-primary">💡 Retention Actions:</small>
+                        <div class="mt-2">
+                            {% for action in churn.retention_actions %}
+                            <div class="retention-action">{{ action }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="col-auto">
+                    <div class="d-flex flex-column gap-2">
+                        <a href="{% url 'shareholder_detail' churn.shareholder.pk %}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-eye"></i> View
+                        </a>
+                        {% if not churn.is_contacted and churn.risk_level in 'high,critical' %}
+                        <span class="badge bg-danger">📞 Contact!</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="card shadow-sm">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-person-check text-success" style="font-size: 4rem;"></i>
+                <h4 class="mt-3">No Churn Risk! ✅</h4>
+                <p class="text-muted">All shareholders are happy and engaged</p>
+                <a href="{% url 'ai_shareholder_dashboard' %}?run=true" class="btn btn-primary btn-lg mt-3">
+                    <i class="bi bi-play-circle"></i> Run Analysis
+                </a>
+            </div>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

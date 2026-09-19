@@ -60,6 +60,7 @@
     .status-converted .status-dot{background:#28a745}
     .status-pending{background:#fff3cd;color:#856404}
     .status-pending .status-dot{background:#f2994a}
+    .status-warning{background:#f8d7da;color:#721c24}
     
     /* GRN Number Link */
     .grn-link { color:var(--accent); font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:5px; transition:all 0.2s; }
@@ -181,7 +182,7 @@
                     <th class="text-center">Items</th>
                     <th>Invoice</th>
                     <th>Status</th>
-                    <th class="text-center" style="width:150px;">Actions</th>
+                    <th class="text-center" style="width:180px;">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -245,9 +246,15 @@
                     <!-- Status -->
                     <td>
                         {% if grn.converted_to_purchase %}
-                            <span class="status-badge status-converted">
-                                <span class="status-dot"></span>✅ Converted
-                            </span>
+                            {% if grn.purchase %}
+                                <span class="status-badge status-converted">
+                                    <span class="status-dot"></span>✅ Converted
+                                </span>
+                            {% else %}
+                                <span class="status-badge status-warning">
+                                    <span class="status-dot"></span>⚠️ Invalid
+                                </span>
+                            {% endif %}
                         {% else %}
                             <span class="status-badge status-pending">
                                 <span class="status-dot"></span>⏳ Pending
@@ -275,11 +282,19 @@
                                     <i class="bi bi-arrow-right-circle"></i> Convert
                                 </a>
                             {% else %}
-                                <a href="{% url 'purchase_detail' grn.purchase.pk %}" 
-                                   class="btn-action-link btn-view"
-                                   title="View Purchase">
-                                    <i class="bi bi-cart-check"></i> Purchase
-                                </a>
+                                {# ✅ FIXED: Only show Purchase link if grn.purchase exists #}
+                                {% if grn.purchase %}
+                                    <a href="{% url 'purchase_detail' grn.purchase.pk %}" 
+                                       class="btn-action-link btn-view"
+                                       title="View Purchase">
+                                        <i class="bi bi-cart-check"></i> Purchase
+                                    </a>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark" 
+                                          title="Data inconsistency - purchase record not found">
+                                        ⚠️ No Purchase
+                                    </span>
+                                {% endif %}
                             {% endif %}
                             
                         </div>

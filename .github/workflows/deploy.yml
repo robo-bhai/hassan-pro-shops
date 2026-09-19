@@ -43,6 +43,7 @@ jobs:
       CSRF_TRUSTED_ORIGINS: ${{ secrets.CSRF_TRUSTED_ORIGINS }}
       RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
       PYTHONUNBUFFERED: "1"
+      RUNNING_IN_TERMUX: "false"
 
     steps:
       - name: Checkout code
@@ -124,9 +125,6 @@ jobs:
           echo "RESTORE_REQUESTED=$RESTORE_REQ" >> $GITHUB_ENV
           echo "TARGET_RESTORE_FILE=$TARGET_FILE" >> $GITHUB_ENV
 
-      # --- CONDITIONAL DATABASE FORCED RESTORE ROUTE FROM GDRIVE ---
-      # --- STEP: SYNC GDRIVE FILE LIST TO LOGS ---
-
       - name: Force Execute Remote Migration (Repository Dispatch)
         if: ${{ github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now' }}
         env:
@@ -207,8 +205,6 @@ jobs:
           echo "Forced migration & superuser dispatch complete."
           exit 0
 
-
-      
       - name: Fetch and Sync Google Drive Backup List to KV
         env:
           RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
@@ -219,15 +215,12 @@ jobs:
           echo "$RCLONE_CONFIG_DATA" > /home/runner/.config/rclone/rclone.conf
           RCLONE_REMOTE=$(rclone listremotes | head -n 1)
 
-          # Drive se backup list fetch karke JSON array banana
           FILES_JSON=$(rclone lsf "${RCLONE_REMOTE}hassan_shops/" --include "db_snapshot_*.sql.gz.enc" | sort -r | head -n 10 | jq -R . | jq -s .)
 
-          # Worker ki API par Basic Auth ke sath POST push karna
           curl -X POST "https://uqn88.store/api/save-backups" \
                -u "${WORKER_USER}:${WORKER_PASS}" \
                -H "Content-Type: application/json" \
-               -d "{\"files\": $FILES_JSON}"
-
+               -d "{\"files\": $FILES_JSON}" || true
 
       - name: Force Restore Database from Google Drive Snapshot
         if: env.RESTORE_REQUESTED == 'true'
@@ -322,7 +315,6 @@ jobs:
 
           echo "Forced Database Restoration Completed Successfully!"
 
-      # --- STEP 1: RESTORE CACHE FILES FROM GITHUB CACHE ---
       - name: Restore Local DB Cache
         if: ${{ env.RESTORE_REQUESTED != 'true' && !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now') }}
         id: db-cache
@@ -335,7 +327,6 @@ jobs:
           restore-keys: |
             mysql-db-cache-${{ runner.os }}-
 
-      # --- STEP 2: APPLY MIGRATIONS & CREATE SUPERUSER ON CLOUD DB FIRST ---
       - name: Apply Migrations & Create Superuser on Cloud Aiven MySQL
         if: ${{ env.RESTORE_REQUESTED != 'true' && !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now') }}
         env:
@@ -399,7 +390,6 @@ jobs:
               print('CLOUD DB: Skipping superuser creation (Credentials not set in secrets).')
           "
 
-      # --- STEP 3: SMART CACHE VALIDATION & SAFE DATA RESTORE ---
       - name: Smart Cache Validation & Safe Database Restore
         if: ${{ env.RESTORE_REQUESTED != 'true' && !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now') }}
         run: |
@@ -454,10 +444,8 @@ jobs:
             echo "Fresh Safe Cloud Data Applied to Local MySQL Successfully."
           fi
 
-      # --- STEP 4: APPLY MIGRATIONS & CREATE SUPERUSER ON LOCAL DB ---
       - name: Sync Migrations & Ensure Superuser on Local DB
         if: ${{ !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now') }}
-
         env:
           DB_HOST: "127.0.0.1"
           DB_PORT: "3306"
@@ -466,7 +454,6 @@ jobs:
           DB_NAME: "local_django_db"
           BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
         run: |
-
           echo "=== 1. APPLYING MIGRATIONS TO LOCAL DB ==="
           if python manage.py migrate; then
               echo "Local DB migrations applied successfully!"
@@ -474,7 +461,6 @@ jobs:
               echo "Conflict detected on Local DB. Forcing state sync with --fake..."
               python manage.py migrate --fake
           fi
-
 
           echo "=== 2. ENSURING SUPERUSER CREATION ON LOCAL DB ==="
           python manage.py shell -c "
@@ -525,7 +511,7 @@ jobs:
                       resized_img = img.resize((width, height), Image.Resampling.LANCZOS)
                       output_path = os.path.join(target_dir, filename)
                       resized_img.save(output_path, 'PNG')
-                      print(cloth_saved := f'Saved: {output_path}')
+                      print(f'Saved: {output_path}')
           "
 
       - name: Collect Static Files
@@ -552,9 +538,6 @@ jobs:
           pkill -f "manage.py runserver" || true
           pkill -f "cloudflared" || true
           sleep 2
-
-#+++&&&&&&&&&&&(((((((((())))))))))
-
 
       - name: Create Encrypted Database Snapshot & Upload via Rclone
         if: ${{ always() && github.event.action == 'backup_now' }}
@@ -625,12 +608,6 @@ jobs:
 
           echo "Notification sent to ntfy.sh successfully!"
 
-
-
-
-#((((((++56&__&5---66-----&&&&--&&))))))
-
-
       - name: Start Django Server & Permanent Cloudflare Tunnel
         env:
           DB_HOST: "127.0.0.1"
@@ -673,7 +650,7 @@ jobs:
 
           for i in {1..65}; do
             for s in {1..60}; do
-              LATEST_RUN_ID=$(gh api "repos/$REPO/actions/runs?branch=$BRANCH&per_page=1" --jq '.workflow_runs[0].id' 2>/dev/null || echo "$CURRENT_RUN_ID")
+              LATEST_RUN_ID=$(gh api "repos/$REPO/actions/runs?branch=$BRANCH&per_page=1" --jq '.workflow_runs[0].id' 2>/dev/null \vert{}\vert{} echo "$CURRENT_RUN_ID")
               
               if [ "$LATEST_RUN_ID" -gt "$CURRENT_RUN_ID" ]; then
                 echo "A newer workflow run ($LATEST_RUN_ID) detected! Instantly cancelling current log stream..."
@@ -691,7 +668,6 @@ jobs:
             echo "------------------------------------------"
           done
 
-      # --- STEP 5: SAFE CACHE CREATION & SYNC BACK TO CLOUD ---
       - name: Sync Local Runner MySQL Back to Cloud Aiven MySQL
         if: always()
         run: |
@@ -743,12 +719,6 @@ jobs:
           fi
           
           echo "Sync Up Back to Cloud Completed Successfully!"
-
-
-
-      # --- STEP 6: ENCRYPTED SNAPSHOT CREATION & RCLONE UPLOAD TO GDRIVE (ONLY VIA TERMUX DISPATCH) ---
-
-
 
       - name: Save Updated DB Dump & Timestamp to GitHub Cache
         if: always()

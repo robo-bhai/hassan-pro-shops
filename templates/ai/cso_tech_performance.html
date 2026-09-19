@@ -1,0 +1,199 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}⚡ Performance Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .perf-header {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: white;
+        border-radius: 20px;
+        padding: 40px;
+        margin-bottom: 25px;
+    }
+    
+    .perf-header h1 {
+        font-weight: 900;
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+    }
+    
+    .stat-pill {
+        background: white;
+        border-radius: 12px;
+        padding: 15px;
+        text-align: center;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    .stat-pill-value {
+        font-size: 2rem;
+        font-weight: 900;
+        line-height: 1;
+    }
+    
+    .stat-pill-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        color: #6b7280;
+        font-weight: 700;
+        margin-top: 5px;
+    }
+    
+    .issue-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 12px;
+        border-left: 5px solid;
+        transition: all 0.2s;
+    }
+    
+    .issue-card:hover {
+        transform: translateX(5px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+    }
+    
+    .issue-card.high { border-color: #dc2626; background: linear-gradient(90deg, #fee2e2 0%, white 10%); }
+    .issue-card.medium { border-color: #f59e0b; background: linear-gradient(90deg, #fef3c7 0%, white 10%); }
+    .issue-card.low { border-color: #3b82f6; }
+    
+    .priority-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-weight: 700;
+        font-size: 0.75rem;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <div class="perf-header">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h1>⚡ Performance Dashboard</h1>
+                <p class="mb-0">Monitor and fix performance issues</p>
+            </div>
+            <div>
+                <a href="{% url 'ai_cso_tech_dashboard' %}?run=true" class="btn btn-light btn-lg fw-bold">
+                    <i class="bi bi-arrow-clockwise"></i> Re-analyze
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="stat-pill">
+                <div class="stat-pill-value text-primary">{{ stats.total_issues }}</div>
+                <div class="stat-pill-label">Total Issues</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-pill">
+                <div class="stat-pill-value text-warning">{{ stats.unresolved }}</div>
+                <div class="stat-pill-label">Unresolved</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-pill">
+                <div class="stat-pill-value text-danger">{{ stats.critical }}</div>
+                <div class="stat-pill-label">🔴 Critical</div>
+            </div>
+        </div>
+    </div>
+
+    <h4 class="fw-bold mb-3">🐌 Performance Issues</h4>
+
+    {% if issues %}
+        {% for issue in issues %}
+        <div class="issue-card {% if issue.priority >= 8 %}high{% elif issue.priority >= 5 %}medium{% else %}low{% endif %}">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                <div class="flex-grow-1">
+                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                        <span class="badge bg-dark">{{ issue.get_issue_type_display }}</span>
+                        <span class="priority-badge bg-{% if issue.priority >= 8 %}danger{% elif issue.priority >= 5 %}warning text-dark{% else %}info{% endif %}">
+                            Priority {{ issue.priority }}/10
+                        </span>
+                        {% if issue.is_resolved %}
+                        <span class="badge bg-success">✅ Fixed</span>
+                        {% else %}
+                        <span class="badge bg-{{ issue.status|yesno:'warning,secondary' }}">{{ issue.get_status_display }}</span>
+                        {% endif %}
+                    </div>
+                    <h6 class="fw-bold mb-1">{{ issue.title }}</h6>
+                    <p class="mb-2 small text-muted">{{ issue.description }}</p>
+                    {% if issue.url_endpoint %}
+                    <code class="small">{{ issue.url_endpoint }}</code>
+                    {% endif %}
+                    {% if issue.current_value and issue.target_value %}
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            Current: <strong>{{ issue.current_value }}</strong> →
+                            Target: <strong class="text-success">{{ issue.target_value }}</strong>
+                        </small>
+                    </div>
+                    {% endif %}
+                    {% if issue.fix_suggested %}
+                    <div class="alert alert-info py-2 px-3 small mt-2 mb-0">
+                        <strong>💡 Suggested Fix:</strong> {{ issue.fix_suggested }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="card shadow-sm">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-speedometer2 text-success" style="font-size: 4rem;"></i>
+                <h4 class="mt-3">No Performance Issues! ✅</h4>
+                <p class="text-muted">System is running optimally</p>
+                <a href="{% url 'ai_cso_tech_dashboard' %}?run=true" class="btn btn-warning mt-3">
+                    <i class="bi bi-play-circle"></i> Run Analysis
+                </a>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Health Records -->
+    {% if health_records %}
+    <div class="card shadow-sm border-0 mt-4">
+        <div class="card-header bg-dark text-white">
+            <h6 class="mb-0 fw-bold">📊 Recent Health Records</h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Date</th>
+                            <th>Health Score</th>
+                            <th>CPU</th>
+                            <th>Memory</th>
+                            <th>Disk</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in health_records %}
+                        <tr>
+                            <td>{{ record.date|date:"d M Y H:i" }}</td>
+                            <td><span class="badge bg-{{ record.health_color }}">{{ record.health_score }}/100</span></td>
+                            <td>{{ record.cpu_usage|floatformat:1 }}%</td>
+                            <td>{{ record.memory_usage|floatformat:1 }}%</td>
+                            <td>{{ record.disk_usage|floatformat:1 }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

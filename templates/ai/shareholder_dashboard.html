@@ -1,0 +1,294 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}🤖 AI Shareholder Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ai-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 20px;
+        padding: 30px;
+        margin-bottom: 25px;
+    }
+    
+    .ai-header h1 {
+        font-weight: 900;
+        font-size: 2rem;
+        margin-bottom: 10px;
+    }
+    
+    .stat-card {
+        border-radius: 16px;
+        padding: 20px;
+        color: white;
+        transition: all 0.3s;
+        height: 100%;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 900;
+        margin: 10px 0 5px 0;
+    }
+    
+    .stat-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        opacity: 0.9;
+        font-weight: 700;
+    }
+    
+    .bg-gradient-purple { background: linear-gradient(135deg, #667eea, #764ba2); }
+    .bg-gradient-green { background: linear-gradient(135deg, #10b981, #059669); }
+    .bg-gradient-red { background: linear-gradient(135deg, #ef4444, #dc2626); }
+    .bg-gradient-orange { background: linear-gradient(135deg, #f59e0b, #d97706); }
+    .bg-gradient-blue { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+    
+    .shareholder-card {
+        background: white;
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 10px;
+        border-left: 4px solid;
+        transition: all 0.2s;
+    }
+    
+    .shareholder-card:hover {
+        transform: translateX(5px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    }
+    
+    .shareholder-card.excellent { border-color: #10b981; }
+    .shareholder-card.good { border-color: #3b82f6; }
+    .shareholder-card.warning { border-color: #f59e0b; }
+    .shareholder-card.critical { border-color: #ef4444; }
+    
+    .dividend-card {
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        border-radius: 16px;
+        padding: 25px;
+        border-left: 5px solid #10b981;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Header -->
+    <div class="ai-header">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h1>🤖 AI Shareholder Intelligence</h1>
+                <p class="mb-0">
+                    Smart investor insights & predictions
+                    <br>
+                    <small>8 AI engines running</small>
+                </p>
+            </div>
+            <div>
+                <a href="?run=true" class="btn btn-light btn-lg fw-bold">
+                    <i class="bi bi-play-circle"></i> Run AI Analysis
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="stat-card bg-gradient-purple">
+                <div class="stat-label">Total Shareholders</div>
+                <div class="stat-value">{{ total_shareholders }}</div>
+                <small>{{ scored_shareholders }} scored</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card bg-gradient-red">
+                <div class="stat-label">At Risk</div>
+                <div class="stat-value">{{ critical_risk }}</div>
+                <small>Critical churn risk</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card bg-gradient-orange">
+                <div class="stat-label">Investment at Risk</div>
+                <div class="stat-value">Rs. {{ investment_at_risk|floatformat:0 }}</div>
+                <small>Needs attention</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card bg-gradient-blue">
+                <div class="stat-label">AI Alerts</div>
+                <div class="stat-value">{{ total_alerts }}</div>
+                <small>Pending review</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dividend Recommendation -->
+    {% if dividend_recommendation %}
+    <div class="dividend-card mb-4">
+        <h4 class="fw-bold">💰 AI Dividend Recommendation</h4>
+        <div class="row mt-3 align-items-center">
+            <div class="col-md-3 text-center">
+                <h2 class="display-4 text-success">{{ dividend_recommendation.recommended_percentage|floatformat:0 }}%</h2>
+                <p class="text-muted">of profit</p>
+            </div>
+            <div class="col-md-4">
+                <h5>Rs. {{ dividend_recommendation.recommended_amount|floatformat:0 }}</h5>
+                <p class="mb-0 small">Recommended amount</p>
+                <div class="mt-2">
+                    <span class="badge bg-success">Confidence: {{ dividend_recommendation.confidence_score|floatformat:0 }}%</span>
+                </div>
+            </div>
+            <div class="col-md-5">
+                <div class="bg-white rounded p-3">
+                    <strong>🧠 Why?</strong>
+                    <ul class="mb-0 mt-2 small">
+                        {% for reason in dividend_recommendation.reasoning|slice:":3" %}
+                        <li>{{ reason }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Two Column Layout -->
+    <div class="row">
+        <!-- Top Shareholders -->
+        <div class="col-md-6 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-dark text-white d-flex justify-content-between">
+                    <h6 class="mb-0 fw-bold">⭐ Top Scored Shareholders</h6>
+                    <a href="{% url 'ai_shareholder_scores' %}" class="btn btn-sm btn-light">View All</a>
+                </div>
+                <div class="card-body">
+                    {% for score in top_shareholders %}
+                    <div class="shareholder-card {{ score.risk_level }}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1 fw-bold">{{ score.shareholder.name }}</h6>
+                                <small class="text-muted">{{ score.shareholder.shareholder_code }}</small>
+                                <div class="mt-2">
+                                    <span class="badge bg-primary">{{ score.overall_score }}/100</span>
+                                    <span class="badge bg-secondary">{{ score.star_rating }}</span>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <div class="fw-bold">Rs. {{ score.shareholder.total_investment|floatformat:0 }}</div>
+                                <small class="text-muted">{{ score.years_as_shareholder }} years</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-center text-muted py-4">No scores yet. Run AI Analysis!</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- At Risk -->
+        <div class="col-md-6 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-danger text-white d-flex justify-content-between">
+                    <h6 class="mb-0 fw-bold">🚨 At Risk Shareholders</h6>
+                    <a href="{% url 'ai_shareholder_churn' %}" class="btn btn-sm btn-light">View All</a>
+                </div>
+                <div class="card-body">
+                    {% for churn in at_risk_shareholders %}
+                    <div class="shareholder-card critical">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1 fw-bold">{{ churn.shareholder.name }}</h6>
+                                <small class="text-muted">{{ churn.days_since_last_activity }} days inactive</small>
+                                <div class="mt-2">
+                                    <span class="badge bg-danger">{{ churn.churn_probability|floatformat:0 }}% churn</span>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <div class="fw-bold text-danger">Rs. {{ churn.investment_at_risk|floatformat:0 }}</div>
+                                <small class="text-muted">at risk</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-check-circle text-success" style="font-size: 2rem;"></i>
+                        <p class="text-muted mt-2 mb-0">No at-risk shareholders! ✅</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Alerts -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-dark text-white d-flex justify-content-between">
+            <h6 class="mb-0 fw-bold">🔔 Recent Alerts</h6>
+            <a href="{% url 'ai_shareholder_alerts' %}" class="btn btn-sm btn-light">View All</a>
+        </div>
+        <div class="card-body">
+            {% for alert in recent_alerts %}
+            <div class="d-flex align-items-start gap-3 mb-3 pb-3 border-bottom">
+                <div style="font-size: 1.5rem;">
+                    {% if alert.severity == 'critical' %}🔴
+                    {% elif alert.severity == 'high' %}🟠
+                    {% elif alert.severity == 'medium' %}🟡
+                    {% else %}🔵{% endif %}
+                </div>
+                <div class="flex-grow-1">
+                    <strong>{{ alert.title }}</strong>
+                    <p class="mb-1 small text-muted">{{ alert.message }}</p>
+                    {% if alert.suggested_action %}
+                    <small class="text-primary">💡 {{ alert.suggested_action }}</small>
+                    {% endif %}
+                </div>
+                <small class="text-muted">{{ alert.created_at|date:"H:i" }}</small>
+            </div>
+            {% empty %}
+            <p class="text-center text-muted py-3 mb-0">No alerts ✅</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row g-3">
+        <div class="col-md-3">
+            <a href="{% url 'ai_shareholder_scores' %}" class="btn btn-outline-primary w-100 py-3">
+                <i class="bi bi-star-fill" style="font-size: 1.5rem;"></i>
+                <br>Investor Scores
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{% url 'ai_shareholder_churn' %}" class="btn btn-outline-danger w-100 py-3">
+                <i class="bi bi-person-x" style="font-size: 1.5rem;"></i>
+                <br>Churn Prediction
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{% url 'ai_dividend_recommendation' %}" class="btn btn-outline-success w-100 py-3">
+                <i class="bi bi-cash-coin" style="font-size: 1.5rem;"></i>
+                <br>Dividend AI
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{% url 'ai_shareholder_forecast' %}" class="btn btn-outline-info w-100 py-3">
+                <i class="bi bi-graph-up-arrow" style="font-size: 1.5rem;"></i>
+                <br>6-Month Forecast
+            </a>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,179 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ strategy.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Header -->
+    <div class="card shadow-sm mb-4 border-start border-4 border-{{ strategy.status_color }}">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h2 class="mb-1">{{ strategy.name }}</h2>
+                    <p class="text-muted mb-0">{{ strategy.get_strategy_type_display }}</p>
+                </div>
+                <div class="text-end">
+                    <span class="badge bg-{{ strategy.status_color }} p-2 mb-2">
+                        {{ strategy.get_status_display }}
+                    </span>
+                    <br>
+                    <span class="badge bg-{{ strategy.risk_color }} p-2">
+                        {{ strategy.get_risk_level_display }} Risk
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Back Button -->
+    <div class="mb-4">
+        <a href="{% url 'cash_strategies_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Strategies
+        </a>
+    </div>
+
+    <!-- Description -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0">📝 Description</h5>
+        </div>
+        <div class="card-body">
+            <p class="mb-0">{{ strategy.description }}</p>
+        </div>
+    </div>
+
+    <!-- Financial Details -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card shadow-sm text-center h-100">
+                <div class="card-body">
+                    <div class="small text-muted">INVESTMENT AMOUNT</div>
+                    <div class="h3 text-primary">Rs. {{ strategy.amount|floatformat:0 }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm text-center h-100">
+                <div class="card-body">
+                    <div class="small text-muted">EXPECTED ROI</div>
+                    <div class="h3 text-success">{{ strategy.expected_roi }}%</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm text-center h-100">
+                <div class="card-body">
+                    <div class="small text-muted">EXPECTED PROFIT</div>
+                    <div class="h3 text-success">Rs. {{ strategy.expected_profit|floatformat:0 }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm text-center h-100">
+                <div class="card-body">
+                    <div class="small text-muted">TIMELINE</div>
+                    <div class="h3 text-info">{{ strategy.timeline_months }} mo</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actual Results (if completed) -->
+    {% if strategy.status == 'completed' %}
+    <div class="card shadow-sm mb-4 border-success">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">🎯 Actual Results</h5>
+        </div>
+        <div class="card-body">
+            <div class="row text-center">
+                <div class="col-md-4">
+                    <div class="small text-muted">ACTUAL AMOUNT</div>
+                    <div class="h4">Rs. {{ strategy.actual_amount|floatformat:0 }}</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="small text-muted">ACTUAL PROFIT</div>
+                    <div class="h4">Rs. {{ strategy.actual_profit|floatformat:0 }}</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="small text-muted">ACTUAL ROI</div>
+                    <div class="h4 text-success">{{ strategy.calculate_actual_roi|floatformat:1 }}%</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- AI Reasoning -->
+    {% if strategy.reasoning %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">🤖 AI Reasoning</h5>
+        </div>
+        <div class="card-body">
+            <ul class="mb-0">
+                {% for reason in strategy.reasoning %}
+                <li>{{ reason }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Action Buttons -->
+    <div class="card shadow-sm">
+        <div class="card-body text-center">
+            <h5 class="mb-3">🎯 Actions</h5>
+            
+            {% if strategy.status == 'recommended' %}
+            <form method="post" action="{% url 'cash_strategy_approve' strategy.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success btn-lg">
+                    ✅ Approve Strategy
+                </button>
+            </form>
+            {% endif %}
+            
+            {% if strategy.status == 'approved' %}
+            <form method="post" action="{% url 'cash_strategy_execute' strategy.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-warning btn-lg">
+                    ⚙️ Start Execution
+                </button>
+            </form>
+            {% endif %}
+            
+            {% if strategy.status == 'executing' %}
+            <a href="{% url 'cash_strategy_complete' strategy.pk %}" class="btn btn-success btn-lg">
+                🎯 Mark Complete
+            </a>
+            {% endif %}
+            
+            {% if strategy.status in 'recommended,approved' %}
+            <form method="post" action="{% url 'cash_strategy_cancel' strategy.pk %}" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="reason" value="Cancelled by admin">
+                <button type="submit" class="btn btn-outline-danger btn-lg"
+                        onclick="return confirm('Cancel this strategy?')">
+                    ❌ Cancel
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Notes -->
+    {% if strategy.notes %}
+    <div class="card shadow-sm mt-4">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0">📝 Notes</h5>
+        </div>
+        <div class="card-body">
+            {{ strategy.notes|linebreaks }}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}⚙️ Emergency Fund Settings{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <div class="card border-0 mb-4" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+        <div class="card-body p-4">
+            <h2 class="fw-bold mb-1">⚙️ Emergency Fund Settings</h2>
+            <p class="mb-0 opacity-75">Fund ki settings update karo</p>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Fund Name</label>
+                            <input type="text" name="name" class="form-control" 
+                                   value="{{ fund.name|default:'Emergency Fund' }}" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Fund Type</label>
+                            <select name="fund_type" class="form-select">
+                                {% for type_key, type_label in fund_types %}
+                                <option value="{{ type_key }}" 
+                                    {% if fund and fund.fund_type == type_key %}selected{% endif %}>
+                                    {{ type_label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Description</label>
+                            <textarea name="description" class="form-control" rows="2">{{ fund.description|default:'' }}</textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">🎯 Target Amount (Rs.)</label>
+                            <input type="number" name="target_amount" class="form-control" 
+                                   step="0.01"
+                                   value="{{ fund.target_amount|default:0 }}"
+                                   required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">💰 Monthly Contribution (Rs.)</label>
+                            <input type="number" name="monthly_contribution" class="form-control" 
+                                   step="0.01"
+                                   value="{{ fund.monthly_contribution|default:0 }}">
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input type="checkbox" name="auto_deduct" class="form-check-input" 
+                                   id="autoDeduct"
+                                   {% if fund and fund.auto_deduct %}checked{% endif %}>
+                            <label class="form-check-label" for="autoDeduct">
+                                Auto Deduct (har mahine automatically katey)
+                            </label>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg flex-grow-1 fw-bold">
+                                <i class="bi bi-save"></i> Save Settings
+                            </button>
+                            <a href="{% url 'emergency_fund_dashboard' %}" class="btn btn-outline-secondary btn-lg">
+                                Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

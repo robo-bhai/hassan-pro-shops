@@ -1,0 +1,407 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Strategy Allocations{% endblock %}
+
+{% block extra_css %}
+<style>
+    .profile-card {
+        border-radius: 16px;
+        transition: all 0.3s;
+        overflow: hidden;
+        height: 100%;
+    }
+    
+    .profile-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 40px rgba(0,0,0,0.15) !important;
+    }
+    
+    .profile-card.active {
+        border: 3px solid #10b981 !important;
+    }
+    
+    .allocation-bar {
+        height: 10px;
+        border-radius: 5px;
+        overflow: hidden;
+        display: flex;
+        background: #e5e7eb;
+    }
+    
+    .pct-badge {
+        font-size: 0.65rem;
+        padding: 2px 5px;
+        border-radius: 10px;
+        font-weight: 700;
+        display: inline-block;
+    }
+    
+    .roi-badge {
+        font-size: 0.65rem;
+        padding: 2px 5px;
+        border-radius: 10px;
+        background: #d1fae5;
+        color: #065f46;
+        font-weight: 700;
+        display: inline-block;
+    }
+    
+    .strategy-row {
+        padding: 5px 0;
+        border-bottom: 1px solid #f3f4f6;
+    }
+    
+    .strategy-row:last-child {
+        border-bottom: none;
+    }
+    
+    .strategy-name {
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .avg-roi-box {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+        padding: 10px;
+        border-radius: 10px;
+        text-align: center;
+    }
+    
+    .profile-header h6 {
+        font-size: 0.9rem;
+        margin: 0;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+    }
+    
+    .action-buttons .btn {
+        font-size: 0.75rem;
+        padding: 5px 8px;
+    }
+    
+    @media (max-width: 767px) {
+        .container-fluid {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+        .card-body { padding: 12px !important; }
+        .card-header { padding: 10px 12px !important; }
+        .card-footer { padding: 8px 12px !important; }
+        .strategy-name { font-size: 0.7rem; }
+        .pct-badge, .roi-badge { font-size: 0.6rem; }
+        .profile-header h6 { font-size: 0.8rem; }
+        .page-header {
+            flex-direction: column;
+            gap: 10px;
+            align-items: stretch !important;
+        }
+        .page-header h2 { font-size: 1.2rem; }
+        .modal-dialog { margin: 8px; max-width: calc(100% - 16px); }
+        .modal-body { padding: 12px !important; }
+    }
+    
+    * { -webkit-tap-highlight-color: transparent; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3 py-md-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-3 mb-md-4 page-header">
+        <div>
+            <h2 class="fw-bold mb-1">⚙️ Strategy Allocations</h2>
+            <p class="text-muted mb-0 small">6 strategies + custom ROI</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'strategy_allocation_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> <span class="d-none d-sm-inline">Create</span>
+            </a>
+            <a href="{% url 'cash_strategies_list' %}" class="btn btn-outline-secondary">
+                💰 <span class="d-none d-sm-inline">Strategies</span>
+            </a>
+        </div>
+    </div>
+
+    {% if active_allocation %}
+    <div class="alert alert-success mb-3">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <div class="fw-bold">✅ Active: {{ active_allocation.profile_name }}</div>
+                <small>Avg ROI: <strong>{{ active_allocation.get_average_roi }}%</strong></small>
+            </div>
+            <a href="{% url 'strategy_allocation_edit' active_allocation.pk %}" 
+               class="btn btn-sm btn-outline-success">
+                ✏️ Edit
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row g-2 g-md-3">
+        {% for allocation in allocations %}
+        <div class="col-12 col-md-6 col-lg-4">
+            <div class="card shadow-sm profile-card {% if allocation.is_active %}active{% endif %}">
+                
+                <div class="card-header {% if allocation.is_active %}bg-success text-white{% else %}bg-light{% endif %} py-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="fw-bold">{{ allocation.profile_name }}</h6>
+                        {% if allocation.is_active %}
+                        <span class="badge bg-light text-success small">✅</span>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    
+                    <!-- Total Info -->
+                    <div class="alert {% if allocation.is_perfect_100 %}alert-success{% else %}alert-warning{% endif %} py-1 px-2 mb-2 small">
+                        <strong>Input:</strong> {{ allocation.total_percentage }}%
+                        {% if not allocation.is_perfect_100 %} → 100%{% endif %}
+                    </div>
+                    
+                    <!-- Bar -->
+                    <div class="allocation-bar mb-2">
+                        <div class="bg-primary" style="width: {{ allocation.normalized.bulk_purchase }}%"></div>
+                        <div class="bg-info" style="width: {{ allocation.normalized.seasonal_stock }}%"></div>
+                        <div class="bg-warning" style="width: {{ allocation.normalized.customer_credit }}%"></div>
+                        <div class="bg-success" style="width: {{ allocation.normalized.vendor_advance }}%"></div>
+                        <div class="bg-danger" style="width: {{ allocation.normalized.new_product }}%"></div>
+                        <div class="bg-dark" style="width: {{ allocation.normalized.fast_moving }}%"></div>
+                    </div>
+                    
+                    <!-- 6 Strategies -->
+                    <div class="strategy-row">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="strategy-name">📦 Bulk</span>
+                            <div>
+                                <span class="pct-badge bg-primary text-white">{{ allocation.normalized.bulk_purchase }}%</span>
+                                <span class="roi-badge">ROI {{ allocation.bulk_purchase_roi }}%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="strategy-row">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="strategy-name">🌙 Seasonal</span>
+                            <div>
+                                <span class="pct-badge bg-info text-white">{{ allocation.normalized.seasonal_stock }}%</span>
+                                <span class="roi-badge">ROI {{ allocation.seasonal_stock_roi }}%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="strategy-row">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="strategy-name">💳 Credit</span>
+                            <div>
+                                <span class="pct-badge bg-warning text-dark">{{ allocation.normalized.customer_credit }}%</span>
+                                <span class="roi-badge">ROI {{ allocation.customer_credit_roi }}%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="strategy-row">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="strategy-name">📥 Advance</span>
+                            <div>
+                                <span class="pct-badge bg-success text-white">{{ allocation.normalized.vendor_advance }}%</span>
+                                <span class="roi-badge">ROI {{ allocation.vendor_advance_roi }}%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="strategy-row">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="strategy-name">🚀 New</span>
+                            <div>
+                                <span class="pct-badge bg-danger text-white">{{ allocation.normalized.new_product }}%</span>
+                                <span class="roi-badge">ROI {{ allocation.new_product_roi }}%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="strategy-row" style="background: #fff8e1; border-radius: 6px; padding: 5px;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="strategy-name">⚡ Fast-Moving</span>
+                            <div>
+                                <span class="pct-badge bg-warning text-dark">{{ allocation.normalized.fast_moving }}%</span>
+                                <span class="roi-badge">ROI {{ allocation.fast_moving_roi }}%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Avg ROI -->
+                    <div class="avg-roi-box mt-3">
+                        <div class="small">📊 Average ROI</div>
+                        <div class="fw-bold fs-5">{{ allocation.avg_roi|default:"--" }}%</div>
+                    </div>
+                </div>
+                
+                <div class="card-footer bg-transparent py-2">
+                    <div class="action-buttons">
+                        {% if not allocation.is_active %}
+                        <form method="post" action="{% url 'strategy_allocation_activate' allocation.pk %}" class="d-inline flex-fill">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-success w-100">
+                                ✅ <span class="d-none d-sm-inline">Activate</span>
+                            </button>
+                        </form>
+                        {% else %}
+                        <span class="btn btn-success disabled flex-fill">✅</span>
+                        {% endif %}
+                        
+                        <a href="{% url 'strategy_allocation_edit' allocation.pk %}" class="btn btn-outline-primary">✏️</a>
+                        
+                        <button type="button" 
+                                class="btn btn-outline-info preview-btn"
+                                data-pk="{{ allocation.pk }}"
+                                data-name="{{ allocation.profile_name }}">
+                            👁️
+                        </button>
+                        
+                        {% if not allocation.is_active and request.user.is_superuser %}
+                        <form method="post" action="{% url 'strategy_allocation_delete' allocation.pk %}" 
+                              class="d-inline"
+                              onsubmit="return confirm('Delete?')">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger">🗑️</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info text-center py-4">
+                <h5>No Profiles Yet</h5>
+                <a href="{% url 'strategy_allocation_create' %}" class="btn btn-primary">
+                    ➕ Create First Profile
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+
+<!-- Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title">👁️ <span id="previewProfileName"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="previewContent">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.querySelectorAll('.preview-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const pk = this.dataset.pk;
+        const name = this.dataset.name;
+        
+        document.getElementById('previewProfileName').textContent = name;
+        
+        const modal = new bootstrap.Modal(document.getElementById('previewModal'));
+        modal.show();
+        
+        document.getElementById('previewContent').innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary"></div>
+            </div>
+        `;
+        
+        fetch(`/strategy-allocations/${pk}/preview/`)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) {
+                    document.getElementById('previewContent').innerHTML = 
+                        '<div class="alert alert-danger">Error</div>';
+                    return;
+                }
+                
+                let html = `
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <div class="alert alert-info mb-0 py-2 px-2">
+                                <small><strong>💰 Cash:</strong><br>Rs. ${data.cash_balance.toLocaleString()}</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="alert alert-success mb-0 py-2 px-2">
+                                <small><strong>📊 Avg ROI:</strong><br>${data.average_roi}%</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered" style="font-size: 0.85rem;">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Strategy</th>
+                                    <th class="text-center">%</th>
+                                    <th class="text-center">ROI</th>
+                                    <th class="text-end">Amount</th>
+                                    <th class="text-end">Profit</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                data.strategies.forEach(s => {
+                    html += `
+                        <tr>
+                            <td>
+                                ${s.name.length > 18 ? s.name.substring(0, 18) + '...' : s.name}
+                                <br><span class="badge bg-${s.risk === 'low' ? 'success' : s.risk === 'medium' ? 'warning' : 'danger'}" style="font-size:0.6rem;">
+                                    ${s.risk.substring(0, 3).toUpperCase()}
+                                </span>
+                            </td>
+                            <td class="text-center"><span class="badge bg-primary">${s.normalized_percentage}%</span></td>
+                            <td class="text-center"><span class="badge bg-success">${s.roi}%</span></td>
+                            <td class="text-end">Rs. ${Math.round(s.amount).toLocaleString()}</td>
+                            <td class="text-end text-success fw-bold">Rs. ${Math.round(s.profit).toLocaleString()}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                            </tbody>
+                            <tfoot class="table-secondary">
+                                <tr>
+                                    <th colspan="4" class="text-end">TOTAL:</th>
+                                    <th class="text-end text-success">Rs. ${Math.round(data.total_profit).toLocaleString()}</th>
+                                </tr>
+                                <tr>
+                                    <th colspan="4" class="text-end">Overall ROI:</th>
+                                    <th class="text-end">${data.total_roi.toFixed(1)}%</th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                `;
+                
+                document.getElementById('previewContent').innerHTML = html;
+            })
+            .catch(() => {
+                document.getElementById('previewContent').innerHTML = 
+                    '<div class="alert alert-danger">Error loading preview</div>';
+            });
+    });
+});
+</script>
+{% endblock %}

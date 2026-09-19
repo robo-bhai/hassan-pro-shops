@@ -1,0 +1,454 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}📊 Business Ratios - CFO Report{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Header -->
+    <div class="card border-0 mb-4" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+        <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="fw-bold mb-1">📊 Business Ratios</h2>
+                    <p class="mb-0 opacity-75">
+                        CFO-Level Financial Analysis - {{ ratios.period.from }} to {{ ratios.period.to }}
+                    </p>
+                </div>
+                <div class="text-end">
+                    <div style="font-size: 3rem;">📈</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overall Score -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 text-center h-100">
+                <div class="card-body">
+                    <small class="text-muted">Overall Score</small>
+                    <h1 class="fw-bold text-{{ ratios.summary.color }} mb-0">
+                        {{ ratios.summary.overall_score }}
+                    </h1>
+                    <small class="text-muted">/ 100</small>
+                    <div class="mt-2">
+                        <span class="badge bg-{{ ratios.summary.color }} p-2">
+                            {{ ratios.summary.rating }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% for cat, score in ratios.summary.category_scores.items %}
+        <div class="col-md-2">
+            <div class="card shadow-sm border-0 text-center h-100">
+                <div class="card-body">
+                    <small class="text-muted text-capitalize">{{ cat }}</small>
+                    <h3 class="fw-bold mb-0">{{ score }}</h3>
+                    <div class="progress mt-2" style="height: 5px;">
+                        <div class="progress-bar 
+                            {% if score >= 80 %}bg-success
+                            {% elif score >= 65 %}bg-info
+                            {% elif score >= 45 %}bg-warning
+                            {% else %}bg-danger{% endif %}" 
+                            style="width: {{ score }}%;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- ========================================== -->
+    <!-- DUPONT ANALYSIS                             -->
+    <!-- ========================================== -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header" style="background: linear-gradient(135deg, #1a1d2e, #2d3436); color: white;">
+            <h6 class="mb-0 fw-bold">🔬 DuPont Analysis - ROE Breakdown</h6>
+        </div>
+        <div class="card-body">
+
+            <!-- Summary -->
+            <div class="alert alert-{{ ratios.dupont.summary.color }} mb-4">
+                <h5 class="fw-bold mb-1">{{ ratios.dupont.summary.title }}</h5>
+                <p class="mb-0">{{ ratios.dupont.summary.message }}</p>
+            </div>
+
+            <!-- ROE Formula -->
+            <div class="text-center mb-4">
+                <div class="p-3 rounded" style="background: #f8f9fa; border: 2px dashed #667eea;">
+                    <h5 class="fw-bold text-primary mb-2">📐 DuPont Formula</h5>
+                    <div class="row g-2 align-items-center">
+                        <div class="col-md-3">
+                            <div class="p-2 rounded bg-success text-white">
+                                <small>Profit Margin</small>
+                                <h5 class="fw-bold mb-0">{{ ratios.dupont.net_profit_margin.value }}%</h5>
+                            </div>
+                        </div>
+                        <div class="col-md-1">
+                            <h3 class="fw-bold">×</h3>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-2 rounded bg-info text-white">
+                                <small>Asset Turnover</small>
+                                <h5 class="fw-bold mb-0">{{ ratios.dupont.asset_turnover.value }}x</h5>
+                            </div>
+                        </div>
+                        <div class="col-md-1">
+                            <h3 class="fw-bold">×</h3>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-2 rounded bg-warning text-dark">
+                                <small>Equity Multiplier</small>
+                                <h5 class="fw-bold mb-0">{{ ratios.dupont.equity_multiplier.value }}x</h5>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <h6 class="fw-bold">= ROE</h6>
+                        <h2 class="fw-bold text-{{ ratios.dupont.roe.status }} mb-0">
+                            {{ ratios.dupont.roe.value }}%
+                        </h2>
+                        <small class="text-muted">{{ ratios.dupont.roe.label }}</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3 Components -->
+            <div class="row g-3">
+
+                <!-- 1. Net Profit Margin -->
+                <div class="col-md-4">
+                    <div class="border rounded p-3 h-100">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="fw-bold mb-0">💰 Profit Margin</h6>
+                            <h4 class="fw-bold text-{{ ratios.dupont.net_profit_margin.status }} mb-0">
+                                {{ ratios.dupont.net_profit_margin.value }}%
+                            </h4>
+                        </div>
+                        <small class="text-muted d-block mb-2">
+                            {{ ratios.dupont.net_profit_margin.description }}
+                        </small>
+                        <div class="progress mb-2" style="height: 6px;">
+                            <div class="progress-bar bg-{{ ratios.dupont.net_profit_margin.status }}"
+                                 style="width: {% widthratio ratios.dupont.net_profit_margin.value 30 100 %}%;"></div>
+                        </div>
+                        <small class="text-info d-block">
+                            📊 {{ ratios.dupont.net_profit_margin.benchmark }}
+                        </small>
+                        <span class="badge bg-{{ ratios.dupont.net_profit_margin.status }} mt-2">
+                            {{ ratios.dupont.net_profit_margin.label }}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- 2. Asset Turnover -->
+                <div class="col-md-4">
+                    <div class="border rounded p-3 h-100">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="fw-bold mb-0">⚙️ Asset Turnover</h6>
+                            <h4 class="fw-bold text-{{ ratios.dupont.asset_turnover.status }} mb-0">
+                                {{ ratios.dupont.asset_turnover.value }}x
+                            </h4>
+                        </div>
+                        <small class="text-muted d-block mb-2">
+                            {{ ratios.dupont.asset_turnover.description }}
+                        </small>
+                        <div class="progress mb-2" style="height: 6px;">
+                            <div class="progress-bar bg-{{ ratios.dupont.asset_turnover.status }}"
+                                 style="width: {% widthratio ratios.dupont.asset_turnover.value 3 100 %}%;"></div>
+                        </div>
+                        <small class="text-info d-block">
+                            📊 {{ ratios.dupont.asset_turnover.benchmark }}
+                        </small>
+                        <span class="badge bg-{{ ratios.dupont.asset_turnover.status }} mt-2">
+                            {{ ratios.dupont.asset_turnover.label }}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- 3. Equity Multiplier -->
+                <div class="col-md-4">
+                    <div class="border rounded p-3 h-100">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="fw-bold mb-0">⚖️ Equity Multiplier</h6>
+                            <h4 class="fw-bold text-{{ ratios.dupont.equity_multiplier.status }} mb-0">
+                                {{ ratios.dupont.equity_multiplier.value }}x
+                            </h4>
+                        </div>
+                        <small class="text-muted d-block mb-2">
+                            {{ ratios.dupont.equity_multiplier.description }}
+                        </small>
+                        <div class="progress mb-2" style="height: 6px;">
+                            <div class="progress-bar bg-{{ ratios.dupont.equity_multiplier.status }}"
+                                 style="width: {% widthratio ratios.dupont.equity_multiplier.value 4 100 %}%;"></div>
+                        </div>
+                        <small class="text-info d-block">
+                            📊 {{ ratios.dupont.equity_multiplier.benchmark }}
+                        </small>
+                        <span class="badge bg-{{ ratios.dupont.equity_multiplier.status }} mt-2">
+                            {{ ratios.dupont.equity_multiplier.label }}
+                        </span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Drivers -->
+            <div class="row g-3 mt-3">
+                <div class="col-md-6">
+                    <div class="border rounded p-3 bg-light">
+                        <h6 class="fw-bold">🎯 Sab Se Strong Driver</h6>
+                        <h5 class="fw-bold text-success mb-0 text-capitalize">
+                            {{ ratios.dupont.drivers.strongest }}
+                        </h5>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="border rounded p-3 bg-light">
+                        <h6 class="fw-bold">⚠️ Sab Se Weak Driver</h6>
+                        <h5 class="fw-bold text-danger mb-0 text-capitalize">
+                            {{ ratios.dupont.drivers.weakest }}
+                        </h5>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recommendations -->
+            {% if ratios.dupont.recommendations %}
+            <div class="mt-4">
+                <h6 class="fw-bold mb-3">💡 AI Recommendations</h6>
+                {% for rec in ratios.dupont.recommendations %}
+                <div class="alert alert-{% if rec.priority == 'high' %}warning{% else %}success{% endif %} mb-2">
+                    <strong>{{ rec.icon }} {{ rec.title }}</strong>
+                    <p class="mb-0 small">{{ rec.message }}</p>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Amounts -->
+            <div class="row g-3 mt-3">
+                <div class="col-md-3">
+                    <div class="border rounded p-2 text-center">
+                        <small class="text-muted">Net Profit</small>
+                        <h6 class="fw-bold text-success mb-0">
+                            Rs. {{ ratios.dupont.amounts.net_profit|floatformat:0 }}
+                        </h6>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="border rounded p-2 text-center">
+                        <small class="text-muted">Total Sales</small>
+                        <h6 class="fw-bold text-primary mb-0">
+                            Rs. {{ ratios.dupont.amounts.total_sales|floatformat:0 }}
+                        </h6>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="border rounded p-2 text-center">
+                        <small class="text-muted">Total Assets</small>
+                        <h6 class="fw-bold text-info mb-0">
+                            Rs. {{ ratios.dupont.amounts.total_assets|floatformat:0 }}
+                        </h6>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="border rounded p-2 text-center">
+                        <small class="text-muted">Total Equity</small>
+                        <h6 class="fw-bold text-warning mb-0">
+                            Rs. {{ ratios.dupont.amounts.total_equity|floatformat:0 }}
+                        </h6>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Date Filter -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label small">From Date</label>
+                    <input type="date" name="from_date" class="form-control" value="{{ from_date }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">To Date</label>
+                    <input type="date" name="to_date" class="form-control" value="{{ to_date }}">
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search"></i> Update
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- LIQUIDITY RATIOS -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-dark text-white">
+            <h6 class="mb-0 fw-bold">💧 Liquidity Ratios (Paisay Ki Dostiyabi)</h6>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                {% for key, ratio in ratios.liquidity.items %}
+                    {% if ratio.value and ratio.formula %}
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 h-100">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="fw-bold mb-0 text-capitalize">{{ key }}</h6>
+                                <h4 class="fw-bold text-{{ ratio.status }} mb-0">{{ ratio.value }}</h4>
+                            </div>
+                            <small class="text-muted d-block">{{ ratio.formula }}</small>
+                            <small class="text-info d-block">{{ ratio.benchmark }}</small>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- PROFITABILITY RATIOS -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-success text-white">
+            <h6 class="mb-0 fw-bold">💰 Profitability Ratios (Munafa)</h6>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                {% for key, ratio in ratios.profitability.items %}
+                    {% if ratio.value and ratio.formula %}
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 h-100">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="fw-bold mb-0 text-capitalize">{{ key }}</h6>
+                                <h4 class="fw-bold text-{{ ratio.status }} mb-0">
+                                    {{ ratio.value }}{{ ratio.unit|default:"" }}
+                                </h4>
+                            </div>
+                            <small class="text-muted d-block">{{ ratio.formula }}</small>
+                            <small class="text-info d-block">{{ ratio.benchmark }}</small>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- EFFICIENCY RATIOS -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-info text-white">
+            <h6 class="mb-0 fw-bold">⚙️ Efficiency Ratios (Karkardagi)</h6>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                {% for key, ratio in ratios.efficiency.items %}
+                    {% if ratio.value %}
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 h-100">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="fw-bold mb-0 text-capitalize">{{ key }}</h6>
+                                <h4 class="fw-bold text-{{ ratio.status }} mb-0">
+                                    {{ ratio.value }} {{ ratio.unit|default:"" }}
+                                </h4>
+                            </div>
+                            <small class="text-muted d-block">{{ ratio.formula }}</small>
+                            <small class="text-info d-block">{{ ratio.benchmark }}</small>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- LEVERAGE RATIOS -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-warning text-dark">
+            <h6 class="mb-0 fw-bold">⚖️ Leverage Ratios (Qarzay)</h6>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                {% for key, ratio in ratios.leverage.items %}
+                    {% if ratio.value and ratio.formula %}
+                    <div class="col-md-3">
+                        <div class="border rounded p-3 h-100">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="fw-bold mb-0 text-capitalize">{{ key }}</h6>
+                                <h4 class="fw-bold text-{{ ratio.status }} mb-0">
+                                    {{ ratio.value }}{{ ratio.unit|default:"" }}
+                                </h4>
+                            </div>
+                            <small class="text-muted d-block">{{ ratio.formula }}</small>
+                            <small class="text-info d-block">{{ ratio.benchmark }}</small>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- CASH FLOW RATIOS -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-primary text-white">
+            <h6 class="mb-0 fw-bold">💵 Cash Flow Ratios</h6>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                {% for key, ratio in ratios.cash_flow.items %}
+                    {% if ratio.value and ratio.formula %}
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 h-100">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="fw-bold mb-0 text-capitalize">{{ key }}</h6>
+                                <h4 class="fw-bold text-{{ ratio.status }} mb-0">
+                                    {{ ratio.value }} {{ ratio.unit|default:"" }}
+                                </h4>
+                            </div>
+                            <small class="text-muted d-block">{{ ratio.formula }}</small>
+                            <small class="text-info d-block">{{ ratio.benchmark }}</small>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- BUSINESS HEALTH -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-secondary text-white">
+            <h6 class="mb-0 fw-bold">🏥 Business Health</h6>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                {% for key, ratio in ratios.business_health.items %}
+                    {% if ratio.value %}
+                    <div class="col-md-3">
+                        <div class="border rounded p-3 h-100">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="fw-bold mb-0 text-capitalize">{{ key }}</h6>
+                                <h4 class="fw-bold text-{{ ratio.status }} mb-0">
+                                    {{ ratio.value }}
+                                </h4>
+                            </div>
+                            <small class="text-muted d-block">{{ ratio.formula }}</small>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

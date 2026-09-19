@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ insight.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <a href="{% url 'ai_dashboard' %}" class="btn btn-outline-secondary btn-sm mb-2">
+                ← Back to AI Dashboard
+            </a>
+            <h2>
+                {% if insight.insight_type == 'anomaly' %}🔍
+                {% elif insight.insight_type == 'prediction' %}🔮
+                {% elif insight.insight_type == 'recommendation' %}💡
+                {% elif insight.insight_type == 'risk' %}⚠️
+                {% elif insight.insight_type == 'opportunity' %}🎯
+                {% elif insight.insight_type == 'optimization' %}⚡
+                {% endif %}
+                {{ insight.title }}
+            </h2>
+        </div>
+        <div>
+            <span class="badge bg-{{ insight.severity_color }} fs-6">
+                {{ insight.get_severity_display }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Main Card -->
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">📋 Description</h5>
+                </div>
+                <div class="card-body">
+                    <p>{{ insight.description }}</p>
+                </div>
+            </div>
+
+            {% if insight.recommendation %}
+            <div class="card mb-4 border-success">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">💡 Recommendation</h5>
+                </div>
+                <div class="card-body">
+                    <p>{{ insight.recommendation }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if insight.suggested_actions %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">✅ Suggested Actions</h5>
+                </div>
+                <div class="card-body">
+                    <ul>
+                        {% for action in insight.suggested_actions %}
+                        <li>{{ action }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-md-4">
+            <!-- Info Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">ℹ️ Information</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th>Type:</th>
+                            <td>{{ insight.get_insight_type_display }}</td>
+                        </tr>
+                        <tr>
+                            <th>Category:</th>
+                            <td>{{ insight.get_category_display }}</td>
+                        </tr>
+                        <tr>
+                            <th>Confidence:</th>
+                            <td>{{ insight.confidence_score }}%</td>
+                        </tr>
+                        <tr>
+                            <th>Impact:</th>
+                            <td>{{ insight.impact_score }}/100</td>
+                        </tr>
+                        <tr>
+                            <th>Affected Records:</th>
+                            <td>{{ insight.affected_records }}</td>
+                        </tr>
+                        <tr>
+                            <th>Affected Value:</th>
+                            <td>Rs. {{ insight.affected_value|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <th>Detected:</th>
+                            <td>{{ insight.detected_at|date:"d-m-Y H:i" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Status:</th>
+                            <td>
+                                {% if insight.is_resolved %}
+                                <span class="badge bg-success">✅ Resolved</span>
+                                {% else %}
+                                <span class="badge bg-warning">⏳ Pending</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Actions Card -->
+            {% if not insight.is_resolved %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">⚡ Actions</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'ai_resolve_insight' insight.pk %}" class="mb-2">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success w-100">
+                            ✅ Mark as Resolved
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'ai_ignore_insight' insight.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-secondary w-100">
+                            🔇 Ignore
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Fix URL -->
+            {% if insight.fix_url %}
+            <a href="{{ insight.fix_url }}" class="btn btn-primary w-100">
+                🔧 Go to Fix
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

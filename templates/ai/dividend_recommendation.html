@@ -1,0 +1,256 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}💰 Dividend AI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dividend-header {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        border-radius: 20px;
+        padding: 30px;
+        margin-bottom: 25px;
+    }
+    
+    .dividend-header h1 {
+        font-weight: 900;
+        font-size: 2rem;
+        margin-bottom: 10px;
+    }
+    
+    .big-percentage {
+        font-size: 6rem;
+        font-weight: 900;
+        line-height: 1;
+        background: linear-gradient(135deg, #10b981, #059669);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    .reasoning-box {
+        background: #f0fdf4;
+        border-left: 4px solid #10b981;
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 10px;
+    }
+    
+    .warning-box {
+        background: #fef3c7;
+        border-left: 4px solid #f59e0b;
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 10px;
+    }
+    
+    .impact-card {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+    
+    .confidence-meter {
+        height: 20px;
+        border-radius: 10px;
+        background: #e5e7eb;
+        overflow: hidden;
+    }
+    
+    .confidence-fill {
+        height: 100%;
+        background: linear-gradient(135deg, #10b981, #059669);
+        transition: width 0.5s;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Header -->
+    <div class="dividend-header">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h1>💰 AI Dividend Recommendation</h1>
+                <p class="mb-0">Smart dividend optimization for maximum shareholder happiness</p>
+            </div>
+            <div>
+                <a href="?generate=true" class="btn btn-light btn-lg fw-bold">
+                    <i class="bi bi-magic"></i> Generate New
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% if latest %}
+    <!-- Main Recommendation -->
+    <div class="card shadow-sm mb-4 border-0">
+        <div class="card-body text-center py-5">
+            <h3 class="text-muted mb-3">🎯 AI Recommends</h3>
+            <div class="big-percentage">{{ latest.recommended_percentage|floatformat:0 }}%</div>
+            <p class="text-muted fs-5 mt-2">of profit distribution</p>
+            
+            <h2 class="text-success mt-4">Rs. {{ latest.recommended_amount|floatformat:2 }}</h2>
+            <p class="text-muted">Recommended dividend amount</p>
+            
+            <div class="mt-4" style="max-width: 400px; margin: 0 auto;">
+                <div class="d-flex justify-content-between mb-2">
+                    <strong>Confidence Score</strong>
+                    <strong>{{ latest.confidence_score|floatformat:1 }}%</strong>
+                </div>
+                <div class="confidence-meter">
+                    <div class="confidence-fill" style="width: {{ latest.confidence_score }}%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Details Row -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="impact-card text-center">
+                <small class="text-muted text-uppercase fw-bold">Total Profit</small>
+                <h4 class="mt-2 mb-0">Rs. {{ latest.total_profit|floatformat:0 }}</h4>
+                <small class="text-muted">Last 90 days</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="impact-card text-center">
+                <small class="text-muted text-uppercase fw-bold">Current Cash</small>
+                <h4 class="mt-2 mb-0">Rs. {{ latest.current_cash|floatformat:0 }}</h4>
+                <small class="text-muted">Available</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="impact-card text-center">
+                <small class="text-muted text-uppercase fw-bold">Cash After</small>
+                <h4 class="mt-2 mb-0 {% if latest.cash_after < 0 %}text-danger{% else %}text-success{% endif %}">
+                    Rs. {{ latest.cash_after|floatformat:0 }}
+                </h4>
+                <small class="text-muted">{{ latest.buffer_days }} days buffer</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="impact-card text-center">
+                <small class="text-muted text-uppercase fw-bold">Range</small>
+                <h4 class="mt-2 mb-0">{{ latest.min_percentage|floatformat:0 }}-{{ latest.max_percentage|floatformat:0 }}%</h4>
+                <small class="text-muted">Safe range</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reasoning -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-success text-white">
+                    <h6 class="mb-0 fw-bold">🧠 AI Reasoning</h6>
+                </div>
+                <div class="card-body">
+                    {% for reason in latest.reasoning %}
+                    <div class="reasoning-box">
+                        <i class="bi bi-check-circle-fill text-success me-2"></i>
+                        {{ reason }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h6 class="mb-0 fw-bold">⚠️ Important Notes</h6>
+                </div>
+                <div class="card-body">
+                    {% for warning in latest.warnings %}
+                    <div class="warning-box">
+                        {{ warning }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body text-center">
+            <h5 class="mb-3">🚀 What would you like to do?</h5>
+            <div class="d-flex gap-3 justify-content-center flex-wrap">
+                <a href="{% url 'dividend_create' %}" class="btn btn-success btn-lg">
+                    <i class="bi bi-check-circle"></i> Accept & Create Dividend
+                </a>
+                <button class="btn btn-outline-primary btn-lg" onclick="simulateDividend()">
+                    <i class="bi bi-calculator"></i> Simulate Impact
+                </button>
+                <a href="?generate=true" class="btn btn-outline-secondary btn-lg">
+                    <i class="bi bi-arrow-clockwise"></i> Regenerate
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- Empty State -->
+    <div class="card shadow-sm">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-cash-coin text-success" style="font-size: 4rem;"></i>
+            <h4 class="mt-3">No Recommendation Yet</h4>
+            <p class="text-muted">Generate AI recommendation for optimal dividend</p>
+            <a href="?generate=true" class="btn btn-success btn-lg mt-3">
+                <i class="bi bi-magic"></i> Generate Recommendation
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- History -->
+    {% if recommendations.count > 1 %}
+    <div class="card shadow-sm border-0 mt-4">
+        <div class="card-header bg-dark text-white">
+            <h6 class="mb-0 fw-bold">📜 Previous Recommendations</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Percentage</th>
+                            <th>Amount</th>
+                            <th>Confidence</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rec in recommendations|slice:"1:10" %}
+                        <tr>
+                            <td>{{ rec.analysis_date|date:"d M Y" }}</td>
+                            <td><strong>{{ rec.recommended_percentage|floatformat:0 }}%</strong></td>
+                            <td>Rs. {{ rec.recommended_amount|floatformat:0 }}</td>
+                            <td>{{ rec.confidence_score|floatformat:0 }}%</td>
+                            <td><span class="badge bg-{% if rec.status == 'used' %}success{% elif rec.status == 'pending' %}warning text-dark{% else %}secondary{% endif %}">{{ rec.get_status_display }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+function simulateDividend() {
+    const percentage = prompt('Enter dividend percentage to simulate (e.g., 50):', '50');
+    if (percentage && !isNaN(percentage)) {
+        alert('Simulation for ' + percentage + '% will open in the next update!');
+        // TODO: Implement simulation page
+    }
+}
+</script>
+{% endblock %}

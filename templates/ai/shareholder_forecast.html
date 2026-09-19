@@ -1,0 +1,283 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}🔮 6-Month Forecast{% endblock %}
+
+{% block extra_css %}
+<style>
+    .forecast-header {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+        border-radius: 20px;
+        padding: 30px;
+        margin-bottom: 25px;
+    }
+    
+    .forecast-header h1 {
+        font-weight: 900;
+        font-size: 2rem;
+        margin-bottom: 10px;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 16px;
+        padding: 25px;
+        text-align: center;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        height: 100%;
+    }
+    
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: 900;
+        line-height: 1;
+        margin-top: 10px;
+    }
+    
+    .stat-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: #6b7280;
+        font-weight: 700;
+    }
+    
+    .forecast-chart {
+        height: 300px;
+        display: flex;
+        align-items: flex-end;
+        gap: 15px;
+        padding: 20px;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    
+    .chart-bar {
+        flex: 1;
+        background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+        border-radius: 8px 8px 0 0;
+        min-height: 30px;
+        position: relative;
+        transition: all 0.3s;
+        cursor: pointer;
+    }
+    
+    .chart-bar:hover {
+        opacity: 0.85;
+        transform: translateY(-5px);
+    }
+    
+    .chart-bar-label {
+        position: absolute;
+        bottom: -25px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 0.7rem;
+        color: #6b7280;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+    
+    .chart-bar-value {
+        position: absolute;
+        top: -22px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 0.75rem;
+        font-weight: 800;
+        color: #1f2937;
+    }
+    
+    .risk-box {
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        border-left: 4px solid #dc2626;
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 10px;
+    }
+    
+    .opportunity-box {
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        border-left: 4px solid #10b981;
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Header -->
+    <div class="forecast-header">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h1>🔮 6-Month AI Forecast</h1>
+                <p class="mb-0">Predict your shareholder growth</p>
+            </div>
+            <div>
+                <a href="?generate=true" class="btn btn-light btn-lg fw-bold">
+                    <i class="bi bi-arrow-clockwise"></i> Generate New
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% if forecast %}
+    
+    <!-- Main Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-label">Expected Total</div>
+                <div class="stat-value text-primary">{{ forecast.total_shareholders }}</div>
+                <small class="text-muted">in 6 months</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-label">New Shareholders</div>
+                <div class="stat-value text-success">+{{ forecast.new_shareholders_expected }}</div>
+                <small class="text-muted">expected</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-label">Expected Churn</div>
+                <div class="stat-value text-danger">-{{ forecast.churn_expected }}</div>
+                <small class="text-muted">may leave</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-label">Confidence</div>
+                <div class="stat-value text-warning">{{ forecast.confidence_score|floatformat:0 }}%</div>
+                <small class="text-muted">AI certainty</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart -->
+    {% if forecast.monthly_forecast %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-dark text-white">
+            <h6 class="mb-0 fw-bold">📈 Monthly Growth Projection</h6>
+        </div>
+        <div class="card-body">
+            <div class="forecast-chart" style="margin-bottom: 40px;">
+                {% for month in forecast.monthly_forecast %}
+                <div class="chart-bar" style="height: {{ month.expected_shareholders }}px; max-height: 250px;" 
+                     title="{{ month.month }}: {{ month.expected_shareholders }} shareholders">
+                    <span class="chart-bar-value">{{ month.expected_shareholders }}</span>
+                    <span class="chart-bar-label">{{ month.month }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Monthly Breakdown Table -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-dark text-white">
+            <h6 class="mb-0 fw-bold">📊 Monthly Details</h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Month</th>
+                            <th>Expected Shareholders</th>
+                            <th>New Expected</th>
+                            <th>Churn Expected</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for month in forecast.monthly_forecast %}
+                        <tr>
+                            <td><strong>{{ month.month }}</strong></td>
+                            <td><span class="badge bg-primary">{{ month.expected_shareholders }}</span></td>
+                            <td><span class="badge bg-success">+{{ month.new_expected }}</span></td>
+                            <td><span class="badge bg-danger">-{{ month.churn_expected }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Investment & Dividends Projection -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="stat-card">
+                <div class="stat-label">Expected Total Investment</div>
+                <div class="stat-value text-success">Rs. {{ forecast.total_investment|floatformat:0 }}</div>
+                <small class="text-muted">+15% growth assumed</small>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="stat-card">
+                <div class="stat-label">Expected Dividends</div>
+                <div class="stat-value text-warning">Rs. {{ forecast.total_dividends|floatformat:0 }}</div>
+                <small class="text-muted">8% payout assumption</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Risks & Opportunities -->
+    <div class="row">
+        {% if forecast.risks %}
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-danger text-white">
+                    <h6 class="mb-0 fw-bold">⚠️ Risk Factors</h6>
+                </div>
+                <div class="card-body">
+                    {% for risk in forecast.risks %}
+                    <div class="risk-box">
+                        {{ risk }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        {% if forecast.opportunities %}
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-success text-white">
+                    <h6 class="mb-0 fw-bold">🎯 Opportunities</h6>
+                </div>
+                <div class="card-body">
+                    {% for opp in forecast.opportunities %}
+                    <div class="opportunity-box">
+                        {{ opp }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    {% else %}
+    <!-- Empty State -->
+    <div class="card shadow-sm">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-graph-up text-primary" style="font-size: 4rem;"></i>
+            <h4 class="mt-3">No Forecast Yet</h4>
+            <p class="text-muted">Generate AI forecast for next 6 months</p>
+            <a href="?generate=true" class="btn btn-primary btn-lg mt-3">
+                <i class="bi bi-magic"></i> Generate Forecast
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

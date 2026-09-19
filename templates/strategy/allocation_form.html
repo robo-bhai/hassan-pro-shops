@@ -1,0 +1,1067 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+{% if is_edit %}Edit{% else %}Create{% endif %} Allocation
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ========================================== */
+    /* TEMPLATE BUTTONS */
+    /* ========================================== */
+    .template-btn {
+        border-radius: 12px;
+        padding: 12px;
+        text-align: left;
+        transition: all 0.2s;
+        border: 2px solid #e5e7eb;
+        background: white;
+        width: 100%;
+        font-size: 0.85rem;
+        cursor: pointer;
+    }
+    
+    .template-btn:hover {
+        border-color: #667eea;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(102,126,234,0.15);
+    }
+    
+    .template-btn.selected {
+        border-color: #10b981;
+        background: #f0fdf4;
+    }
+    
+    /* ========================================== */
+    /* SLIDER CONTAINER */
+    /* ========================================== */
+    .slider-container {
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 12px;
+        margin-bottom: 15px;
+    }
+    
+    .slider-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        gap: 8px;
+    }
+    
+    .slider-header label {
+        font-weight: 600;
+        margin: 0;
+        font-size: 0.95rem;
+        flex-grow: 1;
+        min-width: 0;
+        color: #1f2937;
+    }
+    
+    /* ========================================== */
+    /* ALLOCATION INPUT (Colored BG + White Text) */
+    /* ========================================== */
+    .allocation-input {
+        font-size: 1.05rem;
+        font-weight: 900;
+        padding: 8px 16px;
+        border-radius: 25px;
+        min-width: 85px;
+        max-width: 105px;
+        text-align: center;
+        border: 3px solid rgba(255, 255, 255, 0.4);
+        color: white;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        appearance: none;
+        -webkit-appearance: none;
+    }
+    
+    .allocation-input:hover {
+        transform: scale(1.05);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+    }
+    
+    .allocation-input:focus {
+        outline: none;
+        transform: scale(1.08);
+        border-color: rgba(255, 255, 255, 0.9);
+        box-shadow: 0 0 0 5px rgba(102, 126, 234, 0.35),
+                    0 6px 20px rgba(0, 0, 0, 0.2);
+    }
+    
+    /* Hide number spinners */
+    .allocation-input::-webkit-outer-spin-button,
+    .allocation-input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+    
+    .allocation-input[type=number] {
+        -moz-appearance: textfield;
+    }
+    
+    /* ========================================== */
+    /* STRONG COLORS */
+    /* ========================================== */
+    
+    /* BLUE - Bulk Purchase */
+    .bg-badge-primary {
+        background: #0d6efd !important;
+        background-color: #0d6efd !important;
+        color: #ffffff !important;
+    }
+    
+    /* DARK CYAN - Seasonal Stock */
+    .bg-badge-info {
+        background: #0891b2 !important;
+        background-color: #0891b2 !important;
+        color: #ffffff !important;
+    }
+    
+    /* AMBER - Customer Credit (dark text) */
+    .bg-badge-warning {
+        background: #f59e0b !important;
+        background-color: #f59e0b !important;
+        color: #000000 !important;
+        text-shadow: none !important;
+    }
+    
+    /* DARK GREEN - Vendor Advance */
+    .bg-badge-success {
+        background: #059669 !important;
+        background-color: #059669 !important;
+        color: #ffffff !important;
+    }
+    
+    /* DARK RED - New Product */
+    .bg-badge-danger {
+        background: #dc2626 !important;
+        background-color: #dc2626 !important;
+        color: #ffffff !important;
+    }
+    
+    /* ========================================== */
+    /* ROI INPUT GROUP */
+    /* ========================================== */
+    .roi-input-group {
+        background: #fff8e1;
+        padding: 8px 12px;
+        border-radius: 8px;
+        border-left: 3px solid #f59e0b;
+        margin-top: 8px;
+    }
+    
+    /* ========================================== */
+    /* ✅ FIXED: ACTIVE PROFILE SWITCH */
+    /* ========================================== */
+    .active-switch-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        padding: 18px 20px;
+        background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+        border-radius: 14px;
+        border: 2px solid #10b981;
+        margin-bottom: 20px;
+        transition: all 0.3s ease;
+    }
+    
+    .active-switch-container:hover {
+        box-shadow: 0 6px 20px rgba(16, 185, 129, 0.2);
+        transform: translateY(-2px);
+    }
+    
+    /* Toggle Switch */
+    .active-switch-container .toggle-switch {
+        position: relative;
+        width: 60px;
+        height: 32px;
+        flex-shrink: 0;
+    }
+    
+    .active-switch-container .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    
+    .active-switch-container .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #cbd5e1;
+        transition: 0.3s;
+        border-radius: 34px;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .active-switch-container .toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 24px;
+        width: 24px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: 0.3s;
+        border-radius: 50%;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    
+    .active-switch-container .toggle-switch input:checked + .toggle-slider {
+        background-color: #10b981;
+    }
+    
+    .active-switch-container .toggle-switch input:checked + .toggle-slider:before {
+        transform: translateX(28px);
+    }
+    
+    .active-switch-container .toggle-switch input:focus + .toggle-slider {
+        box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.3);
+    }
+    
+    .active-switch-container .toggle-label {
+        cursor: pointer;
+        margin: 0;
+        line-height: 1.4;
+    }
+    
+    .active-switch-container .toggle-label .main-text {
+        font-weight: 700;
+        font-size: 1.05rem;
+        color: #065f46;
+        display: block;
+        margin-bottom: 2px;
+    }
+    
+    .active-switch-container .toggle-label .sub-text {
+        font-size: 0.75rem;
+        color: #6b7280;
+        display: block;
+    }
+    
+    /* ========================================== */
+    /* TOTAL DISPLAY */
+    /* ========================================== */
+    .total-display {
+        position: sticky;
+        top: 20px;
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        border-radius: 16px;
+        text-align: center;
+        box-shadow: 0 10px 30px rgba(102,126,234,0.3);
+    }
+    
+    .total-value {
+        font-size: 2.5rem;
+        font-weight: 900;
+        line-height: 1;
+    }
+    
+    .total-status {
+        font-size: 0.9rem;
+        margin-top: 8px;
+        padding: 6px;
+        border-radius: 8px;
+    }
+    
+    .avg-roi-box {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+        padding: 15px;
+        border-radius: 12px;
+        text-align: center;
+    }
+    
+    .avg-roi-value {
+        font-size: 2.5rem;
+        font-weight: 900;
+        line-height: 1;
+    }
+    
+    /* ========================================== */
+    /* MOBILE RESPONSIVE — TABLET */
+    /* ========================================== */
+    @media (max-width: 991px) {
+        .total-display {
+            position: relative;
+            top: 0;
+        }
+    }
+    
+    /* ========================================== */
+    /* MOBILE RESPONSIVE — PHONE */
+    /* ========================================== */
+    @media (max-width: 767px) {
+        .container-fluid {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+        
+        .card-body { 
+            padding: 12px !important; 
+        }
+        
+        .slider-container { 
+            padding: 12px; 
+            margin-bottom: 12px; 
+        }
+        
+        .slider-header label { 
+            font-size: 0.9rem; 
+            font-weight: 600;
+        }
+        
+        .allocation-input { 
+            font-size: 0.95rem; 
+            padding: 7px 12px; 
+            min-width: 70px; 
+            max-width: 85px;
+        }
+        
+        .roi-input-group { 
+            padding: 8px 10px; 
+        }
+        
+        .roi-input-group small { 
+            font-size: 0.75rem; 
+        }
+        
+        .total-value { 
+            font-size: 2rem; 
+        }
+        
+        .avg-roi-value { 
+            font-size: 2rem; 
+        }
+        
+        .page-header {
+            flex-direction: column;
+            gap: 10px;
+            align-items: stretch !important;
+        }
+        
+        .page-header h2 { 
+            font-size: 1.2rem; 
+        }
+        
+        .template-btn { 
+            padding: 10px; 
+            font-size: 0.75rem; 
+        }
+        
+        .total-display {
+            position: relative;
+            top: 0;
+            padding: 15px;
+        }
+        
+        .avg-roi-box {
+            padding: 12px;
+        }
+        
+        .form-control-lg {
+            font-size: 1rem;
+            padding: 10px 12px;
+        }
+        
+        .btn-lg {
+            font-size: 0.95rem;
+            padding: 10px 16px;
+        }
+        
+        /* Active Switch - Mobile */
+        .active-switch-container {
+            padding: 14px 16px;
+            gap: 12px;
+        }
+        
+        .active-switch-container .toggle-switch {
+            width: 55px;
+            height: 30px;
+        }
+        
+        .active-switch-container .toggle-slider:before {
+            height: 22px;
+            width: 22px;
+        }
+        
+        .active-switch-container .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(25px);
+        }
+        
+        .active-switch-container .toggle-label .main-text {
+            font-size: 0.95rem;
+        }
+    }
+    
+    /* ========================================== */
+    /* MOBILE RESPONSIVE — SMALL PHONE */
+    /* ========================================== */
+    @media (max-width: 480px) {
+        .container-fluid {
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+        }
+        
+        .card-body { 
+            padding: 10px !important; 
+        }
+        
+        .slider-container { 
+            padding: 10px; 
+            margin-bottom: 10px; 
+        }
+        
+        .slider-header { 
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+        
+        .slider-header label { 
+            font-size: 0.82rem; 
+        }
+        
+        .allocation-input { 
+            font-size: 0.9rem; 
+            padding: 6px 10px; 
+            min-width: 60px; 
+            max-width: 70px;
+        }
+        
+        .roi-input-group { 
+            padding: 6px 8px; 
+        }
+        
+        .roi-input-group small { 
+            font-size: 0.7rem; 
+        }
+        
+        .total-value { 
+            font-size: 1.75rem; 
+        }
+        
+        .avg-roi-value { 
+            font-size: 1.75rem; 
+        }
+        
+        .page-header h2 { 
+            font-size: 1.1rem; 
+        }
+        
+        .template-btn { 
+            padding: 8px; 
+            font-size: 0.7rem; 
+        }
+        
+        .roi-input-group .row {
+            flex-direction: column;
+            gap: 6px;
+        }
+        
+        .roi-input-group .col-6 {
+            width: 100%;
+            max-width: 100%;
+            flex: 0 0 100%;
+        }
+        
+        .roi-input-group .text-end {
+            text-align: left !important;
+        }
+        
+        .d-flex.gap-2 {
+            flex-direction: column;
+        }
+        
+        .d-flex.gap-2 .btn {
+            width: 100%;
+        }
+        
+        /* Active Switch - Small Mobile */
+        .active-switch-container {
+            padding: 12px 14px;
+            gap: 10px;
+            flex-direction: row;
+        }
+        
+        .active-switch-container .toggle-switch {
+            width: 50px;
+            height: 28px;
+        }
+        
+        .active-switch-container .toggle-slider:before {
+            height: 20px;
+            width: 20px;
+            left: 4px;
+            bottom: 4px;
+        }
+        
+        .active-switch-container .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(22px);
+        }
+        
+        .active-switch-container .toggle-label .main-text {
+            font-size: 0.9rem;
+        }
+        
+        .active-switch-container .toggle-label .sub-text {
+            font-size: 0.7rem;
+        }
+    }
+    
+    /* ========================================== */
+    /* TOUCH OPTIMIZATIONS */
+    /* ========================================== */
+    * { 
+        -webkit-tap-highlight-color: transparent; 
+    }
+    
+    .btn { 
+        touch-action: manipulation; 
+    }
+    
+    html {
+        scroll-behavior: smooth;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3 py-md-4">
+
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-3 mb-md-4 page-header">
+        <div>
+            <h2 class="fw-bold mb-1">
+                {% if is_edit %}✏️ Edit{% else %}➕ Create{% endif %} Allocation
+            </h2>
+            <p class="text-muted mb-0 small">Configure 6 strategies with custom ROI</p>
+        </div>
+        <a href="{% url 'strategy_allocations_list' %}" class="btn btn-outline-secondary">
+            ← Back
+        </a>
+    </div>
+
+    <!-- Info Alert -->
+    <div class="alert alert-info mb-3">
+        <strong>💡 6 Strategies:</strong>
+        Bulk Purchase, Seasonal, Credit, Advance, New Product, and <strong>⚡ Fast-Moving</strong>.
+        Total 100% nahi bhi — AI auto-normalize karega.
+    </div>
+
+    <div class="row g-3">
+        <!-- Main Form Column -->
+        <div class="col-lg-8 col-md-12">
+            <div class="card shadow-sm">
+                <div class="card-body p-3 p-md-4">
+
+                    <!-- Templates (Create Mode Only) -->
+                    {% if not is_edit %}
+                    <h5 class="fw-bold mb-3">🎯 Quick Templates</h5>
+                    
+                    <div class="row g-2 mb-4">
+                        {% for key, template in templates.items %}
+                        <div class="col-6 col-md-4">
+                            <button type="button" 
+                                    class="template-btn template-selector"
+                                    data-template-key="{{ key }}">
+                                <div class="fw-bold">{{ template.name }}</div>
+                                <small class="text-muted d-block" style="font-size: 0.7rem;">
+                                    {{ template.description }}
+                                </small>
+                            </button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <hr class="my-4">
+                    {% endif %}
+
+                    <form method="post" id="allocationForm">
+                        {% csrf_token %}
+
+                        <!-- Profile Info -->
+                        <h5 class="fw-bold mb-3">📝 Profile Information</h5>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Profile Name *</label>
+                            <input type="text" 
+                                   name="profile_name" 
+                                   id="profileName"
+                                   class="form-control form-control-lg"
+                                   value="{{ allocation.profile_name|default:'' }}"
+                                   placeholder="e.g., My Custom Mix"
+                                   required>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Description</label>
+                            <textarea name="profile_description" 
+                                      id="profileDescription"
+                                      class="form-control" 
+                                      rows="2"
+                                      placeholder="Optional description">{{ allocation.profile_description|default:'' }}</textarea>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <h5 class="fw-bold mb-3">📊 Allocation & ROI (6 Strategies)</h5>
+
+                        <!-- BULK PURCHASE -->
+                        <div class="slider-container">
+                            <div class="slider-header">
+                                <label>📦 Bulk Purchase</label>
+                                <input type="number" 
+                                       name="bulk_purchase" 
+                                       id="bulk_purchase"
+                                       class="allocation-input bg-badge-primary allocation-field"
+                                       min="0" max="100" step="1"
+                                       value="{{ allocation.bulk_purchase|default:25|floatformat:0 }}">
+                            </div>
+                            
+                            <div class="roi-input-group">
+                                <div class="row g-2 align-items-center">
+                                    <div class="col-6">
+                                        <small class="text-muted">💰 ROI %:</small>
+                                        <input type="number" name="bulk_purchase_roi" 
+                                               class="form-control form-control-sm roi-input"
+                                               min="0" max="100" step="0.5"
+                                               value="{{ allocation.bulk_purchase_roi|default:25 }}">
+                                    </div>
+                                    <div class="col-6 text-end">
+                                        <small class="text-success fw-bold">
+                                            Profit: <span id="bulkProfit">--</span>
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SEASONAL STOCK -->
+                        <div class="slider-container">
+                            <div class="slider-header">
+                                <label>🌙 Seasonal Stock</label>
+                                <input type="number" 
+                                       name="seasonal_stock" 
+                                       id="seasonal_stock"
+                                       class="allocation-input bg-badge-info allocation-field"
+                                       min="0" max="100" step="1"
+                                       value="{{ allocation.seasonal_stock|default:20|floatformat:0 }}">
+                            </div>
+                            
+                            <div class="roi-input-group">
+                                <div class="row g-2 align-items-center">
+                                    <div class="col-6">
+                                        <small class="text-muted">💰 ROI %:</small>
+                                        <input type="number" name="seasonal_stock_roi" 
+                                               class="form-control form-control-sm roi-input"
+                                               min="0" max="100" step="0.5"
+                                               value="{{ allocation.seasonal_stock_roi|default:35 }}">
+                                    </div>
+                                    <div class="col-6 text-end">
+                                        <small class="text-success fw-bold">
+                                            Profit: <span id="seasonalProfit">--</span>
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CUSTOMER CREDIT -->
+                        <div class="slider-container">
+                            <div class="slider-header">
+                                <label>💳 Customer Credit</label>
+                                <input type="number" 
+                                       name="customer_credit" 
+                                       id="customer_credit"
+                                       class="allocation-input bg-badge-warning allocation-field"
+                                       min="0" max="100" step="1"
+                                       value="{{ allocation.customer_credit|default:15|floatformat:0 }}">
+                            </div>
+                            
+                            <div class="roi-input-group">
+                                <div class="row g-2 align-items-center">
+                                    <div class="col-6">
+                                        <small class="text-muted">💰 ROI %:</small>
+                                        <input type="number" name="customer_credit_roi" 
+                                               class="form-control form-control-sm roi-input"
+                                               min="0" max="100" step="0.5"
+                                               value="{{ allocation.customer_credit_roi|default:18 }}">
+                                    </div>
+                                    <div class="col-6 text-end">
+                                        <small class="text-success fw-bold">
+                                            Profit: <span id="creditProfit">--</span>
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- VENDOR ADVANCE -->
+                        <div class="slider-container">
+                            <div class="slider-header">
+                                <label>📥 Vendor Advance</label>
+                                <input type="number" 
+                                       name="vendor_advance" 
+                                       id="vendor_advance"
+                                       class="allocation-input bg-badge-success allocation-field"
+                                       min="0" max="100" step="1"
+                                       value="{{ allocation.vendor_advance|default:10|floatformat:0 }}">
+                            </div>
+                            
+                            <div class="roi-input-group">
+                                <div class="row g-2 align-items-center">
+                                    <div class="col-6">
+                                        <small class="text-muted">💰 ROI %:</small>
+                                        <input type="number" name="vendor_advance_roi" 
+                                               class="form-control form-control-sm roi-input"
+                                               min="0" max="100" step="0.5"
+                                               value="{{ allocation.vendor_advance_roi|default:28 }}">
+                                    </div>
+                                    <div class="col-6 text-end">
+                                        <small class="text-success fw-bold">
+                                            Profit: <span id="advanceProfit">--</span>
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- NEW PRODUCT -->
+                        <div class="slider-container">
+                            <div class="slider-header">
+                                <label>🚀 New Product</label>
+                                <input type="number" 
+                                       name="new_product" 
+                                       id="new_product"
+                                       class="allocation-input bg-badge-danger allocation-field"
+                                       min="0" max="100" step="1"
+                                       value="{{ allocation.new_product|default:10|floatformat:0 }}">
+                            </div>
+                            
+                            <div class="roi-input-group">
+                                <div class="row g-2 align-items-center">
+                                    <div class="col-6">
+                                        <small class="text-muted">💰 ROI %:</small>
+                                        <input type="number" name="new_product_roi" 
+                                               class="form-control form-control-sm roi-input"
+                                               min="0" max="100" step="0.5"
+                                               value="{{ allocation.new_product_roi|default:35 }}">
+                                    </div>
+                                    <div class="col-6 text-end">
+                                        <small class="text-success fw-bold">
+                                            Profit: <span id="newProfit">--</span>
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- FAST-MOVING -->
+                        <div class="slider-container" 
+                             style="background: linear-gradient(90deg, #fff8e1 0%, #f8f9fa 100%); 
+                                    border-left: 4px solid #f59e0b;">
+                            <div class="slider-header">
+                                <label>⚡ Fast-Moving Product</label>
+                                <input type="number" 
+                                       name="fast_moving" 
+                                       id="fast_moving"
+                                       class="allocation-input bg-badge-warning allocation-field"
+                                       min="0" max="100" step="1"
+                                       value="{{ allocation.fast_moving|default:20|floatformat:0 }}">
+                            </div>
+                            
+                            <div class="roi-input-group">
+                                <div class="row g-2 align-items-center">
+                                    <div class="col-6">
+                                        <small class="text-muted">💰 Annual ROI %:</small>
+                                        <input type="number" name="fast_moving_roi" 
+                                               class="form-control form-control-sm roi-input"
+                                               min="0" max="200" step="0.5"
+                                               value="{{ allocation.fast_moving_roi|default:30 }}">
+                                    </div>
+                                    <div class="col-6 text-end">
+                                        <small class="text-success fw-bold">
+                                            Profit: <span id="fastProfit">--</span>
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                            <small class="text-muted d-block mt-2" style="font-size: 0.75rem;">
+                                ⚡ Buy weekly, sell daily, repeat 12x/year. Atta, Rice, Oil, Milk, Bread, etc.
+                            </small>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <!-- ✅ FIXED: ACTIVE PROFILE SWITCH -->
+                        <div class="active-switch-container">
+                            <label class="toggle-switch">
+                                <input type="checkbox" 
+                                       name="is_active" 
+                                       id="is_active"
+                                       {% if allocation.is_active or not is_edit %}checked{% endif %}>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <label class="toggle-label" for="is_active">
+                                <span class="main-text">✅ Set as Active Profile</span>
+                                <span class="sub-text">Only one profile can be active at a time</span>
+                            </label>
+                        </div>
+
+                        <!-- Submit Buttons -->
+                        <div class="d-flex gap-2">
+                            <button type="submit" 
+                                    class="btn btn-success btn-lg flex-grow-1" 
+                                    id="submitBtn">
+                                ✅ {% if is_edit %}Update{% else %}Create{% endif %}
+                            </button>
+                            <a href="{% url 'strategy_allocations_list' %}" 
+                               class="btn btn-secondary btn-lg">
+                                Cancel
+                            </a>
+                        </div>
+
+                    </form>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar (Total + Avg ROI) -->
+        <div class="col-lg-4 col-md-12">
+            
+            <!-- Total Display -->
+            <div class="total-display mb-3">
+                <div class="small text-uppercase mb-2" style="opacity: 0.8;">Total Allocation</div>
+                <div class="total-value" id="totalDisplay">0%</div>
+                <div class="total-status" id="totalStatus">
+                    ℹ️ Calculate...
+                </div>
+            </div>
+            
+            <!-- Average ROI -->
+            <div class="avg-roi-box mb-3">
+                <div class="small text-uppercase mb-1" style="opacity: 0.9;">💰 Average ROI</div>
+                <div class="avg-roi-value" id="avgRoiDisplay">--%</div>
+                <small style="opacity: 0.9;">Weighted average</small>
+            </div>
+
+            <!-- Tips -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="fw-bold mb-2">💡 Tips</h6>
+                    <ul class="small mb-0" style="padding-left: 18px;">
+                        <li>6 strategies available</li>
+                        <li>Allocation 100% nahi bhi ✅</li>
+                        <li>ROI apni marzi se set karo</li>
+                        <li><strong>⚡ Fast-Moving</strong> = Fast cycle</li>
+                        <li>Only <strong>one active</strong> profile</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+// ✅ Template data (only in create mode)
+{% if not is_edit %}
+const templatesData = {
+    {% for key, template in templates.items %}
+    '{{ key }}': {
+        name: '{{ template.name|escapejs }}',
+        description: '{{ template.description|escapejs }}',
+        bulk_purchase: {{ template.bulk_purchase|default:0 }},
+        seasonal_stock: {{ template.seasonal_stock|default:0 }},
+        customer_credit: {{ template.customer_credit|default:0 }},
+        vendor_advance: {{ template.vendor_advance|default:0 }},
+        new_product: {{ template.new_product|default:0 }},
+        fast_moving: {{ template.fast_moving|default:0 }},
+        bulk_purchase_roi: {{ template.bulk_purchase_roi|default:0 }},
+        seasonal_stock_roi: {{ template.seasonal_stock_roi|default:0 }},
+        customer_credit_roi: {{ template.customer_credit_roi|default:0 }},
+        vendor_advance_roi: {{ template.vendor_advance_roi|default:0 }},
+        new_product_roi: {{ template.new_product_roi|default:0 }},
+        fast_moving_roi: {{ template.fast_moving_roi|default:0 }},
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+};
+{% else %}
+const templatesData = {};
+{% endif %}
+
+// ✅ Field configuration
+const allocationFields = [
+    'bulk_purchase', 'seasonal_stock', 'customer_credit',
+    'vendor_advance', 'new_product', 'fast_moving'
+];
+
+const roiFields = [
+    'bulk_purchase_roi', 'seasonal_stock_roi', 'customer_credit_roi',
+    'vendor_advance_roi', 'new_product_roi', 'fast_moving_roi'
+];
+
+const profitMap = {
+    bulk_purchase: 'bulkProfit',
+    seasonal_stock: 'seasonalProfit',
+    customer_credit: 'creditProfit',
+    vendor_advance: 'advanceProfit',
+    new_product: 'newProfit',
+    fast_moving: 'fastProfit'
+};
+
+const SAMPLE_CASH = 10000;
+
+// ============================================
+// UPDATE TOTAL
+// ============================================
+function updateTotal() {
+    let total = 0;
+    
+    allocationFields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            total += parseFloat(el.value) || 0;
+        }
+    });
+    
+    const totalDisplay = document.getElementById('totalDisplay');
+    const totalStatus = document.getElementById('totalStatus');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    totalDisplay.textContent = total.toFixed(0) + '%';
+    
+    if (total > 0) {
+        if (Math.abs(total - 100) < 0.01) {
+            totalDisplay.style.color = '#10b981';
+            totalStatus.innerHTML = '✅ Perfect 100%!';
+            totalStatus.style.background = 'rgba(16, 185, 129, 0.3)';
+        } else {
+            totalDisplay.style.color = '#fbbf24';
+            totalStatus.innerHTML = `ℹ️ ${total.toFixed(0)}% → Auto-normalize`;
+            totalStatus.style.background = 'rgba(251, 191, 36, 0.3)';
+        }
+        submitBtn.disabled = false;
+    } else {
+        totalDisplay.style.color = '#ef4444';
+        totalStatus.innerHTML = '❌ Must be > 0';
+        totalStatus.style.background = 'rgba(239, 68, 68, 0.3)';
+        submitBtn.disabled = true;
+    }
+    
+    // Profit calculation
+    if (total > 0) {
+        allocationFields.forEach(id => {
+            const allocationEl = document.getElementById(id);
+            const allocation = parseFloat(allocationEl.value) || 0;
+            
+            const roiEl = document.querySelector(`input[name="${id}_roi"]`);
+            const roi = roiEl ? (parseFloat(roiEl.value) || 0) : 0;
+            
+            const normalizedAlloc = (allocation / total) * 100;
+            const amount = (normalizedAlloc / 100) * SAMPLE_CASH;
+            const profit = amount * (roi / 100);
+            
+            const profitEl = document.getElementById(profitMap[id]);
+            if (profitEl) {
+                profitEl.textContent = 'Rs. ' + Math.round(profit).toLocaleString();
+            }
+        });
+    } else {
+        allocationFields.forEach(id => {
+            const profitEl = document.getElementById(profitMap[id]);
+            if (profitEl) profitEl.textContent = '--';
+        });
+    }
+    
+    calculateAverageROI();
+}
+
+// ============================================
+// CALCULATE AVERAGE ROI
+// ============================================
+function calculateAverageROI() {
+    let total = 0;
+    
+    allocationFields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) total += parseFloat(el.value) || 0;
+    });
+    
+    if (total <= 0) {
+        document.getElementById('avgRoiDisplay').textContent = '--%';
+        return;
+    }
+    
+    let weightedRoi = 0;
+    allocationFields.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const alloc = parseFloat(el.value) || 0;
+        const roiEl = document.querySelector(`input[name="${id}_roi"]`);
+        const roi = roiEl ? (parseFloat(roiEl.value) || 0) : 0;
+        
+        weightedRoi += (alloc / total) * roi;
+    });
+    
+    document.getElementById('avgRoiDisplay').textContent = weightedRoi.toFixed(2) + '%';
+}
+
+// ============================================
+// ATTACH LISTENERS
+// ============================================
+document.querySelectorAll('.allocation-field, .roi-input').forEach(input => {
+    input.addEventListener('input', updateTotal);
+});
+
+// ============================================
+// TEMPLATE SELECTOR
+// ============================================
+document.querySelectorAll('.template-selector').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const key = this.dataset.templateKey;
+        const template = templatesData[key];
+        
+        if (!template) return;
+        
+        document.querySelectorAll('.template-selector').forEach(b => b.classList.remove('selected'));
+        this.classList.add('selected');
+        
+        document.getElementById('profileName').value = template.name || '';
+        document.getElementById('profileDescription').value = template.description || '';
+        
+        allocationFields.forEach(field => {
+            const input = document.getElementById(field);
+            if (input) input.value = template[field] || 0;
+        });
+        
+        roiFields.forEach(field => {
+            const input = document.querySelector(`input[name="${field}"]`);
+            if (input) input.value = template[field] || 0;
+        });
+        
+        updateTotal();
+    });
+});
+
+// ============================================
+// INIT
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    updateTotal();
+});
+</script>
+{% endblock %}

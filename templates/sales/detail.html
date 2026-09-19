@@ -131,9 +131,14 @@
         color: white;
     }
     
-    .status-ribbon.pending {
+    .status-ribbon.partial {
         background: linear-gradient(135deg, #f2994a, #f2c94c);
         color: #333;
+    }
+    
+    .status-ribbon.credit {
+        background: linear-gradient(135deg, #dc3545, #c82333);
+        color: white;
     }
     
     .status-ribbon.converted {
@@ -149,7 +154,8 @@
     }
     
     .status-ribbon.paid .pulse-dot { background: white; }
-    .status-ribbon.pending .pulse-dot { background: #dc3545; }
+    .status-ribbon.partial .pulse-dot { background: white; }
+    .status-ribbon.credit .pulse-dot { background: white; }
     .status-ribbon.converted .pulse-dot { background: white; }
     
     @keyframes pulse {
@@ -210,7 +216,6 @@
         flex-wrap: wrap;
     }
     
-    /* ✅ SELF EXPENSE CONVERTED BADGE */
     .self-expense-badge {
         display: inline-flex;
         align-items: center;
@@ -329,7 +334,59 @@
         gap: 10px;
     }
     
-    /* ✅ Action Bar Styles */
+    /* ✅ Payment History Section */
+    .payment-history-section {
+        margin-top: 25px;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .payment-history-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .payment-history-header h5 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 700;
+        color: #1a1a2e;
+    }
+    
+    .payment-history-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+    }
+    
+    .payment-history-table thead th {
+        background: #f8f9fc;
+        padding: 10px 15px;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #5a6070;
+        font-weight: 700;
+        text-align: left;
+        border-bottom: 2px solid #e0e3eb;
+    }
+    
+    .payment-history-table tbody td {
+        padding: 12px 15px;
+        border-bottom: 1px solid #f0f2f7;
+        font-size: 0.85rem;
+        color: #1a1a2e;
+    }
+    
+    .payment-history-table tbody tr:last-child td { border-bottom: none; }
+    
     .action-bar {
         display: flex;
         gap: 10px;
@@ -361,7 +418,6 @@
     .btn-back { background: white; color: #333; border: 2px solid #ddd; }
     .btn-print { background: #6c757d; color: white; }
     
-    /* ✅ SELF EXPENSE BUTTON */
     .btn-self-expense {
         background: linear-gradient(135deg, #f093fb, #f5576c);
         color: white;
@@ -371,6 +427,73 @@
         opacity: 0.6;
         cursor: not-allowed;
         transform: none !important;
+    }
+    
+    /* ✅ Receive Payment Button */
+    .btn-receive-payment {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: white;
+        padding: 12px 24px;
+        font-size: 0.9rem;
+        font-weight: 700;
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.35);
+    }
+    
+    .btn-receive-payment:hover {
+        background: linear-gradient(135deg, #20c997, #17a673);
+        color: white;
+        box-shadow: 0 6px 20px rgba(40, 167, 69, 0.45);
+    }
+    
+    /* ✅ Payment Modal */
+    .payment-modal .modal-header {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: white;
+        border-bottom: none;
+        border-radius: 16px 16px 0 0;
+        padding: 20px 24px;
+    }
+    
+    .payment-modal .modal-content {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    }
+    
+    .payment-modal .modal-body {
+        padding: 24px;
+    }
+    
+    .payment-modal .modal-footer {
+        border-top: 1px solid var(--border);
+        padding: 16px 24px;
+    }
+    
+    .payment-modal .form-control,
+    .payment-modal .form-select {
+        border-radius: 10px;
+        border: 2px solid var(--border);
+        padding: 10px 14px;
+        font-size: 0.95rem;
+    }
+    
+    .payment-modal .form-control:focus,
+    .payment-modal .form-select:focus {
+        border-color: #28a745;
+        box-shadow: 0 0 0 4px rgba(40, 167, 69, 0.15);
+    }
+    
+    .payment-modal .form-control-lg,
+    .payment-modal .form-select-lg {
+        font-size: 1.05rem;
+        font-weight: 600;
+    }
+    
+    .payment-modal .outstanding-alert {
+        background: linear-gradient(135deg, #fff3cd, #ffe8a1);
+        border: 2px solid #ffc107;
+        border-radius: 12px;
+        padding: 15px 20px;
     }
     
     .invoice-footer {
@@ -461,17 +584,27 @@
                 <div class="invoice-number"># {{ sale.bill_no }}</div>
                 <div class="invoice-date">{{ sale.sale_date|date:"d M, Y | h:i A" }}</div>
                 
-                <!-- ✅ STATUS RIBBON - With Self Expense Check -->
+                <!-- ✅ STATUS RIBBON - 4 States -->
                 {% if sale.is_converted_to_expense %}
-                <div class="status-ribbon converted">
-                    <span class="pulse-dot"></span>
-                    💰 CONVERTED TO EXPENSE
-                </div>
+                    <div class="status-ribbon converted">
+                        <span class="pulse-dot"></span>
+                        💰 CONVERTED TO EXPENSE
+                    </div>
+                {% elif sale.outstanding_balance <= 0 %}
+                    <div class="status-ribbon paid">
+                        <span class="pulse-dot"></span>
+                        ✅ FULLY PAID
+                    </div>
+                {% elif sale.paid > 0 %}
+                    <div class="status-ribbon partial">
+                        <span class="pulse-dot"></span>
+                        🟡 PARTIAL
+                    </div>
                 {% else %}
-                <div class="status-ribbon {% if sale.outstanding_balance <= 0 %}paid{% else %}pending{% endif %}">
-                    <span class="pulse-dot"></span>
-                    {% if sale.outstanding_balance <= 0 %}PAID{% else %}PENDING{% endif %}
-                </div>
+                    <div class="status-ribbon credit">
+                        <span class="pulse-dot"></span>
+                        ⏳ CREDIT
+                    </div>
                 {% endif %}
             </div>
         </div>
@@ -494,7 +627,6 @@
                     <div class="party-detail">📞 {{ sale.customer.contact_number }}</div>
                     {% endif %}
                     
-                    <!-- ✅ SELF EXPENSE BADGE -->
                     {% if sale.is_converted_to_expense %}
                     <div class="self-expense-badge">
                         <i class="bi bi-currency-exchange"></i> Converted to Self Expense
@@ -508,7 +640,6 @@
                     <div class="party-detail"><strong>Warehouse:</strong> {{ sale.warehouse.name|default:'N/A' }}</div>
                     <div class="party-detail"><strong>By:</strong> {{ sale.created_by.username|default:'Admin' }}</div>
                     
-                    <!-- ✅ Show if converted -->
                     {% if sale.is_converted_to_expense %}
                     <div class="party-detail" style="color:#667eea; font-weight:600; margin-top:5px;">
                         ✅ Self Expense Converted
@@ -572,6 +703,48 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- ✅ PAYMENT HISTORY SECTION -->
+            {% if payment_history %}
+            <div class="payment-history-section">
+                <div class="payment-history-header">
+                    <h5>💳 Payment History ({{ payment_history.count }})</h5>
+                </div>
+                <table class="payment-history-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Method</th>
+                            <th>Reference</th>
+                            <th class="text-right">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in payment_history %}
+                        <tr>
+                            <td>
+                                {{ payment.payment_date|date:"d M, Y" }}
+                                <br><small class="text-muted">{{ payment.payment_date|date:"h:i A" }}</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ payment.payment_method.name|default:'Cash' }}</span>
+                            </td>
+                            <td>
+                                {% if payment.reference_no %}
+                                    {{ payment.reference_no }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-right text-success fw-bold">
+                                Rs. {{ payment.amount|floatformat:2 }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
         </div>
         
         <div class="invoice-footer">
@@ -583,12 +756,23 @@
             {% if company and company.footer_note %}<p class="mt-2"><em>{{ company.footer_note }}</em></p>{% endif %}
         </div>
         
-        <!-- ✅ ACTION BAR - UPDATED WITH SELF EXPENSE BUTTON -->
+        <!-- ✅ ACTION BAR - UPDATED -->
         <div class="action-bar no-print">
+            
+            <!-- ✅ NEW: RECEIVE PAYMENT BUTTON -->
+            {% if sale.outstanding_balance > 0 and not sale.is_converted_to_expense %}
+                <button type="button" 
+                        class="btn-modern btn-receive-payment" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#receivePaymentModal">
+                    <i class="bi bi-cash-coin"></i> 
+                    Receive Payment (Rs. {{ sale.outstanding_balance|floatformat:0 }})
+                </button>
+            {% endif %}
+            
             <a href="{% url 'admin:generate_invoice' sale.pk %}" target="_blank" class="btn-modern btn-print-pdf">📄 PDF</a>
             <button onclick="window.print()" class="btn-modern btn-print">🖨 Print</button>
             
-            <!-- ✅ SELF EXPENSE CONVERT BUTTON -->
             {% if not sale.is_converted_to_expense %}
                 {% if sale.customer.customer_code == 'CUS-SELF' or sale.customer.name|lower == 'self' %}
                     <button onclick="convertToSelfExpense({{ sale.id }})" 
@@ -609,13 +793,11 @@
                 </button>
             {% endif %}
             
-            <!-- WhatsApp Invoice Button -->
             {% if sale.customer.contact_number %}
             <button onclick="sendInvoiceWhatsApp('{{ sale.customer.contact_number }}', '{{ sale.customer.name|escapejs }}', '{{ sale.bill_no }}', '{{ sale.total_amount|floatformat:0 }}')" 
                     class="btn-modern btn-whatsapp">💬 WhatsApp Invoice</button>
             {% endif %}
             
-            <!-- WhatsApp Reminder Button -->
             {% if sale.outstanding_balance > 0 and sale.customer.contact_number %}
             <a href="https://wa.me/92{{ sale.customer.contact_number|slice:'1:' }}?text=Payment%20Reminder%3A%20Outstanding%20Rs.%20{{ sale.outstanding_balance|floatformat:0 }}%20for%20Invoice%20%23{{ sale.bill_no }}" 
                target="_blank" class="btn-modern" style="background:#ff9800; color:white;">⚠️ Reminder</a>
@@ -625,25 +807,140 @@
         </div>
     </div>
 </div>
+
+<!-- ========================================== -->
+<!-- ✅ RECEIVE PAYMENT MODAL -->
+<!-- ========================================== -->
+{% if sale.outstanding_balance > 0 and not sale.is_converted_to_expense %}
+<div class="modal fade payment-modal" id="receivePaymentModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-cash-coin me-2"></i>
+                    Receive Payment from {{ sale.customer.name }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white"
+                        data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+
+                <!-- Outstanding Alert -->
+                <div class="outstanding-alert mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <strong>Outstanding Amount:</strong>
+                        <span class="fw-bold fs-4">Rs. {{ sale.outstanding_balance|floatformat:2 }}</span>
+                    </div>
+                </div>
+
+                <form id="receivePaymentForm">
+                    {% csrf_token %}
+
+                    <!-- Amount -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Amount *</label>
+                        <input type="number"
+                               name="amount"
+                               id="receiveAmount"
+                               class="form-control form-control-lg"
+                               step="0.01"
+                               min="0.01"
+                               max="{{ sale.outstanding_balance }}"
+                               value="{{ sale.outstanding_balance|floatformat:2 }}"
+                               required>
+                        <small class="text-muted">
+                            Max: Rs. {{ sale.outstanding_balance|floatformat:2 }}
+                        </small>
+                    </div>
+
+                    <!-- Payment Method -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Payment Method *</label>
+                        <select name="payment_method" id="receiveMethod" class="form-select form-select-lg">
+                            <option value="Cash">💵 Cash</option>
+                            <option value="Bank Transfer">🏦 Bank Transfer</option>
+                            <option value="Cheque">📄 Cheque</option>
+                            <option value="JazzCash">📱 JazzCash</option>
+                            <option value="EasyPaisa">📱 EasyPaisa</option>
+                            <option value="Card">💳 Card</option>
+                        </select>
+                    </div>
+
+                    <!-- Reference No -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Reference No</label>
+                        <input type="text"
+                               name="reference_no"
+                               id="receiveRef"
+                               class="form-control"
+                               placeholder="e.g., TRX-001, Cheque No">
+                    </div>
+
+                    <!-- Notes -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Notes</label>
+                        <textarea name="notes"
+                                  id="receiveNotes"
+                                  class="form-control"
+                                  rows="2"
+                                  placeholder="Optional notes"></textarea>
+                    </div>
+
+                    <!-- Cash Summary -->
+                    <div class="alert alert-info mb-0">
+                        <div class="d-flex justify-content-between">
+                            <span>Current Cash Balance:</span>
+                            <strong>Rs. {{ cash_balance|floatformat:2 }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mt-1">
+                            <span>After Payment:</span>
+                            <strong id="afterCashBalance" style="color:#28a745;">
+                                Rs. {{ cash_balance|floatformat:2 }}
+                            </strong>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button"
+                        class="btn btn-secondary"
+                        data-bs-dismiss="modal">
+                    Cancel
+                </button>
+                <button type="button"
+                        class="btn btn-success btn-lg"
+                        id="receiveSubmitBtn">
+                    <i class="bi bi-check-circle"></i>
+                    Receive Rs. <span id="receiveAmountDisplay">{{ sale.outstanding_balance|floatformat:2 }}</span>
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
     // ============================================
-    // ✅ CONVERT TO SELF EXPENSE - AJAX FUNCTION
+    // ✅ CONVERT TO SELF EXPENSE
     // ============================================
     function convertToSelfExpense(saleId) {
-        if (!confirm('⚠️ Are you sure you want to convert this sale to SELF EXPENSE?\n\nThis will create an expense entry and the sale will be marked as converted.')) {
+        if (!confirm('⚠️ Convert this sale to SELF EXPENSE?\n\nThis will create an expense entry and the sale will be marked as converted.')) {
             return;
         }
         
-        // Disable button to prevent double click
         const btn = document.getElementById('selfExpenseBtn');
         btn.disabled = true;
         btn.innerHTML = '⏳ Processing...';
         btn.style.opacity = '0.6';
         
-        // Get CSRF token
         const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
                           document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
         
@@ -660,7 +957,7 @@
         .then(data => {
             if (data.success) {
                 alert('✅ ' + data.message);
-                location.reload(); // Refresh page to show updated status
+                location.reload();
             } else {
                 alert('❌ ' + data.message);
                 btn.disabled = false;
@@ -675,6 +972,100 @@
             btn.style.opacity = '1';
         });
     }
+    
+    // ============================================
+    // ✅ RECEIVE PAYMENT HANDLER
+    // ============================================
+    {% if sale.outstanding_balance > 0 and not sale.is_converted_to_expense %}
+    document.addEventListener('DOMContentLoaded', function() {
+        
+        const amountInput = document.getElementById('receiveAmount');
+        const submitBtn = document.getElementById('receiveSubmitBtn');
+        const amountDisplay = document.getElementById('receiveAmountDisplay');
+        const afterCash = document.getElementById('afterCashBalance');
+        
+        const currentCash = {{ cash_balance|default:0 }};
+        const maxAmount = {{ sale.outstanding_balance|default:0 }};
+        
+        if (amountInput) {
+            amountInput.addEventListener('input', function() {
+                const amount = parseFloat(this.value) || 0;
+                if (amountDisplay) amountDisplay.textContent = amount.toFixed(2);
+                
+                const after = currentCash + amount;
+                if (afterCash) {
+                    afterCash.textContent = 'Rs. ' + after.toFixed(2);
+                    afterCash.style.color = '#28a745';
+                }
+            });
+        }
+        
+        if (submitBtn) {
+            submitBtn.addEventListener('click', function() {
+                const amount = parseFloat(amountInput.value);
+                
+                if (!amount || amount <= 0) {
+                    alert('❌ Please enter a valid amount!');
+                    return;
+                }
+                
+                if (amount > maxAmount) {
+                    alert(`❌ Amount exceeds outstanding: Rs. ${maxAmount.toFixed(2)}`);
+                    return;
+                }
+                
+                if (!confirm(`Confirm receipt of Rs. ${amount.toFixed(2)} from {{ sale.customer.name|escapejs }}?\n\nThis will add to cash balance.`)) {
+                    return;
+                }
+                
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '⏳ Processing...';
+                
+                const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                                  document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+                
+                const formData = new FormData(document.getElementById('receivePaymentForm'));
+                
+                fetch('{% url "sale_receive_payment" sale.pk %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrftoken,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('✅ ' + data.message);
+                        location.reload();
+                    } else {
+                        alert('❌ ' + data.message);
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i class="bi bi-check-circle"></i> Receive Rs. ' + amount.toFixed(2);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('❌ Error: ' + error.message);
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-check-circle"></i> Receive Rs. ' + amount.toFixed(2);
+                });
+            });
+        }
+        
+        // Auto-open modal if URL has #receivePaymentModal
+        if (window.location.hash === '#receivePaymentModal') {
+            setTimeout(function() {
+                const modalEl = document.getElementById('receivePaymentModal');
+                if (modalEl && typeof bootstrap !== 'undefined') {
+                    const modal = new bootstrap.Modal(modalEl);
+                    modal.show();
+                }
+            }, 300);
+        }
+    });
+    {% endif %}
     
     // ============================================
     // SEND INVOICE VIA WHATSAPP

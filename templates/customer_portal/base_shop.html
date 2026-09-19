@@ -1,0 +1,339 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ company_name }}{% endblock %}</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    
+    <style>
+        :root {
+            --primary: #667eea;
+            --secondary: #764ba2;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f8f9fa;
+        }
+        
+        .shop-navbar {
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            padding: 15px 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        
+        .shop-brand {
+            font-weight: 800;
+            font-size: 1.3rem;
+            color: var(--primary);
+            text-decoration: none;
+        }
+        
+        .cart-btn {
+            position: relative;
+            color: #333;
+            text-decoration: none;
+            font-size: 1.3rem;
+        }
+        
+        .cart-count {
+            position: absolute;
+            top: -8px;
+            right: -10px;
+            background: #ef4444;
+            color: white;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: 700;
+        }
+        
+        .hero-banner {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 0;
+            text-align: center;
+        }
+        
+        .hero-banner h1 {
+            font-size: 2.5rem;
+            font-weight: 900;
+            margin-bottom: 10px;
+        }
+        
+        .filter-bar {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+        
+        .product-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            transition: all 0.3s;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        
+        .product-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .product-image {
+            position: relative;
+            height: 180px;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        
+        .product-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .product-placeholder {
+            font-size: 4rem;
+            color: #ddd;
+        }
+        
+        .badge-stock {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+        
+        .badge-stock.in {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+        
+        .badge-stock.low {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        .badge-stock.out {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .badge-batch {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            box-shadow: 0 2px 8px rgba(16,185,129,0.4);
+        }
+        
+        .product-info {
+            padding: 15px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .product-category {
+            font-size: 0.7rem;
+            color: #8b90a8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .product-name {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+            flex: 1;
+            line-height: 1.3;
+        }
+        
+        .product-name a {
+            color: #333;
+            text-decoration: none;
+        }
+        
+        .product-name a:hover {
+            color: var(--primary);
+        }
+        
+        .product-price {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin-top: 8px;
+            line-height: 1.2;
+        }
+        
+        .price-source {
+            display: block;
+            font-size: 0.65rem;
+            font-weight: 500;
+            color: #10b981;
+            margin-top: 2px;
+            letter-spacing: 0.3px;
+        }
+        
+        .search-box-wrapper {
+            position: relative;
+        }
+        
+        .search-box-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #8b90a8;
+            z-index: 2;
+        }
+        
+        .search-box-input {
+            padding-left: 42px !important;
+            border-radius: 10px !important;
+            border: 1px solid #e5e7eb !important;
+        }
+        
+        .search-box-input:focus {
+            border-color: #667eea !important;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.15) !important;
+        }
+        
+        .form-control, .form-select {
+            border-radius: 10px;
+            border: 1px solid #e5e7eb;
+            padding: 10px 15px;
+            font-size: 0.9rem;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.15);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #5568d3 0%, #6a4190 100%);
+        }
+        
+        .pagination .page-link {
+            color: #667eea;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            margin: 0 3px;
+            padding: 8px 14px;
+            font-weight: 600;
+        }
+        
+        .pagination .page-item.active .page-link {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: transparent;
+            color: white;
+        }
+        
+        .shop-footer {
+            background: #1a1d2e;
+            color: #a0a5c0;
+            padding: 30px 0;
+            margin-top: 50px;
+            text-align: center;
+        }
+        
+        @media (max-width: 768px) {
+            .hero-banner h1 { font-size: 1.8rem; }
+            .hero-banner { padding: 40px 0; }
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="shop-navbar">
+    <div class="container d-flex justify-content-between align-items-center">
+        <a href="{% url 'shop_home' %}" class="shop-brand">
+            🛍️ {{ company_name }}
+        </a>
+        
+        <div class="d-flex gap-3 align-items-center">
+            <a href="{% url 'track_order' %}" class="text-decoration-none text-dark">
+                <i class="bi bi-truck"></i>
+                <span class="d-none d-md-inline">Track</span>
+            </a>
+            <a href="{% url 'cart_view' %}" class="cart-btn">
+                <i class="bi bi-cart3"></i>
+                <span class="cart-count">{{ cart_count|default:0 }}</span>
+            </a>
+        </div>
+    </div>
+</nav>
+
+<!-- Messages -->
+{% if messages %}
+<div class="container mt-3">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Content -->
+{% block content %}{% endblock %}
+
+<!-- Footer -->
+<footer class="shop-footer">
+    <div class="container">
+        <p class="mb-1">
+            <strong>{{ company_name }}</strong>
+        </p>
+        {% if company %}
+        <p class="mb-1 small">
+            {{ company.contact_number }}
+            {% if company.email %} • {{ company.email }}{% endif %}
+        </p>
+        {% endif %}
+        <p class="mb-0 small">© {% now "Y" %} All rights reserved</p>
+    </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+{% block extra_js %}{% endblock %}
+
+</body>
+</html>

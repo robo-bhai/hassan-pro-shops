@@ -1,0 +1,276 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}📈 AI Cash Forecast{% endblock %}
+
+{% block extra_css %}
+<style>
+    .forecast-header {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        border-radius: 20px;
+        padding: 30px;
+        margin-bottom: 25px;
+    }
+    
+    .forecast-header h1 {
+        font-weight: 900;
+        font-size: 2rem;
+        margin-bottom: 10px;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        transition: all 0.3s;
+        height: 100%;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    }
+    
+    .stat-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #6b7280;
+        font-weight: 700;
+    }
+    
+    .stat-value {
+        font-size: 1.8rem;
+        font-weight: 900;
+        margin-top: 8px;
+    }
+    
+    .forecast-table {
+        background: white;
+        border-radius: 16px;
+        overflow: hidden;
+    }
+    
+    .forecast-table table {
+        margin: 0;
+    }
+    
+    .forecast-table thead {
+        background: linear-gradient(135deg, #1a1d2e 0%, #2d3436 100%);
+        color: white;
+    }
+    
+    .forecast-table tbody tr.danger-row {
+        background: #fee2e2;
+        color: #991b1b;
+        font-weight: 700;
+    }
+    
+    .forecast-table tbody tr.warning-row {
+        background: #fef3c7;
+        color: #92400e;
+        font-weight: 600;
+    }
+    
+    .forecast-table tbody tr:hover {
+        background: #f3f4f6;
+    }
+    
+    .alert-banner {
+        padding: 20px;
+        border-radius: 16px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    
+    .alert-banner.danger {
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        border-left: 5px solid #dc2626;
+        color: #991b1b;
+    }
+    
+    .alert-banner.success {
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        border-left: 5px solid #10b981;
+        color: #065f46;
+    }
+    
+    .alert-icon {
+        font-size: 2.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Header -->
+    <div class="forecast-header">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h1>📈 AI Cash Forecast</h1>
+                <p class="mb-0">
+                    Smart predictions for next 90 days
+                    <br>
+                    <small>Based on historical data & trends</small>
+                </p>
+            </div>
+            <div>
+                <a href="?refresh=true" class="btn btn-light btn-lg fw-bold">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% if analysis %}
+    
+    <!-- Shortage Alert -->
+    {% if analysis.days_until_shortage %}
+    <div class="alert-banner danger">
+        <div class="alert-icon">🚨</div>
+        <div>
+            <h5 class="mb-1">CRITICAL: Cash shortage predicted!</h5>
+            <p class="mb-0">
+                Cash will go negative in <strong>{{ analysis.days_until_shortage }} days</strong>
+                <br>
+                Expected shortage: <strong>Rs. {{ analysis.predicted_shortage_amount|floatformat:2 }}</strong>
+            </p>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert-banner success">
+        <div class="alert-icon">✅</div>
+        <div>
+            <h5 class="mb-1">Safe: No shortage predicted</h5>
+            <p class="mb-0">AI predicts positive cash balance for next 90 days</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Stat Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-label">Current Balance</div>
+                <div class="stat-value text-primary">
+                    Rs. {{ analysis.current_balance|floatformat:0 }}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-label">Daily Inflow</div>
+                <div class="stat-value text-success">
+                    +Rs. {{ analysis.predicted_daily_inflow|floatformat:0 }}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-label">Daily Outflow</div>
+                <div class="stat-value text-danger">
+                    -Rs. {{ analysis.predicted_daily_outflow|floatformat:0 }}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-label">Net Daily</div>
+                <div class="stat-value {% if analysis.predicted_daily_inflow > analysis.predicted_daily_outflow %}text-success{% else %}text-danger{% endif %}">
+                    Rs. {{ analysis.predicted_daily_inflow|add:analysis.predicted_daily_outflow|floatformat:0 }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7-Day Forecast -->
+    <div class="forecast-table mb-4">
+        <div class="p-3 border-bottom">
+            <h5 class="mb-0 fw-bold">📅 7-Day Quick Forecast</h5>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Day</th>
+                        <th>Date</th>
+                        <th class="text-end">Predicted Balance</th>
+                        <th class="text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for day in analysis.forecast_7_days %}
+                    <tr class="{% if day.is_negative %}danger-row{% endif %}">
+                        <td><strong>Day {{ day.day }}</strong></td>
+                        <td>{{ day.date }}</td>
+                        <td class="text-end">Rs. {{ day.predicted_balance|floatformat:2 }}</td>
+                        <td class="text-center">
+                            {% if day.is_negative %}
+                            <span class="badge bg-danger">🚨 Negative</span>
+                            {% else %}
+                            <span class="badge bg-success">✅ Positive</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 30-Day Forecast -->
+    <div class="forecast-table mb-4">
+        <div class="p-3 border-bottom">
+            <h5 class="mb-0 fw-bold">📊 30-Day Forecast</h5>
+        </div>
+        <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+            <table class="table table-hover">
+                <thead class="sticky-top">
+                    <tr>
+                        <th>Day</th>
+                        <th>Date</th>
+                        <th class="text-end">Predicted Balance</th>
+                        <th class="text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for day in analysis.forecast_30_days %}
+                    <tr class="{% if day.is_negative %}danger-row{% endif %}">
+                        <td><strong>Day {{ day.day }}</strong></td>
+                        <td>{{ day.date }}</td>
+                        <td class="text-end">Rs. {{ day.predicted_balance|floatformat:2 }}</td>
+                        <td class="text-center">
+                            {% if day.is_negative %}
+                            <span class="badge bg-danger">🚨</span>
+                            {% else %}
+                            <span class="badge bg-success">✅</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- Empty State -->
+    <div class="card shadow-sm">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-graph-up" style="font-size: 4rem; color: #6b7280;"></i>
+            <h4 class="mt-3">No Analysis Available</h4>
+            <p class="text-muted">Run AI analysis to see cash forecast</p>
+            <a href="{% url 'ai_cash_dashboard' %}?run=true" class="btn btn-primary btn-lg mt-3">
+                <i class="bi bi-play-circle"></i> Run Analysis
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

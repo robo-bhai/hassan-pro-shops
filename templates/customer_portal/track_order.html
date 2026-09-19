@@ -1,0 +1,83 @@
+{% extends 'customer_portal/base_shop.html' %}
+{% load static %}
+
+{% block title %}Track Order - {{ company_name }}{% endblock %}
+
+{% block content %}
+
+<div class="container py-4">
+    <h1 class="mb-4">🚚 Track Your Order</h1>
+    
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <form method="get">
+                        <div class="mb-3">
+                            <label class="form-label">Order Number</label>
+                            <input type="text" 
+                                   name="order_no" 
+                                   class="form-control form-control-lg" 
+                                   placeholder="e.g. ORD-20260919120000"
+                                   value="{{ order_no }}"
+                                   required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 btn-lg">
+                            <i class="bi bi-search"></i> Track Order
+                        </button>
+                    </form>
+                </div>
+            </div>
+            
+            {% if order_no %}
+                {% if sale_order %}
+                <div class="card shadow-sm mt-3">
+                    <div class="card-body">
+                        <h5>Order #{{ sale_order.order_no }}</h5>
+                        <p class="mb-1">
+                            <strong>Date:</strong> {{ sale_order.order_date|date:"d M Y, H:i" }}
+                        </p>
+                        <p class="mb-1">
+                            <strong>Customer:</strong> {{ sale_order.customer.name }}
+                        </p>
+                        <p class="mb-1">
+                            <strong>Items:</strong> {{ sale_order.items.count }}
+                        </p>
+                        <p class="mb-1">
+                            <strong>Total:</strong> Rs. {{ sale_order.total_amount|floatformat:0 }}
+                        </p>
+                        <p class="mb-0">
+                            <strong>Status:</strong>
+                            {% if sale_order.status == 'pending' %}
+                                <span class="badge bg-warning text-dark">⏳ Pending</span>
+                            {% elif sale_order.status == 'confirmed' %}
+                                <span class="badge bg-info">✅ Confirmed</span>
+                            {% elif sale_order.status == 'processing' %}
+                                <span class="badge bg-primary">⚙️ Processing</span>
+                            {% elif sale_order.status == 'ready' %}
+                                <span class="badge bg-success">📦 Ready to Ship</span>
+                            {% elif sale_order.status == 'partially_delivered' %}
+                                <span class="badge bg-info">🚚 Partially Delivered</span>
+                            {% elif sale_order.status == 'delivered' %}
+                                <span class="badge bg-success">🚚 Delivered</span>
+                            {% elif sale_order.status == 'invoiced' %}
+                                <span class="badge bg-success">🧾 Invoiced</span>
+                            {% elif sale_order.status == 'cancelled' %}
+                                <span class="badge bg-danger">❌ Cancelled</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ sale_order.status }}</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                {% else %}
+                <div class="alert alert-warning mt-3">
+                    ❌ Order nahi mila. Order number check karein.
+                </div>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}

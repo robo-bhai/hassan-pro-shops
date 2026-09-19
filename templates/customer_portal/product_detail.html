@@ -1,0 +1,242 @@
+{% extends 'customer_portal/base_shop.html' %}
+{% load static %}
+
+{% block title %}{{ product.name }} - {{ company_name }}{% endblock %}
+
+{% block content %}
+
+<div class="container py-4">
+
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'shop_home' %}">Shop</a></li>
+            {% if product.category %}
+            <li class="breadcrumb-item">
+                <a href="{% url 'shop_home' %}?category={{ product.category.id }}">
+                    {{ product.category.name }}
+                </a>
+            </li>
+            {% endif %}
+            <li class="breadcrumb-item active">{{ product.name }}</li>
+        </ol>
+    </nav>
+
+    <div class="row g-4">
+        
+        <!-- Product Image -->
+        <div class="col-md-6">
+            <div class="product-main-image">
+                {% if product.image %}
+                    <img src="{{ product.image.url }}" alt="{{ product.name }}" id="mainImage">
+                {% else %}
+                    <div class="product-placeholder-large">
+                        <i class="bi bi-box-seam"></i>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Product Info -->
+        <div class="col-md-6">
+            <h1 class="fw-bold">{{ product.name }}</h1>
+            
+            {% if product.brand %}
+            <p class="text-muted">Brand: <strong>{{ product.brand.name }}</strong></p>
+            {% endif %}
+            
+            <div class="product-price-large">
+                Rs. {{ product.price|floatformat:0 }}
+                {% if product.has_batch_price %}
+                <span class="badge bg-success ms-2" style="font-size: 0.7rem;">
+                    🏷️ Batch Price
+                </span>
+                {% endif %}
+            </div>
+            
+            <!-- Stock -->
+            <div class="my-3">
+                {% if product.available_stock > 0 %}
+                    <span class="badge bg-success">
+                        <i class="bi bi-check-circle"></i>
+                        In Stock ({{ product.available_stock }} available)
+                    </span>
+                {% else %}
+                    <span class="badge bg-danger">
+                        <i class="bi bi-x-circle"></i>
+                        Out of Stock
+                    </span>
+                {% endif %}
+            </div>
+            
+            <!-- Description -->
+            {% if product.description %}
+            <div class="product-description my-3">
+                <h5>Description</h5>
+                <p>{{ product.description }}</p>
+            </div>
+            {% endif %}
+            
+            <!-- Quantity + Add to Cart -->
+            {% if product.available_stock > 0 %}
+            <div class="row g-2 mt-3">
+                <div class="col-4">
+                    <label class="form-label">Quantity</label>
+                    <input type="number" 
+                           id="productQuantity" 
+                           class="form-control" 
+                           value="1" 
+                           min="1" 
+                           max="{{ product.available_stock }}">
+                </div>
+                <div class="col-8">
+                    <label class="form-label">&nbsp;</label>
+                    <button class="btn btn-primary w-100 add-to-cart-detail"
+                            data-product-id="{{ product.id }}">
+                        <i class="bi bi-cart-plus"></i> Add to Cart
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Product Details -->
+            <div class="product-details mt-4">
+                <h6>Product Details</h6>
+                <table class="table table-sm">
+                    {% if product.serial_no %}
+                    <tr>
+                        <td>Serial No:</td>
+                        <td><strong>{{ product.serial_no }}</strong></td>
+                    </tr>
+                    {% endif %}
+                    {% if product.unit %}
+                    <tr>
+                        <td>Unit:</td>
+                        <td>{{ product.unit.name }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if product.category %}
+                    <tr>
+                        <td>Category:</td>
+                        <td>{{ product.category.name }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Related Products -->
+    {% if related_products %}
+    <div class="mt-5">
+        <h3 class="mb-3">Related Products</h3>
+        <div class="row g-3">
+            {% for rp in related_products %}
+            <div class="col-6 col-md-3">
+                <div class="product-card">
+                    <a href="{% url 'shop_product_detail' rp.pk %}">
+                        <div class="product-image">
+                            {% if rp.image %}
+                                <img src="{{ rp.image.url }}" alt="{{ rp.name }}">
+                            {% else %}
+                                <div class="product-placeholder">
+                                    <i class="bi bi-box-seam"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </a>
+                    <div class="product-info">
+                        <h6 class="product-name">
+                            <a href="{% url 'shop_product_detail' rp.pk %}">
+                                {{ rp.name|truncatechars:30 }}
+                            </a>
+                        </h6>
+                        <div class="product-price">
+                            Rs. {{ rp.price|floatformat:0 }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<style>
+    .product-main-image {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        min-height: 400px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .product-main-image img {
+        max-width: 100%;
+        max-height: 400px;
+        border-radius: 12px;
+    }
+    
+    .product-placeholder-large {
+        font-size: 8rem;
+        color: #ddd;
+    }
+    
+    .product-price-large {
+        font-size: 2rem;
+        font-weight: 900;
+        color: var(--primary);
+        margin: 15px 0;
+    }
+    
+    .product-description {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 10px;
+    }
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelector('.add-to-cart-detail')?.addEventListener('click', function() {
+    const productId = this.dataset.productId;
+    const quantity = parseInt(document.getElementById('productQuantity').value) || 1;
+    
+    this.disabled = true;
+    this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Adding...';
+    
+    fetch('{% url "add_to_cart" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            product_id: productId,
+            quantity: quantity
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            document.querySelectorAll('.cart-count').forEach(el => {
+                el.textContent = data.cart_count;
+            });
+            alert('✅ ' + data.message);
+            this.innerHTML = '<i class="bi bi-check"></i> Added!';
+        } else {
+            alert('❌ ' + data.message);
+            this.innerHTML = '<i class="bi bi-cart-plus"></i> Add to Cart';
+        }
+        this.disabled = false;
+    });
+});
+</script>
+{% endblock %}
