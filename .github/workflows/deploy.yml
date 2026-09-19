@@ -650,7 +650,7 @@ jobs:
 
           for i in {1..65}; do
             for s in {1..60}; do
-              LATEST_RUN_ID=$(gh api "repos/$REPO/actions/runs?branch=$BRANCH&per_page=1" --jq '.workflow_runs[0].id' 2>/dev/null \vert{}\vert{} echo "$CURRENT_RUN_ID")
+              LATEST_RUN_ID=$(gh api "repos/$REPO/actions/runs?branch=$BRANCH&per_page=1" --jq '.workflow_runs[0].id' 2>/dev/null || echo "$CURRENT_RUN_ID")
               
               if [ "$LATEST_RUN_ID" -gt "$CURRENT_RUN_ID" ]; then
                 echo "A newer workflow run ($LATEST_RUN_ID) detected! Instantly cancelling current log stream..."
@@ -666,7 +666,8 @@ jobs:
             echo "--- RECENT EXCEPTIONS / ERROR TRACEBACKS ---"
             grep -i -C 3 "error\|exception\|traceback\|500\|404" django.log || echo "No errors detected."
             echo "------------------------------------------"
-          done
+          done || true
+
 
       - name: Sync Local Runner MySQL Back to Cloud Aiven MySQL
         if: always()
