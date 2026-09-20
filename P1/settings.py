@@ -187,13 +187,21 @@ import os
 # STATIC FILES & MEDIA
 # ============================================
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
-os.makedirs(MEDIA_ROOT, exist_ok=True)
+import os
+from pathlib import Path
 
+# Static Files Setup
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Media Files Setup
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# Directory Auto-Creation (Safe Side)
+os.makedirs(STATIC_ROOT, exist_ok=True)
+os.makedirs(MEDIA_ROOT, exist_ok=True)
 
 # ============================================
 # ✅ DYNAMIC STORAGE SETTINGS (Termux / CI / Prod)
