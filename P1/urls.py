@@ -4,6 +4,9 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.shortcuts import redirect
 from django.urls import path, include, re_path
+from django.views.static import serve
+
+
 # Handlers bind karein app.views ke sath
 handler404 = 'app.views.custom_page_not_found'
 handler500 = 'app.views.custom_server_error'
