@@ -1,201 +1,637 @@
 {% extends 'customer_portal/base_shop.html' %}
 {% load static %}
 
-{% block title %}{{ company_name }} - Shop{% endblock %}
+{% block title %}Shop - {{ company_name }}{% endblock %}
 
 {% block content %}
 
-<!-- ✅ Hide Mobile Bottom Navigation on Shop Page -->
 <style>
-    .mobile-bottom-nav {
-        display: none !important;
+    /* ============================================ */
+    /* COLLAPSIBLE SIDEBAR (FULL HEIGHT - NO GAP)  */
+    /* ============================================ */
+    .admin-sidebar {
+        position: fixed;
+        top: 0;
+        left: -320px;
+        width: 300px;
+        height: 100vh;
+        background: white;
+        box-shadow: 4px 0 25px rgba(0, 0, 0, 0.15);
+        z-index: 1050;
+        transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
     }
     
-    body {
-        padding-bottom: 20px !important;
+    .admin-sidebar.open {
+        left: 0;
+    }
+    
+    .admin-sidebar::-webkit-scrollbar {
+        width: 5px;
+    }
+    
+    .admin-sidebar::-webkit-scrollbar-thumb {
+        background: #d1d5db;
+        border-radius: 10px;
+    }
+    
+    /* Sidebar Header */
+    .sidebar-top {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-shrink: 0;
+    }
+    
+    .sidebar-top h5 {
+        margin: 0;
+        font-weight: 700;
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .sidebar-close-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 16px;
+    }
+    
+    .sidebar-close-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+    
+    /* Sidebar Body */
+    .sidebar-content {
+        padding: 20px;
+        flex: 1;
+    }
+    
+    /* Search */
+    .sidebar-search {
+        position: relative;
+        margin-bottom: 20px;
+    }
+    
+    .sidebar-search input {
+        width: 100%;
+        padding: 11px 15px 11px 42px;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        transition: all 0.2s;
+    }
+    
+    .sidebar-search input:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    .sidebar-search i {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #9ca3af;
+    }
+    
+    /* Sections */
+    .sidebar-section {
+        margin-bottom: 22px;
+    }
+    
+    .sidebar-section-title {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    /* Filter Items */
+    .filter-item {
+        display: flex;
+        align-items: center;
+        padding: 10px 14px;
+        margin-bottom: 5px;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        color: #4b5563;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    
+    .filter-item:hover {
+        background: #f0f4ff;
+        color: #667eea;
+        transform: translateX(3px);
+    }
+    
+    .filter-item.active {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        font-weight: 600;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+    
+    .filter-item .filter-icon {
+        margin-right: 12px;
+        font-size: 1.1rem;
+        width: 20px;
+        text-align: center;
+    }
+    
+    /* Divider */
+    .sidebar-divider {
+        height: 1px;
+        background: #f0f2f5;
+        margin: 15px 0;
+    }
+    
+    /* Sort Select */
+    .sidebar-select {
+        width: 100%;
+        padding: 11px 15px;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #1a1d2e;
+        background: white;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .sidebar-select:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    /* Clear Button */
+    .btn-clear-all {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        width: 100%;
+        padding: 11px;
+        background: #fef2f2;
+        color: #dc3545;
+        border: 1px solid #fecaca;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-decoration: none;
+        transition: all 0.2s;
+        margin-top: 10px;
+    }
+    
+    .btn-clear-all:hover {
+        background: #dc3545;
+        color: white;
+        border-color: #dc3545;
+    }
+    
+    /* ============================================ */
+    /* OVERLAY (ABOVE NAVBAR)                       */
+    /* ============================================ */
+    .sidebar-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1045;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(2px);
+    }
+    
+    .sidebar-overlay.active {
+        opacity: 1;
+        visibility: visible;
+    }
+    
+    /* ============================================ */
+    /* HERO BANNER                                  */
+    /* ============================================ */
+    .hero-banner {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 40px 20px;
+        text-align: center;
+        border-radius: 15px;
+        margin-bottom: 25px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .hero-banner::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: rotate 30s linear infinite;
+    }
+    
+    @keyframes rotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    
+    .hero-banner h1 {
+        font-size: 2rem;
+        font-weight: 800;
+        margin-bottom: 8px;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .hero-banner p {
+        margin: 0;
+        opacity: 0.9;
+        position: relative;
+        z-index: 1;
+    }
+    
+    /* ============================================ */
+    /* TOP BAR                                      */
+    /* ============================================ */
+    .shop-top-bar {
+        background: white;
+        border-radius: 12px;
+        padding: 14px 20px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .results-count {
+        font-size: 0.9rem;
+        color: #6b7280;
+    }
+    
+    .results-count strong {
+        color: #1a1d2e;
+        font-size: 1.1rem;
+    }
+    
+    /* Active Filters Badges */
+    .active-filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    
+    .filter-badge {
+        background: #e0e7ff;
+        color: #4338ca;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+    
+    .filter-badge:hover {
+        background: #c7d2fe;
+        color: #4338ca;
+    }
+    
+    /* ============================================ */
+    /* PRODUCT GRID                                 */
+    /* ============================================ */
+    .products-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 15px;
+    }
+    
+    /* Empty State */
+    .empty-products {
+        background: white;
+        border-radius: 15px;
+        padding: 60px 20px;
+        text-align: center;
+        box-shadow: 0 2px 15px rgba(0,0,0,0.05);
+    }
+    
+    .empty-products i {
+        font-size: 80px;
+        color: #d1d5db;
+        display: block;
+        margin-bottom: 20px;
+    }
+    
+    .empty-products h4 {
+        color: #1a1d2e;
+        font-weight: 700;
+        margin-bottom: 10px;
+    }
+    
+    .empty-products p {
+        color: #6b7280;
+        margin-bottom: 25px;
+    }
+    
+    /* ============================================ */
+    /* RESPONSIVE                                   */
+    /* ============================================ */
+    @media (max-width: 768px) {
+        .admin-sidebar {
+            width: 280px;
+            left: -290px;
+            top: 0;
+            height: 100vh;
+        }
+        
+        .hero-banner {
+            padding: 30px 15px;
+        }
+        
+        .hero-banner h1 {
+            font-size: 1.5rem;
+        }
+        
+        .products-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .shop-top-bar {
+            padding: 12px 15px;
+        }
     }
 </style>
 
-<!-- Hero Banner -->
-<div class="hero-banner">
-    <div class="container">
-        <h1>🛍️ {{ company_name }}</h1>
-        <p>Quality products, delivered to your door</p>
+<!-- ============================================ -->
+<!-- OVERLAY                                      -->
+<!-- ============================================ -->
+<div class="sidebar-overlay" 
+     id="sidebarOverlay"
+     onclick="toggleShopSidebar()"></div>
+
+<!-- ============================================ -->
+<!-- COLLAPSIBLE SIDEBAR                          -->
+<!-- ============================================ -->
+<aside class="admin-sidebar" id="adminSidebar">
+    
+    <div class="sidebar-top">
+        <h5>
+            <i class="bi bi-funnel-fill"></i>
+            Filters
+        </h5>
+        <button class="sidebar-close-btn" 
+                type="button" 
+                onclick="toggleShopSidebar()">
+            <i class="bi bi-x-lg"></i>
+        </button>
     </div>
-</div>
-
-<div class="container py-4">
-
-    <!-- Search + Filter Bar -->
-    <div class="filter-bar">
-        <form method="get" class="row g-2">
-            <div class="col-md-4">
-                <div class="search-box-wrapper">
-                    <i class="bi bi-search search-box-icon"></i>
-                    <input type="text" 
-                           name="search" 
-                           class="form-control search-box-input" 
-                           placeholder="Search products..."
-                           value="{{ search }}">
-                </div>
+    
+    <div class="sidebar-content">
+        
+        <!-- Search -->
+        <div class="sidebar-search">
+            <i class="bi bi-search"></i>
+            <input type="text" 
+                   id="sidebarSearch"
+                   placeholder="Search products..."
+                   value="{{ search }}"
+                   onkeypress="if(event.key==='Enter') applySearch(this.value)">
+        </div>
+        
+        <!-- Categories -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">
+                <i class="bi bi-grid"></i> CATEGORIES
             </div>
-            <div class="col-md-2">
-                <select name="category" class="form-select">
-                    <option value="">📁 All Categories</option>
-                    {% for cat in categories %}
-                    <option value="{{ cat.id }}" {% if selected_category == cat.id|stringformat:"s" %}selected{% endif %}>
-                        {{ cat.name }}
-                    </option>
-                    {% endfor %}
-                </select>
+            
+            <a href="?{% if search %}search={{ search }}&{% endif %}{% if selected_brand %}brand={{ selected_brand }}&{% endif %}{% if selected_sort %}sort={{ selected_sort }}{% endif %}"
+               class="filter-item {% if not selected_category %}active{% endif %}">
+                <i class="bi bi-grid-3x3-gap filter-icon"></i>
+                All Categories
+            </a>
+            
+            {% for cat in categories %}
+            <a href="?category={{ cat.id }}{% if search %}&search={{ search }}{% endif %}{% if selected_brand %}&brand={{ selected_brand }}{% endif %}{% if selected_sort %}&sort={{ selected_sort }}{% endif %}"
+               class="filter-item {% if selected_category == cat.id|stringformat:'s' %}active{% endif %}">
+                <i class="bi bi-tag filter-icon"></i>
+                {{ cat.name }}
+            </a>
+            {% endfor %}
+        </div>
+        
+        <div class="sidebar-divider"></div>
+        
+        <!-- Brands -->
+        {% if brands %}
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">
+                <i class="bi bi-award"></i> BRANDS
             </div>
-            <div class="col-md-2">
-                <select name="brand" class="form-select">
-                    <option value="">🏷️ All Brands</option>
-                    {% for b in brands %}
-                    <option value="{{ b.id }}" {% if selected_brand == b.id|stringformat:"s" %}selected{% endif %}>
-                        {{ b.name }}
-                    </option>
-                    {% endfor %}
-                </select>
+            
+            <a href="?{% if search %}search={{ search }}&{% endif %}{% if selected_category %}category={{ selected_category }}&{% endif %}{% if selected_sort %}sort={{ selected_sort }}{% endif %}"
+               class="filter-item {% if not selected_brand %}active{% endif %}">
+                <i class="bi bi-collection filter-icon"></i>
+                All Brands
+            </a>
+            
+            {% for brand in brands %}
+            <a href="?brand={{ brand.id }}{% if search %}&search={{ search }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if selected_sort %}&sort={{ selected_sort }}{% endif %}"
+               class="filter-item {% if selected_brand == brand.id|stringformat:'s' %}active{% endif %}">
+                <i class="bi bi-award filter-icon"></i>
+                {{ brand.name }}
+            </a>
+            {% endfor %}
+        </div>
+        
+        <div class="sidebar-divider"></div>
+        {% endif %}
+        
+        <!-- Sort -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">
+                <i class="bi bi-sort-down"></i> SORT BY
             </div>
-            <div class="col-md-2">
-                <select name="sort" class="form-select">
-                    <option value="newest" {% if selected_sort == 'newest' %}selected{% endif %}>🆕 Newest</option>
-                    <option value="price_low" {% if selected_sort == 'price_low' %}selected{% endif %}>💵 Price: Low → High</option>
-                    <option value="price_high" {% if selected_sort == 'price_high' %}selected{% endif %}>💰 Price: High → Low</option>
-                    <option value="name" {% if selected_sort == 'name' %}selected{% endif %}>🔤 Name</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <button type="submit" class="btn btn-primary w-100">
-                    <i class="bi bi-search"></i> Search
-                </button>
-            </div>
-        </form>
-    </div>
-
-    <!-- Results Count -->
-    <div class="d-flex justify-content-between align-items-center my-3">
-        <p class="text-muted mb-0">
-            <strong>{{ total_products }}</strong> products found
-        </p>
-        {% if search or selected_category or selected_brand %}
-        <a href="{% url 'shop_home' %}" class="btn btn-sm btn-outline-secondary">
-            <i class="bi bi-x-circle"></i> Clear Filters
+            
+            <select class="sidebar-select" 
+                    onchange="applySort(this.value)">
+                <option value="newest" {% if selected_sort == 'newest' %}selected{% endif %}>
+                    🆕 Newest First
+                </option>
+                <option value="price_low" {% if selected_sort == 'price_low' %}selected{% endif %}>
+                    💰 Price: Low to High
+                </option>
+                <option value="price_high" {% if selected_sort == 'price_high' %}selected{% endif %}>
+                    💎 Price: High to Low
+                </option>
+                <option value="name" {% if selected_sort == 'name' %}selected{% endif %}>
+                    🔤 Name (A-Z)
+                </option>
+            </select>
+        </div>
+        
+        <!-- Clear All -->
+        {% if search or selected_category or selected_brand or selected_sort %}
+        <a href="{% url 'shop_home' %}" class="btn-clear-all">
+            <i class="bi bi-x-circle"></i>
+            Clear All Filters
         </a>
         {% endif %}
+        
     </div>
+</aside>
 
+<!-- ============================================ -->
+<!-- MAIN CONTENT                                 -->
+<!-- ============================================ -->
+<div class="container py-4">
+    
+    <!-- Hero Banner -->
+    <div class="hero-banner">
+        <h1>🛍️ Welcome to {{ company_name }}</h1>
+        <p>Best products at best prices</p>
+    </div>
+    
+    <!-- Top Bar -->
+    <div class="shop-top-bar">
+        <span class="results-count">
+            <strong>{{ total_products }}</strong> products found
+        </span>
+        
+        <!-- Active Filters -->
+        {% if search or selected_category or selected_brand %}
+        <div class="active-filters">
+            {% if search %}
+            <a href="?{% if selected_category %}category={{ selected_category }}&{% endif %}{% if selected_brand %}brand={{ selected_brand }}{% endif %}" 
+               class="filter-badge">
+                🔍 "{{ search }}" <i class="bi bi-x"></i>
+            </a>
+            {% endif %}
+            
+            {% if selected_brand %}
+            <a href="?{% if search %}search={{ search }}&{% endif %}{% if selected_category %}category={{ selected_category }}{% endif %}" 
+               class="filter-badge">
+                🏆 Brand <i class="bi bi-x"></i>
+            </a>
+            {% endif %}
+            
+            {% if selected_category %}
+            <a href="?{% if search %}search={{ search }}&{% endif %}{% if selected_brand %}brand={{ selected_brand }}{% endif %}" 
+               class="filter-badge">
+                📂 Category <i class="bi bi-x"></i>
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+    
     <!-- Products Grid -->
-    <div class="row g-3">
-        {% for product in products %}
-        <div class="col-6 col-md-4 col-lg-3">
-            <div class="product-card">
-                
-                <!-- Product Image -->
-                <a href="{% url 'shop_product_detail' product.pk %}">
-                    <div class="product-image">
-                        {% if product.image %}
-                            <img src="{{ product.image.url }}" alt="{{ product.name }}">
-                        {% else %}
-                            <div class="product-placeholder">
-                                <i class="bi bi-box-seam"></i>
-                            </div>
-                        {% endif %}
-                        
-                        <!-- Stock Badge -->
-                        {% if product.available_stock <= 0 %}
-                            <span class="badge-stock out">
-                                <i class="bi bi-x-circle"></i> Out of Stock
-                            </span>
-                        {% elif product.available_stock < 10 %}
-                            <span class="badge-stock low">
-                                <i class="bi bi-exclamation-triangle"></i> Only {{ product.available_stock }} left
-                            </span>
-                        {% else %}
-                            <span class="badge-stock in">
-                                <i class="bi bi-check-circle"></i> In Stock
-                            </span>
-                        {% endif %}
-                        
-                        <!-- Batch Price Badge -->
-                        {% if product.has_batch_price %}
-                        <span class="badge-batch">
-                            <i class="bi bi-tag-fill"></i> Batch Price
-                        </span>
-                        {% endif %}
+    {% if page_obj %}
+    <div class="products-grid">
+        {% for product in page_obj %}
+        <div class="product-card">
+            
+            <!-- Product Image -->
+            <div class="product-image">
+                <a href="{% url 'shop_product_detail' product.id %}">
+                    {% if product.image %}
+                    <img src="{{ product.image.url }}" alt="{{ product.name }}">
+                    {% else %}
+                    <div class="product-placeholder">
+                        <i class="bi bi-box"></i>
                     </div>
+                    {% endif %}
                 </a>
                 
-                <!-- Product Info -->
-                <div class="product-info">
-                    
-                    {% if product.category %}
-                    <div class="product-category">
-                        {{ product.category.name }}
-                    </div>
-                    {% endif %}
-                    
-                    <h6 class="product-name">
-                        <a href="{% url 'shop_product_detail' product.pk %}">
-                            {{ product.name|truncatechars:40 }}
-                        </a>
-                    </h6>
-                    
-                    {% if product.brand %}
-                    <small class="text-muted d-block mb-1">
-                        <i class="bi bi-bookmark"></i> {{ product.brand.name }}
-                    </small>
-                    {% endif %}
-                    
-                    <div class="product-price">
-                        Rs. {{ product.price|floatformat:0 }}
-                        {% if product.has_batch_price %}
-                        <span class="price-source">from batch</span>
-                        {% endif %}
-                    </div>
-                    
-                    {% if product.available_stock > 0 %}
-                    <small class="text-success d-block mb-2">
-                        <i class="bi bi-check-circle-fill"></i>
-                        {{ product.available_stock }} available
-                    </small>
+                <!-- Stock Badge -->
+                {% if product.available_stock > 0 %}
+                    {% if product.available_stock < 10 %}
+                    <span class="badge-stock low">⚠️ Low Stock</span>
                     {% else %}
-                    <small class="text-danger d-block mb-2">
-                        <i class="bi bi-x-circle-fill"></i>
-                        Out of stock
-                    </small>
+                    <span class="badge-stock in">✅ In Stock</span>
                     {% endif %}
-                    
-                    {% if product.available_stock > 0 %}
-                    <button class="btn btn-primary btn-sm w-100 mt-2 add-to-cart-btn"
-                            data-product-id="{{ product.id }}">
-                        <i class="bi bi-cart-plus"></i> Add to Cart
-                    </button>
-                    {% else %}
-                    <button class="btn btn-secondary btn-sm w-100 mt-2" disabled>
-                        <i class="bi bi-x-circle"></i> Out of Stock
-                    </button>
-                    {% endif %}
-                    
+                {% else %}
+                <span class="badge-stock out">❌ Out</span>
+                {% endif %}
+                
+                <!-- Batch Price Badge -->
+                {% if product.has_batch_price %}
+                <span class="badge-batch">🏷️ Best Price</span>
+                {% endif %}
+            </div>
+            
+            <!-- Product Info -->
+            <div class="product-info">
+                {% if product.category %}
+                <div class="product-category">{{ product.category.name }}</div>
+                {% endif %}
+                
+                <div class="product-name">
+                    <a href="{% url 'shop_product_detail' product.id %}">
+                        {{ product.name }}
+                    </a>
                 </div>
                 
+                <div class="product-price">
+                    Rs. {{ product.price|floatformat:0 }}
+                    {% if product.has_batch_price %}
+                    <span class="price-source">📦 From Stock Batch</span>
+                    {% endif %}
+                </div>
+                
+                {% if product.available_stock > 0 %}
+                <a href="{% url 'shop_product_detail' product.id %}" 
+                   class="btn btn-primary btn-sm w-100 mt-2">
+                    <i class="bi bi-cart-plus"></i> View & Buy
+                </a>
+                {% else %}
+                <button class="btn btn-secondary btn-sm w-100 mt-2" disabled>
+                    ❌ Out of Stock
+                </button>
+                {% endif %}
             </div>
-        </div>
-        {% empty %}
-        
-        <div class="col-12 text-center py-5">
-            <i class="bi bi-inbox" style="font-size: 5rem; color: #ccc;"></i>
-            <h4 class="mt-3">No products found</h4>
-            <p class="text-muted">Try different search or filters</p>
-            <a href="{% url 'shop_home' %}" class="btn btn-primary btn-lg mt-2">
-                <i class="bi bi-shop"></i> View All Products
-            </a>
+            
         </div>
         {% endfor %}
     </div>
-
+    
     <!-- Pagination -->
     {% if page_obj.has_other_pages %}
     <nav class="mt-4">
@@ -203,95 +639,127 @@
             {% if page_obj.has_previous %}
             <li class="page-item">
                 <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if selected_brand %}&brand={{ selected_brand }}{% endif %}{% if selected_sort %}&sort={{ selected_sort }}{% endif %}">
-                    <i class="bi bi-chevron-left"></i> Previous
+                    <i class="bi bi-chevron-left"></i>
                 </a>
             </li>
             {% endif %}
             
-            <li class="page-item active">
-                <span class="page-link">
-                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
-                </span>
-            </li>
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}{% if search %}&search={{ search }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if selected_brand %}&brand={{ selected_brand }}{% endif %}{% if selected_sort %}&sort={{ selected_sort }}{% endif %}">
+                        {{ num }}
+                    </a>
+                </li>
+                {% endif %}
+            {% endfor %}
             
             {% if page_obj.has_next %}
             <li class="page-item">
                 <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if selected_brand %}&brand={{ selected_brand }}{% endif %}{% if selected_sort %}&sort={{ selected_sort }}{% endif %}">
-                    Next <i class="bi bi-chevron-right"></i>
+                    <i class="bi bi-chevron-right"></i>
                 </a>
             </li>
             {% endif %}
         </ul>
     </nav>
     {% endif %}
-
-</div>
-
-<!-- Toast -->
-<div class="toast-container position-fixed bottom-0 end-0 p-3">
-    <div id="cartToast" class="toast" role="alert">
-        <div class="toast-header bg-success text-white">
-            <i class="bi bi-check-circle me-2"></i>
-            <strong class="me-auto">Success</strong>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
-        </div>
-        <div class="toast-body" id="cartToastMessage">
-            Product added to cart!
-        </div>
+    
+    {% else %}
+    
+    <!-- Empty State -->
+    <div class="empty-products">
+        <i class="bi bi-search"></i>
+        <h4>No Products Found</h4>
+        <p>Aapke filter ke mutabiq koi product nahi mila.</p>
+        <a href="{% url 'shop_home' %}" class="btn btn-primary">
+            <i class="bi bi-arrow-clockwise"></i> Clear Filters
+        </a>
     </div>
+    
+    {% endif %}
+    
 </div>
 
-{% endblock %}
-
-{% block extra_js %}
 <script>
-document.querySelectorAll('.add-to-cart-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        const productId = this.dataset.productId;
-        const originalText = this.innerHTML;
-        
-        this.disabled = true;
-        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Adding...';
-        
-        fetch('{% url "add_to_cart" %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify({
-                product_id: productId,
-                quantity: 1
-            })
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) {
-                document.querySelectorAll('.cart-count').forEach(el => {
-                    el.textContent = data.cart_count;
-                });
-                
-                document.getElementById('cartToastMessage').textContent = data.message;
-                const toast = new bootstrap.Toast(document.getElementById('cartToast'));
-                toast.show();
-                
-                this.innerHTML = '<i class="bi bi-check"></i> Added!';
-                setTimeout(() => {
-                    this.innerHTML = originalText;
-                    this.disabled = false;
-                }, 1500);
-            } else {
-                alert(data.message);
-                this.innerHTML = originalText;
-                this.disabled = false;
-            }
-        })
-        .catch(err => {
-            alert('Error: ' + err);
-            this.innerHTML = originalText;
-            this.disabled = false;
-        });
-    });
+// ==========================================
+// SIDEBAR TOGGLE
+// ==========================================
+function toggleShopSidebar() {
+    const sidebar = document.getElementById('adminSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    const hamburger = document.getElementById('navbarHamburgerBtn');
+    const icon = document.getElementById('navbarHamburgerIcon');
+    
+    if (!sidebar) return;
+    
+    const isOpen = sidebar.classList.contains('open');
+    
+    if (isOpen) {
+        sidebar.classList.remove('open');
+        if (overlay) overlay.classList.remove('active');
+        if (hamburger) hamburger.classList.remove('active');
+        if (icon) icon.className = 'bi bi-list';
+        document.body.style.overflow = '';
+    } else {
+        sidebar.classList.add('open');
+        if (overlay) overlay.classList.add('active');
+        if (hamburger) hamburger.classList.add('active');
+        if (icon) icon.className = 'bi bi-x-lg';
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+// ==========================================
+// APPLY SEARCH
+// ==========================================
+function applySearch(query) {
+    const params = new URLSearchParams(window.location.search);
+    
+    if (query && query.trim()) {
+        params.set('search', query.trim());
+    } else {
+        params.delete('search');
+    }
+    
+    params.delete('page');
+    window.location.search = params.toString();
+}
+
+// ==========================================
+// APPLY SORT
+// ==========================================
+function applySort(value) {
+    const params = new URLSearchParams(window.location.search);
+    
+    params.set('sort', value);
+    params.delete('page');
+    
+    window.location.search = params.toString();
+}
+
+// ==========================================
+// ESC KEY TO CLOSE SIDEBAR
+// ==========================================
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const sidebar = document.getElementById('adminSidebar');
+        if (sidebar && sidebar.classList.contains('open')) {
+            toggleShopSidebar();
+        }
+    }
+});
+
+// ==========================================
+// RESET SCROLL LOCK ON LOAD
+// ==========================================
+document.addEventListener('DOMContentLoaded', function() {
+    document.body.style.overflow = '';
 });
 </script>
+
 {% endblock %}
