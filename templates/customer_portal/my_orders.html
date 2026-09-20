@@ -1,0 +1,265 @@
+{% extends 'customer_portal/base_shop.html' %}
+{% load static %}
+
+{% block title %}My Orders - {{ company_name }}{% endblock %}
+
+{% block content %}
+
+<!-- ✅ Hide Mobile Bottom Navigation on My Orders Page -->
+<style>
+    .mobile-bottom-nav {
+        display: none !important;
+    }
+    
+    body {
+        padding-bottom: 20px !important;
+    }
+</style>
+
+<div class="container py-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="bi bi-bag-check text-primary"></i> My Orders
+            </h2>
+            <p class="text-muted mb-0">Apne saare orders yahan dekhein</p>
+        </div>
+        <a href="{% url 'shop_home' %}" class="btn btn-primary">
+            <i class="bi bi-shop"></i> Continue Shopping
+        </a>
+    </div>
+
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="stat-card stat-primary" style="border-color: #667eea;">
+                <div class="stat-icon">📦</div>
+                <div class="stat-number">{{ stats.total }}</div>
+                <div class="stat-label">Total Orders</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card stat-warning" style="border-color: #f2994a;">
+                <div class="stat-icon">⏳</div>
+                <div class="stat-number">{{ stats.pending }}</div>
+                <div class="stat-label">Pending</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card stat-success" style="border-color: #10b981;">
+                <div class="stat-icon">✅</div>
+                <div class="stat-number">{{ stats.delivered }}</div>
+                <div class="stat-label">Delivered</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card stat-danger" style="border-color: #ef4444;">
+                <div class="stat-icon">❌</div>
+                <div class="stat-number">{{ stats.cancelled }}</div>
+                <div class="stat-label">Cancelled</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <div class="d-flex gap-2 flex-wrap">
+                <a href="{% url 'my_orders' %}" 
+                   class="btn btn-sm {% if not status_filter %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                    All ({{ stats.total }})
+                </a>
+                <a href="{% url 'my_orders' %}?status=pending" 
+                   class="btn btn-sm {% if status_filter == 'pending' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                    ⏳ Pending ({{ stats.pending }})
+                </a>
+                <a href="{% url 'my_orders' %}?status=delivered" 
+                   class="btn btn-sm {% if status_filter == 'delivered' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                    ✅ Delivered ({{ stats.delivered }})
+                </a>
+                <a href="{% url 'my_orders' %}?status=cancelled" 
+                   class="btn btn-sm {% if status_filter == 'cancelled' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                    ❌ Cancelled ({{ stats.cancelled }})
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Orders List -->
+    {% if orders %}
+    <div class="row g-3">
+        {% for order in page_obj %}
+        <div class="col-12">
+            <div class="order-card">
+                <div class="row align-items-center g-3">
+                    
+                    <!-- Order Info -->
+                    <div class="col-md-3">
+                        <div class="order-number">#{{ order.order_no }}</div>
+                        <div class="order-date">
+                            <i class="bi bi-calendar"></i>
+                            {{ order.order_date|date:"d M, Y" }}
+                        </div>
+                    </div>
+                    
+                    <!-- Items Info -->
+                    <div class="col-md-3">
+                        <div class="text-muted small">Items</div>
+                        <div class="fw-bold">{{ order.items.count }} items</div>
+                    </div>
+                    
+                    <!-- Amount -->
+                    <div class="col-md-2">
+                        <div class="text-muted small">Total</div>
+                        <div class="order-amount">
+                            Rs. {{ order.total_amount|floatformat:2 }}
+                        </div>
+                    </div>
+                    
+                    <!-- Status -->
+                    <div class="col-md-2">
+                        <div class="text-muted small">Status</div>
+                        <div>
+                            {% if order.status == 'pending' %}
+                                <span class="badge bg-warning text-dark">⏳ Pending</span>
+                            {% elif order.status == 'confirmed' %}
+                                <span class="badge bg-info">✅ Confirmed</span>
+                            {% elif order.status == 'processing' %}
+                                <span class="badge bg-primary">⚙️ Processing</span>
+                            {% elif order.status == 'ready' %}
+                                <span class="badge bg-primary">📦 Ready</span>
+                            {% elif order.status == 'partially_delivered' %}
+                                <span class="badge bg-info">🚚 Partial</span>
+                            {% elif order.status == 'delivered' %}
+                                <span class="badge bg-success">🎉 Delivered</span>
+                            {% elif order.status == 'cancelled' %}
+                                <span class="badge bg-danger">❌ Cancelled</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ order.get_status_display }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Actions -->
+                    <div class="col-md-2 text-end">
+                        <a href="{% url 'order_detail_customer' order.id %}" 
+                           class="btn btn-sm btn-primary w-100">
+                            <i class="bi bi-eye"></i> View
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}">
+                    <i class="bi bi-chevron-left"></i> Previous
+                </a>
+            </li>
+            {% endif %}
+            
+            <li class="page-item active">
+                <span class="page-link">
+                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                </span>
+            </li>
+            
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}">
+                    Next <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    
+    <!-- Empty State -->
+    <div class="empty-state text-center py-5">
+        <div style="font-size: 6rem; opacity: 0.2;">📦</div>
+        <h3 class="mt-3">No Orders Found</h3>
+        <p class="text-muted">
+            {% if status_filter %}
+            Is status mein koi order nahi hai
+            {% else %}
+            Abhi tak koi order nahi kiya
+            {% endif %}
+        </p>
+        <a href="{% url 'shop_home' %}" class="btn btn-primary btn-lg mt-2">
+            <i class="bi bi-shop"></i> Start Shopping
+        </a>
+    </div>
+    
+    {% endif %}
+
+</div>
+
+<style>
+.stat-card {
+    background: white;
+    border-radius: 14px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    border-left: 4px solid;
+    transition: all 0.3s;
+}
+.stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+}
+.stat-icon { font-size: 1.8rem; margin-bottom: 8px; }
+.stat-number { font-size: 1.5rem; font-weight: 900; color: #1a1a2e; }
+.stat-label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 600; margin-top: 4px; }
+
+.order-card {
+    background: white;
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    border-left: 4px solid #667eea;
+    transition: all 0.2s;
+}
+.order-card:hover {
+    transform: translateX(5px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+.order-number {
+    font-weight: 900;
+    color: #667eea;
+    font-size: 1.1rem;
+}
+.order-date {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    margin-top: 4px;
+}
+.order-amount {
+    font-weight: 900;
+    color: #10b981;
+    font-size: 1.1rem;
+}
+
+@media (max-width: 768px) {
+    .order-card {
+        text-align: center;
+    }
+    .order-card .col-md-2.text-end {
+        text-align: center !important;
+    }
+}
+</style>
+
+{% endblock %}

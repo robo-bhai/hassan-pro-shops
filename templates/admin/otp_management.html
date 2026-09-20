@@ -1,0 +1,260 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}🔐 OTP Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold mb-1">
+                <i class="bi bi-key text-warning"></i> OTP Management
+            </h3>
+            <p class="text-muted mb-0">Customer verification codes (Superuser only)</p>
+        </div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#quickGenerateModal">
+            <i class="bi bi-plus-circle"></i> Generate OTP
+        </button>
+    </div>
+
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <p class="text-muted mb-1 small">Total</p>
+                    <h3 class="mb-0 text-primary">{{ stats.total }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <p class="text-muted mb-1 small">Active</p>
+                    <h3 class="mb-0 text-success">{{ stats.active }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <p class="text-muted mb-1 small">Used</p>
+                    <h3 class="mb-0 text-info">{{ stats.used }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <p class="text-muted mb-1 small">Expired</p>
+                    <h3 class="mb-0 text-danger">{{ stats.expired }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">Status</label>
+                    <select name="status" class="form-select">
+                        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>🟢 Active</option>
+                        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>📋 All</option>
+                        <option value="used" {% if status_filter == 'used' %}selected{% endif %}>✅ Used</option>
+                        <option value="expired" {% if status_filter == 'expired' %}selected{% endif %}>⏰ Expired</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">Purpose</label>
+                    <select name="purpose" class="form-select">
+                        <option value="">All</option>
+                        <option value="register" {% if purpose_filter == 'register' %}selected{% endif %}>Registration</option>
+                        <option value="login" {% if purpose_filter == 'login' %}selected{% endif %}>Login</option>
+                        <option value="forgot_password" {% if purpose_filter == 'forgot_password' %}selected{% endif %}>Password Reset</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-funnel"></i> Filter
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- OTP List -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0"><i class="bi bi-list"></i> OTPs</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Customer</th>
+                            <th>Phone</th>
+                            <th>OTP</th>
+                            <th>Purpose</th>
+                            <th>Status</th>
+                            <th>Sent</th>
+                            <th>Expires</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for otp in otps %}
+                        <tr>
+                            <td><strong>{{ otp.customer_name|default:"Unknown" }}</strong></td>
+                            <td><code>{{ otp.phone }}</code></td>
+                            <td>
+                                <div style="display: inline-flex; align-items: center; gap: 8px; background: #f8f9fc; padding: 4px 10px; border-radius: 8px; border: 1px dashed #cbd5e1;">
+                                    <span style="font-family: monospace; font-size: 1.1rem; font-weight: 900; letter-spacing: 3px;">{{ otp.otp_code }}</span>
+                                    <button onclick="copyOTP('{{ otp.otp_code }}')" style="background: transparent; border: none; color: #667eea; cursor: pointer;">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+                            </td>
+                            <td><span class="badge bg-secondary">{{ otp.get_purpose_display }}</span></td>
+                            <td>{{ otp.status_badge|safe }}</td>
+                            <td>
+                                {% if otp.is_sent_to_customer %}
+                                    <span class="badge bg-success">✅ {{ otp.get_send_method_display|default:"Sent" }}</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">⏳ Pending</span>
+                                {% endif %}
+                            </td>
+                            <td><small>{{ otp.expires_at|date:"H:i:s" }}</small></td>
+                            <td class="text-center">
+                                <a href="{% url 'otp_detail' otp.pk %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5">
+                                <i class="bi bi-inbox fs-1 text-muted d-block mb-2"></i>
+                                <h5 class="text-muted">No OTPs Found</h5>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audit Logs -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0"><i class="bi bi-shield-check"></i> Recent Security Events</h5>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Time</th>
+                        <th>Phone</th>
+                        <th>Action</th>
+                        <th>IP</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in audit_logs %}
+                    <tr>
+                        <td><small>{{ log.created_at|date:"d-m H:i:s" }}</small></td>
+                        <td><code>{{ log.phone }}</code></td>
+                        <td><span class="badge bg-secondary">{{ log.get_action_display }}</span></td>
+                        <td><small>{{ log.ip_address|default:"-" }}</small></td>
+                        <td>
+                            {% if log.success %}
+                                <i class="bi bi-check-circle text-success"></i>
+                            {% else %}
+                                <i class="bi bi-x-circle text-danger"></i>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center text-muted py-3">No events yet</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- Quick Generate Modal -->
+<div class="modal fade" id="quickGenerateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">🔐 Quick Generate OTP</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Customer Name</label>
+                    <input type="text" id="quickName" class="form-control" placeholder="Ahmed Khan">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Phone <span class="text-danger">*</span></label>
+                    <input type="tel" id="quickPhone" class="form-control" placeholder="03001234567" required>
+                </div>
+                <div id="quickResult" class="alert alert-success d-none">
+                    <strong>OTP Generated!</strong>
+                    <div style="font-size: 1.5rem; letter-spacing: 5px; font-weight: 900; text-align: center; margin-top: 10px;" id="quickOtpCode"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="quickGenerateOTP()">Generate</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyOTP(code) {
+    navigator.clipboard.writeText(code).then(() => {
+        const toast = document.createElement('div');
+        toast.textContent = '✅ OTP copied: ' + code;
+        toast.style.cssText = 'position:fixed;top:20px;right:20px;z-index:9999;background:#10b981;color:white;padding:12px 20px;border-radius:8px;font-weight:700;';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2000);
+    });
+}
+
+function quickGenerateOTP() {
+    const phone = document.getElementById('quickPhone').value.trim();
+    const name = document.getElementById('quickName').value.trim();
+    
+    if (!phone) { alert('Phone required!'); return; }
+    
+    fetch('{% url "otp_quick_generate" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: `phone=${encodeURIComponent(phone)}&name=${encodeURIComponent(name)}`
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('quickOtpCode').textContent = data.otp_code;
+            document.getElementById('quickResult').classList.remove('d-none');
+        } else {
+            alert('❌ ' + data.message);
+        }
+    });
+}
+</script>
+
+{% endblock %}

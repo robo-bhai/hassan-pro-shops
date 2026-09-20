@@ -1,0 +1,329 @@
+{% extends 'customer_portal/base_shop.html' %}
+{% load static %}
+
+{% block title %}Order #{{ order.order_no }} - {{ company_name }}{% endblock %}
+
+{% block content %}
+
+<!-- ✅ Hide Mobile Bottom Navigation on Order Detail Page -->
+<style>
+    .mobile-bottom-nav {
+        display: none !important;
+    }
+    
+    body {
+        padding-bottom: 20px !important;
+    }
+</style>
+
+<div class="container py-4">
+
+    <!-- Back -->
+    <a href="{% url 'my_orders' %}" class="btn btn-outline-secondary btn-sm mb-3">
+        <i class="bi bi-arrow-left"></i> Back to Orders
+    </a>
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="bi bi-receipt text-primary"></i> Order #{{ order.order_no }}
+            </h2>
+            <p class="text-muted mb-0">
+                <i class="bi bi-calendar"></i> {{ order.order_date|date:"d M, Y - h:i A" }}
+            </p>
+        </div>
+        <div>
+            {% if order.status == 'pending' %}
+                <span class="badge bg-warning text-dark fs-6 px-3 py-2">⏳ Pending</span>
+            {% elif order.status == 'confirmed' %}
+                <span class="badge bg-info fs-6 px-3 py-2">✅ Confirmed</span>
+            {% elif order.status == 'processing' %}
+                <span class="badge bg-primary fs-6 px-3 py-2">⚙️ Processing</span>
+            {% elif order.status == 'ready' %}
+                <span class="badge bg-primary fs-6 px-3 py-2">📦 Ready to Ship</span>
+            {% elif order.status == 'partially_delivered' %}
+                <span class="badge bg-info fs-6 px-3 py-2">🚚 Partially Delivered</span>
+            {% elif order.status == 'delivered' %}
+                <span class="badge bg-success fs-6 px-3 py-2">🎉 Delivered</span>
+            {% elif order.status == 'cancelled' %}
+                <span class="badge bg-danger fs-6 px-3 py-2">❌ Cancelled</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Status Timeline -->
+    {% if order.status != 'cancelled' %}
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <h6 class="fw-bold mb-3">📦 Order Status</h6>
+            <div class="timeline">
+                {% for status_code, icon, label in status_steps %}
+                <div class="timeline-step {% if forloop.counter0 <= current_index %}completed{% endif %} {% if forloop.counter0 == current_index %}current{% endif %}">
+                    <div class="timeline-icon">
+                        {% if forloop.counter0 < current_index %}✅
+                        {% elif forloop.counter0 == current_index %}🔄
+                        {% else %}{{ icon }}{% endif %}
+                    </div>
+                    <div class="timeline-label">{{ label }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-danger">
+        <i class="bi bi-x-circle"></i> 
+        <strong>Order Cancelled</strong><br>
+        {% if order.notes %}
+        <small>{{ order.notes }}</small>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="row g-4">
+        
+        <!-- Order Items -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-bag"></i> Order Items ({{ items.count }})</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Product</th>
+                                    <th class="text-center">Qty</th>
+                                    <th class="text-end">Price</th>
+                                    <th class="text-end">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in items %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            {% if item.product.image %}
+                                            <img src="{{ item.product.image.url }}" 
+                                                 style="width: 40px; height: 40px; border-radius: 8px; object-fit: cover;">
+                                            {% endif %}
+                                            <div>
+                                                <div class="fw-bold">{{ item.product.name }}</div>
+                                                {% if item.product.serial_no %}
+                                                <small class="text-muted">{{ item.product.serial_no }}</small>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="text-center">{{ item.qty }}</td>
+                                    <td class="text-end">Rs. {{ item.price|floatformat:2 }}</td>
+                                    <td class="text-end fw-bold">Rs. {{ item.total_amt|floatformat:2 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <td colspan="3" class="text-end fw-bold">Total:</td>
+                                    <td class="text-end fw-bold text-success fs-5">
+                                        Rs. {{ total_amount|floatformat:2 }}
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Info -->
+        <div class="col-lg-4">
+            
+            <!-- Customer Info -->
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0"><i class="bi bi-person"></i> Customer</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <div class="text-muted small">Name</div>
+                        <div class="fw-bold">{{ order.customer.name }}</div>
+                    </div>
+                    <div class="mb-2">
+                        <div class="text-muted small">Phone</div>
+                        <div class="fw-bold">{{ order.customer.contact_number }}</div>
+                    </div>
+                    {% if order.customer.address %}
+                    <div>
+                        <div class="text-muted small">Address</div>
+                        <div>{{ order.customer.address }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Order Notes -->
+            {% if order.notes %}
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-warning text-dark">
+                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> Notes</h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0 small">{{ order.notes }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Cancel Button -->
+            {% if order.status == 'pending' or order.status == 'confirmed' %}
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <button type="button" 
+                            class="btn btn-outline-danger w-100"
+                            onclick="showCancelModal()">
+                        <i class="bi bi-x-circle"></i> Cancel Order
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+
+</div>
+
+<!-- Cancel Modal -->
+<div class="modal fade" id="cancelModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Cancel Order</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Kya aap yeh order cancel karna chahte hain?</p>
+                <label class="form-label">Reason:</label>
+                <select id="cancelReason" class="form-select mb-2">
+                    <option value="Changed my mind">Changed my mind</option>
+                    <option value="Ordered by mistake">Ordered by mistake</option>
+                    <option value="Found better price">Found better price</option>
+                    <option value="Delivery taking too long">Delivery taking too long</option>
+                    <option value="Other">Other</option>
+                </select>
+                <textarea id="cancelNotes" class="form-control" rows="2" placeholder="Additional notes (optional)"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-danger" onclick="confirmCancel()">
+                    <i class="bi bi-x-circle"></i> Cancel Order
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.timeline {
+    display: flex;
+    justify-content: space-between;
+    position: relative;
+    padding: 20px 0;
+}
+.timeline::before {
+    content: '';
+    position: absolute;
+    top: 40px;
+    left: 5%;
+    right: 5%;
+    height: 3px;
+    background: #eef0f5;
+    z-index: 0;
+}
+.timeline-step {
+    flex: 1;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+}
+.timeline-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #f8f9fc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 8px;
+    font-size: 1.2rem;
+    border: 3px solid white;
+}
+.timeline-step.completed .timeline-icon {
+    background: #10b981;
+    color: white;
+}
+.timeline-step.current .timeline-icon {
+    background: #f2994a;
+    color: white;
+    animation: pulse 1.5s infinite;
+    transform: scale(1.1);
+}
+@keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(242, 153, 74, 0.4); }
+    50% { box-shadow: 0 0 0 15px rgba(242, 153, 74, 0); }
+}
+.timeline-label {
+    font-size: 0.7rem;
+    color: #94a3b8;
+    font-weight: 600;
+}
+.timeline-step.completed .timeline-label,
+.timeline-step.current .timeline-label {
+    color: #1a1a2e;
+}
+
+@media (max-width: 768px) {
+    .timeline {
+        flex-wrap: wrap;
+    }
+    .timeline::before {
+        display: none;
+    }
+    .timeline-step {
+        flex: 0 0 50%;
+        margin-bottom: 15px;
+    }
+}
+</style>
+
+<script>
+function showCancelModal() {
+    new bootstrap.Modal(document.getElementById('cancelModal')).show();
+}
+
+function confirmCancel() {
+    const reason = document.getElementById('cancelReason').value;
+    const notes = document.getElementById('cancelNotes').value;
+    
+    fetch('{% url "cancel_order_customer" order.id %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: `reason=${encodeURIComponent(reason + (notes ? ': ' + notes : ''))}`
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ ' + data.message);
+            location.reload();
+        } else {
+            alert('❌ ' + data.message);
+        }
+    })
+    .catch(err => alert('Error: ' + err));
+}
+</script>
+
+{% endblock %}

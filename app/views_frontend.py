@@ -666,51 +666,6 @@ from .models import (
 )
 
 
-def shareholder_login(request):
-    """Shareholder login page"""
-    
-    # Agar already logged in hai toh dashboard par redirect
-    if request.user.is_authenticated:
-        # Check if user is shareholder
-        if hasattr(request.user, 'shareholder_profile'):
-            return redirect('shareholder_portal_dashboard')
-        return redirect('dashboard')
-    
-    if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
-        
-        if not username or not password:
-            messages.error(request, 'Please enter username and password!')
-            return redirect('shareholder_login')
-        
-        # Authenticate user
-        user = authenticate(request, username=username, password=password)
-        
-        if user is not None:
-            # Check if user is shareholder
-            if hasattr(user, 'shareholder_profile'):
-                shareholder = user.shareholder_profile
-                if shareholder.status == 'active' and shareholder.allow_login:
-                    login(request, user)
-                    messages.success(request, f'Welcome back, {shareholder.name}!')
-                    return redirect('shareholder_portal_dashboard')
-                else:
-                    messages.error(request, 'Your account is not active or login is disabled!')
-            else:
-                messages.error(request, 'This account is not a shareholder account!')
-        else:
-            messages.error(request, 'Invalid username or password!')
-        
-        return redirect('shareholder_login')
-    
-    context = {
-        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
-        'is_shareholder_login': True,
-    }
-    return render(request, 'shareholders/login.html', context)
-
-
 def shareholder_logout(request):
     """Logout shareholder"""
     logout(request)
@@ -1418,141 +1373,6 @@ def check_username_availability(request):
     })
 
 
-@login_required
-def shareholder_edit(request, pk):
-    """Edit shareholder with share details and cash balance adjustment"""
-    shareholder = get_object_or_404(Shareholder, pk=pk)
-    
-    # Check permission
-    if not request.user.is_superuser and not request.user.is_staff:
-        messages.error(request, 'Access denied! Only administrators can edit shareholders.')
-        return redirect('dashboard')
-    
-    share = shareholder.shares.first()
-    shareholder_balance = ShareholderCashBalance.get_balance(shareholder)
-    
-    if request.method == 'POST':
-        try:
-            with transaction.atomic():
-                # --- Update Shareholder Info ---
-                shareholder.name = request.POST.get('name')
-                shareholder.shareholder_type = request.POST.get('shareholder_type', 'individual')
-                shareholder.email = request.POST.get('email', '')
-                shareholder.phone = request.POST.get('phone', '')
-                shareholder.address = request.POST.get('address', '')
-                shareholder.cnic = request.POST.get('cnic', '')
-                shareholder.passport_no = request.POST.get('passport_no', '')
-                shareholder.company_name = request.POST.get('company_name', '')
-                shareholder.registration_no = request.POST.get('registration_no', '')
-                shareholder.bank_name = request.POST.get('bank_name', '')
-                shareholder.account_number = request.POST.get('account_number', '')
-                shareholder.account_title = request.POST.get('account_title', '')
-                shareholder.iban = request.POST.get('iban', '')
-                shareholder.status = request.POST.get('status', 'active')
-                shareholder.is_founder = request.POST.get('is_founder') == 'on'
-                shareholder.is_board_member = request.POST.get('is_board_member') == 'on'
-                shareholder.notes = request.POST.get('notes', '')
-                
-                # ✅ LOGIN ACCESS - Handle Allow Login
-                allow_login = request.POST.get('allow_login') == 'on'
-                shareholder.allow_login = allow_login
-                
-                # ✅ If login enabled and no user exists, create user
-                if allow_login and not shareholder.user:
-                    password = request.POST.get('password', 'password123')
-                    user = shareholder.create_user(password)
-                    messages.info(
-                        request, 
-                        f'🔐 Login enabled! Username: {user.username}, Password: {password}'
-                    )
-                # ✅ If login enabled and user exists, update password if provided
-                elif allow_login and shareholder.user:
-                    password = request.POST.get('password', '')
-                    if password and len(password) >= 6:
-                        shareholder.set_password(password)
-                        messages.info(request, f'🔐 Password updated for {shareholder.user.username}!')
-                
-                shareholder.save()
-                
-                # --- Update Share Details ---
-                new_qty = int(request.POST.get('initial_shares', 0))
-                new_price = Decimal(request.POST.get('purchase_price', 0))
-                paid_from_shareholder_balance = request.POST.get('paid_from_shareholder_balance') == 'on'
-                
-                if share:
-                    old_qty = share.quantity
-                    old_price = share.purchase_price
-                    old_investment = old_qty * old_price
-                    new_investment = new_qty * new_price
-                    difference = new_investment - old_investment
-                    
-                    share.quantity = new_qty
-                    share.purchase_price = new_price
-                    share.paid_from_shareholder_balance = paid_from_shareholder_balance
-                    
-                    if new_qty > 0 and new_price > 0:
-                        share.save()
-                    elif new_qty == 0:
-                        if old_investment > 0:
-                            ShareholderCashBalance.deposit(
-                                shareholder=shareholder,
-                                amount=old_investment,
-                                user=request.user,
-                                description=f"Refund for removing shares - {old_qty} shares @ Rs. {old_price:,.2f}"
-                            )
-                            CashBalance.update_balance(
-                                amount=old_investment,
-                                transaction_type='withdraw',
-                                user=request.user,
-                                description=f"Refund to {shareholder.name} - shares removed"
-                            )
-                        share.delete()
-                        share = None
-                    else:
-                        share.save()
-                    
-                else:
-                    if new_qty > 0 and new_price > 0:
-                        new_share = Share.objects.create(
-                            shareholder=shareholder,
-                            quantity=new_qty,
-                            purchase_price=new_price,
-                            issue_date=now().date(),
-                            created_by=request.user,
-                            paid_from_shareholder_balance=paid_from_shareholder_balance
-                        )
-                        if paid_from_shareholder_balance:
-                            messages.info(
-                                request, 
-                                f'💰 Rs. {new_qty * new_price:,.2f} deducted from {shareholder.name}\'s cash balance (new shares)'
-                            )
-                        share = new_share
-                
-                messages.success(request, f'✅ Shareholder "{shareholder.name}" updated successfully!')
-                return redirect('shareholder_detail', pk=shareholder.pk)
-            
-        except ValidationError as e:
-            messages.error(request, str(e))
-            return redirect('shareholder_edit', pk=pk)
-        except Exception as e:
-            messages.error(request, f'❌ Error: {str(e)}')
-            return redirect('shareholder_edit', pk=pk)
-    
-    # --- GET Request - Display Form ---
-    if share:
-        share.total_investment = share.quantity * share.purchase_price
-    else:
-        share = None
-    
-    context = {
-        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
-        'shareholder': shareholder,
-        'share': share,
-        'shareholder_balance': shareholder_balance,
-        'shareholder_types': Shareholder.SHAREHOLDER_TYPES,
-        'status_choices': Shareholder.STATUS_CHOICES,
-    }
-    return render(request, 'shareholders/edit.html', context)@login_required
 def shareholder_edit(request, pk):
     """Edit shareholder with share details and cash balance adjustment"""
     shareholder = get_object_or_404(Shareholder, pk=pk)
@@ -1856,52 +1676,6 @@ def share_transfer_create(request):
 
 
 @login_required
-def share_transfer_approve(request, pk):
-    """Approve share transfer"""
-    transfer = get_object_or_404(ShareTransfer, pk=pk)
-    
-    if transfer.status != 'pending':
-        messages.warning(request, f'⚠️ Transfer is already {transfer.status}!')
-        return redirect('share_transfer_detail', pk=transfer.pk)
-    
-    transfer.approve(request.user)
-    messages.success(request, f'✅ Transfer #{transfer.transfer_no} approved!')
-    return redirect('share_transfer_detail', pk=transfer.pk)
-
-
-@login_required
-def share_transfer_complete(request, pk):
-    """Complete share transfer"""
-    transfer = get_object_or_404(ShareTransfer, pk=pk)
-    
-    if transfer.status != 'approved':
-        messages.warning(request, f'⚠️ Transfer must be approved first! Current status: {transfer.status}')
-        return redirect('share_transfer_detail', pk=transfer.pk)
-    
-    try:
-        transfer.complete(request.user)
-        messages.success(request, f'✅ Transfer #{transfer.transfer_no} completed! Shares moved successfully!')
-    except Exception as e:
-        messages.error(request, f'❌ Error completing transfer: {str(e)}')
-    
-    return redirect('share_transfer_detail', pk=transfer.pk)
-
-
-@login_required
-def share_transfer_reject(request, pk):
-    """Reject share transfer"""
-    transfer = get_object_or_404(ShareTransfer, pk=pk)
-    
-    if transfer.status != 'pending':
-        messages.warning(request, f'⚠️ Transfer is already {transfer.status}!')
-        return redirect('share_transfer_detail', pk=transfer.pk)
-    
-    transfer.reject(request.user)
-    messages.success(request, f'❌ Transfer #{transfer.transfer_no} rejected!')
-    return redirect('share_transfer_detail', pk=transfer.pk)
-
-
-@login_required
 def share_transfer_list(request):
     """List all share transfers"""
     transfers = ShareTransfer.objects.select_related('from_shareholder', 'to_shareholder').all()
@@ -1970,28 +1744,6 @@ def share_transfer_reject(request, pk):
     return redirect('share_transfer_detail', pk=transfer.pk)
 
 
-
-@login_required
-def dividend_list(request):
-    """List all dividends - Everyone can view"""
-    dividends = Dividend.objects.all().order_by('-declaration_date')
-    total_profit = get_total_profit()
-    
-    for dividend in dividends:
-        dividend.is_valid = dividend.total_amount <= total_profit
-        dividend.profit_percent = (dividend.total_amount / total_profit * 100) if total_profit > 0 else 0
-    
-    context = {
-        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
-        'dividends': dividends,
-        'total_profit': total_profit,
-        'is_admin': request.user.is_superuser,  # ✅ Add this
-    }
-    return render(request, 'shareholders/dividend_list.html', context)
-
-# ============================================
-# COMPLETE DIVIDEND VIEWS WITH PROFIT VALIDATION
-# ============================================
 
 from decimal import Decimal
 from django.db.models import Sum, F
@@ -2366,32 +2118,6 @@ def mark_dividend_paid(request, pk):
 # ============================================
 # HELPER FUNCTIONS
 # ============================================
-
-def get_total_profit():
-    """Calculate total profit from system"""
-    from decimal import Decimal
-    
-    # Get total sales
-    total_sales = Sale.objects.aggregate(
-        total=Sum('saleitem__total_amt')
-    )['total'] or Decimal('0.0')
-    
-    # Get total purchases (COGS)
-    total_purchases = Purchase.objects.aggregate(
-        total=Sum('purchaseitem__total_amt')
-    )['total'] or Decimal('0.0')
-    
-    # Get total expenses
-    total_expenses = Expense.objects.aggregate(
-        total=Sum('amount')
-    )['total'] or Decimal('0.0')
-    
-    # Calculate profit
-    gross_profit = total_sales - total_purchases
-    net_profit = gross_profit - total_expenses
-    
-    return net_profit
-
 
 @login_required
 def dividend_preview_api(request):
@@ -3503,52 +3229,6 @@ def module_settings(request):
         'pending_balance_dividends': pending_balance_dividends,
     }
     return render(request, 'admin/module_settings.html', context)
-
-
-@login_required
-def toggle_setting(request, setting_key):
-    """AJAX endpoint to toggle a setting"""
-    if not request.user.is_superuser:
-        return JsonResponse({'success': False, 'message': 'Access denied'})
-    
-    if request.method == 'POST':
-        new_value = SystemSetting.toggle(setting_key, request.user)
-        return JsonResponse({
-            'success': True,
-            'setting_key': setting_key,
-            'new_value': new_value,
-            'message': f'Setting updated to {new_value}'
-        })
-    
-    return JsonResponse({'success': False, 'message': 'Invalid request'})
-
-
-@login_required
-def change_deduction_type(request):
-    """Change deduction type between equal and proportional"""
-    if not request.user.is_superuser:
-        return JsonResponse({'success': False, 'message': 'Access denied!'})
-    
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            deduction_type = data.get('deduction_type', 'proportional')
-            
-            if deduction_type not in ['equal', 'proportional']:
-                return JsonResponse({'success': False, 'message': 'Invalid deduction type!'})
-            
-            SystemSetting.set_value('shareholder_deduction_type', deduction_type, request.user)
-            
-            return JsonResponse({
-                'success': True,
-                'message': f'✅ Deduction type changed to: {deduction_type}',
-                'deduction_type': deduction_type
-            })
-            
-        except Exception as e:
-            return JsonResponse({'success': False, 'message': str(e)})
-    
-    return JsonResponse({'success': False, 'message': 'Invalid request'})
 
 
 @login_required
@@ -7074,98 +6754,6 @@ ROLE_ICONS = {
 }
 
 @login_required
-def user_list(request):
-    """List all users with role filters"""
-    if not request.user.is_superuser and not request.user.groups.filter(name='Owner').exists():
-        messages.error(request, 'Access denied! Only administrators can view users.')
-        return redirect('dashboard')
-    
-    users = User.objects.select_related().all()
-    
-    # Add role info to each user
-    for user in users:
-        if user.is_superuser:
-            user.role = 'admin'
-            user.role_display = 'Administrator'
-            user.role_icon = 'bi-shield-lock'
-        elif user.groups.filter(name='Owner').exists():
-            user.role = 'owner'
-            user.role_display = 'Owner'
-            user.role_icon = 'bi-building'
-        elif user.groups.filter(name='Salesman').exists():
-            user.role = 'salesman'
-            user.role_display = 'Salesman'
-            user.role_icon = 'bi-person-badge'
-        elif user.groups.filter(name='Accountant').exists():
-            user.role = 'accountant'
-            user.role_display = 'Accountant'
-            user.role_icon = 'bi-calculator'
-        elif user.groups.filter(name='Store Manager').exists():
-            user.role = 'manager'
-            user.role_display = 'Store Manager'
-            user.role_icon = 'bi-people'
-        elif user.groups.filter(name='Warehouse Staff').exists():
-            user.role = 'warehouse'
-            user.role_display = 'Warehouse Staff'
-            user.role_icon = 'bi-box'
-        else:
-            user.role = 'staff'
-            user.role_display = 'Staff'
-            user.role_icon = 'bi-person'
-    
-    # Filters
-    search = request.GET.get('search', '')
-    role_filter = request.GET.get('role', '')
-    status_filter = request.GET.get('status', '')
-    
-    if search:
-        users = users.filter(Q(username__icontains=search) | Q(email__icontains=search) | Q(first_name__icontains=search))
-    if role_filter == 'admin':
-        users = users.filter(is_superuser=True)
-    elif role_filter == 'owner':
-        users = users.filter(groups__name='Owner')
-    elif role_filter == 'salesman':
-        users = users.filter(groups__name='Salesman')
-    elif role_filter == 'accountant':
-        users = users.filter(groups__name='Accountant')
-    elif role_filter == 'manager':
-        users = users.filter(groups__name='Store Manager')
-    elif role_filter == 'warehouse':
-        users = users.filter(groups__name='Warehouse Staff')
-    if status_filter == 'active':
-        users = users.filter(is_active=True)
-    elif status_filter == 'inactive':
-        users = users.filter(is_active=False)
-    
-    # Counts by role
-    admin_count = User.objects.filter(is_superuser=True).count()
-    owner_count = User.objects.filter(groups__name='Owner').count()
-    salesman_count = User.objects.filter(groups__name='Salesman').count()
-    accountant_count = User.objects.filter(groups__name='Accountant').count()
-    manager_count = User.objects.filter(groups__name='Store Manager').count()
-    warehouse_count = User.objects.filter(groups__name='Warehouse Staff').count()
-    
-    paginator = Paginator(users, 25)
-    page = request.GET.get('page', 1)
-    page_obj = paginator.get_page(page)
-    
-    context = {
-        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
-        'page_obj': page_obj,
-        'search': search,
-        'role_filter': role_filter,
-        'status_filter': status_filter,
-        'admin_count': admin_count,
-        'owner_count': owner_count,
-        'salesman_count': salesman_count,
-        'accountant_count': accountant_count,
-        'manager_count': manager_count,
-        'warehouse_count': warehouse_count,
-    }
-    return render(request, 'users/role_list.html', context)
-
-
-@login_required
 def user_create(request):
     """Create new user with role"""
     if not request.user.is_superuser and not request.user.groups.filter(name='Owner').exists():
@@ -8470,81 +8058,6 @@ def warehouse_update_frontend(request, pk):
     return render(request, 'warehouses/update.html', context)
     
 
-
-@login_required
-def target_dashboard(request):
-    """Target dashboard for owner and salesmen"""
-    
-    today = now().date()
-    
-    # Active company target (monthly type)
-    company_target = SalesTarget.objects.filter(
-        is_active=True,
-        target_type='monthly',
-        start_date__lte=today,
-        end_date__gte=today
-    ).first()
-    
-    # Calculate month progress
-    month_progress = 0
-    if company_target:
-        month_progress = company_target.current_progress()
-    
-    # Today's sales
-    today_sales = Sale.objects.filter(
-        sale_date__date=today
-    ).aggregate(total=Sum('saleitem__total_amt'))['total'] or Decimal('0.0')
-    
-    # Salesman-wise performance
-    from django.contrib.auth.models import User
-    salesman_performance = []
-    
-    # Get all users who have created sales
-    salesman_users = User.objects.filter(
-        sale__isnull=False
-    ).distinct()
-    
-    for user in salesman_users:
-        user_sales_today = Sale.objects.filter(
-            created_by=user,
-            sale_date__date=today
-        ).aggregate(total=Sum('saleitem__total_amt'))['total'] or Decimal('0.0')
-        
-        user_target = SalesTarget.objects.filter(
-            is_active=True,
-            target_type='salesman',
-            salesman=user,
-            start_date__lte=today,
-            end_date__gte=today
-        ).first()
-        
-        target_amount = user_target.target_amount if user_target else Decimal('100000')
-        target_percent = (user_sales_today / target_amount * 100) if target_amount > 0 else 0
-        
-        salesman_performance.append({
-            'name': user.username,
-            'sales': float(user_sales_today),
-            'target': float(target_amount),
-            'percent': float(target_percent),
-        })
-    
-    salesman_performance.sort(key=lambda x: x['sales'], reverse=True)
-    
-    # Company info
-    company = CompanyInfo.objects.first()
-    company_name = company.name if company else 'ERP System'
-    
-    context = {
-        'company_name': company_name,
-        'company_target': company_target,
-        'month_progress': month_progress,
-        'today_sales': today_sales,
-        'salesman_performance': salesman_performance,
-    }
-    
-    return render(request, 'targets/dashboard.html', context)
-    
-# views_frontend.py mein yeh function add karo
 
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -9918,25 +9431,50 @@ logger = logging.getLogger(__name__)
 @login_required
 def dashboard_view(request):
     """
-    Main Dashboard View - Fully Optimized with Caching
-    Performance: 80% faster, 90% fewer queries
+    Main Dashboard View - Optimized with Caching
+    
+    Redirects:
+    - Shareholder → /shareholder/dashboard/
+    - Customer → /shop/account/
+    - Admin/Staff → /dashboard (this view)
     """
     
     # ========================================== #
-    # ✅ CHECK: Agar shareholder hai (aur admin nahi hai) #
-    # to shareholder dashboard par bhejo         #
+    # ✅ CHECK 1: Shareholder hai?               #
     # ========================================== #
     if (hasattr(request.user, 'shareholder_profile') 
         and not request.user.is_superuser 
         and not request.user.is_staff):
         return redirect('shareholder_portal_dashboard')
     
+    # ========================================== #
+    # ✅ CHECK 2: Customer hai?                  #
+    # ========================================== #
+    if (hasattr(request.user, 'customer_profile') 
+        and not request.user.is_superuser 
+        and not request.user.is_staff):
+        return redirect('my_account')
+    
+    # ========================================== #
+    # ADMIN DASHBOARD (Only admin/staff reaches here)
+    # ========================================== #
+    
+    from django.core.cache import cache
+    from django.db.models import Sum, Count, F, Q, Avg
+    from django.utils.timezone import now, localdate
+    from datetime import date, timedelta
+    from decimal import Decimal
+    import json
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
     today = localdate()
     month_ago = today - timedelta(days=30)
     month_start = today.replace(day=1)
     
     # ========================================== #
-    # CACHE KEY (User-specific + Date)          #
+    # CACHE KEY (User-specific + Date)           #
     # ========================================== #
     cache_key = f'dashboard_data_{request.user.id}_{today.strftime("%Y%m%d")}'
     cached_data = cache.get(cache_key)
@@ -9948,7 +9486,7 @@ def dashboard_view(request):
     logger.info(f"🔄 Dashboard cache miss for user: {request.user.username}")
     
     # ========================================== #
-    # 1. TODAY'S STATS (Optimized)              #
+    # 1. TODAY'S STATS                           #
     # ========================================== #
     today_stats = Sale.objects.filter(sale_date__date=today).aggregate(
         total_sales=Sum('saleitem__total_amt'),
@@ -9967,19 +9505,17 @@ def dashboard_view(request):
     today_purchases_amount = today_purchases['total'] or Decimal('0.0')
     today_purchase_count = today_purchases['count'] or 0
     
-    # Today's Profit (Optimized)
+    # Today's Profit
     today_profit = SaleItem.objects.filter(
         sale__sale_date__date=today
     ).aggregate(total=Sum('profit'))['total'] or Decimal('0.0')
     today_profit = today_profit - today_discount
     
     # ========================================== #
-    # 2. LOW STOCK ALERT (Optimized)            #
+    # 2. LOW STOCK ALERT                         #
     # ========================================== #
     low_stock_items = Inventory.objects.select_related(
-        'product',
-        'warehouse',
-        'product__unit'
+        'product', 'warehouse', 'product__unit'
     ).filter(
         stock__lt=F('product__low_stock_threshold')
     ).order_by('stock')[:10]
@@ -9987,16 +9523,14 @@ def dashboard_view(request):
     low_stock_count = low_stock_items.count()
     
     # ========================================== #
-    # 3. CHART DATA (LAST 30 DAYS)              #
+    # 3. CHART DATA (LAST 30 DAYS)               #
     # ========================================== #
     chart_labels = []
     chart_data = []
     
-    # Optimized: Single query for all dates
     last_30_days = [today - timedelta(days=i) for i in range(29, -1, -1)]
-    date_list = [d.strftime('%Y-%m-%d') for d in last_30_days]
     
-    # Get all sales in one query
+    # Optimized: Single query
     daily_sales = Sale.objects.filter(
         sale_date__date__gte=last_30_days[0],
         sale_date__date__lte=last_30_days[-1]
@@ -10006,7 +9540,6 @@ def dashboard_view(request):
         total=Sum('saleitem__total_amt')
     ).order_by('date')
     
-    # Create lookup dict
     sales_by_date = {item['date']: float(item['total'] or 0) for item in daily_sales}
     
     for d in last_30_days:
@@ -10015,14 +9548,12 @@ def dashboard_view(request):
         chart_data.append(sales_by_date.get(date_key, 0))
     
     # ========================================== #
-    # 4. TOP PRODUCTS (Optimized)               #
+    # 4. TOP PRODUCTS                            #
     # ========================================== #
     top_products = SaleItem.objects.filter(
         sale__sale_date__date__gte=month_ago
     ).values(
-        'product__id',
-        'product__name',
-        'product__price'
+        'product__id', 'product__name', 'product__price'
     ).annotate(
         total_sales=Sum('total_amt'),
         total_qty=Sum('qty'),
@@ -10036,20 +9567,16 @@ def dashboard_view(request):
             p['product_name'] = p['product__name']
     
     # ========================================== #
-    # 5. RECENT SALES (Optimized)               #
+    # 5. RECENT SALES                            #
     # ========================================== #
     recent_sales = Sale.objects.select_related(
-        'customer',
-        'warehouse',
-        'customer__group',
-        'created_by'
+        'customer', 'warehouse', 'customer__group', 'created_by'
     ).prefetch_related(
-        'saleitem_set',
-        'saleitem_set__product'
+        'saleitem_set', 'saleitem_set__product'
     ).order_by('-sale_date')[:10]
     
     # ========================================== #
-    # 6. MONTHLY STATS (Optimized)              #
+    # 6. MONTHLY STATS                           #
     # ========================================== #
     monthly_stats = Sale.objects.filter(
         sale_date__date__gte=month_start
@@ -10071,7 +9598,7 @@ def dashboard_view(request):
     monthly_profit = monthly_profit - monthly_discount
     
     # ========================================== #
-    # 7. TOTAL COUNTS (Optimized)               #
+    # 7. TOTAL COUNTS                            #
     # ========================================== #
     total_customers = Customer.objects.count()
     total_vendors = Vendor.objects.count()
@@ -10084,7 +9611,7 @@ def dashboard_view(request):
     pending_sale_orders = SaleOrder.objects.filter(status='pending').count()
     
     # ========================================== #
-    # 8. PENDING APPROVALS (Optimized)          #
+    # 8. PENDING APPROVALS                       #
     # ========================================== #
     pending_purchases = Purchase.objects.filter(
         shareholder_deduction_done=False
@@ -10097,27 +9624,21 @@ def dashboard_view(request):
     ).count()
     
     # ========================================== #
-    # 9. 👑 CEO DETECTION (Admin = CEO)         #
+    # 9. 👑 CEO DETECTION (Admin = CEO)          #
     # ========================================== #
     is_ceo = request.user.is_superuser
     
-    # CEO-specific statistics (only if user is CEO/Admin)
     ceo_stats = None
     if is_ceo:
         ceo_stats = {
-            # Users & Staff
             'total_users': User.objects.count(),
             'active_users': User.objects.filter(is_active=True).count(),
             'total_employees': Employee.objects.count(),
             'active_employees': Employee.objects.filter(status='active').count(),
-            
-            # Company
             'total_shareholders': Shareholder.objects.filter(status='active').count(),
             'total_warehouses': Warehouse.objects.count(),
             'total_products': total_products,
             'active_products': Product.objects.filter(is_active=True).count(),
-            
-            # Financial
             'total_profit': get_cached_total_profit(),
             'monthly_revenue': monthly_sales,
             'monthly_profit': monthly_profit,
@@ -10125,39 +9646,25 @@ def dashboard_view(request):
             'today_profit': today_profit,
             'total_customers': total_customers,
             'total_vendors': total_vendors,
-            
-            # Pending Items
             'pending_purchases': pending_purchases,
             'pending_orders': pending_orders,
             'pending_leave_requests': pending_leave_requests,
             'pending_sale_orders': pending_sale_orders,
-            
-            # Installments
             'active_installments': active_installments,
             'total_installments': SaleInstallment.objects.count(),
             'defaulted_installments': SaleInstallment.objects.filter(status='defaulted').count(),
-            
-            # Inventory
             'low_stock_count': low_stock_count,
-            'total_stock_value': Inventory.objects.aggregate(
-                total=Sum('stock')
-            )['total'] or 0,
-            
-            # Today's Stats
+            'total_stock_value': Inventory.objects.aggregate(total=Sum('stock'))['total'] or 0,
             'today_sales_count': today_sales_count,
             'today_purchases_count': today_purchase_count,
-            
-            # Shareholders
-            'total_shares': Share.objects.aggregate(
-                total=Sum('quantity')
-            )['total'] or 0,
+            'total_shares': Share.objects.aggregate(total=Sum('quantity'))['total'] or 0,
             'total_dividends': DividendPayment.objects.filter(status='paid').aggregate(
                 total=Sum('amount')
             )['total'] or Decimal('0.00'),
         }
     
     # ========================================== #
-    # 10. QUICK ACTIONS (CEO Only)              #
+    # 10. QUICK ACTIONS (CEO Only)               #
     # ========================================== #
     quick_actions = []
     if is_ceo:
@@ -10171,7 +9678,7 @@ def dashboard_view(request):
         ]
     
     # ========================================== #
-    # 11. CONTEXT                               #
+    # 11. CONTEXT                                #
     # ========================================== #
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
@@ -10211,7 +9718,7 @@ def dashboard_view(request):
         'pending_sale_orders': pending_sale_orders,
         'pending_orders': pending_orders,
         
-        # 👑 CEO Specific
+        # CEO Specific
         'is_ceo': is_ceo,
         'ceo_stats': ceo_stats,
         'quick_actions': quick_actions,
@@ -10220,14 +9727,13 @@ def dashboard_view(request):
     }
     
     # ========================================== #
-    # 12. CACHE THE RESPONSE (5 Minutes)        #
+    # 12. CACHE THE RESPONSE (5 Minutes)         #
     # ========================================== #
-    cache.set(cache_key, context, 300)  # 5 minutes
+    cache.set(cache_key, context, 300)
     
     logger.info(f"✅ Dashboard cached for user: {request.user.username}")
     
     return render(request, 'index.html', context)
-
 
 # ========================================== #
 # HELPER: CACHED TOTAL PROFIT                #
@@ -12332,52 +11838,6 @@ def inventory_list(request):
 # ============================================
 # PRODUCTS
 # ============================================
-@login_required
-def product_list(request):
-    products = Product.objects.select_related('unit', 'category', 'brand', 'location', 'types').order_by('serial_no')
-    
-    search = request.GET.get('search', '')
-    if search:
-        products = products.filter(
-            Q(name__icontains=search) |
-            Q(serial_no__icontains=search) |
-            Q(barcode__icontains=search) |
-            Q(description__icontains=search)
-        )
-    
-    category_id = request.GET.get('category', '')
-    if category_id:
-        products = products.filter(category_id=category_id)
-    
-    brand_id = request.GET.get('brand', '')
-    if brand_id:
-        products = products.filter(brand_id=brand_id)
-    
-    location_id = request.GET.get('location', '')
-    if location_id:
-        products = products.filter(location_id=location_id)
-    
-    paginator = Paginator(products, 25)
-    page = request.GET.get('page', 1)
-    page_obj = paginator.get_page(page)
-    
-    context = {
-        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
-        'page_obj': page_obj,
-        'search': search,
-        'categories': Category.objects.all(),
-        'brands': Brand.objects.all(),
-        'locations': Location.objects.all(),
-        'selected_category': category_id,
-        'selected_brand': brand_id,
-        'selected_location': location_id,
-    }
-    return render(request, 'products/list.html', context)
-
-
-# ============================================
-# SALE ORDERS
-# ======================================
 @login_required
 def sale_order_list(request):
     """Sale Orders List with filters and stats"""
@@ -15098,142 +14558,6 @@ def my_discounts(request):
 # ============================================
 # SHAREHOLDER LOAN VIEWS
 # ============================================
-
-@login_required
-def loan_list(request):
-    """List all loans"""
-    
-    if request.user.is_superuser or request.user.is_staff:
-        loans = ShareholderLoan.objects.all().order_by('-created_at')
-    elif hasattr(request.user, 'shareholder_profile'):
-        loans = ShareholderLoan.objects.filter(
-            shareholder=request.user.shareholder_profile
-        ).order_by('-created_at')
-    else:
-        messages.error(request, 'Access denied!')
-        return redirect('dashboard')
-    
-    status = request.GET.get('status', '')
-    if status:
-        loans = loans.filter(status=status)
-    
-    context = {
-        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
-        'loans': loans,
-        'status': status,
-        'is_admin': request.user.is_superuser or request.user.is_staff,
-    }
-    return render(request, 'shareholders/loan/list.html', context)
-
-
-@login_required
-def loan_create(request):
-    """Create new loan request"""
-    
-    if request.method == 'POST':
-        try:
-            # Validation
-            if not hasattr(request.user, 'shareholder_profile'):
-                messages.error(request, 'Only shareholders can apply for loans!')
-                return redirect('dashboard')
-            
-            shareholder = request.user.shareholder_profile
-            principal = Decimal(request.POST.get('principal', 0))
-            
-            if principal <= 0:
-                messages.error(request, 'Principal must be greater than zero!')
-                return redirect('loan_create')
-            
-            # Check collateral
-            shares = shareholder.shares.filter(is_locked=False, quantity__gt=0)
-            total_value = sum(share.total_value() for share in shares)
-            
-            loan_amount = principal * (Decimal(request.POST.get('ltv_ratio', 60)) / 100)
-            if loan_amount > total_value:
-                messages.error(request, f'Insufficient collateral! Required: Rs. {loan_amount:,.2f}')
-                return redirect('loan_create')
-            
-            loan = ShareholderLoan.objects.create(
-                loan_type=request.POST.get('loan_type'),
-                shareholder=shareholder,
-                principal=principal,
-                interest_rate=Decimal(request.POST.get('interest_rate', 12)),
-                start_date=request.POST.get('start_date'),
-                maturity_date=request.POST.get('maturity_date'),
-                ltv_ratio=Decimal(request.POST.get('ltv_ratio', 60)),
-                processing_fee=Decimal(request.POST.get('processing_fee', 0)),
-                status='draft',
-                created_by=request.user,
-                notes=request.POST.get('notes', '')
-            )
-            
-            # Add collateral shares
-            share_ids = request.POST.getlist('collateral_shares[]')
-            if share_ids:
-                for share_id in share_ids:
-                    share = Share.objects.get(id=share_id, shareholder=shareholder)
-                    loan.collateral_shares.add(share)
-                loan.collateral_value = sum(
-                    share.total_value() for share in loan.collateral_shares.all()
-                )
-                loan.save()
-            
-            messages.success(request, f'✅ Loan #{loan.loan_no} created! Waiting for approval.')
-            return redirect('loan_detail', pk=loan.pk)
-            
-        except Exception as e:
-            messages.error(request, f'❌ Error: {str(e)}')
-    
-    shareholder = request.user.shareholder_profile if hasattr(request.user, 'shareholder_profile') else None
-    shares = shareholder.shares.filter(is_locked=False, quantity__gt=0) if shareholder else []
-    
-    context = {
-        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
-        'loan_types': ShareholderLoan.LOAN_TYPES,
-        'shares': shares,
-        'shareholder': shareholder,
-    }
-    return render(request, 'shareholders/loan/create.html', context)
-
-
-@login_required
-def loan_detail(request, pk):
-    """Loan detail view"""
-    
-    loan = get_object_or_404(ShareholderLoan, pk=pk)
-    
-    # Check permission
-    if not request.user.is_superuser and not request.user.is_staff:
-        if not hasattr(request.user, 'shareholder_profile'):
-            messages.error(request, 'Access denied!')
-            return redirect('dashboard')
-        if loan.shareholder != request.user.shareholder_profile:
-            messages.error(request, 'Access denied!')
-            return redirect('dashboard')
-    
-    # Calculate interest
-    loan.accrue_interest()
-    
-    # Get payments
-    interest_payments = InterestPayment.objects.filter(loan=loan)
-    principal_payments = PrincipalPayment.objects.filter(loan=loan)
-    
-    # Calculate total paid
-    total_interest_paid = interest_payments.aggregate(total=Sum('amount'))['total'] or 0
-    total_principal_paid = principal_payments.aggregate(total=Sum('amount'))['total'] or 0
-    
-    context = {
-        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
-        'loan': loan,
-        'interest_payments': interest_payments,
-        'principal_payments': principal_payments,
-        'total_interest_paid': total_interest_paid,
-        'total_principal_paid': total_principal_paid,
-        'remaining_balance': loan.outstanding + loan.interest_accrued,
-        'is_admin': request.user.is_superuser or request.user.is_staff,
-    }
-    return render(request, 'shareholders/loan/detail.html', context)
-
 
 @login_required
 def loan_pay(request, pk):
@@ -23389,50 +22713,6 @@ def upload_all_backups(request):
         'total': len(results),
     })
 
-def check_rclone_status(request):
-    """Check rclone and Google Drive status"""
-    try:
-        # Check rclone installed
-        check_rclone = subprocess.run(['which', 'rclone'], capture_output=True, text=True)
-        rclone_installed = check_rclone.returncode == 0
-        
-        if not rclone_installed:
-            return JsonResponse({
-                'success': False,
-                'rclone_installed': False,
-                'message': '⚠️ Rclone not installed! Install: pkg install rclone',
-                'remote_configured': False
-            })
-        
-        # Check remote configured
-        check_remote = subprocess.run(
-            ['rclone', 'ls', 'gdrive:'],
-            capture_output=True, text=True,
-            timeout=10
-        )
-        remote_configured = check_remote.returncode == 0
-        
-        return JsonResponse({
-            'success': True,
-            'rclone_installed': True,
-            'remote_configured': remote_configured,
-            'remote_name': 'gdrive',
-            'remote_dir': 'TermuxBackups',
-            'message': '✅ Google Drive ready!' if remote_configured else '⚠️ Remote not configured. Run: rclone config',
-        })
-        
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': f'Error: {str(e)}',
-            'rclone_installed': False,
-            'remote_configured': False
-        })
-
-# ----------------------------
-# BACKUP PROGRESS FUNCTIONS
-# ----------------------------
-
 def update_backup_progress(step, total, current, message, status='in_progress'):
     """Update backup progress in JSON file"""
     steps = {
@@ -25773,53 +25053,6 @@ from django.contrib.auth.decorators import login_required
 from decimal import Decimal
 from .models import Account, AccountType, CompanyInfo
 
-@login_required
-def account_edit(request, pk):
-    """Edit an existing account"""
-    
-    if not request.user.is_superuser and not request.user.is_staff:
-        messages.error(request, '❌ Access denied! Only administrators can edit accounts.')
-        return redirect('chart_of_accounts')
-    
-    account = get_object_or_404(Account, pk=pk)
-    
-    if request.method == 'POST':
-        try:
-            account.code = request.POST.get('code')
-            account.name = request.POST.get('name')
-            account.account_type_id = request.POST.get('account_type')
-            account.parent_id = request.POST.get('parent') or None
-            account.opening_balance = Decimal(request.POST.get('opening_balance', 0))
-            account.opening_balance_date = request.POST.get('opening_balance_date') or None
-            account.is_active = request.POST.get('is_active') == 'on'
-            account.is_bank = request.POST.get('is_bank') == 'on'
-            account.is_cash = request.POST.get('is_cash') == 'on'
-            account.is_payable = request.POST.get('is_payable') == 'on'
-            account.is_receivable = request.POST.get('is_receivable') == 'on'
-            account.bank_name = request.POST.get('bank_name', '')
-            account.bank_account_no = request.POST.get('bank_account_no', '')
-            account.description = request.POST.get('description', '')
-            account.save()
-            
-            messages.success(request, f'✅ Account "{account.name}" updated successfully!')
-            return redirect('chart_of_accounts')
-            
-        except Exception as e:
-            messages.error(request, f'❌ Error: {str(e)}')
-            return redirect('account_edit', pk=pk)
-    
-    context = {
-        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
-        'account': account,
-        'account_types': AccountType.objects.all(),
-        'parent_accounts': Account.objects.filter(parent__isnull=True).exclude(pk=pk),
-    }
-    return render(request, 'accounts/account_edit.html', context)
-    
-# ========================================== #
-# ACCOUNT EDIT VIEW                          #
-# ========================================== #
-
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -26395,94 +25628,6 @@ def accounts_reports(request):
     }
     return render(request, 'accounts/reports.html', context)
 
-
-@login_required
-def export_accounts_report(request):
-    """Export accounts report to Excel"""
-    
-    if not request.user.is_superuser and not request.user.is_staff:
-        messages.error(request, '❌ Access denied! Only administrators can export accounts reports.')
-        return redirect('dashboard')
-    
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, Alignment, PatternFill
-    from django.http import HttpResponse
-    
-    wb = Workbook()
-    
-    # Sheet 1: Summary
-    ws = wb.active
-    ws.title = "Summary"
-    
-    ws['A1'] = "Accounts Report"
-    ws['A1'].font = Font(bold=True, size=16)
-    ws.merge_cells('A1:C1')
-    
-    ws['A2'] = f"Generated: {date.today().strftime('%d-%m-%Y')}"
-    ws.merge_cells('A2:C2')
-    
-    # Account balances
-    row = 4
-    ws.cell(row=row, column=1, value="Account Type").font = Font(bold=True)
-    ws.cell(row=row, column=2, value="Count").font = Font(bold=True)
-    ws.cell(row=row, column=3, value="Total Balance").font = Font(bold=True)
-    
-    for account_type in ['asset', 'liability', 'equity', 'income', 'expense']:
-        accounts = Account.objects.filter(
-            account_type__account_class=account_type,
-            is_active=True
-        )
-        total = sum(a.current_balance() for a in accounts)
-        row += 1
-        ws.cell(row=row, column=1, value=account_type.title())
-        ws.cell(row=row, column=2, value=accounts.count())
-        ws.cell(row=row, column=3, value=float(total))
-        ws.cell(row=row, column=3).number_format = '#,##0.00'
-    
-    # Sheet 2: All Accounts
-    ws2 = wb.create_sheet("All Accounts")
-    
-    headers = ['Code', 'Name', 'Account Type', 'Class', 'Balance']
-    for col, header in enumerate(headers, 1):
-        cell = ws2.cell(row=1, column=col, value=header)
-        cell.font = Font(bold=True)
-        cell.fill = PatternFill(start_color="1a1d2e", end_color="1a1d2e", fill_type="solid")
-        cell.font = Font(bold=True, color="FFFFFF")
-    
-    row = 2
-    for account in Account.objects.filter(is_active=True).order_by('code'):
-        ws2.cell(row=row, column=1, value=account.code)
-        ws2.cell(row=row, column=2, value=account.name)
-        ws2.cell(row=row, column=3, value=account.account_type.name if account.account_type else '')
-        ws2.cell(row=row, column=4, value=account.account_type.account_class if account.account_type else '')
-        ws2.cell(row=row, column=5, value=float(account.current_balance()))
-        ws2.cell(row=row, column=5).number_format = '#,##0.00'
-        row += 1
-    
-    # Auto-fit columns
-    for ws_sheet in [ws, ws2]:
-        for column in ws_sheet.columns:
-            max_length = 0
-            column_letter = column[0].column_letter
-            for cell in column:
-                try:
-                    if len(str(cell.value)) > max_length:
-                        max_length = len(str(cell.value))
-                except:
-                    pass
-            adjusted_width = min(max_length + 2, 30)
-            ws_sheet.column_dimensions[column_letter].width = adjusted_width
-    
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    response['Content-Disposition'] = f'attachment; filename="Accounts_Report_{date.today()}.xlsx"'
-    wb.save(response)
-    return response
-    
-# ========================================== #
-# EXPORT ACCOUNTS REPORT - FIXED             #
-# ========================================== #
 
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side

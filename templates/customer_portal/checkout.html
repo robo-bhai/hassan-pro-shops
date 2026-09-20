@@ -5,128 +5,1123 @@
 
 {% block content %}
 
-<div class="container py-4">
-    <h1 class="mb-4">📝 Checkout</h1>
+<style>
+    .mobile-bottom-nav { display: none !important; }
+    body { padding-bottom: 20px !important; }
     
-    <form method="post" action="{% url 'place_order' %}">
+    /* Address & Payment Options */
+    .address-option, .payment-option {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 15px;
+        border: 2px solid #e0e3eb;
+        border-radius: 10px;
+        margin-bottom: 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background: #fff;
+    }
+    .address-option:hover, .payment-option:hover {
+        border-color: #667eea;
+        background: #f8f9fc;
+        transform: translateY(-1px);
+    }
+    .address-option input[type="radio"],
+    .payment-option input[type="radio"] {
+        accent-color: #667eea;
+        width: 18px;
+        height: 18px;
+        margin-top: 3px;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+    .address-option.selected,
+    .payment-option.selected {
+        border-color: #667eea;
+        background: #f0f4ff;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    /* Summary Card */
+    .summary-card {
+        position: sticky;
+        top: 20px;
+    }
+    .summary-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px dashed #e0e3eb;
+        font-size: 14px;
+    }
+    .summary-item:last-child {
+        border-bottom: none;
+    }
+    .summary-item.total-row {
+        font-size: 18px;
+        padding-top: 12px;
+        border-top: 2px solid #1a1a2e;
+        border-bottom: none;
+        margin-top: 5px;
+    }
+    
+    /* Cart Product */
+    .cart-product {
+        display: flex;
+        gap: 10px;
+        padding: 10px 0;
+        border-bottom: 1px solid #f0f0f0;
+        align-items: center;
+    }
+    .cart-product:last-child {
+        border-bottom: none;
+    }
+    .cart-product-img {
+        width: 55px;
+        height: 55px;
+        object-fit: cover;
+        border-radius: 8px;
+        background: #f0f0f0;
+        flex-shrink: 0;
+    }
+    .cart-product-info {
+        flex: 1;
+        min-width: 0;
+    }
+    .cart-product-name {
+        font-weight: 600;
+        font-size: 13px;
+        color: #1a1a2e;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .cart-product-meta {
+        font-size: 11px;
+        color: #6b7280;
+        margin-top: 2px;
+    }
+    .cart-product-price {
+        font-weight: 700;
+        color: #28a745;
+        font-size: 14px;
+        white-space: nowrap;
+    }
+    
+    /* Place Order Button */
+    .place-order-btn {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border: none;
+        color: white;
+        font-weight: 600;
+        padding: 14px;
+        border-radius: 10px;
+        font-size: 16px;
+        width: 100%;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+    .place-order-btn:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(40, 167, 69, 0.4);
+        color: white;
+    }
+    .place-order-btn:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    /* Section Headers */
+    .section-header {
+        background: #1a1d2e;
+        color: white;
+        padding: 12px 18px;
+        border-radius: 10px 10px 0 0;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .section-body {
+        padding: 20px;
+        background: white;
+        border-radius: 0 0 10px 10px;
+    }
+    
+    /* Trust Badges */
+    .trust-badge {
+        text-align: center;
+        padding: 10px;
+    }
+    .trust-badge i {
+        font-size: 24px;
+        display: block;
+        margin-bottom: 5px;
+    }
+    .trust-badge small {
+        font-size: 11px;
+        color: #6b7280;
+    }
+    
+    /* OTP Section Styles */
+    .otp-section {
+        border: 3px solid #ffc107;
+        border-radius: 12px;
+        overflow: hidden;
+        animation: pulse-border 2s infinite;
+    }
+    @keyframes pulse-border {
+        0%, 100% { border-color: #ffc107; }
+        50% { border-color: #ff9800; }
+    }
+    .otp-section.verified {
+        border-color: #28a745;
+        animation: none;
+    }
+    .token-display {
+        font-size: 26px;
+        font-weight: bold;
+        letter-spacing: 6px;
+        font-family: 'Courier New', monospace;
+        background: white;
+        padding: 12px;
+        border-radius: 8px;
+        border: 2px dashed #17a2b8;
+        color: #0c5460;
+        text-align: center;
+    }
+    .otp-input {
+        font-size: 26px !important;
+        letter-spacing: 10px;
+        text-align: center;
+        font-weight: bold;
+        padding: 15px !important;
+        border: 2px solid #ffc107 !important;
+    }
+    .otp-input:focus {
+        border-color: #28a745 !important;
+        box-shadow: 0 0 0 0.25rem rgba(40, 167, 69, 0.25) !important;
+    }
+    
+    /* ✅ Already Verified Box */
+    .already-verified-box {
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        border-left: 5px solid #28a745;
+        border-radius: 12px;
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        animation: verified-pulse 2s ease-in-out infinite;
+    }
+    @keyframes verified-pulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4); }
+        50% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+    }
+    .already-verified-box .icon-circle {
+        width: 60px;
+        height: 60px;
+        min-width: 60px;
+        border-radius: 50%;
+        background: #28a745;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+    }
+    .already-verified-box h5 {
+        margin: 0 0 5px;
+        color: #155724;
+        font-weight: 700;
+    }
+    .already-verified-box small {
+        color: #155724;
+        font-size: 13px;
+    }
+    
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+        .summary-card {
+            position: static;
+        }
+        .cart-product-img {
+            width: 50px;
+            height: 50px;
+        }
+        .place-order-btn {
+            font-size: 15px;
+            padding: 12px;
+        }
+        h2 {
+            font-size: 20px;
+        }
+        .token-display {
+            font-size: 22px;
+            letter-spacing: 4px;
+        }
+        .otp-input {
+            font-size: 22px !important;
+            letter-spacing: 8px;
+        }
+        .already-verified-box .icon-circle {
+            width: 50px;
+            height: 50px;
+            min-width: 50px;
+            font-size: 26px;
+        }
+    }
+    
+    /* Loading Spinner */
+    .spinner {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+</style>
+
+<div class="container py-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold mb-0">
+            <i class="bi bi-bag-check text-primary"></i> Checkout
+        </h2>
+        <a href="{% url 'cart_view' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Back to Cart
+        </a>
+    </div>
+
+    <!-- Progress Steps -->
+    <div class="d-flex justify-content-center align-items-center mb-4 flex-wrap gap-2">
+        <div class="d-flex align-items-center">
+            <span class="badge bg-success rounded-pill">1</span>
+            <small class="ms-2 text-success fw-bold">Cart</small>
+        </div>
+        <i class="bi bi-chevron-right text-muted"></i>
+        <div class="d-flex align-items-center">
+            <span class="badge bg-primary rounded-pill">2</span>
+            <small class="ms-2 text-primary fw-bold">Checkout</small>
+        </div>
+        <i class="bi bi-chevron-right text-muted"></i>
+        <div class="d-flex align-items-center">
+            <span class="badge bg-secondary rounded-pill">3</span>
+            <small class="ms-2 text-muted">Confirmation</small>
+        </div>
+    </div>
+
+    <form id="checkoutForm" method="POST" action="/shop/place-order/">
         {% csrf_token %}
         
         <div class="row g-4">
             
-            <!-- Customer Info -->
-            <div class="col-md-7">
-                <div class="card shadow-sm">
-                    <div class="card-body">
-                        <h5 class="mb-3">🚚 Delivery Information</h5>
+            <!-- LEFT COLUMN -->
+            <div class="col-lg-8">
+                
+                <!-- Delivery Information -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="section-header">
+                        <i class="bi bi-geo-alt-fill"></i> Delivery Information
+                    </div>
+                    <div class="section-body">
                         
-                        <div class="mb-3">
-                            <label class="form-label">Full Name *</label>
-                            <input type="text" name="name" class="form-control" required>
+                        {% if addresses %}
+                        <div class="mb-4">
+                            <label class="form-label fw-bold mb-3">
+                                <i class="bi bi-bookmark-check text-primary"></i> Saved Addresses
+                            </label>
+                            {% for addr in addresses %}
+                            <div class="address-option" onclick="selectAddress(this, '{{ addr.id }}')">
+                                <input type="radio" 
+                                       name="address_choice" 
+                                       value="{{ addr.id }}"
+                                       id="addr_{{ addr.id }}"
+                                       {% if addr.is_default %}checked{% endif %}>
+                                <label for="addr_{{ addr.id }}" class="flex-grow-1 mb-0" style="cursor: pointer;">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <strong class="text-dark">{{ addr.full_name }}</strong>
+                                        {% if addr.is_default %}
+                                        <span class="badge bg-success">Default</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="text-muted small mt-1">
+                                        {{ addr.address_line_1 }}{% if addr.address_line_2 %}, {{ addr.address_line_2 }}{% endif %}<br>
+                                        {{ addr.city }}{% if addr.state %}, {{ addr.state }}{% endif %}<br>
+                                        📱 {{ addr.phone }}
+                                    </div>
+                                </label>
+                            </div>
+                            {% endfor %}
+                            
+                            <div class="text-center my-3">
+                                <span class="text-muted small">— OR ENTER MANUALLY BELOW —</span>
+                            </div>
                         </div>
+                        {% endif %}
+                        
+                        <h6 class="mb-3 text-primary">
+                            <i class="bi bi-pencil-square"></i> Delivery Details
+                        </h6>
                         
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="form-label">Phone Number *</label>
-                                <input type="tel" name="phone" class="form-control" required>
+                                <label class="form-label">
+                                    Full Name <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" 
+                                       name="name" 
+                                       id="name"
+                                       class="form-control" 
+                                       value="{{ default_address.full_name|default:customer.name }}"
+                                       placeholder="Enter your full name"
+                                       required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">
+                                    Phone Number <span class="text-danger">*</span>
+                                </label>
+                                <input type="tel" 
+                                       name="phone" 
+                                       id="phone"
+                                       class="form-control" 
+                                       value="{{ default_address.phone|default:customer.contact_number }}"
+                                       placeholder="03XX-XXXXXXX"
+                                       required>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Email (Optional)</label>
-                                <input type="email" name="email" class="form-control">
+                                <input type="email" 
+                                       name="email" 
+                                       id="email"
+                                       class="form-control" 
+                                       value="{{ customer.email|default:'' }}"
+                                       placeholder="email@example.com">
                             </div>
-                        </div>
-                        
-                        <div class="mb-3 mt-3">
-                            <label class="form-label">Address *</label>
-                            <textarea name="address" class="form-control" rows="2" required></textarea>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label">City *</label>
-                            <input type="text" name="city" class="form-control" required>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label">Order Notes (Optional)</label>
-                            <textarea name="notes" class="form-control" rows="2" placeholder="Special instructions..."></textarea>
+                            <div class="col-md-6">
+                                <label class="form-label">
+                                    City <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" 
+                                       name="city" 
+                                       id="city"
+                                       class="form-control" 
+                                       value="{{ default_address.city|default:'' }}"
+                                       placeholder="Your city"
+                                       required>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">
+                                    Complete Address <span class="text-danger">*</span>
+                                </label>
+                                <textarea name="address" 
+                                          id="address"
+                                          class="form-control" 
+                                          rows="3"
+                                          placeholder="House #, Street, Area, Landmark"
+                                          required>{{ default_address.address_line_1|default:'' }}{% if default_address.address_line_2 %} {{ default_address.address_line_2 }}{% endif %}</textarea>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Order Notes (Optional)</label>
+                                <textarea name="notes" 
+                                          id="notes"
+                                          class="form-control" 
+                                          rows="2"
+                                          placeholder="Special delivery instructions..."></textarea>
+                            </div>
                         </div>
                     </div>
                 </div>
                 
                 <!-- Payment Method -->
-                <div class="card shadow-sm mt-3">
-                    <div class="card-body">
-                        <h5 class="mb-3">💳 Payment Method</h5>
-                        
-                        <div class="form-check mb-2">
-                            <input class="form-check-input" type="radio" name="payment_method" 
-                                   id="cod" value="cod" checked>
-                            <label class="form-check-label" for="cod">
-                                <strong>Cash on Delivery (COD)</strong>
-                                <br>
-                                <small class="text-muted">Pay when you receive</small>
-                            </label>
-                        </div>
-                        
-                        <div class="form-check mb-2">
-                            <input class="form-check-input" type="radio" name="payment_method" 
-                                   id="bank" value="bank">
-                            <label class="form-check-label" for="bank">
-                                <strong>Bank Transfer</strong>
-                                <br>
-                                <small class="text-muted">Account details share honge</small>
-                            </label>
-                        </div>
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="section-header">
+                        <i class="bi bi-credit-card-fill"></i> Payment Method
                     </div>
-                </div>
-            </div>
-            
-            <!-- Order Summary -->
-            <div class="col-md-5">
-                <div class="card shadow-sm">
-                    <div class="card-body">
-                        <h5 class="mb-3">📦 Order Summary</h5>
-                        
-                        {% for item in cart_items %}
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>
-                                {{ item.name|truncatechars:20 }}
-                                <small class="text-muted">× {{ item.quantity }}</small>
-                            </span>
-                            <strong>Rs. {{ item.total|floatformat:0 }}</strong>
+                    <div class="section-body">
+                        {% for value, label, desc in payment_methods %}
+                        <div class="payment-option" onclick="selectPayment(this)">
+                            <input type="radio" 
+                                   name="payment_method" 
+                                   value="{{ value }}"
+                                   id="pay_{{ value }}"
+                                   {% if value == 'cod' %}checked{% endif %}>
+                            <label for="pay_{{ value }}" class="flex-grow-1 mb-0" style="cursor: pointer;">
+                                <strong class="text-dark">{{ label }}</strong>
+                                <div class="text-muted small">{{ desc }}</div>
+                            </label>
+                        </div>
+                        {% empty %}
+                        <div class="payment-option" onclick="selectPayment(this)">
+                            <input type="radio" 
+                                   name="payment_method" 
+                                   value="cod"
+                                   id="pay_cod"
+                                   checked>
+                            <label for="pay_cod" class="flex-grow-1 mb-0" style="cursor: pointer;">
+                                <strong class="text-dark">💵 Cash on Delivery</strong>
+                                <div class="text-muted small">Pay when your order arrives</div>
+                            </label>
+                        </div>
+                        <div class="payment-option" onclick="selectPayment(this)">
+                            <input type="radio" 
+                                   name="payment_method" 
+                                   value="bank_transfer"
+                                   id="pay_bank">
+                            <label for="pay_bank" class="flex-grow-1 mb-0" style="cursor: pointer;">
+                                <strong class="text-dark">🏦 Bank Transfer</strong>
+                                <div class="text-muted small">Transfer to our bank account</div>
+                            </label>
                         </div>
                         {% endfor %}
+                    </div>
+                </div>
+                
+                <!-- ============================================ -->
+                <!-- ✅ OTP VERIFICATION SECTION - 3 CASES        -->
+                <!-- ============================================ -->
+                
+                {% if skip_otp %}
+                    <!-- ✅ CASE 1: Trusted Customer -->
+                    <div class="alert alert-success d-flex align-items-center" 
+                         style="border-left: 5px solid #28a745; padding: 20px;">
+                        <i class="bi bi-patch-check-fill" 
+                           style="font-size: 40px; color: #28a745; margin-right: 15px;"></i>
+                        <div>
+                            <h5 class="mb-1"><strong>Trusted Customer</strong></h5>
+                            <div class="small">
+                                Aap trusted customer hain. <strong>OTP zaroori nahi</strong> hai — 
+                                direct order place karein!
+                            </div>
+                        </div>
+                    </div>
+
+                {% elif order_verified %}
+                    <!-- ✅ CASE 2: Already OTP Verified -->
+                    <div class="already-verified-box mb-4">
+                        <div class="icon-circle">
+                            <i class="bi bi-shield-check"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h5>✅ OTP Already Verified!</h5>
+                            <small>
+                                Aapka phone number verify ho chuka hai. 
+                                Aap <strong>direct order place</strong> kar sakte hain.
+                            </small>
+                        </div>
+                    </div>
+
+                {% else %}
+                    <!-- ✅ CASE 3: OTP Verification Needed -->
+                    <div class="card border-0 shadow-sm otp-section" id="otp-section">
+                        <div class="section-header" style="background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); color: #000;">
+                            <i class="bi bi-shield-lock-fill"></i> Order Verification (OTP Required)
+                        </div>
+                        <div class="section-body">
+                            
+                            <div class="alert alert-warning mb-3" role="alert" id="otp-alert">
+                                <i class="bi bi-info-circle-fill"></i>
+                                <strong>Order place karne ke liye pehle OTP verify karna zaroori hai.</strong>
+                                <div class="small mt-1">Aapke registered phone number par 6-digit code bheja jayega.</div>
+                            </div>
+                            
+                            <!-- Send OTP Button -->
+                            <button type="button" 
+                                    id="send-otp-btn" 
+                                    onclick="sendOTP()"
+                                    class="btn btn-warning w-100 fw-bold"
+                                    style="padding: 14px; font-size: 16px;">
+                                <i class="bi bi-phone-fill"></i> Send OTP
+                            </button>
+                            
+                            <!-- OTP Input Box (Initially Hidden) -->
+                            <div id="otp-input-box" style="display: none;">
+                                
+                                <!-- Order Token Display -->
+                                <div class="alert alert-info mb-3" role="alert">
+                                    <strong><i class="bi bi-bookmark-star-fill"></i> IMPORTANT: Aapka Order Token</strong>
+                                    <div id="token-value" class="token-display my-2">
+                                        --------
+                                    </div>
+                                    <small>
+                                        📌 Yeh token <strong>save kar lein</strong>! 
+                                        Agar abhi verify nahi kar sakte, to 
+                                        <a href="/shop/verify-otp-later/" style="font-weight: bold; text-decoration: underline;">
+                                            yahan click karke baad mein verify
+                                        </a> kar sakte hain.
+                                    </small>
+                                </div>
+                                
+                                <!-- OTP Input -->
+                                <label class="form-label fw-bold mb-2">
+                                    <i class="bi bi-key-fill"></i> Enter 6-Digit OTP:
+                                </label>
+                                <input type="text" 
+                                       id="otp-code" 
+                                       maxlength="6"
+                                       inputmode="numeric"
+                                       pattern="[0-9]*"
+                                       autocomplete="one-time-code"
+                                       class="form-control otp-input mb-3"
+                                       placeholder="• • • • • •">
+                                
+                                <!-- Verify OTP Button -->
+                                <button type="button" 
+                                        id="verify-otp-btn" 
+                                        onclick="verifyOTP()"
+                                        class="btn btn-success w-100 fw-bold"
+                                        style="padding: 14px; font-size: 16px;">
+                                    <i class="bi bi-check-circle-fill"></i> Verify OTP
+                                </button>
+                                
+                                <!-- Status Message -->
+                                <div id="otp-status" class="mt-3 fw-bold text-center"></div>
+                                
+                            </div>
+                            
+                        </div>
+                    </div>
+                {% endif %}
+                
+            </div>
+            
+            <!-- RIGHT COLUMN -->
+            <div class="col-lg-4">
+                
+                <!-- Order Summary -->
+                <div class="card border-0 shadow-sm summary-card">
+                    <div class="section-header" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
+                        <i class="bi bi-receipt"></i> Order Summary
+                    </div>
+                    <div class="section-body">
                         
-                        <hr>
+                        <!-- Cart Items -->
+                        <div class="mb-3" style="max-height: 280px; overflow-y: auto;">
+                            {% for item in cart_items %}
+                            <div class="cart-product">
+                                {% if item.product.image %}
+                                <img src="{{ item.product.image.url }}" 
+                                     alt="{{ item.product.name }}" 
+                                     class="cart-product-img">
+                                {% else %}
+                                <div class="cart-product-img d-flex align-items-center justify-content-center">
+                                    <i class="bi bi-box text-muted fs-5"></i>
+                                </div>
+                                {% endif %}
+                                <div class="cart-product-info">
+                                    <div class="cart-product-name">{{ item.product.name }}</div>
+                                    <div class="cart-product-meta">
+                                        Qty: {{ item.quantity }} × Rs. {{ item.price|floatformat:0 }}
+                                    </div>
+                                </div>
+                                <div class="cart-product-price">
+                                    Rs. {{ item.subtotal|floatformat:0 }}
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="text-center py-4">
+                                <i class="bi bi-cart-x display-4 text-muted"></i>
+                                <p class="text-muted mt-2">Your cart is empty</p>
+                                <a href="{% url 'shop_home' %}" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-shop"></i> Continue Shopping
+                                </a>
+                            </div>
+                            {% endfor %}
+                        </div>
                         
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>Subtotal:</span>
+                        <hr class="my-3">
+                        
+                        <!-- Price Breakdown -->
+                        <div class="summary-item">
+                            <span class="text-muted">Subtotal</span>
                             <strong>Rs. {{ subtotal|floatformat:0 }}</strong>
                         </div>
                         
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>Delivery:</span>
-                            <span class="text-success">Free</span>
+                        {% if discount and discount > 0 %}
+                        <div class="summary-item text-success">
+                            <span><i class="bi bi-tag-fill"></i> Discount</span>
+                            <strong>- Rs. {{ discount|floatformat:0 }}</strong>
+                        </div>
+                        {% endif %}
+                        
+                        {% if tax and tax > 0 %}
+                        <div class="summary-item">
+                            <span class="text-muted">Tax</span>
+                            <strong>Rs. {{ tax|floatformat:0 }}</strong>
+                        </div>
+                        {% endif %}
+                        
+                        {% if delivery_charges and delivery_charges > 0 %}
+                        <div class="summary-item">
+                            <span class="text-muted">Delivery Charges</span>
+                            <strong>Rs. {{ delivery_charges|floatformat:0 }}</strong>
+                        </div>
+                        {% else %}
+                        <div class="summary-item text-success">
+                            <span><i class="bi bi-truck"></i> Delivery</span>
+                            <strong>FREE</strong>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Total -->
+                        <div class="summary-item total-row">
+                            <strong>Total</strong>
+                            <strong class="text-success">
+                                Rs. {{ total|floatformat:0 }}
+                            </strong>
                         </div>
                         
-                        <hr>
-                        
-                        <div class="d-flex justify-content-between mb-4">
-                            <h4 class="mb-0">Total:</h4>
-                            <h4 class="mb-0 text-primary">Rs. {{ subtotal|floatformat:0 }}</h4>
-                        </div>
-                        
-                        <button type="submit" class="btn btn-primary w-100 btn-lg">
-                            <i class="bi bi-check-circle"></i> Place Order
+                        <!-- Place Order Button -->
+                        <button type="submit" 
+                                class="place-order-btn mt-3"
+                                id="placeOrderBtn">
+                            <i class="bi bi-check-circle-fill"></i>
+                            <span>Place Order</span>
                         </button>
                         
-                        <a href="{% url 'cart_view' %}" class="btn btn-outline-secondary w-100 mt-2">
-                            ← Back to Cart
-                        </a>
+                        <!-- Security Note -->
+                        <div class="text-center mt-3">
+                            <small class="text-muted">
+                                <i class="bi bi-shield-check text-success"></i>
+                                Safe & Secure Checkout
+                            </small>
+                        </div>
+                        
                     </div>
                 </div>
+                
+                <!-- Trust Badges -->
+                <div class="card border-0 shadow-sm mt-3">
+                    <div class="card-body py-3">
+                        <div class="row g-2">
+                            <div class="col-4 trust-badge">
+                                <i class="bi bi-truck text-primary"></i>
+                                <small>Fast Delivery</small>
+                            </div>
+                            <div class="col-4 trust-badge">
+                                <i class="bi bi-arrow-repeat text-success"></i>
+                                <small>Easy Returns</small>
+                            </div>
+                            <div class="col-4 trust-badge">
+                                <i class="bi bi-shield-lock text-warning"></i>
+                                <small>Secure Payment</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
             </div>
+            
         </div>
+        
     </form>
 </div>
+
+<script>
+// ==========================================
+// CSRF TOKEN HELPER
+// ==========================================
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// ==========================================
+// MAIN DOCUMENT READY
+// ==========================================
+document.addEventListener('DOMContentLoaded', function() {
+    
+    const form = document.getElementById('checkoutForm');
+    const placeOrderBtn = document.getElementById('placeOrderBtn');
+    
+    // ==========================================
+    // Address Selection
+    // ==========================================
+    const addressRadios = document.querySelectorAll('input[name="address_choice"]');
+    
+    addressRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            document.querySelectorAll('.address-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            this.closest('.address-option').classList.add('selected');
+            
+            const addrId = this.value;
+            autoFillAddress(addrId);
+        });
+        
+        if (radio.checked) {
+            radio.closest('.address-option').classList.add('selected');
+        }
+    });
+    
+    function autoFillAddress(addrId) {
+        const label = document.querySelector(`label[for="addr_${addrId}"]`);
+        if (label) {
+            const nameEl = label.querySelector('strong');
+            if (nameEl) {
+                document.getElementById('name').value = nameEl.textContent.trim();
+            }
+        }
+    }
+    
+    // ==========================================
+    // Payment Selection
+    // ==========================================
+    const paymentRadios = document.querySelectorAll('input[name="payment_method"]');
+    
+    paymentRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            document.querySelectorAll('.payment-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            this.closest('.payment-option').classList.add('selected');
+        });
+        
+        if (radio.checked) {
+            radio.closest('.payment-option').classList.add('selected');
+        }
+    });
+    
+    // ==========================================
+    // OTP INPUT
+    // ==========================================
+    const otpInput = document.getElementById('otp-code');
+    if (otpInput) {
+        otpInput.addEventListener('input', function(e) {
+            this.value = this.value.replace(/[^0-9]/g, '');
+        });
+        
+        otpInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                verifyOTP();
+            }
+        });
+    }
+    
+    // ==========================================
+    // Form Submission with Validation
+    // ==========================================
+    form.addEventListener('submit', function(e) {
+        clearErrors();
+        
+        let hasError = false;
+        let firstErrorField = null;
+        
+        // ==========================================
+        // ✅ OTP CHECK (Updated with order_verified)
+        // ==========================================
+        const otpSection = document.getElementById('otp-section');
+        const otpInputBox = document.getElementById('otp-input-box');
+        
+        const isSkipOtp = {{ skip_otp|yesno:"true,false" }};
+        const isOrderVerified = {{ order_verified|yesno:"true,false" }};
+        
+        // Skip OTP check if trusted OR already verified
+        const shouldSkipOtpCheck = isSkipOtp || isOrderVerified;
+        
+        if (!shouldSkipOtpCheck && otpSection && otpInputBox) {
+            // Check 1: OTP input box visible nahi hai
+            if (otpInputBox.style.display !== 'block') {
+                e.preventDefault();
+                alert('❌ Please click "Send OTP" and verify your OTP before placing order!');
+                
+                otpSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                otpSection.style.border = '3px solid #dc3545';
+                setTimeout(() => {
+                    otpSection.style.border = '';
+                }, 3000);
+                return false;
+            }
+            
+            // Check 2: OTP input visible hai lekin verify nahi hui
+            const otpCode = otpInput ? otpInput.value.trim() : '';
+            if (!otpCode || otpCode.length !== 6) {
+                e.preventDefault();
+                alert('❌ Please enter your 6-digit OTP first!');
+                if (otpInput) otpInput.focus();
+                return false;
+            }
+        }
+        
+        // ==========================================
+        // FORM FIELD VALIDATIONS
+        // ==========================================
+        const name = document.getElementById('name');
+        const phone = document.getElementById('phone');
+        const city = document.getElementById('city');
+        const address = document.getElementById('address');
+        
+        if (!name.value.trim() || name.value.trim().length < 2) {
+            showError(name, 'Please enter your full name (min 2 characters)');
+            hasError = true;
+            if (!firstErrorField) firstErrorField = name;
+        }
+        
+        const phoneValue = phone.value.trim().replace(/[\s\-\(\)]/g, '');
+        if (!phoneValue || phoneValue.length < 10) {
+            showError(phone, 'Please enter a valid phone number (min 10 digits)');
+            hasError = true;
+            if (!firstErrorField) firstErrorField = phone;
+        }
+        
+        if (!city.value.trim()) {
+            showError(city, 'Please enter your city');
+            hasError = true;
+            if (!firstErrorField) firstErrorField = city;
+        }
+        
+        if (!address.value.trim() || address.value.trim().length < 10) {
+            showError(address, 'Please enter complete address (min 10 characters)');
+            hasError = true;
+            if (!firstErrorField) firstErrorField = address;
+        }
+        
+        if (hasError) {
+            e.preventDefault();
+            if (firstErrorField) {
+                firstErrorField.focus();
+                firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            return false;
+        }
+        
+        const cartItems = document.querySelectorAll('.cart-product');
+        if (cartItems.length === 0) {
+            e.preventDefault();
+            alert('❌ Your cart is empty!');
+            return false;
+        }
+        
+        placeOrderBtn.disabled = true;
+        placeOrderBtn.innerHTML = '<span class="spinner"></span> Placing Order...';
+    });
+    
+    function showError(field, message) {
+        field.classList.add('is-invalid');
+        const existingError = field.parentElement.querySelector('.invalid-feedback');
+        if (existingError) existingError.remove();
+        
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'invalid-feedback d-block';
+        errorDiv.textContent = message;
+        field.parentElement.appendChild(errorDiv);
+    }
+    
+    function clearErrors() {
+        document.querySelectorAll('.is-invalid').forEach(el => {
+            el.classList.remove('is-invalid');
+        });
+        document.querySelectorAll('.invalid-feedback').forEach(el => {
+            el.remove();
+        });
+    }
+    
+    ['name', 'phone', 'city', 'address'].forEach(id => {
+        const field = document.getElementById(id);
+        if (field) {
+            field.addEventListener('input', function() {
+                this.classList.remove('is-invalid');
+                const error = this.parentElement.querySelector('.invalid-feedback');
+                if (error) error.remove();
+            });
+        }
+    });
+    
+    const phoneField = document.getElementById('phone');
+    if (phoneField) {
+        phoneField.addEventListener('blur', function() {
+            let value = this.value.replace(/[\s\-\(\)]/g, '');
+            if (value.length === 11 && value.startsWith('0')) {
+                this.value = value.slice(0, 4) + '-' + value.slice(4);
+            }
+        });
+    }
+    
+});
+
+// ==========================================
+// SEND OTP FUNCTION
+// ==========================================
+function sendOTP() {
+    const btn = document.getElementById('send-otp-btn');
+    const originalText = btn.innerHTML;
+    
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending OTP...';
+    btn.disabled = true;
+    
+    fetch('/shop/send-order-otp/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (data.skip_otp) {
+                document.getElementById('otp-section').innerHTML = 
+                    '<div class="alert alert-success text-center">' +
+                    '<i class="bi bi-check-circle-fill fs-1"></i>' +
+                    '<h5 class="mt-2"><strong>Trusted Customer</strong></h5>' +
+                    '<p>OTP not required. Aap direct order place kar sakte hain!</p>' +
+                    '</div>';
+            } else {
+                document.getElementById('otp-input-box').style.display = 'block';
+                document.getElementById('token-value').innerText = data.order_token;
+                
+                btn.innerHTML = '<i class="bi bi-check-circle-fill"></i> OTP Sent Successfully';
+                btn.classList.remove('btn-warning');
+                btn.classList.add('btn-success');
+                
+                document.getElementById('otp-alert').innerHTML = 
+                    '<i class="bi bi-check-circle-fill"></i> ' +
+                    '<strong>OTP sent to your phone!</strong> ' +
+                    '<div class="small mt-1">Please check your SMS and enter the 6-digit code below.</div>';
+                document.getElementById('otp-alert').className = 'alert alert-success mb-3';
+                
+                document.getElementById('otp-code').focus();
+                
+                console.log('📌 Order Token:', data.order_token);
+                console.log('📌 OTP ID:', data.otp_id);
+            }
+        } else {
+            alert('❌ ' + (data.message || 'OTP send nahi ho saki'));
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Network error. Please try again.');
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    });
+}
+
+// ==========================================
+// VERIFY OTP FUNCTION
+// ==========================================
+function verifyOTP() {
+    const otpCode = document.getElementById('otp-code').value.trim();
+    const statusDiv = document.getElementById('otp-status');
+    const btn = document.getElementById('verify-otp-btn');
+    
+    if (!/^\d{6}$/.test(otpCode)) {
+        statusDiv.style.color = 'red';
+        statusDiv.innerHTML = '❌ Please enter a valid 6-digit OTP';
+        return;
+    }
+    
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Verifying...';
+    btn.disabled = true;
+    statusDiv.innerHTML = '';
+    
+    fetch('/shop/verify-order-otp/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ otp_code: otpCode })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            statusDiv.style.color = 'green';
+            statusDiv.innerHTML = '✅ OTP Verified! Placing your order...';
+            
+            const otpSection = document.getElementById('otp-section');
+            if (otpSection) {
+                otpSection.classList.add('verified');
+            }
+            
+            document.getElementById('otp-input-box').innerHTML = 
+                '<div class="alert alert-success text-center mb-0">' +
+                '<i class="bi bi-check-circle-fill fs-1"></i>' +
+                '<h5 class="mt-2 mb-1"><strong>OTP Verified Successfully!</strong></h5>' +
+                '<p class="mb-0">Aapka order place ho raha hai...</p>' +
+                '</div>';
+            
+            setTimeout(() => {
+                document.getElementById('checkoutForm').submit();
+            }, 1000);
+            
+        } else {
+            statusDiv.style.color = 'red';
+            statusDiv.innerHTML = '❌ ' + (data.message || 'Invalid OTP');
+            btn.innerHTML = '<i class="bi bi-check-circle-fill"></i> Verify OTP';
+            btn.disabled = false;
+            
+            const otpInput = document.getElementById('otp-code');
+            if (otpInput) {
+                otpInput.style.animation = 'shake 0.5s';
+                setTimeout(() => {
+                    otpInput.style.animation = '';
+                }, 500);
+                otpInput.select();
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        statusDiv.style.color = 'red';
+        statusDiv.innerHTML = '❌ Network error. Please try again.';
+        btn.innerHTML = '<i class="bi bi-check-circle-fill"></i> Verify OTP';
+        btn.disabled = false;
+    });
+}
+
+// ==========================================
+// GLOBAL HELPER FUNCTIONS
+// ==========================================
+function selectAddress(element, addrId) {
+    const radio = element.querySelector('input[type="radio"]');
+    if (radio) {
+        radio.checked = true;
+        radio.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+}
+
+function selectPayment(element) {
+    const radio = element.querySelector('input[type="radio"]');
+    if (radio) {
+        radio.checked = true;
+        radio.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+}
+</script>
+
+<style>
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-10px); }
+    75% { transform: translateX(10px); }
+}
+</style>
 
 {% endblock %}

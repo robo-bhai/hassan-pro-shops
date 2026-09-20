@@ -2,6 +2,8 @@ from django.urls import path, re_path
 from django.contrib.auth import views as auth_views
 from . import views_frontend
 from . import views_customer_portal
+from app import views_customer_auth
+from app import views_admin_otp
 from app import views_security
 from app import views_bi  
 from app import views_testing  
@@ -306,7 +308,6 @@ urlpatterns = [
     path('production/operations/<int:pk>/start/', views_frontend.production_operation_start, name='production_operation_start'),
     path('production/operations/<int:pk>/complete/', views_frontend.production_operation_complete, name='production_operation_complete'),
     
-    path('production/stock/consume/<int:pk>/', views_frontend.production_consume_stock, name='production_consume_stock'),
     path('production/stock/produce/<int:pk>/', views_frontend.production_produce_stock, name='production_produce_stock'),
     
     path('production/transfers/', views_frontend.transfer_order_list, name='transfer_order_list'),
@@ -681,8 +682,6 @@ urlpatterns = [
          template_name='change_password_done.html'
      ), 
      name='password_change_done'),
-     path('logout/', auth_views.LogoutView.as_view(next_page='/login/'), name='logout'),
-     path('purchases/<int:pk>/', views_frontend.purchase_detail, name='purchase_detail'),
      path('', views_frontend.dashboard_view, name='dashboard'),
      path('sales/<int:pk>/convert-to-expense/', views_frontend.convert_sale_to_expense, name='convert_sale_to_expense'),
     path('reports/self-expense/', views_frontend.self_expense_report, name='self_expense_report'),
@@ -757,8 +756,6 @@ urlpatterns = [
     path('api/eligible-shareholders/', views_frontend.eligible_shareholders_api, name='eligible_shareholders_api'),
     path('api/balance-dividend-preview/', views_frontend.balance_dividend_preview_api, name='balance_dividend_preview_api'),
     path('api/dividend-profit/', views_frontend.dividend_profit_api, name='dividend_profit_api'),
-    path('api/eligible-shareholders/', views_frontend.eligible_shareholders_api, name='eligible_shareholders_api'),
-    path('api/balance-dividend-preview/', views_frontend.balance_dividend_preview_api, name='balance_dividend_preview_api'),
     path('shareholders/<int:pk>/withdraw-from-balance/', 
          views_frontend.shareholder_withdraw_from_balance, name='shareholder_withdraw_from_balance'),
     
@@ -840,15 +837,11 @@ urlpatterns = [
     path('vendors/purchase-product-export/', views_frontend.vendor_purchase_product_export, name='vendor_purchase_product_export'),
     path('vendors/purchase-product-pdf/', views_frontend.vendor_purchase_product_pdf, name='vendor_purchase_product_pdf'),
     path('ajax/search-products-purchase/', views_frontend.search_products_purchase, name='search_products_purchase'),
-    path('ajax/search-products/', views_frontend.search_products_ajax, name='search_products_ajax'),
     path('loan-returns/', views_frontend.loan_return_list, name='loan_return_list'),
     path('loan-returns/create/', views_frontend.loan_return_create, name='loan_return_create'),
     path('loan-returns/<int:pk>/', views_frontend.loan_return_detail, name='loan_return_detail'),
     path('loan-returns/<int:pk>/pay/', views_frontend.loan_return_pay, name='loan_return_pay'),
     path('loan-returns/<int:pk>/delete/', views_frontend.loan_return_delete, name='loan_return_delete'),
-    path('loans/', views_frontend.loan_list, name='loan_list'),
-    path('loans/create/', views_frontend.loan_create, name='loan_create'),
-    path('loans/<int:pk>/', views_frontend.loan_detail, name='loan_detail'),
     path('loans/<int:pk>/delete/', views_frontend.loan_delete, name='loan_delete'),
     path('loans/dashboard/', views_frontend.loan_dashboard, name='loan_dashboard'),
     path('loans/export/excel/', views_frontend.loan_export_report, name='loan_export_report'),
@@ -922,13 +915,11 @@ urlpatterns = [
     path('monthly-planner/<int:pk>/delete/', views_frontend.monthly_plan_delete, name='monthly_plan_delete'),
     path('api/check-stock-for-plan/', views_frontend.check_stock_for_plan, name='check_stock_for_plan'),
     path('monthly-planner/<int:pk>/generate-po/', views_frontend.generate_purchase_order_from_plan, name='generate_purchase_order_from_plan'),
-    path('grn/', views_frontend.grn_list, name='grn_list'),
     path('grn/<int:pk>/', views_frontend.grn_detail, name='grn_detail'),
     path('grn/<int:pk>/convert/', views_frontend.grn_convert_to_purchase, name='grn_convert_to_purchase'),
     path('grn/<int:pk>/delete/', views_frontend.grn_delete, name='grn_delete'),
     path('grn/<int:pk>/pdf/', views_frontend.grn_pdf, name='generate_grn_pdf'),
     path('grn/<int:pk>/barcode/', views_frontend.grn_barcode_labels, name='grn_barcode_labels'),
-    path('challans/', views_frontend.challan_list, name='challan_list'),
     path('challans/<int:pk>/', views_frontend.challan_detail, name='challan_detail'),
     path('challans/<int:pk>/convert/', views_frontend.challan_convert_to_sale, name='challan_convert_to_sale'),
     path('challans/<int:pk>/delete/', views_frontend.challan_delete, name='challan_delete'),
@@ -1037,6 +1028,7 @@ urlpatterns = [
      path('ai/emergency-fund/withdraw/', views_frontend.emergency_fund_withdraw, name='emergency_fund_withdraw'),
      path('ai/emergency-fund/settings/', views_frontend.emergency_fund_settings, name='emergency_fund_settings'),
      path('reports/business-ratios/', views_frontend.business_ratios_dashboard, name='business_ratios_dashboard'),
+     
      path('shop/', views_customer_portal.shop_home, name='shop_home'),
      path('shop/product/<int:pk>/', views_customer_portal.product_detail, name='shop_product_detail'),
      path('shop/cart/', views_customer_portal.cart_view, name='cart_view'),
@@ -1047,4 +1039,32 @@ urlpatterns = [
      path('shop/place-order/', views_customer_portal.place_order, name='place_order'),
      path('shop/track/', views_customer_portal.track_order, name='track_order'),
      path('shop/api/cart-count/', views_customer_portal.get_cart_count, name='get_cart_count'),
+     path('shop/register/', views_customer_auth.customer_register, name='customer_register'),
+     
+     path('shop/login/', views_customer_auth.customer_login, name='customer_login'),
+     
+     path('shop/logout/', views_customer_auth.customer_logout, name='customer_logout'),
+     path('shop/account/', views_customer_auth.my_account, name='my_account'),
+     path('otp-management/', views_admin_otp.otp_management, name='otp_management'),
+     path('otp-management/<int:pk>/', views_admin_otp.otp_detail, name='otp_detail'),
+     path('otp-management/<int:pk>/regenerate/', views_admin_otp.otp_regenerate, name='otp_regenerate'),
+     path('otp-management/quick-generate/', views_admin_otp.otp_quick_generate, name='otp_quick_generate'),
+     path('shop/send-order-otp/', views_customer_auth.send_order_otp, name='send_order_otp'),
+     path('shop/my-orders/', views_customer_portal.my_orders, name='my_orders'),
+     path('shop/order/<int:order_id>/', views_customer_portal.order_detail_customer, name='order_detail_customer'),
+     path('shop/order/<int:order_id>/cancel/', views_customer_portal.cancel_order_customer, name='cancel_order_customer'),
+     path('customers/<int:pk>/', views_frontend.customer_ledger, name='customer_detail'),
+     path('shop/send-order-otp/', views_customer_auth.send_order_otp, name='send_order_otp'),
+     path('shop/verify-order-otp/', views_customer_auth.verify_order_otp, name='verify_order_otp'),
+     path('shop/verify-otp-later/', views_customer_auth.verify_otp_later, name='verify_otp_later'),
+     path(
+    'shop/pending-otps/',
+    views_customer_auth.pending_otps_view,
+    name='pending_otps'
+    ),
+    path(
+    'shop/pending-otps/verify/<int:otp_id>/',
+    views_customer_auth.quick_verify_otp,
+    name='quick_verify_otp'),
+     
 ]

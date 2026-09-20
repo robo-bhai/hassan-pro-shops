@@ -111,7 +111,7 @@
     .product-table {
         width: 100%;
         border-collapse: collapse;
-        min-width: 950px;
+        min-width: 1050px;  /* ✅ 950 → 1050 (image column add hua) */
     }
     
     .product-table thead th {
@@ -156,6 +156,42 @@
     
     .text-right { text-align: right; }
     .text-center { text-align: center; }
+    
+    /* ============================================ */
+    /* ✅ NEW: PRODUCT IMAGE COLUMN                 */
+    /* ============================================ */
+    .product-thumb {
+        width: 50px;
+        height: 50px;
+        border-radius: 10px;
+        object-fit: cover;
+        border: 2px solid #eef0f5;
+        background: #f8f9fa;
+        transition: all 0.3s;
+        cursor: pointer;
+        display: block;
+    }
+    
+    .product-thumb:hover {
+        transform: scale(2.5);
+        border-color: #667eea;
+        box-shadow: 0 10px 40px rgba(102,126,234,0.3);
+        z-index: 100;
+        position: relative;
+    }
+    
+    .product-thumb-placeholder {
+        width: 50px;
+        height: 50px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #f8f9fc 0%, #e8ecf4 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #c5c9d3;
+        font-size: 1.3rem;
+        border: 2px solid #eef0f5;
+    }
     
     .product-name-cell {
         font-weight: 600;
@@ -263,7 +299,7 @@
         border-color: #f2994a;
     }
     
-    /* ✅ NEW: Import/Export Buttons */
+    /* Import/Export Buttons */
     .btn-import-export {
         border-radius: 10px;
         padding: 8px 18px;
@@ -319,7 +355,7 @@
     
     .empty-state h4 { color: #8a8fa0; font-weight: 700; }
     
-    /* ✅ NEW: Import/Export Dropdown */
+    /* Import/Export Dropdown */
     .import-export-dropdown {
         position: relative;
         display: inline-block;
@@ -373,7 +409,7 @@
     .import-export-dropdown .dropdown-item.text-warning { color: #f2994a; }
     .import-export-dropdown .dropdown-item.text-danger { color: #dc3545; }
     
-    /* ✅ NEW: Quick Stats */
+    /* Quick Stats */
     .quick-stats {
         display: flex;
         gap: 16px;
@@ -413,7 +449,7 @@
     
     @media (max-width: 768px) {
         .filter-bar { padding: 14px 16px; }
-        .product-table { min-width: 800px; }
+        .product-table { min-width: 850px; }
         .product-table thead th,
         .product-table tbody td { padding: 10px 12px; font-size: 0.78rem; }
         .table-header { padding: 14px 16px; }
@@ -421,6 +457,13 @@
         .quick-stats { gap: 8px; }
         .quick-stat { padding: 8px 14px; }
         .quick-stat .stat-number { font-size: 1rem; }
+        
+        /* ✅ Mobile: image thoda chota */
+        .product-thumb,
+        .product-thumb-placeholder {
+            width: 40px;
+            height: 40px;
+        }
     }
     
     @media (max-width: 480px) {
@@ -435,7 +478,7 @@
 
 {% block content %}
 
-<!-- ✅ NEW: Quick Stats -->
+<!-- Quick Stats -->
 <div class="quick-stats">
     <div class="quick-stat">
         <span class="stat-icon">🏷️</span>
@@ -512,7 +555,6 @@
     <div class="table-header">
         <h5>🏷️ Products <span class="badge-count">{{ page_obj.paginator.count|default:'0' }} products</span></h5>
         <div class="d-flex gap-2 align-items-center flex-wrap">
-            <!-- ✅ NEW: Import/Export Dropdown -->
             <div class="import-export-dropdown dropdown">
                 <button class="btn-import-export import dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                     <i class="bi bi-arrow-left-right"></i> Import/Export
@@ -559,6 +601,8 @@
         <table class="product-table">
             <thead>
                 <tr>
+                    <!-- ✅ NEW: Image Column -->
+                    <th class="text-center" style="width:70px;">📷 Image</th>
                     <th>Serial No</th>
                     <th>Product Name</th>
                     <th>Barcode</th>
@@ -573,6 +617,22 @@
             <tbody>
                 {% for product in page_obj %}
                 <tr class="{% if not product.barcode %}row-no-barcode{% endif %}">
+                    
+                    <!-- ✅ NEW: Product Image -->
+                    <td class="text-center">
+                        {% if product.image %}
+                            <img src="{{ product.image.url }}" 
+                                 alt="{{ product.name }}"
+                                 class="product-thumb"
+                                 loading="lazy"
+                                 title="{{ product.name }}">
+                        {% else %}
+                            <div class="product-thumb-placeholder">
+                                <i class="bi bi-box-seam"></i>
+                            </div>
+                        {% endif %}
+                    </td>
+                    
                     <td>
                         {% if product.serial_no %}
                         <span style="font-weight:600;font-size:0.85rem;">{{ product.serial_no }}</span>
@@ -618,7 +678,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="9">
+                    <td colspan="10">
                         <div class="empty-state">
                             <div class="empty-icon">🏷️</div>
                             <h4>No Products Found</h4>

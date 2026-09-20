@@ -1,0 +1,625 @@
+{% extends 'customer_portal/base_shop.html' %}
+{% load static %}
+
+{% block title %}Verify OTP (Later) - {{ company_name }}{% endblock %}
+
+{% block content %}
+
+<style>
+    body { padding-bottom: 30px !important; }
+    .mobile-bottom-nav { display: none !important; }
+    
+    .verify-container {
+        max-width: 520px;
+        margin: 20px auto;
+        padding: 0 15px;
+    }
+    
+    .verify-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        animation: slideUp 0.4s ease-out;
+    }
+    
+    @keyframes slideUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .verify-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px 25px;
+        text-align: center;
+    }
+    
+    .verify-header .icon-circle {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 15px;
+        backdrop-filter: blur(10px);
+    }
+    
+    .verify-header .icon-circle i {
+        font-size: 40px;
+        color: white;
+    }
+    
+    .verify-header h3 {
+        margin: 0;
+        font-weight: 700;
+        font-size: 22px;
+    }
+    
+    .verify-header p {
+        margin: 8px 0 0;
+        opacity: 0.9;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+    
+    .verify-body {
+        padding: 30px 25px;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        color: #1a1a2e;
+        margin-bottom: 8px;
+        font-size: 14px;
+    }
+    
+    .form-group label i {
+        color: #667eea;
+        margin-right: 5px;
+    }
+    
+    .form-group input {
+        width: 100%;
+        padding: 14px 16px;
+        border: 2px solid #e0e3eb;
+        border-radius: 10px;
+        font-size: 15px;
+        transition: all 0.2s ease;
+        background: #f8f9fc;
+        font-family: inherit;
+    }
+    
+    .form-group input:focus {
+        outline: none;
+        border-color: #667eea;
+        background: white;
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+    }
+    
+    .form-group input.otp-input {
+        font-size: 24px;
+        letter-spacing: 10px;
+        text-align: center;
+        font-weight: bold;
+        font-family: 'Courier New', monospace;
+        padding: 15px;
+    }
+    
+    .form-group input.token-input {
+        font-size: 20px;
+        letter-spacing: 4px;
+        text-align: center;
+        font-weight: bold;
+        text-transform: uppercase;
+        font-family: 'Courier New', monospace;
+    }
+    
+    .form-group input.prefilled {
+        background: #e7f3ff !important;
+        border-color: #17a2b8 !important;
+        color: #0c5460;
+        font-weight: 700;
+    }
+    
+    .form-group .help-text {
+        font-size: 12px;
+        color: #6b7280;
+        margin-top: 6px;
+    }
+    
+    .form-group .prefilled-badge {
+        display: inline-block;
+        background: #17a2b8;
+        color: white;
+        font-size: 10px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-weight: 700;
+        margin-left: 6px;
+        text-transform: uppercase;
+    }
+    
+    .form-group .manual-badge {
+        display: inline-block;
+        background: #dc3545;
+        color: white;
+        font-size: 10px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-weight: 700;
+        margin-left: 6px;
+        text-transform: uppercase;
+    }
+    
+    .btn-verify {
+        width: 100%;
+        padding: 16px;
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+    
+    .btn-verify:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(40, 167, 69, 0.4);
+    }
+    
+    .btn-verify:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    .info-box {
+        background: #e7f3ff;
+        border-left: 4px solid #17a2b8;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 25px;
+        font-size: 13px;
+        color: #0c5460;
+        line-height: 1.6;
+    }
+    
+    .info-box i {
+        color: #17a2b8;
+        margin-right: 5px;
+    }
+    
+    .info-box code {
+        background: #0c5460;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+    
+    .alert-message {
+        padding: 12px 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        font-size: 14px;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        animation: fadeIn 0.3s ease;
+        line-height: 1.5;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-5px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .alert-error {
+        background: #f8d7da;
+        color: #721c24;
+        border-left: 4px solid #dc3545;
+    }
+    
+    .alert-success {
+        background: #d4edda;
+        color: #155724;
+        border-left: 4px solid #28a745;
+    }
+    
+    .alert-warning {
+        background: #fff3cd;
+        color: #856404;
+        border-left: 4px solid #ffc107;
+    }
+    
+    .alert-info {
+        background: #d1ecf1;
+        color: #0c5460;
+        border-left: 4px solid #17a2b8;
+    }
+    
+    .back-links {
+        text-align: center;
+        margin-top: 25px;
+        padding-top: 20px;
+        border-top: 1px solid #e0e3eb;
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+    
+    .back-links a {
+        color: #667eea;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 14px;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .back-links a:hover {
+        text-decoration: underline;
+    }
+    
+    .steps-info {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 25px;
+    }
+    
+    .step-item {
+        flex: 1;
+        text-align: center;
+        padding: 12px 5px;
+        border-radius: 10px;
+        background: #f8f9fc;
+        border: 1px solid #e0e3eb;
+    }
+    
+    .step-item .step-num {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 13px;
+        margin: 0 auto 8px;
+    }
+    
+    .step-item small {
+        font-size: 11px;
+        color: #6b7280;
+        font-weight: 600;
+        display: block;
+        line-height: 1.3;
+    }
+    
+    .prefilled-alert {
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        border-left: 4px solid #28a745;
+        padding: 12px 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        font-size: 13px;
+        color: #155724;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        animation: pulse-success 2s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-success {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4); }
+        50% { box-shadow: 0 0 0 8px rgba(40, 167, 69, 0); }
+    }
+    
+    .prefilled-alert i {
+        font-size: 20px;
+    }
+    
+    @media (max-width: 480px) {
+        .verify-header { padding: 25px 20px; }
+        .verify-body { padding: 25px 20px; }
+        .verify-header h3 { font-size: 19px; }
+        .form-group input.otp-input {
+            font-size: 20px;
+            letter-spacing: 8px;
+        }
+        .form-group input.token-input {
+            font-size: 17px;
+            letter-spacing: 3px;
+        }
+        .step-item small { font-size: 10px; }
+    }
+</style>
+
+<div class="verify-container">
+    
+    <div class="verify-card">
+        
+        <!-- Header -->
+        <div class="verify-header">
+            <div class="icon-circle">
+                <i class="bi bi-shield-lock-fill"></i>
+            </div>
+            <h3>Verify OTP (Later)</h3>
+            <p>Agar aapne order ke waqt OTP verify nahi ki thi, to yahan se verify karein</p>
+        </div>
+        
+        <!-- Body -->
+        <div class="verify-body">
+            
+            <!-- Steps Info -->
+            <div class="steps-info">
+                <div class="step-item">
+                    <div class="step-num">1</div>
+                    <small>Phone<br>Number</small>
+                </div>
+                <div class="step-item">
+                    <div class="step-num">2</div>
+                    <small>Order<br>Token</small>
+                </div>
+                <div class="step-item">
+                    <div class="step-num">3</div>
+                    <small>OTP<br>Code</small>
+                </div>
+            </div>
+            
+            <!-- Django Messages -->
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert-message 
+                        {% if message.tags == 'error' %}alert-error
+                        {% elif message.tags == 'success' %}alert-success
+                        {% elif message.tags == 'warning' %}alert-warning
+                        {% else %}alert-info{% endif %}">
+                        <i class="bi bi-{% if message.tags == 'error' %}exclamation-circle-fill{% elif message.tags == 'success' %}check-circle-fill{% elif message.tags == 'warning' %}exclamation-triangle-fill{% else %}info-circle-fill{% endif %}"></i>
+                        <span>{{ message }}</span>
+                    </div>
+                {% endfor %}
+            {% endif %}
+            
+            <!-- ✅ PRE-FILL SUCCESS BANNER -->
+            {% if prefill_phone and prefill_token %}
+            <div class="prefilled-alert">
+                <i class="bi bi-check-circle-fill"></i>
+                <div>
+                    <strong>✅ Details Auto-Filled!</strong>
+                    <br>
+                    <small>Aapko sirf OTP daalni hai aur verify kar lena hai.</small>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Info Box -->
+            <div class="info-box">
+                <i class="bi bi-info-circle-fill"></i>
+                <strong>Order Token kahan milega?</strong>
+                <br>
+                Jab aapne order place karte waqt <strong>"Send OTP"</strong> button dabaya tha, 
+                aapko ek <strong>8-character Order Token</strong> mila tha 
+                (jaise: <code>A3F7B2C9</code>).
+                <br><br>
+                Agar aapke paas token nahi hai, to please 
+                <a href="{% url 'shop_home' %}" style="color: #0c5460; font-weight: bold; text-decoration: underline;">
+                    naya order place karein
+                </a>.
+            </div>
+            
+            <!-- Form -->
+            <form method="POST" id="verifyForm" novalidate>
+                {% csrf_token %}
+                
+                <!-- Phone -->
+                <div class="form-group">
+                    <label for="phone">
+                        <i class="bi bi-phone-fill"></i> Phone Number
+                        {% if prefill_phone %}
+                        <span class="prefilled-badge">✓ Auto-filled</span>
+                        {% endif %}
+                    </label>
+                    <input type="tel" 
+                           name="phone" 
+                           id="phone" 
+                           placeholder="03XXXXXXXXX"
+                           value="{{ prefill_phone|default:'' }}"
+                           class="{% if prefill_phone %}prefilled{% endif %}"
+                           required
+                           autocomplete="tel"
+                           inputmode="tel">
+                    <div class="help-text">Wahi number jo aapne order place karte waqt diya tha</div>
+                </div>
+                
+                <!-- Order Token -->
+                <div class="form-group">
+                    <label for="order_token">
+                        <i class="bi bi-bookmark-star-fill"></i> Order Token
+                        {% if prefill_token %}
+                        <span class="prefilled-badge">✓ Auto-filled</span>
+                        {% endif %}
+                    </label>
+                    <input type="text" 
+                           name="order_token" 
+                           id="order_token" 
+                           maxlength="8"
+                           placeholder="A3F7B2C9"
+                           value="{{ prefill_token|default:'' }}"
+                           class="token-input{% if prefill_token %} prefilled{% endif %}"
+                           required
+                           autocomplete="off"
+                           autocapitalize="characters"
+                           spellcheck="false">
+                    <div class="help-text">8-character token (A-Z, 0-9)</div>
+                </div>
+                
+                <!-- OTP Code -->
+                <div class="form-group">
+                    <label for="otp_code">
+                        <i class="bi bi-key-fill"></i> OTP Code
+                        <span class="manual-badge">Enter Manually</span>
+                    </label>
+                    <input type="text" 
+                           name="otp_code" 
+                           id="otp_code" 
+                           maxlength="6"
+                           inputmode="numeric"
+                           pattern="[0-9]*"
+                           placeholder="••••••"
+                           class="otp-input"
+                           required
+                           autocomplete="one-time-code"
+                           spellcheck="false">
+                    <div class="help-text">6-digit code jo SMS mein aaya tha</div>
+                </div>
+                
+                <!-- Submit Button -->
+                <button type="submit" 
+                        class="btn-verify" 
+                        id="verifyBtn">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <span>Verify & Login</span>
+                </button>
+                
+            </form>
+            
+            <!-- Back Links -->
+            <div class="back-links">
+                <a href="{% url 'customer_login' %}">
+                    <i class="bi bi-arrow-left"></i> Back to Login
+                </a>
+                <a href="{% url 'pending_otps' %}">
+                    <i class="bi bi-key"></i> Pending OTPs
+                </a>
+                <a href="{% url 'shop_home' %}">
+                    <i class="bi bi-shop"></i> Shop
+                </a>
+            </div>
+            
+        </div>
+        
+    </div>
+    
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // ==========================================
+    // PHONE INPUT
+    // ==========================================
+    const phoneInput = document.getElementById('phone');
+    phoneInput.addEventListener('input', function() {
+        if (this.classList.contains('prefilled')) {
+            this.classList.remove('prefilled');
+        }
+        this.value = this.value.replace(/[^0-9+\-\s]/g, '');
+    });
+    
+    // ==========================================
+    // TOKEN INPUT
+    // ==========================================
+    const tokenInput = document.getElementById('order_token');
+    tokenInput.addEventListener('input', function() {
+        if (this.classList.contains('prefilled')) {
+            this.classList.remove('prefilled');
+        }
+        this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    });
+    
+    // ==========================================
+    // OTP INPUT
+    // ==========================================
+    const otpInput = document.getElementById('otp_code');
+    otpInput.addEventListener('input', function() {
+        this.value = this.value.replace(/[^0-9]/g, '');
+    });
+    
+    // ==========================================
+    // FORM SUBMIT
+    // ==========================================
+    const form = document.getElementById('verifyForm');
+    const btn = document.getElementById('verifyBtn');
+    
+    form.addEventListener('submit', function(e) {
+        const phone = phoneInput.value.trim();
+        const token = tokenInput.value.trim();
+        const otp = otpInput.value.trim();
+        
+        let error = '';
+        let focusField = null;
+        
+        if (!phone || phone.replace(/[^0-9]/g, '').length < 10) {
+            error = '❌ Please enter a valid phone number (min 10 digits)!';
+            focusField = phoneInput;
+        } else if (token.length !== 8) {
+            error = '❌ Order Token 8 characters ka hona chahiye! (Aapne ' + token.length + ' characters daale)';
+            focusField = tokenInput;
+        } else if (otp.length !== 6) {
+            error = '❌ OTP 6 digits ka hona chahiye! (Aapne ' + otp.length + ' digits daale)';
+            focusField = otpInput;
+        }
+        
+        if (error) {
+            e.preventDefault();
+            alert(error);
+            if (focusField) focusField.focus();
+            return false;
+        }
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Verifying...';
+    });
+    
+    // ==========================================
+    // AUTO-FOCUS BASED ON PREFILL
+    // ==========================================
+    const isPhonePrefilled = {{ prefill_phone|yesno:"true,false" }};
+    const isTokenPrefilled = {{ prefill_token|yesno:"true,false" }};
+    
+    if (isPhonePrefilled && isTokenPrefilled) {
+        setTimeout(function() { otpInput.focus(); }, 500);
+    } else if (isPhonePrefilled && !isTokenPrefilled) {
+        tokenInput.focus();
+    } else if (!isPhonePrefilled) {
+        phoneInput.focus();
+    }
+    
+    // ==========================================
+    // ENTER KEY NAVIGATION
+    // ==========================================
+    phoneInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); tokenInput.focus(); }
+    });
+    
+    tokenInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); otpInput.focus(); }
+    });
+    
+    otpInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); form.requestSubmit(); }
+    });
+    
+});
+</script>
+
+{% endblock %}

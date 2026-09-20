@@ -1,0 +1,443 @@
+{% extends 'customer_portal/base_shop.html' %}
+{% load static %}
+
+{% block title %}My Account - {{ company_name }}{% endblock %}
+
+{% block content %}
+
+<style>
+    /* ✅ HIDE MOBILE BOTTOM NAVIGATION */
+    .mobile-bottom-nav {
+        display: none !important;
+    }
+    
+    /* ✅ Body padding fix */
+    body { 
+        padding-bottom: 20px !important; 
+    }
+    
+    .account-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 40px 0;
+        text-align: center;
+    }
+    
+    .account-header .avatar-circle {
+        width: 90px;
+        height: 90px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 15px;
+        font-size: 40px;
+        font-weight: 700;
+        backdrop-filter: blur(10px);
+        border: 3px solid rgba(255, 255, 255, 0.3);
+    }
+    
+    .account-header h2 {
+        margin: 0 0 5px;
+        font-weight: 700;
+        font-size: 24px;
+    }
+    
+    .account-header p {
+        margin: 0 0 3px;
+        opacity: 0.9;
+        font-size: 14px;
+    }
+    
+    /* Stats Cards */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-top: -30px;
+        margin-bottom: 20px;
+        position: relative;
+        z-index: 10;
+    }
+    
+    @media (min-width: 768px) {
+        .stats-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 18px 15px;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        transition: transform 0.2s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-3px);
+    }
+    
+    .stat-card .stat-icon {
+        font-size: 28px;
+        margin-bottom: 8px;
+    }
+    
+    .stat-card .stat-value {
+        font-size: 24px;
+        font-weight: 800;
+        line-height: 1;
+        margin-bottom: 5px;
+    }
+    
+    .stat-card .stat-label {
+        font-size: 12px;
+        color: #6b7280;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+    
+    .stat-card.total .stat-value { color: #667eea; }
+    .stat-card.pending .stat-value { color: #ff9800; }
+    .stat-card.delivered .stat-value { color: #28a745; }
+    .stat-card.cancelled .stat-value { color: #dc3545; }
+    
+    /* Menu Section */
+    .menu-section {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+    
+    .menu-item {
+        display: flex;
+        align-items: center;
+        padding: 16px 20px;
+        border-bottom: 1px solid #f0f0f0;
+        text-decoration: none;
+        color: #333;
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+    
+    .menu-item:last-child {
+        border-bottom: none;
+    }
+    
+    .menu-item:hover {
+        background: #f8f9fc;
+        color: #667eea;
+    }
+    
+    .menu-item .menu-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 15px;
+        font-size: 18px;
+        color: white;
+    }
+    
+    .menu-item .menu-icon.primary { background: linear-gradient(135deg, #667eea, #764ba2); }
+    .menu-item .menu-icon.success { background: linear-gradient(135deg, #28a745, #20c997); }
+    .menu-item .menu-icon.warning { background: linear-gradient(135deg, #ffc107, #ff9800); }
+    .menu-item .menu-icon.danger { background: linear-gradient(135deg, #dc3545, #c82333); }
+    .menu-item .menu-icon.info { background: linear-gradient(135deg, #17a2b8, #0c5460); }
+    
+    .menu-item .menu-text {
+        flex: 1;
+    }
+    
+    .menu-item .menu-text strong {
+        display: block;
+        font-size: 15px;
+        margin-bottom: 2px;
+    }
+    
+    .menu-item .menu-text small {
+        color: #6b7280;
+        font-size: 12px;
+    }
+    
+    .menu-item .menu-arrow {
+        color: #d1d5db;
+        font-size: 20px;
+    }
+    
+    /* Recent Orders */
+    .recent-orders-section {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+    
+    .section-title {
+        padding: 15px 20px;
+        border-bottom: 1px solid #f0f0f0;
+        font-weight: 700;
+        font-size: 16px;
+        color: #1a1a2e;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .order-item {
+        display: flex;
+        align-items: center;
+        padding: 15px 20px;
+        border-bottom: 1px solid #f0f0f0;
+        text-decoration: none;
+        color: #333;
+        transition: all 0.2s;
+    }
+    
+    .order-item:last-child {
+        border-bottom: none;
+    }
+    
+    .order-item:hover {
+        background: #f8f9fc;
+    }
+    
+    .order-item .order-info {
+        flex: 1;
+    }
+    
+    .order-item .order-no {
+        font-weight: 700;
+        font-size: 14px;
+        color: #1a1a2e;
+        margin-bottom: 3px;
+    }
+    
+    .order-item .order-date {
+        font-size: 12px;
+        color: #6b7280;
+    }
+    
+    .order-item .order-amount {
+        font-weight: 700;
+        color: #28a745;
+        margin-right: 10px;
+        font-size: 14px;
+    }
+    
+    .order-item .order-status {
+        font-size: 11px;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    
+    .status-pending { background: #fff3cd; color: #856404; }
+    .status-confirmed { background: #d1ecf1; color: #0c5460; }
+    .status-processing { background: #cce5ff; color: #004085; }
+    .status-ready { background: #d4edda; color: #155724; }
+    .status-partially_delivered { background: #e2e3e5; color: #383d41; }
+    .status-delivered { background: #d4edda; color: #155724; }
+    .status-invoiced { background: #d4edda; color: #155724; }
+    .status-cancelled { background: #f8d7da; color: #721c24; }
+    
+    .no-orders {
+        text-align: center;
+        padding: 40px 20px;
+        color: #6b7280;
+    }
+    
+    .no-orders i {
+        font-size: 60px;
+        color: #d1d5db;
+        margin-bottom: 15px;
+        display: block;
+    }
+    
+    .btn-shop-now {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 24px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        text-decoration: none;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 14px;
+        margin-top: 15px;
+        transition: all 0.2s;
+    }
+    
+    .btn-shop-now:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        color: white;
+    }
+</style>
+
+<!-- Account Header -->
+<div class="account-header">
+    <div class="container">
+        <div class="avatar-circle">
+            {{ customer.name|slice:":1"|upper }}
+        </div>
+        <h2>{{ customer.name }}</h2>
+        <p><i class="bi bi-phone"></i> {{ customer.contact_number }}</p>
+        {% if customer.email %}
+        <p><i class="bi bi-envelope"></i> {{ customer.email }}</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="container">
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+        
+        <div class="stat-card total">
+            <div class="stat-icon">📦</div>
+            <div class="stat-value">{{ stats.total_orders }}</div>
+            <div class="stat-label">Total Orders</div>
+        </div>
+        
+        <div class="stat-card pending">
+            <div class="stat-icon">⏳</div>
+            <div class="stat-value">{{ stats.pending_orders }}</div>
+            <div class="stat-label">Pending</div>
+        </div>
+        
+        <div class="stat-card delivered">
+            <div class="stat-icon">✅</div>
+            <div class="stat-value">{{ stats.delivered_orders }}</div>
+            <div class="stat-label">Delivered</div>
+        </div>
+        
+        <div class="stat-card cancelled">
+            <div class="stat-icon">❌</div>
+            <div class="stat-value">{{ stats.cancelled_orders }}</div>
+            <div class="stat-label">Cancelled</div>
+        </div>
+        
+    </div>
+
+    <!-- Menu Section -->
+    <div class="menu-section">
+        
+        <a href="{% url 'my_orders' %}" class="menu-item">
+            <div class="menu-icon primary">
+                <i class="bi bi-receipt"></i>
+            </div>
+            <div class="menu-text">
+                <strong>My Orders</strong>
+                <small>View all your orders</small>
+            </div>
+            <div class="menu-arrow">
+                <i class="bi bi-chevron-right"></i>
+            </div>
+        </a>
+        
+        <a href="{% url 'track_order' %}" class="menu-item">
+            <div class="menu-icon info">
+                <i class="bi bi-truck"></i>
+            </div>
+            <div class="menu-text">
+                <strong>Track Order</strong>
+                <small>Track your order status</small>
+            </div>
+            <div class="menu-arrow">
+                <i class="bi bi-chevron-right"></i>
+            </div>
+        </a>
+        
+        <a href="{% url 'pending_otps' %}" class="menu-item">
+            <div class="menu-icon warning">
+                <i class="bi bi-key-fill"></i>
+            </div>
+            <div class="menu-text">
+                <strong>Pending OTPs</strong>
+                <small>Verify your pending OTPs</small>
+            </div>
+            <div class="menu-arrow">
+                <i class="bi bi-chevron-right"></i>
+            </div>
+        </a>
+        
+        <a href="{% url 'shop_home' %}" class="menu-item">
+            <div class="menu-icon success">
+                <i class="bi bi-shop"></i>
+            </div>
+            <div class="menu-text">
+                <strong>Continue Shopping</strong>
+                <small>Browse our products</small>
+            </div>
+            <div class="menu-arrow">
+                <i class="bi bi-chevron-right"></i>
+            </div>
+        </a>
+        
+        <a href="{% url 'customer_logout' %}" class="menu-item">
+            <div class="menu-icon danger">
+                <i class="bi bi-box-arrow-right"></i>
+            </div>
+            <div class="menu-text">
+                <strong>Logout</strong>
+                <small>Sign out from your account</small>
+            </div>
+            <div class="menu-arrow">
+                <i class="bi bi-chevron-right"></i>
+            </div>
+        </a>
+        
+    </div>
+
+    <!-- Recent Orders Section -->
+    <div class="recent-orders-section">
+        
+        <div class="section-title">
+            <i class="bi bi-clock-history text-primary"></i>
+            Recent Orders
+        </div>
+        
+        {% if recent_orders %}
+            {% for order in recent_orders %}
+            <a href="{% url 'order_detail_customer' order.id %}" class="order-item">
+                <div class="order-info">
+                    <div class="order-no">Order #{{ order.order_no }}</div>
+                    <div class="order-date">
+                        <i class="bi bi-calendar"></i> 
+                        {{ order.order_date|date:"d M, Y" }}
+                    </div>
+                </div>
+                <div class="order-amount">
+                    Rs. {{ order.calculated_total|floatformat:0 }}
+                </div>
+                <div class="order-status status-{{ order.status }}">
+                    {{ order.get_status_display }}
+                </div>
+            </a>
+            {% endfor %}
+        {% else %}
+            <div class="no-orders">
+                <i class="bi bi-inbox"></i>
+                <h5>No Orders Yet</h5>
+                <p>Aapne abhi tak koi order place nahi kiya.</p>
+                <a href="{% url 'shop_home' %}" class="btn-shop-now">
+                    <i class="bi bi-shop"></i> Start Shopping
+                </a>
+            </div>
+        {% endif %}
+        
+    </div>
+
+</div>
+
+{% endblock %}
