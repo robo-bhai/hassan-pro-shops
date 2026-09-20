@@ -453,20 +453,9 @@ jobs:
               --quick "$DB_NAME" > cloud_fresh_dump.sql
 
             MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < cloud_fresh_dump.sql
-            
-            echo "=== UPDATING LOCAL CACHE FILES WITH FRESH DUMP ==="
-            gzip -c cloud_fresh_dump.sql > cloud_data_dump.sql.gz
-            python -c "import time; open('cache_time.txt', 'w').write(str(time.time()))"
-            
             rm -f cloud_fresh_dump.sql
-            echo "Fresh Safe Cloud Data Applied to Local MySQL & Cache Updated Successfully."
+            echo "Fresh Safe Cloud Data Applied to Local MySQL Successfully."
           fi
-
-
-
-
-#(((((((-&&--+++)))))))
-
 
       - name: Sync Migrations & Ensure Superuser on Local DB
         if: ${{ !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now') }}
@@ -781,9 +770,7 @@ jobs:
           path: |
             cloud_data_dump.sql.gz
             cache_time.txt
-          key: mysql-db-cache-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
-
-
+          key: mysql-db-cache-${{ runner.os }}-${{ github.run_id }}
 
       - name: Full Dump of Logs On Workflow Stop or Error
         if: always()
