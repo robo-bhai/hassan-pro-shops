@@ -649,14 +649,79 @@ jobs:
           
           curl -d "$MESSAGE" ntfy.sh/hshshehgag
 
-      - name: Realtime HTTP Access Logs & Error Stream
+      - name: Realtime HTTP Access Logs & Error Stream & Parallel Cloud Sync
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           echo "=========================================="
-          echo " LIVE HTTP SERVER ACCESS LOGS & ERRORS "
+          echo " STARTING BACKGROUND CLOUD SYNC & LOG STREAM "
           echo "=========================================="
           
+          # 1. Background Sync Subshell Function
+          (
+            echo "--- [Background Sync] Dumping and Syncing Local MySQL to Cloud Aiven ---"
+            
+            MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
+              --set-gtid-purged=OFF \
+              --column-statistics=0 \
+              --single-transaction \
+              --replace local_django_db | gzip > cloud_data_dump.sql.gz
+
+            python -c "
+            import time
+            with open('cache_time.txt', 'w') as f:
+                f.write(str(time.time()))
+            "
+
+            python manage.py migrate --noinput || true
+
+            MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
+              --set-gtid-purged=OFF \
+              --column-statistics=0 \
+              --no-create-info \
+              --replace local_django_db > runner_updated_data.sql
+
+            gzip -f runner_updated_data.sql
+
+            if gunzip -c runner_updated_data.sql.gz | MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME"; then
+                echo "--- [Background Sync] Data sync completed successfully! ---"
+            else
+                echo "--- [Background Sync] Conflict! Forcing schema recreation... ---"
+                MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
+                  --set-gtid-purged=OFF \
+                  --column-statistics=0 \
+                  --single-transaction \
+                  --add-drop-table \
+                  local_django_db > runner_full_dump.sql
+                gzip -f runner_full_dump.sql
+                gunzip -c runner_full_dump.sql.gz | MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME"
+                echo "--- [Background Sync] Schema recreated and synced successfully! ---"
+            fi
+            
+            # Sync complete mark file
+            touch /tmp/sync_done
+          ) > sync_process.log 2>&1 &
+
+          SYNC_PID=$!
+          echo "Background Sync PID: $SYNC_PID"
+
+          # Function to handle exit cleanly
+          safe_exit() {
+            echo "=========================================="
+            echo "  NEWER RUN DETECTED / SHUTDOWN INITIATED "
+            echo "=========================================="
+            
+            if [ -f /tmp/sync_done ] || ! kill -0 $SYNC_PID 2>/dev/null; then
+              echo "DB Sync is ALREADY COMPLETED! Exiting immediately..."
+            else
+              echo "DB Sync is still in progress. Waiting for completion before terminating..."
+              wait $SYNC_PID
+              echo "DB Sync completed safely!"
+            fi
+            exit 0
+          }
+
+          # 2. Main Live Streaming Loop
           CURRENT_RUN_ID="${{ github.run_id }}"
           REPO="${{ github.repository }}"
           BRANCH="${{ github.ref_name }}"
@@ -666,8 +731,8 @@ jobs:
               LATEST_RUN_ID=$(gh api "repos/$REPO/actions/runs?branch=$BRANCH&per_page=1" --jq '.workflow_runs[0].id' 2>/dev/null || echo "$CURRENT_RUN_ID")
               
               if [ "$LATEST_RUN_ID" -gt "$CURRENT_RUN_ID" ]; then
-                echo "A newer workflow run ($LATEST_RUN_ID) detected! Instantly cancelling current log stream..."
-                exit 0
+                echo "A newer workflow run ($LATEST_RUN_ID) detected!"
+                safe_exit
               fi
               sleep 5
             done
@@ -678,8 +743,14 @@ jobs:
             grep -E '"GET|POST|PUT|DELETE|HEAD' django.log || echo "No HTTP requests logged yet."
             echo "--- RECENT EXCEPTIONS / ERROR TRACEBACKS ---"
             grep -i -C 3 "error\|exception\|traceback\|500\|404" django.log || echo "No errors detected."
+            echo "--- SYNC STATUS LOGS ---"
+            tail -n 5 sync_process.log || echo "Sync in progress..."
             echo "------------------------------------------"
           done || true
+
+          # If loop finishes naturally
+          safe_exit
+
 
 
 
@@ -695,57 +766,7 @@ jobs:
 
 
 
-      - name: Sync Local Runner MySQL Back to Cloud Aiven MySQL
-        if: always()
-        run: |
-          echo "=========================================="
-          echo " 1. CREATING SAFE CACHE DUMP FOR FUTURE RUNS "
-          echo "=========================================="
-          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
-            --set-gtid-purged=OFF \
-            --column-statistics=0 \
-            --single-transaction \
-            --replace local_django_db | gzip > cloud_data_dump.sql.gz
 
-          python -c "
-          import time
-          with open('cache_time.txt', 'w') as f:
-              f.write(str(time.time()))
-          "
-
-          echo "=========================================="
-          echo " 2. PUSHING UPDATED LOCAL DATA TO CLOUD MYSQL SAFELY "
-          echo "=========================================="
-          
-          echo "Checking table existence and applying migrations..."
-          python manage.py migrate --noinput || true
-
-          echo "Dumping data rows only (preserving existing cloud tables)..."
-          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
-            --set-gtid-purged=OFF \
-            --column-statistics=0 \
-            --no-create-info \
-            --replace local_django_db > runner_updated_data.sql
-
-          gzip -f runner_updated_data.sql
-
-          echo "Syncing data to Cloud MySQL without dropping tables..."
-          if gunzip -c runner_updated_data.sql.gz | MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME"; then
-              echo "Data sync completed successfully without dropping tables!"
-          else
-              echo "Table structure mismatch detected! Forcing one-time schema recreation..."
-              MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
-                --set-gtid-purged=OFF \
-                --column-statistics=0 \
-                --single-transaction \
-                --add-drop-table \
-                local_django_db > runner_full_dump.sql
-              gzip -f runner_full_dump.sql
-              gunzip -c runner_full_dump.sql.gz | MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME"
-              echo "Schema recreated and synced successfully."
-          fi
-          
-          echo "Sync Up Back to Cloud Completed Successfully!"
 
       - name: Save Updated DB Dump & Timestamp to GitHub Cache
         if: always()
