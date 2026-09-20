@@ -68,9 +68,9 @@ jobs:
           while true; do
             ACTIVE_RUNS=$(gh api "repos/$REPO/actions/runs?branch=$BRANCH&status=in_progress&per_page=5" --jq "[.workflow_runs[].id | select(. != $CURRENT_RUN_ID)]")
             QUEUED_RUNS=$(gh api "repos/$REPO/actions/runs?branch=$BRANCH&status=queued&per_page=5" --jq "[.workflow_runs[].id | select(. != $CURRENT_RUN_ID)]")
-            TOTAL_PENDING=$(echo "$ACTIVE_RUNS $QUEUED_RUNS" | jq -s 'add | length')
+            TOTAL_PENDING=$(echo "$ACTIVE_RUNS $QUEUED_RUNS" | jq -s 'add // [] | length')
 
-            if [ "$TOTAL_PENDING" -gt 0 ]; then
+            if [ "${TOTAL_PENDING:-0}" -gt 0 ]; then
               echo "Active/Queued workflow runs detected. Holding this run (ID: $CURRENT_RUN_ID)... Checking again in 10 seconds."
               sleep 10
             else
