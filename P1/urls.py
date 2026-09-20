@@ -23,6 +23,7 @@ urlpatterns = [
     
     # Redirect /accounts/login/ to /login/
     path('accounts/login/', lambda request: redirect('/login/')),
+    re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
     
     # GET logout redirect (Django 5.x fix)
     path('accounts/logout/', lambda request: redirect('/logout-redirect/')),

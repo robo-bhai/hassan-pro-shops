@@ -329,13 +329,18 @@ jobs:
             
 
 
-      - name: Sync Media Files from Google Drive
+      - name: Download Media Files from Google Drive
         env:
           RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
         run: |
+          mkdir -p /home/runner/.config/rclone
+          echo "$RCLONE_CONFIG_DATA" > /home/runner/.config/rclone/rclone.conf
           mkdir -p media
           RCLONE_REMOTE=$(rclone listremotes | head -n 1)
-          rclone sync "${RCLONE_REMOTE}hassan_shops/media/" ./media/ || true
+          echo "Syncing from Google Drive: ${RCLONE_REMOTE}hassan_shops/media/"
+          rclone copy "${RCLONE_REMOTE}hassan_shops/media/" ./media/ -v
+          chmod -R 755 ./media/
+
 
 
       - name: Apply Migrations & Create Superuser on Cloud Aiven MySQL
@@ -681,13 +686,15 @@ jobs:
 
 
 
-      - name: Sync Media Files to Google Drive
+      - name: Sync Media Files back to Google Drive
         if: always()
         env:
           RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
         run: |
           RCLONE_REMOTE=$(rclone listremotes | head -n 1)
-          rclone sync ./media "${RCLONE_REMOTE}hassan_shops/media/" || true
+          echo "Uploading local media changes..."
+          rclone copy ./media "${RCLONE_REMOTE}hassan_shops/media/" --update -v
+
 
 
 
