@@ -329,10 +329,22 @@ jobs:
             
 
 
-      - name: Download Media Files from Google Drive
+      # ✅ IS NAYE STEP SE REPLACE KAREIN:
+      - name: Cache Media Directory
+        id: media-cache
+        uses: actions/cache@v4
+        with:
+          path: ./media
+          key: media-files-cache-${{ runner.os }}-${{ hashFiles('**/models.py') }}
+          restore-keys: |
+            media-files-cache-${{ runner.os }}-
+
+      - name: Download Media Files from Google Drive (Fallback)
+        if: steps.media-cache.outputs.cache-hit != 'true'
         env:
           RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
         run: |
+          echo "Cache missed or unavailable! Downloading from Google Drive..."
           mkdir -p /home/runner/.config/rclone
           echo "$RCLONE_CONFIG_DATA" > /home/runner/.config/rclone/rclone.conf
           mkdir -p media
