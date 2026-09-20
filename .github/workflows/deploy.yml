@@ -326,6 +326,17 @@ jobs:
           key: mysql-db-cache-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             mysql-db-cache-${{ runner.os }}-
+            
+
+
+      - name: Sync Media Files from Google Drive
+        env:
+          RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
+        run: |
+          mkdir -p media
+          RCLONE_REMOTE=$(rclone listremotes | head -n 1)
+          rclone sync "${RCLONE_REMOTE}hassan_shops/media/" ./media/ || true
+
 
       - name: Apply Migrations & Create Superuser on Cloud Aiven MySQL
         if: ${{ env.RESTORE_REQUESTED != 'true' && !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now') }}
@@ -667,6 +678,17 @@ jobs:
             grep -i -C 3 "error\|exception\|traceback\|500\|404" django.log || echo "No errors detected."
             echo "------------------------------------------"
           done || true
+
+
+
+      - name: Sync Media Files to Google Drive
+        if: always()
+        env:
+          RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
+        run: |
+          RCLONE_REMOTE=$(rclone listremotes | head -n 1)
+          rclone sync ./media "${RCLONE_REMOTE}hassan_shops/media/" || true
+
 
 
       - name: Sync Local Runner MySQL Back to Cloud Aiven MySQL

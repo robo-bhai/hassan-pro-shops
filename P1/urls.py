@@ -4,15 +4,9 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.shortcuts import redirect
 
-from django.contrib import admin
-from django.urls import path, include
-
 # Handlers bind karein app.views ke sath
 handler404 = 'app.views.custom_page_not_found'
 handler500 = 'app.views.custom_server_error'
-
-
-
 
 urlpatterns = [
     # Admin Panel
@@ -35,8 +29,9 @@ urlpatterns = [
     path('logout-redirect/', lambda request: redirect('/login/'), name='logout_redirect'),
 ]
 
-# Serve static and media files in development
-if settings.DEBUG:
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+# Serve static and media files (Development & CI/CD Runner / Cloudflare Tunnel)
+if settings.DEBUG or True:
+    if hasattr(settings, 'STATIC_URL') and hasattr(settings, 'STATIC_ROOT'):
+        urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
     if hasattr(settings, 'MEDIA_URL') and hasattr(settings, 'MEDIA_ROOT'):
         urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

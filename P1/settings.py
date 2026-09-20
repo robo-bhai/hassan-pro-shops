@@ -189,6 +189,7 @@ import os
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+os.makedirs(MEDIA_ROOT, exist_ok=True)
 
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
@@ -213,11 +214,9 @@ STORAGES = {
         "BACKEND": DEFAULT_FILE_STORAGE_BACKEND,
     },
     "staticfiles": {
-        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
-
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -297,12 +296,12 @@ PWA_APP_START_URL = '/'
 PWA_APP_STATUS_BAR_COLOR = 'default'
 PWA_APP_ICONS = [
     {
-        'src': '/static/images/icon-192.png',
+        'src': '/static/ceo/images/icon-192.png',
         'sizes': '192x192',
         'type': 'image/png'
     },
     {
-        'src': '/static/images/icon-512.png',
+        'src': '/static/ceo/images/icon-512.png',
         'sizes': '512x512',
         'type': 'image/png'
     }
