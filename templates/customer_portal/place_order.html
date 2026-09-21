@@ -1,7 +1,7 @@
 {% extends 'customer_portal/base_shop.html' %}
 {% load static %}
 
-{% block title %}Checkout - {{ company_name }}{% endblock %}
+{% block title %}Place Order - {{ company_name }}{% endblock %}
 
 {% block content %}
 
@@ -9,7 +9,6 @@
     .mobile-bottom-nav { display: none !important; }
     body { padding-bottom: 20px !important; }
     
-    /* Payment Options */
     .payment-option {
         display: flex;
         align-items: flex-start;
@@ -25,7 +24,6 @@
     .payment-option:hover {
         border-color: #667eea;
         background: #f8f9fc;
-        transform: translateY(-1px);
     }
     .payment-option input[type="radio"] {
         accent-color: #667eea;
@@ -41,8 +39,8 @@
         box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
     }
     
-    /* Summary Card */
     .summary-card { position: sticky; top: 20px; }
+    
     .summary-item {
         display: flex;
         justify-content: space-between;
@@ -59,7 +57,6 @@
         margin-top: 5px;
     }
     
-    /* Cart Product */
     .cart-product {
         display: flex;
         gap: 10px;
@@ -97,15 +94,14 @@
         white-space: nowrap;
     }
     
-    /* Place Order Button */
     .place-order-btn {
         background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
         border: none;
         color: white;
         font-weight: 700;
-        padding: 14px;
+        padding: 16px;
         border-radius: 10px;
-        font-size: 16px;
+        font-size: 17px;
         width: 100%;
         transition: all 0.3s ease;
         display: flex;
@@ -121,10 +117,8 @@
     .place-order-btn:disabled {
         opacity: 0.7;
         cursor: not-allowed;
-        transform: none;
     }
     
-    /* Section Headers */
     .section-header {
         background: #1a1d2e;
         color: white;
@@ -140,11 +134,6 @@
         background: white;
         border-radius: 0 0 10px 10px;
     }
-    
-    /* Trust Badges */
-    .trust-badge { text-align: center; padding: 10px; }
-    .trust-badge i { font-size: 24px; display: block; margin-bottom: 5px; }
-    .trust-badge small { font-size: 11px; color: #6b7280; }
     
     /* OTP Section */
     .otp-section {
@@ -216,20 +205,12 @@
     }
     .already-verified-box small { color: #155724; font-size: 13px; }
     
-    /* Mobile Responsive */
     @media (max-width: 768px) {
         .summary-card { position: static; }
         .cart-product-img { width: 50px; height: 50px; }
-        .place-order-btn { font-size: 15px; padding: 12px; }
+        .place-order-btn { font-size: 15px; padding: 14px; }
         h2 { font-size: 20px; }
-        .token-display { font-size: 22px; letter-spacing: 4px; }
         .otp-input { font-size: 22px !important; letter-spacing: 8px; }
-        .already-verified-box .icon-circle {
-            width: 50px;
-            height: 50px;
-            min-width: 50px;
-            font-size: 26px;
-        }
     }
     
     .spinner {
@@ -249,10 +230,10 @@
     <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="fw-bold mb-0">
-            <i class="bi bi-bag-check text-primary"></i> Checkout
+            <i class="bi bi-check2-square text-success"></i> Place Order
         </h2>
-        <a href="{% url 'cart_view' %}" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-arrow-left"></i> Back to Cart
+        <a href="{% url 'checkout' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Back
         </a>
     </div>
 
@@ -264,17 +245,17 @@
         </div>
         <i class="bi bi-chevron-right text-muted"></i>
         <div class="d-flex align-items-center">
-            <span class="badge bg-primary rounded-pill">2</span>
-            <small class="ms-2 text-primary fw-bold">Checkout</small>
+            <span class="badge bg-success rounded-pill">2</span>
+            <small class="ms-2 text-success fw-bold">Review</small>
         </div>
         <i class="bi bi-chevron-right text-muted"></i>
         <div class="d-flex align-items-center">
-            <span class="badge bg-secondary rounded-pill">3</span>
-            <small class="ms-2 text-muted">Confirmation</small>
+            <span class="badge bg-primary rounded-pill">3</span>
+            <small class="ms-2 text-primary fw-bold">Place Order</small>
         </div>
     </div>
 
-    <form id="checkoutForm" method="POST" action="/shop/place-order/">
+    <form id="placeOrderForm" method="POST" action="/shop/place-order/">
         {% csrf_token %}
         
         <div class="row g-4">
@@ -330,10 +311,10 @@
                             <i class="bi bi-shield-check"></i>
                         </div>
                         <div class="flex-grow-1">
-                            <h5>✅ OTP Already Verified!</h5>
+                            <h5>✅ OTP Verified!</h5>
                             <small>
                                 Aapka phone number verify ho chuka hai. 
-                                Aap <strong>direct order place</strong> kar sakte hain.
+                                Ab <strong>Place Order</strong> button dabayein.
                             </small>
                         </div>
                     </div>
@@ -416,9 +397,9 @@
                         <div class="mb-3" style="max-height: 280px; overflow-y: auto;">
                             {% for item in cart_items %}
                             <div class="cart-product">
-                                {% if item.image %}
-                                <img src="{{ item.image }}" 
-                                     alt="{{ item.name }}" 
+                                {% if item.product.image %}
+                                <img src="{{ item.product.image.url }}" 
+                                     alt="{{ item.product.name }}" 
                                      class="cart-product-img">
                                 {% else %}
                                 <div class="cart-product-img d-flex align-items-center justify-content-center">
@@ -426,7 +407,7 @@
                                 </div>
                                 {% endif %}
                                 <div class="cart-product-info">
-                                    <div class="cart-product-name">{{ item.name }}</div>
+                                    <div class="cart-product-name">{{ item.product.name }}</div>
                                     <div class="cart-product-meta">
                                         Qty: {{ item.quantity }} × Rs. {{ item.price|floatformat:0 }}
                                     </div>
@@ -482,26 +463,6 @@
                     </div>
                 </div>
                 
-                <!-- Trust Badges -->
-                <div class="card border-0 shadow-sm mt-3">
-                    <div class="card-body py-3">
-                        <div class="row g-2">
-                            <div class="col-4 trust-badge">
-                                <i class="bi bi-truck text-primary"></i>
-                                <small>Fast Delivery</small>
-                            </div>
-                            <div class="col-4 trust-badge">
-                                <i class="bi bi-arrow-repeat text-success"></i>
-                                <small>Easy Returns</small>
-                            </div>
-                            <div class="col-4 trust-badge">
-                                <i class="bi bi-shield-lock text-warning"></i>
-                                <small>Secure Payment</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
             </div>
             
         </div>
@@ -527,7 +488,7 @@ function getCookie(name) {
 
 document.addEventListener('DOMContentLoaded', function() {
     
-    const form = document.getElementById('checkoutForm');
+    const form = document.getElementById('placeOrderForm');
     const placeOrderBtn = document.getElementById('placeOrderBtn');
     
     // Payment selection
@@ -587,13 +548,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         
-        const cartItems = document.querySelectorAll('.cart-product');
-        if (cartItems.length === 0) {
-            e.preventDefault();
-            alert('❌ Your cart is empty!');
-            return false;
-        }
-        
         placeOrderBtn.disabled = true;
         placeOrderBtn.innerHTML = '<span class="spinner"></span> Placing Order...';
     });
@@ -620,12 +574,7 @@ function sendOTP() {
     .then(data => {
         if (data.success) {
             if (data.skip_otp) {
-                document.getElementById('otp-section').innerHTML = 
-                    '<div class="alert alert-success text-center">' +
-                    '<i class="bi bi-check-circle-fill fs-1"></i>' +
-                    '<h5 class="mt-2"><strong>Trusted Customer</strong></h5>' +
-                    '<p>OTP not required. Aap direct order place kar sakte hain!</p>' +
-                    '</div>';
+                location.reload();
             } else {
                 document.getElementById('otp-input-box').style.display = 'block';
                 document.getElementById('token-value').innerText = data.order_token;

@@ -1,16 +1,23 @@
 """
 Customer Portal Views — Complete with Order OTP + Trust System
+================================================================
+- All customer portal views
+- Custom customer_login_required decorator
+- Fixed redirects (no admin login)
+- ✅ FIXED: calculate_cart_data — no JSON serialization error
+- ✅ Single-page checkout (Payment + OTP + Place Order)
 """
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.utils.timezone import now
 from django.db import transaction
 from django.db.models import Sum, Q
+from django.urls import reverse
 from decimal import Decimal
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 import json
 import logging
 
@@ -21,6 +28,8 @@ from .models import (
     CustomerOrder, CustomerOrderItem, OrderStatusHistory,
     Notification, Inventory, StockBatch
 )
+
+from .decorators import customer_login_required
 
 logger = logging.getLogger(__name__)
 
@@ -43,25 +52,103 @@ def get_client_ip(request):
     return request.META.get('REMOTE_ADDR', '')
 
 
+def get_empty_customer():
+    """Return an empty customer namespace for templates"""
+    return SimpleNamespace(
+        name='',
+        email='',
+        contact_number='',
+        address='',
+        customer_code='',
+    )
+
+
+def calculate_cart_data(cart):
+    """
+    ✅ Helper: Calculate cart items, subtotal, delivery, total
+    - Session cart ko TOUCH nahi karta
+    - Fresh dicts banata hai
+    - Product objects alag key 'product_obj' mein
+    """
+    cart_items = []
+    subtotal = Decimal('0.00')
+    
+    for key, item in cart.items():
+        cart_item = {
+            'product_id': item.get('product_id'),
+            'name': item.get('name'),
+            'price': float(item.get('price', 0)),
+            'quantity': int(item.get('quantity', 0)),
+            'image': item.get('image'),
+        }
+        
+        item_total = Decimal(str(cart_item['price'])) * cart_item['quantity']
+        subtotal += item_total
+        cart_item['total'] = float(item_total)
+        cart_item['subtotal'] = float(item_total)
+        
+        try:
+            product = Product.objects.get(pk=cart_item['product_id'])
+            cart_item['product_obj'] = product
+        except Product.DoesNotExist:
+            cart_item['product_obj'] = None
+        
+        cart_items.append(cart_item)
+    
+    delivery_charges = Decimal('0.00')
+    if subtotal > 0 and subtotal < Decimal('1000'):
+        delivery_charges = Decimal('100.00')
+    
+    total_amount = subtotal + delivery_charges
+    
+    return {
+        'cart_items': cart_items,
+        'subtotal': subtotal,
+        'delivery_charges': delivery_charges,
+        'total_amount': total_amount,
+    }
+
+
+def check_otp_verified(request):
+    """Helper: Check if order_verified flag is still valid (30 min)"""
+    order_verified = request.session.get('order_verified', False)
+    
+    if order_verified:
+        verified_at_str = request.session.get('order_verified_at')
+        if verified_at_str:
+            try:
+                verified_at = datetime.fromisoformat(
+                    verified_at_str.replace('Z', '+00:00')
+                )
+                if now() - verified_at > timedelta(minutes=30):
+                    order_verified = False
+            except Exception:
+                order_verified = False
+        else:
+            order_verified = False
+    
+    return order_verified
+
+
 # ============================================
-# 1. SHOP HOME — Product List
+# 1. SHOP HOME
 # ============================================
 
 def shop_home(request):
-    """Shop home page with products"""
+    """Shop home page with products, filters, and search"""
     from django.core.paginator import Paginator
     
     products = Product.objects.filter(is_active=True).select_related(
         'category', 'brand', 'unit'
     )
     
-    # Filters
     search = request.GET.get('search', '').strip()
     if search:
         products = products.filter(
             Q(name__icontains=search) |
             Q(serial_no__icontains=search) |
-            Q(barcode__icontains=search)
+            Q(barcode__icontains=search) |
+            Q(description__icontains=search)
         )
     
     category_id = request.GET.get('category', '')
@@ -72,7 +159,6 @@ def shop_home(request):
     if brand_id:
         products = products.filter(brand_id=brand_id)
     
-    # Sorting
     sort = request.GET.get('sort', 'newest')
     if sort == 'price_low':
         products = products.order_by('price')
@@ -83,15 +169,12 @@ def shop_home(request):
     else:
         products = products.order_by('-id')
     
-    # Add stock + batch price to each product
     for product in products:
-        # Get stock
         total_stock = Inventory.objects.filter(product=product).aggregate(
             total=Sum('stock')
         )['total'] or 0
         product.available_stock = total_stock
         
-        # Get batch price
         batch = StockBatch.objects.filter(
             product=product,
             remaining_qty__gt=0,
@@ -104,7 +187,6 @@ def shop_home(request):
         else:
             product.has_batch_price = False
     
-    # Pagination
     paginator = Paginator(products, 24)
     page = request.GET.get('page', 1)
     page_obj = paginator.get_page(page)
@@ -139,13 +221,11 @@ def product_detail(request, pk):
         pk=pk, is_active=True
     )
     
-    # Stock
     total_stock = Inventory.objects.filter(product=product).aggregate(
         total=Sum('stock')
     )['total'] or 0
     product.available_stock = total_stock
     
-    # Batch price
     batch = StockBatch.objects.filter(
         product=product,
         remaining_qty__gt=0,
@@ -158,7 +238,6 @@ def product_detail(request, pk):
     else:
         product.has_batch_price = False
     
-    # Related products
     related = Product.objects.filter(
         Q(category=product.category) | Q(brand=product.brand),
         is_active=True
@@ -193,7 +272,6 @@ def add_to_cart(request):
         
         product = get_object_or_404(Product, id=int(product_id), is_active=True)
         
-        # Get price (batch or product)
         batch = StockBatch.objects.filter(
             product=product,
             remaining_qty__gt=0,
@@ -202,10 +280,8 @@ def add_to_cart(request):
         
         price = float(batch.selling_price) if batch else float(product.price)
         
-        # Get cart
         cart = request.session.get('cart', {})
         
-        # Add or update
         if product_id in cart:
             cart[product_id]['quantity'] += quantity
         else:
@@ -238,32 +314,17 @@ def add_to_cart(request):
 def cart_view(request):
     """Cart page"""
     cart = request.session.get('cart', {})
-    
-    cart_items = []
-    subtotal = Decimal('0.00')
-    
-    for key, item in cart.items():
-        item_total = Decimal(str(item['price'])) * int(item['quantity'])
-        subtotal += item_total
-        item['total'] = float(item_total)
-        cart_items.append(item)
-    
-    # Delivery
-    delivery_charges = Decimal('0.00')
-    if subtotal > 0 and subtotal < Decimal('1000'):
-        delivery_charges = Decimal('100.00')
-    
-    total_amount = subtotal + delivery_charges
+    data = calculate_cart_data(cart)
     
     company = CompanyInfo.objects.first()
     
     context = {
         'company_name': company.name if company else 'Shop',
         'company': company,
-        'cart_items': cart_items,
-        'subtotal': subtotal,
-        'delivery_charges': delivery_charges,
-        'total_amount': total_amount,
+        'cart_items': data['cart_items'],
+        'subtotal': data['subtotal'],
+        'delivery_charges': data['delivery_charges'],
+        'total_amount': data['total_amount'],
         'cart_count': get_cart_count_value(request),
     }
     return render(request, 'customer_portal/cart.html', context)
@@ -319,81 +380,46 @@ def remove_from_cart(request, product_id):
 
 
 # ============================================
-# 7. CHECKOUT — Order Form (WITH OTP STATUS)
+# 7. CHECKOUT — Payment + OTP + Place Order (SINGLE PAGE)
 # ============================================
 
-@login_required
+@customer_login_required
 def checkout(request):
     """
-    Checkout page — Order form with OTP prep
-    ✅ NEW: order_verified check (session mein)
+    Checkout page — Payment + OTP + Place Order (Single Page)
+    ✅ customer always provided (never None)
+    ✅ calculate_cart_data (no JSON serialization error)
+    ✅ Payment method + OTP + Place Order all in one page
     """
-    if not hasattr(request.user, 'customer_profile'):
-        messages.error(request, '❌ Pehle login karein')
-        return redirect('customer_login')
-    
     cart = request.session.get('cart', {})
     if not cart:
         messages.warning(request, 'Cart khali hai!')
         return redirect('shop_home')
     
-    # Calculate cart
-    cart_items = []
-    subtotal = Decimal('0.00')
-    for key, item in cart.items():
-        item_total = Decimal(str(item['price'])) * int(item['quantity'])
-        subtotal += item_total
-        item['total'] = float(item_total)
-        cart_items.append(item)
-    
-    # Delivery charges
-    delivery_charges = Decimal('0.00')
-    if subtotal < Decimal('1000'):
-        delivery_charges = Decimal('100.00')
-    
-    total_amount = subtotal + delivery_charges
-    
-    # Trust check
-    profile = request.user.customer_profile
-    customer = profile.customer
-    skip_otp = profile.should_skip_order_otp()
+    data = calculate_cart_data(cart)
     
     # ==========================================
-    # ✅ NEW: Check if already OTP verified
+    # PROFILE / TRUST CHECK
     # ==========================================
-    order_verified = request.session.get('order_verified', False)
+    profile = None
+    customer = None
+    skip_otp = False
     
-    # Check timestamp validity (30 min)
-    if order_verified:
-        verified_at_str = request.session.get('order_verified_at')
-        if verified_at_str:
-            try:
-                verified_at = datetime.fromisoformat(
-                    verified_at_str.replace('Z', '+00:00')
-                )
-                
-                if now() - verified_at > timedelta(minutes=30):
-                    order_verified = False  # Expire
-            except Exception:
-                order_verified = False
-        else:
-            order_verified = False
+    if hasattr(request.user, 'customer_profile'):
+        try:
+            profile = request.user.customer_profile
+            customer = profile.customer
+            skip_otp = profile.should_skip_order_otp()
+        except Exception as e:
+            logger.error(f"Checkout profile error: {e}")
+            profile = None
+            customer = None
     
-    # ==========================================
-    # ✅ DEBUG
-    # ==========================================
-    print("=" * 60)
-    print("🔍 CHECKOUT PAGE — OTP STATUS")
-    print("=" * 60)
-    print(f"User: {request.user.username}")
-    print(f"skip_otp: {skip_otp}")
-    print(f"order_verified: {order_verified}")
-    print(f"Session keys: {list(request.session.keys())}")
-    print("=" * 60)
+    if customer is None:
+        customer = get_empty_customer()
     
-    # Customer addresses
-    addresses = customer.addresses.all()
-    default_address = addresses.filter(is_default=True).first()
+    # Check OTP verified
+    order_verified = check_otp_verified(request)
     
     # Payment methods
     payment_methods = [
@@ -408,128 +434,76 @@ def checkout(request):
     context = {
         'company_name': company.name if company else 'Shop',
         'company': company,
-        'cart_items': cart_items,
-        'subtotal': subtotal,
-        'delivery_charges': delivery_charges,
-        'total_amount': total_amount,
+        'cart_items': data['cart_items'],
+        'subtotal': data['subtotal'],
+        'delivery_charges': data['delivery_charges'],
+        'total_amount': data['total_amount'],
         'cart_count': sum(item['quantity'] for item in cart.values()),
         'customer': customer,
         'profile': profile,
-        'addresses': addresses,
-        'default_address': default_address,
         'skip_otp': skip_otp,
-        'order_verified': order_verified,  # ✅ NEW
+        'order_verified': order_verified,
         'payment_methods': payment_methods,
     }
     return render(request, 'customer_portal/checkout.html', context)
 
 
 # ============================================
-# 8. PLACE ORDER — Creates Sale Order
+# 8. PLACE ORDER (POST) — Creates SaleOrder
 # ============================================
 
-@login_required
+@customer_login_required
 @require_POST
 def place_order(request):
     """
     Order place karo — SaleOrder banata hai
-    ✅ OTP check (agar trusted nahi)
-    ✅ Trust tracking
-    ✅ 30-minute OTP validity
     """
     from django.contrib.auth.models import User
     
     try:
         # ==========================================
-        # ✅ OTP VERIFICATION CHECK
+        # OTP VERIFICATION CHECK
         # ==========================================
         profile = None
         if hasattr(request.user, 'customer_profile'):
             profile = request.user.customer_profile
             
-            # Debug
-            print("=" * 60)
-            print("🔍 PLACE ORDER — OTP CHECK DEBUG")
-            print("=" * 60)
-            print(f"User: {request.user.username}")
-            print(f"is_trusted: {profile.is_trusted}")
-            print(f"should_skip: {profile.should_skip_order_otp()}")
-            print(f"Session keys: {list(request.session.keys())}")
-            print(f"order_verified: {request.session.get('order_verified')}")
-            print(f"order_verified_at: {request.session.get('order_verified_at')}")
-            print(f"Session ID: {request.session.session_key}")
-            print("=" * 60)
-            
             if not profile.should_skip_order_otp():
-                
-                otp_verified = request.session.get('order_verified', False)
-                verified_at_str = request.session.get('order_verified_at')
-                
-                # Check timestamp validity
-                if otp_verified and verified_at_str:
-                    try:
-                        verified_at = datetime.fromisoformat(
-                            verified_at_str.replace('Z', '+00:00')
-                        )
-                        
-                        if now() - verified_at > timedelta(minutes=30):
-                            print(f"⚠️  OTP EXPIRED")
-                            otp_verified = False
-                        else:
-                            print(f"✅ OTP VALID")
-                            
-                    except Exception as e:
-                        print(f"❌ Timestamp error: {e}")
-                        otp_verified = False
+                otp_verified = check_otp_verified(request)
                 
                 if not otp_verified:
-                    print("❌ OTP NOT VERIFIED — Redirecting")
                     messages.error(request, '❌ Pehle OTP verify karein')
                     return redirect('checkout')
-                
-                print("✅ OTP VERIFIED — Proceeding")
         
         # ==========================================
-        # Get form data
+        # CUSTOMER INFO FROM PROFILE
         # ==========================================
-        name = request.POST.get('name', '').strip()
-        phone = request.POST.get('phone', '').strip()
-        email = request.POST.get('email', '').strip()
-        address = request.POST.get('address', '').strip()
-        city = request.POST.get('city', '').strip()
-        notes = request.POST.get('notes', '').strip()
-        payment_method = request.POST.get('payment_method', 'cod')
-        
-        # Validation
-        if not name or not phone:
-            messages.error(request, 'Naam aur phone number zaroori hai!')
+        if profile:
+            customer = profile.customer
+            name = customer.name
+            phone = customer.contact_number
+            email = customer.email or ''
+            address = customer.address or ''
+            notes = ''
+        else:
+            messages.error(request, '❌ Customer profile nahi mila')
             return redirect('checkout')
         
+        # ==========================================
+        # Payment method
+        # ==========================================
+        payment_method = request.POST.get('payment_method', 'cod')
+        
+        # ==========================================
         # Cart
+        # ==========================================
         cart = request.session.get('cart', {})
         if not cart:
             messages.error(request, 'Cart khali hai!')
             return redirect('shop_home')
         
         # ==========================================
-        # Get or create customer
-        # ==========================================
-        customer = Customer.objects.filter(contact_number=phone).first()
-        if not customer:
-            full_address = f"{address}, {city}".strip(', ')
-            if email:
-                full_address += f" | Email: {email}"
-            if notes:
-                full_address += f" | Notes: {notes}"
-            
-            customer = Customer.objects.create(
-                name=name,
-                contact_number=phone,
-                address=full_address,
-            )
-        
-        # ==========================================
-        # Get default warehouse
+        # Warehouse
         # ==========================================
         warehouse = Warehouse.objects.first()
         if not warehouse:
@@ -537,21 +511,21 @@ def place_order(request):
             return redirect('shop_home')
         
         # ==========================================
-        # ✅ Create SALE ORDER
+        # Create SALE ORDER
         # ==========================================
         order = SaleOrder.objects.create(
             customer=customer,
             warehouse=warehouse,
             order_date=now(),
             status='pending',
-            notes=f"🌐 WEB ORDER | Payment: {payment_method} | {notes}",
+            notes=f"🌐 WEB ORDER | Payment: {payment_method}",
             discount_value=Decimal('0.00'),
             advance_payment=Decimal('0.00'),
             created_by=request.user if request.user.is_authenticated else None,
         )
         
         # ==========================================
-        # ✅ Add items to SALE ORDER
+        # Add items
         # ==========================================
         total_amount = Decimal('0.00')
         order_summary = []
@@ -562,7 +536,7 @@ def place_order(request):
             price = Decimal(str(item['price']))
             product = Product.objects.get(pk=product_id)
             
-            order_item = SaleOrderItem.objects.create(
+            SaleOrderItem.objects.create(
                 order=order,
                 product=product,
                 qty=quantity,
@@ -580,12 +554,11 @@ def place_order(request):
             })
         
         # ==========================================
-        # ✅ RECORD SUCCESSFUL ORDER
+        # Record successful order
         # ==========================================
         if profile:
             profile.record_successful_order()
             
-            # Cleanup OTP session
             request.session.pop('order_verified', None)
             request.session.pop('order_verified_at', None)
             request.session.pop('order_otp_phone', None)
@@ -599,7 +572,7 @@ def place_order(request):
         request.session.modified = True
         
         # ==========================================
-        # Notification to Admin
+        # Notify admin
         # ==========================================
         try:
             admins = User.objects.filter(is_superuser=True)
@@ -710,7 +683,7 @@ def track_order(request):
 # 11. MY ORDERS
 # ============================================
 
-@login_required
+@customer_login_required
 def my_orders(request):
     """Customer order history page"""
     from django.core.paginator import Paginator
@@ -761,7 +734,7 @@ def my_orders(request):
 # 12. ORDER DETAIL
 # ============================================
 
-@login_required
+@customer_login_required
 def order_detail_customer(request, order_id):
     """Customer order detail page"""
     if not hasattr(request.user, 'customer_profile'):
@@ -811,7 +784,7 @@ def order_detail_customer(request, order_id):
 # 13. CANCEL ORDER
 # ============================================
 
-@login_required
+@customer_login_required
 @require_POST
 def cancel_order_customer(request, order_id):
     """Customer cancels order"""

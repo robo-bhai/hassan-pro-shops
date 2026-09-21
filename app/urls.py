@@ -1066,5 +1066,5 @@ urlpatterns = [
     'shop/pending-otps/verify/<int:otp_id>/',
     views_customer_auth.quick_verify_otp,
     name='quick_verify_otp'),
-     
+    
 ]

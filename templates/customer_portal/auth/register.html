@@ -1,315 +1,558 @@
 {% extends 'customer_portal/base_shop.html' %}
 {% load static %}
 
-{% block title %}Create Account - {{ company_name }}{% endblock %}
+{% block title %}Register - {{ company_name }}{% endblock %}
 
 {% block content %}
 
-<!-- ✅ Hide Mobile Bottom Navigation on Register Page -->
 <style>
-    .mobile-bottom-nav {
-        display: none !important;
+    .register-container {
+        max-width: 550px;
+        margin: 40px auto;
+        padding: 0 15px;
     }
     
-    body {
-        padding-bottom: 20px !important;
+    .register-card {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+    }
+    
+    .register-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 40px 30px 30px;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .register-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -30%;
+        width: 200px;
+        height: 200px;
+        background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+        border-radius: 50%;
+    }
+    
+    .register-icon {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 15px;
+        font-size: 32px;
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        position: relative;
+        z-index: 1;
+    }
+    
+    .register-header h3 {
+        margin: 0;
+        font-weight: 700;
+        font-size: 22px;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .register-header p {
+        margin: 8px 0 0;
+        opacity: 0.9;
+        font-size: 13px;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .register-body {
+        padding: 30px;
+    }
+    
+    .form-group {
+        margin-bottom: 18px;
+    }
+    
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        color: #1a1a2e;
+        margin-bottom: 8px;
+        font-size: 14px;
+    }
+    
+    .form-group label i {
+        color: #667eea;
+        margin-right: 6px;
+    }
+    
+    .form-group label .required {
+        color: #dc3545;
+        margin-left: 3px;
+    }
+    
+    .form-group input,
+    .form-group textarea {
+        width: 100%;
+        padding: 14px 16px;
+        border: 2px solid #e0e3eb;
+        border-radius: 12px;
+        font-size: 15px;
+        transition: all 0.2s ease;
+        background: #f8f9fc;
+        font-family: inherit;
+    }
+    
+    .form-group input:focus,
+    .form-group textarea:focus {
+        outline: none;
+        border-color: #667eea;
+        background: white;
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+    }
+    
+    .form-group textarea {
+        resize: vertical;
+        min-height: 80px;
+    }
+    
+    .form-group .help-text {
+        font-size: 12px;
+        color: #6b7280;
+        margin-top: 5px;
+    }
+    
+    /* Two columns */
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+    
+    @media (max-width: 500px) {
+        .form-row {
+            grid-template-columns: 1fr;
+            gap: 0;
+        }
+    }
+    
+    /* Password toggle */
+    .password-wrapper {
+        position: relative;
+    }
+    
+    .password-toggle {
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #9ca3af;
+        cursor: pointer;
+        font-size: 18px;
+        padding: 5px;
+    }
+    
+    .password-toggle:hover {
+        color: #667eea;
+    }
+    
+    .btn-register {
+        width: 100%;
+        padding: 15px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 10px;
+    }
+    
+    .btn-register:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-register:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    .register-footer {
+        text-align: center;
+        padding: 20px 30px;
+        background: #f8f9fc;
+        border-top: 1px solid #e0e3eb;
+    }
+    
+    .register-footer p {
+        margin: 0;
+        font-size: 14px;
+        color: #6b7280;
+    }
+    
+    .register-footer a {
+        color: #667eea;
+        font-weight: 700;
+        text-decoration: none;
+    }
+    
+    .register-footer a:hover {
+        text-decoration: underline;
+    }
+    
+    /* Alerts */
+    .alert-message {
+        padding: 12px 15px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        font-size: 14px;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        animation: fadeIn 0.3s ease;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-5px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .alert-error {
+        background: #f8d7da;
+        color: #721c24;
+        border-left: 4px solid #dc3545;
+    }
+    
+    .alert-success {
+        background: #d4edda;
+        color: #155724;
+        border-left: 4px solid #28a745;
+    }
+    
+    .alert-warning {
+        background: #fff3cd;
+        color: #856404;
+        border-left: 4px solid #ffc107;
+    }
+    
+    .alert-info {
+        background: #d1ecf1;
+        color: #0c5460;
+        border-left: 4px solid #17a2b8;
+    }
+    
+    /* Section Divider */
+    .section-divider {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 25px 0 20px;
+        color: #6b7280;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .section-divider::before,
+    .section-divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: #e0e3eb;
+    }
+    
+    .section-divider i {
+        color: #667eea;
     }
 </style>
 
-<div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-md-6 col-lg-5">
-            <div class="auth-card">
+<div class="register-container">
+    
+    <div class="register-card">
+        
+        <!-- Header -->
+        <div class="register-header">
+            <div class="register-icon">
+                <i class="bi bi-person-plus-fill"></i>
+            </div>
+            <h3>Create Account</h3>
+            <p>Join us and start shopping today!</p>
+        </div>
+        
+        <!-- Body -->
+        <div class="register-body">
+            
+            <!-- Messages -->
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert-message 
+                        {% if message.tags == 'error' %}alert-error
+                        {% elif message.tags == 'success' %}alert-success
+                        {% elif message.tags == 'warning' %}alert-warning
+                        {% else %}alert-info{% endif %}">
+                        <i class="bi bi-{% if message.tags == 'error' %}exclamation-circle-fill{% elif message.tags == 'success' %}check-circle-fill{% elif message.tags == 'warning' %}exclamation-triangle-fill{% else %}info-circle-fill{% endif %}"></i>
+                        <span>{{ message }}</span>
+                    </div>
+                {% endfor %}
+            {% endif %}
+            
+            <!-- Register Form -->
+            <form method="POST" id="registerForm">
+                {% csrf_token %}
                 
-                <!-- Header -->
-                <div class="auth-header">
-                    <div class="auth-icon">🛍️</div>
-                    <h2>Create Account</h2>
-                    <p class="text-muted">
-                        Fast & Easy — 30 seconds mein account banayein
-                    </p>
+                <!-- ============================================ -->
+                <!-- PERSONAL INFORMATION                         -->
+                <!-- ============================================ -->
+                <div class="section-divider">
+                    <i class="bi bi-person-fill"></i>
+                    Personal Information
                 </div>
                 
-                <!-- Form -->
-                <form method="POST" class="auth-form" autocomplete="on">
-                    {% csrf_token %}
-                    
-                    <!-- Full Name -->
+                <!-- Full Name -->
+                <div class="form-group">
+                    <label for="full_name">
+                        <i class="bi bi-person-fill"></i> Full Name
+                        <span class="required">*</span>
+                    </label>
+                    <input type="text" 
+                           name="full_name" 
+                           id="full_name" 
+                           placeholder="e.g. Ali Khan"
+                           required
+                           autocomplete="name">
+                </div>
+                
+                <!-- Phone + Email Row -->
+                <div class="form-row">
                     <div class="form-group">
-                        <label>👤 Poora Naam <span class="text-danger">*</span></label>
-                        <input type="text" 
-                               name="full_name" 
-                               class="form-control" 
-                               placeholder="Ahmed Khan"
-                               required
-                               autofocus
-                               autocomplete="name">
-                    </div>
-                    
-                    <!-- Phone -->
-                    <div class="form-group">
-                        <label>📱 Phone Number <span class="text-danger">*</span></label>
+                        <label for="phone">
+                            <i class="bi bi-phone-fill"></i> Phone
+                            <span class="required">*</span>
+                        </label>
                         <input type="tel" 
                                name="phone" 
-                               class="form-control" 
-                               placeholder="03001234567"
+                               id="phone" 
+                               placeholder="03XXXXXXXXX"
                                required
-                               autocomplete="tel">
-                        <small class="text-muted">
-                            <i class="bi bi-info-circle"></i>
-                            Order karte waqt verify hoga
-                        </small>
+                               autocomplete="tel"
+                               inputmode="tel">
                     </div>
                     
-                    <!-- Email -->
                     <div class="form-group">
-                        <label>📧 Email <span class="text-muted">(Optional)</span></label>
+                        <label for="email">
+                            <i class="bi bi-envelope-fill"></i> Email
+                        </label>
                         <input type="email" 
                                name="email" 
-                               class="form-control" 
-                               placeholder="ahmed@example.com"
+                               id="email" 
+                               placeholder="optional"
                                autocomplete="email">
                     </div>
-                    
-                    <!-- Password -->
-                    <div class="form-group">
-                        <label>🔒 Password <span class="text-danger">*</span></label>
-                        <div class="password-input">
-                            <input type="password" 
-                                   name="password" 
-                                   class="form-control" 
-                                   placeholder="Kam az kam 6 characters"
-                                   id="password"
-                                   required
-                                   autocomplete="new-password">
-                            <button type="button" 
-                                    class="password-toggle" 
-                                    onclick="togglePassword('password')">
-                                <i class="bi bi-eye"></i>
-                            </button>
-                        </div>
+                </div>
+                
+                <!-- ============================================ -->
+                <!-- ADDRESS INFORMATION                          -->
+                <!-- ============================================ -->
+                <div class="section-divider">
+                    <i class="bi bi-geo-alt-fill"></i>
+                    Address Information
+                </div>
+                
+                <!-- City -->
+                <div class="form-group">
+                    <label for="city">
+                        <i class="bi bi-building"></i> City
+                        <span class="required">*</span>
+                    </label>
+                    <input type="text" 
+                           name="city" 
+                           id="city" 
+                           placeholder="e.g. Lahore, Karachi"
+                           required
+                           autocomplete="address-level2">
+                    <div class="help-text">Aap ka shehar</div>
+                </div>
+                
+                <!-- Complete Address -->
+                <div class="form-group">
+                    <label for="address">
+                        <i class="bi bi-house-fill"></i> Complete Address
+                        <span class="required">*</span>
+                    </label>
+                    <textarea name="address" 
+                              id="address" 
+                              rows="3"
+                              placeholder="House #, Street, Area, Landmark..."
+                              required
+                              autocomplete="street-address"></textarea>
+                    <div class="help-text">Mukammal pata - ghar number, gali, area</div>
+                </div>
+                
+                <!-- ============================================ -->
+                <!-- SECURITY                                     -->
+                <!-- ============================================ -->
+                <div class="section-divider">
+                    <i class="bi bi-shield-lock-fill"></i>
+                    Security
+                </div>
+                
+                <!-- Password -->
+                <div class="form-group">
+                    <label for="password">
+                        <i class="bi bi-lock-fill"></i> Password
+                        <span class="required">*</span>
+                    </label>
+                    <div class="password-wrapper">
+                        <input type="password" 
+                               name="password" 
+                               id="password" 
+                               placeholder="Min 6 characters"
+                               required
+                               minlength="6"
+                               autocomplete="new-password">
+                        <button type="button" 
+                                class="password-toggle"
+                                onclick="togglePassword('password', this)">
+                            <i class="bi bi-eye-fill"></i>
+                        </button>
                     </div>
-                    
-                    <!-- Confirm Password -->
-                    <div class="form-group">
-                        <label>🔒 Confirm Password <span class="text-danger">*</span></label>
-                        <div class="password-input">
-                            <input type="password" 
-                                   name="confirm_password" 
-                                   class="form-control" 
-                                   placeholder="Dobara likhein"
-                                   id="confirm_password"
-                                   required
-                                   autocomplete="new-password">
-                            <button type="button" 
-                                    class="password-toggle" 
-                                    onclick="togglePassword('confirm_password')">
-                                <i class="bi bi-eye"></i>
-                            </button>
-                        </div>
+                    <div class="help-text">Kam az kam 6 characters</div>
+                </div>
+                
+                <!-- Confirm Password -->
+                <div class="form-group">
+                    <label for="confirm_password">
+                        <i class="bi bi-lock-fill"></i> Confirm Password
+                        <span class="required">*</span>
+                    </label>
+                    <div class="password-wrapper">
+                        <input type="password" 
+                               name="confirm_password" 
+                               id="confirm_password" 
+                               placeholder="Re-enter password"
+                               required
+                               minlength="6"
+                               autocomplete="new-password">
+                        <button type="button" 
+                                class="password-toggle"
+                                onclick="togglePassword('confirm_password', this)">
+                            <i class="bi bi-eye-fill"></i>
+                        </button>
                     </div>
-                    
-                    <!-- Terms -->
-                    <div class="form-check mb-3">
-                        <input type="checkbox" 
-                               class="form-check-input" 
-                               id="terms"
-                               required>
-                        <label class="form-check-label small" for="terms">
-                            Main <a href="#" class="text-primary">Terms & Conditions</a> 
-                            aur <a href="#" class="text-primary">Privacy Policy</a> 
-                            se agree karta/karti hoon
-                        </label>
-                    </div>
-                    
-                    <!-- Submit -->
-                    <button type="submit" class="btn-auth">
-                        <i class="bi bi-person-plus"></i> Create Account
-                    </button>
-                    
-                    <!-- Login Link -->
-                    <div class="auth-footer">
-                        Pehle se account hai? 
-                        <a href="{% url 'customer_login' %}" class="text-primary fw-bold">
-                            Login karein
-                        </a>
-                    </div>
-                    
-                    <!-- Trust Info -->
-                    <div class="trust-info">
-                        <div class="trust-badge">
-                            <i class="bi bi-shield-check"></i>
-                            <span>Safe & Secure</span>
-                        </div>
-                        <div class="trust-badge">
-                            <i class="bi bi-lightning-charge"></i>
-                            <span>30 Second Signup</span>
-                        </div>
-                        <div class="trust-badge">
-                            <i class="bi bi-truck"></i>
-                            <span>Fast Delivery</span>
-                        </div>
-                    </div>
-                </form>
-            </div>
+                </div>
+                
+                <!-- Submit Button -->
+                <button type="submit" class="btn-register" id="registerBtn">
+                    <i class="bi bi-person-check-fill"></i>
+                    <span>Create Account</span>
+                </button>
+                
+            </form>
+            
         </div>
+        
+        <!-- Footer -->
+        <div class="register-footer">
+            <p>
+                Already have an account? 
+                <a href="{% url 'customer_login' %}">Login here</a>
+            </p>
+        </div>
+        
     </div>
+    
 </div>
 
-<style>
-.auth-card {
-    background: white;
-    border-radius: 20px;
-    padding: 30px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.08);
-}
-.auth-header {
-    text-align: center;
-    margin-bottom: 25px;
-}
-.auth-icon {
-    font-size: 3rem;
-    margin-bottom: 10px;
-}
-.auth-header h2 {
-    font-weight: 800;
-    font-size: 1.5rem;
-    color: #1a1a2e;
-    margin-bottom: 5px;
-}
-.auth-header p {
-    font-size: 0.9rem;
-}
-
-/* Form */
-.form-group {
-    margin-bottom: 18px;
-}
-.form-group label {
-    font-weight: 700;
-    font-size: 0.85rem;
-    color: #1a1a2e;
-    margin-bottom: 6px;
-    display: block;
-}
-.form-group .form-control {
-    padding: 12px 15px;
-    border-radius: 10px;
-    border: 2px solid #eef0f5;
-    font-size: 0.95rem;
-    transition: all 0.2s;
-}
-.form-group .form-control:focus {
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    background: white;
-    outline: none;
-}
-.password-input {
-    position: relative;
-}
-.password-toggle {
-    position: absolute;
-    right: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    color: #94a3b8;
-    cursor: pointer;
-    padding: 5px;
-    font-size: 1.1rem;
-}
-
-/* Button */
-.btn-auth {
-    width: 100%;
-    padding: 14px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    border-radius: 12px;
-    font-weight: 700;
-    font-size: 1rem;
-    cursor: pointer;
-    margin-top: 10px;
-    transition: all 0.3s;
-}
-.btn-auth:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
-}
-.btn-auth:active {
-    transform: translateY(0);
-}
-
-/* Footer */
-.auth-footer {
-    text-align: center;
-    margin-top: 20px;
-    padding-top: 20px;
-    border-top: 1px solid #eef0f5;
-    color: #6b7280;
-    font-size: 0.9rem;
-}
-
-/* Trust Info */
-.trust-info {
-    display: flex;
-    justify-content: center;
-    gap: 15px;
-    margin-top: 20px;
-    padding-top: 20px;
-    border-top: 1px solid #eef0f5;
-    flex-wrap: wrap;
-}
-.trust-badge {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 0.75rem;
-    color: #94a3b8;
-    font-weight: 600;
-}
-.trust-badge i {
-    color: #10b981;
-    font-size: 1rem;
-}
-
-/* Mobile */
-@media (max-width: 576px) {
-    .auth-card {
-        padding: 20px;
-    }
-    .auth-header h2 {
-        font-size: 1.3rem;
-    }
-    .trust-info {
-        gap: 10px;
-    }
-    .trust-badge {
-        font-size: 0.7rem;
-    }
-}
-</style>
-
 <script>
-// Toggle Password Visibility
-function togglePassword(id) {
-    const input = document.getElementById(id);
-    if (input.type === 'password') {
-        input.type = 'text';
+// ==========================================
+// PASSWORD TOGGLE
+// ==========================================
+function togglePassword(fieldId, btn) {
+    const field = document.getElementById(fieldId);
+    const icon = btn.querySelector('i');
+    
+    if (field.type === 'password') {
+        field.type = 'text';
+        icon.className = 'bi bi-eye-slash-fill';
     } else {
-        input.type = 'password';
+        field.type = 'password';
+        icon.className = 'bi bi-eye-fill';
     }
 }
 
-// Auto-focus on name input
+// ==========================================
+// FORM VALIDATION
+// ==========================================
 document.addEventListener('DOMContentLoaded', function() {
-    const nameInput = document.querySelector('input[name="full_name"]');
-    if (nameInput) {
-        nameInput.focus();
-    }
+    const form = document.getElementById('registerForm');
+    const btn = document.getElementById('registerBtn');
+    const phoneInput = document.getElementById('phone');
+    
+    // Phone input — only digits
+    phoneInput.addEventListener('input', function() {
+        this.value = this.value.replace(/[^0-9+\-\s]/g, '');
+    });
+    
+    // Form submit
+    form.addEventListener('submit', function(e) {
+        const fullName = document.getElementById('full_name').value.trim();
+        const phone = phoneInput.value.trim();
+        const city = document.getElementById('city').value.trim();
+        const address = document.getElementById('address').value.trim();
+        const password = document.getElementById('password').value;
+        const confirmPassword = document.getElementById('confirm_password').value;
+        
+        let error = '';
+        let focusField = null;
+        
+        if (!fullName || fullName.length < 3) {
+            error = '❌ Please enter your full name (min 3 characters)';
+            focusField = document.getElementById('full_name');
+        } else if (!phone || phone.replace(/[^0-9]/g, '').length < 10) {
+            error = '❌ Please enter a valid phone number (min 10 digits)';
+            focusField = phoneInput;
+        } else if (!city) {
+            error = '❌ Please enter your city';
+            focusField = document.getElementById('city');
+        } else if (!address || address.length < 10) {
+            error = '❌ Please enter complete address (min 10 characters)';
+            focusField = document.getElementById('address');
+        } else if (!password || password.length < 6) {
+            error = '❌ Password must be at least 6 characters';
+            focusField = document.getElementById('password');
+        } else if (password !== confirmPassword) {
+            error = '❌ Passwords do not match!';
+            focusField = document.getElementById('confirm_password');
+        }
+        
+        if (error) {
+            e.preventDefault();
+            alert(error);
+            if (focusField) focusField.focus();
+            return false;
+        }
+        
+        // Disable button
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Creating Account...';
+    });
 });
 </script>
 

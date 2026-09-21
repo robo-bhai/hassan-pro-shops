@@ -1,19 +1,23 @@
 """
 Customer Authentication Views — SECURE VERSION
-DEV MODE OTP REMOVED — Production Ready
-WITH ORDER TOKEN FOR LATE OTP VERIFICATION
-WITH PENDING OTPs VIEW
-WITH SESSION FIX FOR LOGIN
-WITH SaleOrder FOR STATS (FIXED)
+================================================
+- Customer Registration
+- Customer Login (with next URL support)
+- Customer Logout
+- My Account Dashboard
+- OTP Send / Verify
+- Late OTP Verify
+- Pending OTPs List
+- Quick Verify
 """
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.models import User
-from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.utils.timezone import now
 from django.db import transaction
+from django.urls import reverse
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from datetime import timedelta
@@ -25,8 +29,11 @@ from .models import (
     Customer, CustomerProfile, CustomerOTP, CustomerAddress,
     CustomerOrder, CustomerOrderItem, OrderStatusHistory,
     OTPAuditLog, CompanyInfo, Notification,
-    SaleOrder, SaleOrderItem,  # ✅ NEW: SaleOrder for correct stats
+    SaleOrder, SaleOrderItem,
 )
+
+# ✅ Custom decorator import
+from .decorators import customer_login_required
 
 
 # ============================================
@@ -69,11 +76,6 @@ def safe_login(request, user):
         backend='django.contrib.auth.backends.ModelBackend'
     )
 
-
-# ============================================
-# 1. CUSTOMER REGISTRATION — DIRECT (NO OTP)
-# ============================================
-
 def customer_register(request):
     """Customer registration — DIRECT (no OTP)"""
     if request.user.is_authenticated and hasattr(request.user, 'customer_profile'):
@@ -81,18 +83,34 @@ def customer_register(request):
     
     if request.method == 'POST':
         try:
+            # ==========================================
+            # Get form data
+            # ==========================================
             full_name = request.POST.get('full_name', '').strip()
             phone = request.POST.get('phone', '').strip()
             email = request.POST.get('email', '').strip()
+            city = request.POST.get('city', '').strip()          # ✅ NEW
+            address = request.POST.get('address', '').strip()    # ✅ NEW
             password = request.POST.get('password', '')
             confirm_password = request.POST.get('confirm_password', '')
             
+            # ==========================================
+            # Validation
+            # ==========================================
             if not full_name or len(full_name) < 3:
                 messages.error(request, '❌ Poora naam likhein (kam az kam 3 characters)')
                 return redirect('customer_register')
             
             if not phone or not is_valid_phone(phone):
                 messages.error(request, '❌ Sahi phone number likhein (03XXXXXXXXX)')
+                return redirect('customer_register')
+            
+            if not city:
+                messages.error(request, '❌ Sahi shehar likhein')
+                return redirect('customer_register')
+            
+            if not address or len(address) < 10:
+                messages.error(request, '❌ Mukammal pata likhein (kam az kam 10 characters)')
                 return redirect('customer_register')
             
             if not password or len(password) < 6:
@@ -119,6 +137,9 @@ def customer_register(request):
                     messages.error(request, '❌ Sahi email address likhein')
                     return redirect('customer_register')
             
+            # ==========================================
+            # Create user + customer + profile
+            # ==========================================
             with transaction.atomic():
                 username = phone.replace('+', '').replace(' ', '')
                 counter = 1
@@ -137,10 +158,14 @@ def customer_register(request):
                     last_name=' '.join(name_parts[1:]) if len(name_parts) > 1 else ''
                 )
                 
+                # ✅ Full address with city
+                full_address = f"{address}, {city}"
+                
                 customer = Customer.objects.create(
                     name=full_name,
                     contact_number=phone,
                     email=email or None,
+                    address=full_address,           # ✅ Address save
                     customer_code=f'CUS-{user.id:05d}',
                 )
                 
@@ -150,6 +175,17 @@ def customer_register(request):
                     phone_verified=False,
                     email_verified=bool(email),
                     last_login_at=now()
+                )
+                
+                # ✅ Customer ki default address bhi bana dein
+                CustomerAddress.objects.create(
+                    customer=customer,
+                    address_type='home',
+                    full_name=full_name,
+                    phone=phone,
+                    address_line_1=address,
+                    city=city,
+                    is_default=True,
                 )
                 
                 safe_login(request, user)
@@ -182,35 +218,41 @@ def customer_register(request):
 
 
 # ============================================
-# 2. CUSTOMER LOGIN — Password Only
+# 2. CUSTOMER LOGIN — Password Only (with next support)
 # ============================================
 
 def customer_login(request):
-    """Customer login — Password only"""
+    """Customer login — Password only (with next URL support)"""
     if request.user.is_authenticated and hasattr(request.user, 'customer_profile'):
+        # Agar already logged in hai aur next hai to wahan bhejo
+        next_url = request.GET.get('next')
+        if next_url and next_url.startswith('/'):
+            return redirect(next_url)
         return redirect('my_account')
     
     if request.method == 'POST':
         try:
             phone = request.POST.get('phone', '').strip()
             password = request.POST.get('password', '')
+            next_url = request.POST.get('next') or request.GET.get('next', '')
             
             if not phone or not password:
                 messages.error(request, '❌ Phone aur password dono likhein')
-                return redirect('customer_login')
+                return redirect(f"{reverse('customer_login')}?next={next_url}" if next_url else 'customer_login')
             
             phone = normalize_phone(phone)
             
             customer = Customer.objects.filter(contact_number=phone).first()
             if not customer or not hasattr(customer, 'portal_profile'):
                 messages.error(request, '❌ Ghalat phone number ya password')
-                return redirect('customer_login')
+                return redirect(f"{reverse('customer_login')}?next={next_url}" if next_url else 'customer_login')
             
             user = customer.portal_profile.user
             if not user:
                 messages.error(request, '❌ Account setup incomplete')
                 return redirect('customer_login')
             
+            # Check admin account
             if user.is_superuser or user.is_staff:
                 messages.error(request, '❌ Yeh admin account hai. Admin panel se login karein.')
                 return redirect('login')
@@ -229,14 +271,14 @@ def customer_login(request):
                 
                 messages.success(request, f'🎉 Welcome back, {customer.name}!')
                 
-                next_url = request.GET.get('next') or request.POST.get('next')
-                if next_url:
+                # ✅ FIXED: next URL support
+                if next_url and next_url.startswith('/'):
                     return redirect(next_url)
                 
                 return redirect('my_account')
             else:
                 messages.error(request, '❌ Ghalat password')
-                return redirect('customer_login')
+                return redirect(f"{reverse('customer_login')}?next={next_url}" if next_url else 'customer_login')
                 
         except Exception as e:
             messages.error(request, f'❌ Error: {str(e)}')
@@ -261,16 +303,12 @@ def customer_logout(request):
 
 
 # ============================================
-# 4. MY ACCOUNT DASHBOARD — ✅ FIXED (SaleOrder)
+# 4. MY ACCOUNT DASHBOARD — ✅ CUSTOMER LOGIN REQUIRED
 # ============================================
 
-@login_required
+@customer_login_required
 def my_account(request):
-    """
-    Customer dashboard
-    ✅ FIX: SaleOrder use karo (CustomerOrder nahi)
-    ✅ FIX: Order stats properly calculate karo
-    """
+    """Customer dashboard"""
     if not hasattr(request.user, 'customer_profile'):
         messages.error(request, '❌ Yeh page sirf customers ke liye hai')
         return redirect('shop_home')
@@ -278,80 +316,29 @@ def my_account(request):
     profile = request.user.customer_profile
     customer = profile.customer
     
-    from django.db.models import Sum, Count
+    from django.db.models import Sum
     
-    # ==========================================
-    # ✅ FIX: SaleOrder use karo
-    # ==========================================
     orders = SaleOrder.objects.filter(customer=customer).order_by('-order_date')
     
-    # ==========================================
-    # ✅ STATS CALCULATION
-    # ==========================================
-    total_orders = orders.count()
-    
-    # Pending orders (in-progress)
-    pending_orders = orders.filter(
-        status__in=['pending', 'confirmed', 'processing', 'ready', 'partially_delivered']
-    ).count()
-    
-    # Delivered orders
-    delivered_orders = orders.filter(status='delivered').count()
-    
-    # Cancelled orders
-    cancelled_orders = orders.filter(status='cancelled').count()
-    
-    # Invoiced orders
-    invoiced_orders = orders.filter(status='invoiced').count()
-    
-    # ==========================================
-    # ✅ TOTAL SPENT (SaleOrder items se)
-    # ==========================================
-    total_spent = SaleOrderItem.objects.filter(
-        order__customer=customer,
-        order__status='delivered'
-    ).aggregate(
-        total=Sum('total_amt')
-    )['total'] or 0
-    
-    # ==========================================
-    # ✅ STATS DICT
-    # ==========================================
     stats = {
-        'total_orders': total_orders,
-        'pending_orders': pending_orders,
-        'delivered_orders': delivered_orders,
-        'cancelled_orders': cancelled_orders,
-        'invoiced_orders': invoiced_orders,
-        'total_spent': total_spent,
+        'total_orders': orders.count(),
+        'pending_orders': orders.filter(
+            status__in=['pending', 'confirmed', 'processing', 'ready', 'partially_delivered']
+        ).count(),
+        'delivered_orders': orders.filter(status='delivered').count(),
+        'cancelled_orders': orders.filter(status='cancelled').count(),
+        'total_spent': SaleOrderItem.objects.filter(
+            order__customer=customer,
+            order__status='delivered'
+        ).aggregate(total=Sum('total_amt'))['total'] or 0,
     }
     
-    # ==========================================
-    # ✅ RECENT ORDERS (Last 5)
-    # ==========================================
     recent_orders = orders[:5]
     
-    # Add total amount to each order
     for order in recent_orders:
         order.calculated_total = sum(item.total_amt for item in order.items.all())
     
-    # Default address
     default_address = customer.addresses.filter(is_default=True).first()
-    
-    # ==========================================
-    # ✅ DEBUG PRINTS
-    # ==========================================
-    print("=" * 60)
-    print("🔍 MY ACCOUNT — STATS")
-    print("=" * 60)
-    print(f"Customer: {customer.name}")
-    print(f"Total Orders: {total_orders}")
-    print(f"Pending: {pending_orders}")
-    print(f"Delivered: {delivered_orders}")
-    print(f"Cancelled: {cancelled_orders}")
-    print(f"Total Spent: Rs. {total_spent:,.2f}")
-    print(f"Recent Orders: {recent_orders.count()}")
-    print("=" * 60)
     
     company = CompanyInfo.objects.first()
     
@@ -368,10 +355,10 @@ def my_account(request):
 
 
 # ============================================
-# 5. ORDER OTP — Send (with Order Token)
+# 5. SEND ORDER OTP — ✅ CUSTOMER LOGIN REQUIRED
 # ============================================
 
-@login_required
+@customer_login_required
 def send_order_otp(request):
     """Send OTP for order verification"""
     if not hasattr(request.user, 'customer_profile'):
@@ -426,10 +413,10 @@ def send_order_otp(request):
 
 
 # ============================================
-# 6. ORDER OTP — Verify (normal flow)
+# 6. VERIFY ORDER OTP — ✅ CUSTOMER LOGIN REQUIRED
 # ============================================
 
-@login_required
+@customer_login_required
 def verify_order_otp(request):
     """Verify OTP for order (normal flow)"""
     if not hasattr(request.user, 'customer_profile'):
@@ -458,17 +445,12 @@ def verify_order_otp(request):
         if not success:
             return JsonResponse({'success': False, 'message': message})
         
+        # ✅ SESSION FLAGS SET KARO
         request.session['order_verified'] = True
         request.session['order_verified_at'] = now().isoformat()
         request.session['order_otp_phone'] = phone
         request.session.modified = True
         request.session.save()
-        
-        print("=" * 60)
-        print("✅ VERIFY_ORDER_OTP — SUCCESS")
-        print(f"order_verified: {request.session.get('order_verified')}")
-        print(f"Session ID: {request.session.session_key}")
-        print("=" * 60)
         
         profile = request.user.customer_profile
         profile.phone_verified = True
@@ -484,7 +466,7 @@ def verify_order_otp(request):
 
 
 # ============================================
-# 7. VERIFY OTP LATER — Late OTP Verification
+# 7. VERIFY OTP LATER
 # ============================================
 
 def verify_otp_later(request):
@@ -553,12 +535,6 @@ def verify_otp_later(request):
                 request.session['order_token'] = order_token
                 request.session.modified = True
                 request.session.save()
-                
-                print("=" * 60)
-                print("✅ VERIFY_OTP_LATER — SUCCESS")
-                print(f"order_verified: {request.session.get('order_verified')}")
-                print(f"Session ID: {request.session.session_key}")
-                print("=" * 60)
                 
                 customer.portal_profile.phone_verified = True
                 customer.portal_profile.save(update_fields=['phone_verified'])
