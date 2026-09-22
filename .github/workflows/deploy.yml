@@ -664,6 +664,7 @@ jobs:
 
 
 
+      # 1. Google Drive par new media upload karega
       - name: Sync Media Files back to Google Drive
         if: always()
         env:
@@ -672,6 +673,15 @@ jobs:
           RCLONE_REMOTE=$(rclone listremotes | head -n 1)
           echo "Uploading local media changes..."
           rclone copy ./media "${RCLONE_REMOTE}hassan_shops/media/" --update -v
+
+      # 2. Yeh actual step hai jo media folder ko GITHUB CACHE mein save karega
+      - name: Save Updated Media Directory to GitHub Cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ./media
+          key: media-cache-${{ runner.os }}-${{ github.run_id }}
+
 
       - name: Sync Local Runner MySQL Back to Cloud Aiven MySQL
         if: always()
