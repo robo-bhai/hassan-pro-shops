@@ -197,7 +197,24 @@ class Unit(models.Model):
     def __str__(self):
         return self.name
 
-# Updated Product 
+
+
+#((((((((((((((+++_++_+_+_+_+_+_))))))))))))))
+
+
+import os
+import requests
+from io import BytesIO
+from decimal import Decimal
+from PIL import Image
+from django.db import models
+from django.core.files.base import ContentFile
+from django.utils.translation import gettext_lazy as _
+
+# Option 1: Remove.bg API key
+REMOVE_BG_API_KEY = "yM2S5Qs224P8sCLwupujTthc"
+
+
 class Product(models.Model):
     serial_no = models.CharField(max_length=50, unique=True, null=True, blank=True, verbose_name=_("Serial Number"))
     barcode = models.CharField(max_length=100, unique=True, null=True, blank=True, verbose_name=_("Barcode"))
@@ -205,12 +222,12 @@ class Product(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
     image = models.ImageField(
-    upload_to='products/',
-    null=True,
-    blank=True,
-    verbose_name="Product Image",
-    help_text="Product ki tasveer"
-)
+        upload_to='products/',
+        null=True,
+        blank=True,
+        verbose_name="Product Image",
+        help_text="Product ki tasveer"
+    )
     used = models.TextField(null=True, blank=True)
     unit = models.ForeignKey(Unit, on_delete=models.SET_NULL, null=True, blank=True, related_name="products")
     brand = models.ForeignKey(Brand, on_delete=models.SET_NULL, null=True, blank=True, related_name="products")
@@ -241,10 +258,64 @@ class Product(models.Model):
         status = "✓" if self.is_active else "✗"
         return f"{status} {self.name} (Barcode: {self.barcode or 'N/A'})"
     
+    def remove_background_via_api(self, image_bytes):
+        """Public API se background remove karne ka method"""
+        response = requests.post(
+            'https://api.remove.bg/v1.0/removebg',
+            files={'image_file': image_bytes},
+            data={'size': 'auto'},
+            headers={'X-Api-Key': REMOVE_BG_API_KEY},
+        )
+        if response.status_code == requests.codes.ok:
+            return response.content
+        return None
+
     def save(self, *args, **kwargs):
         # ✅ Agar use_custom_barcode True hai ya barcode already set hai to auto-generate NA karein
         if not self.use_custom_barcode and not self.barcode:
             self.barcode = self.generate_barcode()
+            
+        # ✅ API via Background Removal & Image Compression Logic
+        if self.image and not getattr(self, '_image_processed', False):
+            try:
+                # Original image content Read karein
+                self.image.open()
+                image_bytes = self.image.read()
+
+                # 1. API Call karke BG Remove karein
+                api_result = self.remove_background_via_api(image_bytes)
+                
+                if api_result:
+                    img = Image.open(BytesIO(api_result))
+                else:
+                    # Agar API fail/limit reach ho to original image processing par fall back karein
+                    img = Image.open(BytesIO(image_bytes))
+
+                # 2. Transparent RGBA format conversion
+                if img.mode != 'RGBA':
+                    img = img.convert('RGBA')
+
+                # 3. Resize (Max 800x800 resolution for fast loading)
+                max_size = (800, 800)
+                img.thumbnail(max_size, Image.Resampling.LANCZOS)
+
+                # 4. Compress & Save into WebP format (Ultra lightweight)
+                buffer = BytesIO()
+                img.save(buffer, format='WEBP', optimize=True, quality=80)
+                buffer.seek(0)
+
+                # 5. File extension .webp par update karein
+                base_name = os.path.splitext(os.path.basename(self.image.name))[0]
+                new_filename = f"{base_name}.webp"
+
+                # 6. Processed file attach karein
+                self.image.save(new_filename, ContentFile(buffer.getvalue()), save=False)
+                
+                # Infinite loop prevent karne ke liye flag set karein
+                self._image_processed = True
+            except Exception as e:
+                pass
+
         super().save(*args, **kwargs)
     
     def generate_barcode(self):
@@ -278,6 +349,12 @@ class Product(models.Model):
         """Deactivate product"""
         self.is_active = False
         self.save()
+
+
+
+#((((((((((((((_-_+_++_+__+_+_+_))))))))))))))
+
+
 
 class Warehouse(models.Model):
     name = models.CharField(max_length=100, unique=True)
