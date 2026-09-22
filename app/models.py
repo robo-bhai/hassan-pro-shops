@@ -197,7 +197,19 @@ class Unit(models.Model):
     def __str__(self):
         return self.name
 
-# Updated Product 
+
+#((((((++$++_$+-$-_-_+_+))))))
+
+
+import os
+from io import BytesIO
+from decimal import Decimal
+from PIL import Image
+from rembg import remove
+from django.db import models
+from django.core.files.base import ContentFile
+from django.utils.translation import gettext_lazy as _
+
 class Product(models.Model):
     serial_no = models.CharField(max_length=50, unique=True, null=True, blank=True, verbose_name=_("Serial Number"))
     barcode = models.CharField(max_length=100, unique=True, null=True, blank=True, verbose_name=_("Barcode"))
@@ -205,12 +217,12 @@ class Product(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
     image = models.ImageField(
-    upload_to='products/',
-    null=True,
-    blank=True,
-    verbose_name="Product Image",
-    help_text="Product ki tasveer"
-)
+        upload_to='products/',
+        null=True,
+        blank=True,
+        verbose_name="Product Image",
+        help_text="Product ki tasveer"
+    )
     used = models.TextField(null=True, blank=True)
     unit = models.ForeignKey(Unit, on_delete=models.SET_NULL, null=True, blank=True, related_name="products")
     brand = models.ForeignKey(Brand, on_delete=models.SET_NULL, null=True, blank=True, related_name="products")
@@ -245,6 +257,42 @@ class Product(models.Model):
         # ✅ Agar use_custom_barcode True hai ya barcode already set hai to auto-generate NA karein
         if not self.use_custom_barcode and not self.barcode:
             self.barcode = self.generate_barcode()
+            
+        # ✅ Background Removal & Image Compression Logic
+        if self.image and not getattr(self, '_image_processed', False):
+            try:
+                # 1. Image open karein
+                img = Image.open(self.image)
+                
+                # 2. Background remove karein (rembg)
+                bg_removed_img = remove(img)
+                
+                # 3. Transparent RGB/RGBA conversion
+                if bg_removed_img.mode != 'RGBA':
+                    bg_removed_img = bg_removed_img.convert('RGBA')
+
+                # 4. Resize (Max 800x800 resolution for fast loading)
+                max_size = (800, 800)
+                bg_removed_img.thumbnail(max_size, Image.Resampling.LANCZOS)
+
+                # 5. Compress & Save into WebP format (Ultra light weight)
+                buffer = BytesIO()
+                bg_removed_img.save(buffer, format='WEBP', optimize=True, quality=80)
+                buffer.seek(0)
+
+                # 6. File extension .webp par update karein
+                base_name = os.path.splitext(os.path.basename(self.image.name))[0]
+                new_filename = f"{base_name}.webp"
+
+                # 7. Processed file attach karein
+                self.image.save(new_filename, ContentFile(buffer.getvalue()), save=False)
+                
+                # Infinite loop prevent karne ke liye flag set karein
+                self._image_processed = True
+            except Exception as e:
+                # Compression error ki surat mein execution break nahi hogi
+                pass
+
         super().save(*args, **kwargs)
     
     def generate_barcode(self):
@@ -278,6 +326,12 @@ class Product(models.Model):
         """Deactivate product"""
         self.is_active = False
         self.save()
+
+
+
+#((((((((((($-$-$-$-$-$-$-$-$-$-$)))))))))))
+
+
 
 class Warehouse(models.Model):
     name = models.CharField(max_length=100, unique=True)
