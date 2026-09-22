@@ -1,13 +1,10 @@
 from django.contrib import admin
-from django.urls import path, include
-from django.conf import settings
-from django.conf.urls.static import static
-from django.shortcuts import redirect
 from django.urls import path, include, re_path
+from django.conf import settings
+from django.shortcuts import redirect
 from django.views.static import serve
 
-
-# Handlers bind karein app.views ke sath
+# Custom Handlers
 handler404 = 'app.views.custom_page_not_found'
 handler500 = 'app.views.custom_server_error'
 
@@ -26,16 +23,14 @@ urlpatterns = [
     
     # Redirect /accounts/login/ to /login/
     path('accounts/login/', lambda request: redirect('/login/')),
-    re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
     
     # GET logout redirect (Django 5.x fix)
     path('accounts/logout/', lambda request: redirect('/logout-redirect/')),
     path('logout-redirect/', lambda request: redirect('/login/'), name='logout_redirect'),
 ]
 
-# Serve static and media files (Development & CI/CD Runner / Cloudflare Tunnel)
-if settings.DEBUG or True:
-    if hasattr(settings, 'STATIC_URL') and hasattr(settings, 'STATIC_ROOT'):
-        urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-    if hasattr(settings, 'MEDIA_URL') and hasattr(settings, 'MEDIA_ROOT'):
-        urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Force-serve media and static files in CI/CD Runner & Cloudflare Tunnel
+urlpatterns += [
+    re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
+    re_path(r'^static/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT}),
+]
