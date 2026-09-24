@@ -70,7 +70,7 @@ def send_notification_email(recipient_email, subject, body_html, body_text=None,
     Wrapper layout automatic apply hota hai agar simple HTML string pass ho.
     """
     sender_email = "info@uqn88.store"
-    from_header = f"uqn88 Info Desk <{sender_email}>"
+    from_header = f"UQN Info <{sender_email}>"
     
     to_list = [recipient_email] if isinstance(recipient_email, str) else recipient_email
 
