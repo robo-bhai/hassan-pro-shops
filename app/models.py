@@ -4405,6 +4405,13 @@ class EmiPayment(models.Model):
 # IN-APP NOTIFICATION MODEL
 # ============================================
 
+from django.db import models
+from django.contrib.auth import get_user_model
+from app.utils.email_helper import send_custom_user_email, send_system_email
+
+User = get_user_model()
+
+
 class Notification(models.Model):
     NOTIFICATION_TYPES = [
         ('info', 'ℹ️ Info'),
@@ -4450,7 +4457,7 @@ class Notification(models.Model):
     
     @classmethod
     def send(cls, user, title, message, notification_type='info', category='all', link=None):
-        """Create notification for a user"""
+        """Create notification for a user and send email to their saved address"""
         notification = cls.objects.create(
             user=user,
             title=title,
@@ -4459,12 +4466,40 @@ class Notification(models.Model):
             category=category,
             link=link
         )
+        
+        # Dispatch email if user exists and has a saved email address
+        if user and user.email:
+            html_content = f"<h3>{title}</h3><p>{message}</p>"
+            if link:
+                html_content += f'<p><a href="{link}">Click here to view details</a></p>'
+            
+            # Agar user ka username ho toh username@uqn88.store se jaye, warna system email se
+            if user.username:
+                send_custom_user_email(
+                    username=user.username,
+                    recipient_email=user.email,
+                    subject=title,
+                    body_html=html_content,
+                    body_text=message
+                )
+            else:
+                send_system_email(
+                    recipient_emails=user.email,
+                    subject=title,
+                    body_html=html_content,
+                    sender_prefix="info",
+                    sender_name="uqn88 Notification Desk",
+                    body_text=message
+                )
+
         return notification
     
     @classmethod
     def send_to_all(cls, title, message, notification_type='info', category='all', link=None):
-        """Send notification to all staff users"""
+        """Send notification to all staff users and email their saved addresses"""
         users = User.objects.filter(is_staff=True)
+        staff_emails = []
+
         for user in users:
             cls.objects.create(
                 user=user,
@@ -4473,6 +4508,23 @@ class Notification(models.Model):
                 notification_type=notification_type,
                 category=category,
                 link=link
+            )
+            if user.email:
+                staff_emails.append(user.email)
+
+        # Bulk email dispatch to all staff members via info@uqn88.store
+        if staff_emails:
+            html_content = f"<h3>{title}</h3><p>{message}</p>"
+            if link:
+                html_content += f'<p><a href="{link}">Click here to view details</a></p>'
+
+            send_system_email(
+                recipient_emails=staff_emails,
+                subject=f"[Staff Alert] {title}",
+                body_html=html_content,
+                sender_prefix="info",
+                sender_name="uqn88 System Alert",
+                body_text=message
             )
     
     @classmethod
@@ -4550,9 +4602,13 @@ class Notification(models.Model):
             notification_type='payment',
             category='payments',
             link=f"/installments/{installment.id}/"
-        )    
-        
-# models.py mein yeh add karo (apne existing models ke saath)
+        )
+
+
+#(((((-$-$-$+$+$+$+$++$+$+$)))))
+
+
+
 
 class SalesTarget(models.Model):
     TARGET_TYPES = [
