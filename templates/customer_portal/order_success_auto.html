@@ -1,0 +1,275 @@
+{% extends 'customer_portal/base_shop.html' %}
+{% load static %}
+
+{% block title %}Order Placed - {{ company_name }}{% endblock %}
+
+{% block content %}
+
+<style>
+    .success-container {
+        max-width: 700px;
+        margin: 30px auto;
+        padding: 0 15px;
+    }
+    
+    .success-card {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+        overflow: hidden;
+        animation: slideUp 0.5s ease;
+    }
+    
+    @keyframes slideUp {
+        from { opacity: 0; transform: translateY(30px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .success-header {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        padding: 40px 30px;
+        text-align: center;
+    }
+    
+    .success-icon {
+        width: 90px;
+        height: 90px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.25);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+        font-size: 48px;
+        border: 3px solid rgba(255, 255, 255, 0.4);
+        animation: bounce 0.8s ease;
+    }
+    
+    @keyframes bounce {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.15); }
+    }
+    
+    .success-header h1 {
+        font-size: 1.8rem;
+        font-weight: 800;
+        margin-bottom: 8px;
+    }
+    
+    .success-header p {
+        opacity: 0.95;
+        font-size: 0.95rem;
+        margin-bottom: 0;
+    }
+    
+    .success-body { padding: 30px; }
+    
+    .order-info-box {
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        border: 2px solid #bae6fd;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 25px;
+    }
+    
+    .order-info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px dashed #bae6fd;
+    }
+    
+    .order-info-row:last-child { border-bottom: none; }
+    
+    .order-info-label {
+        color: #0369a1;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    
+    .order-info-value {
+        color: #0c4a6e;
+        font-weight: 800;
+        font-size: 0.95rem;
+    }
+    
+    .order-info-value.highlight {
+        color: #059669;
+        font-size: 1.2rem;
+    }
+    
+    .items-section {
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 25px;
+    }
+    
+    .items-title {
+        font-weight: 800;
+        color: #0f172a;
+        font-size: 0.9rem;
+        margin-bottom: 12px;
+    }
+    
+    .item-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 0.85rem;
+    }
+    
+    .item-row:last-child { border-bottom: none; }
+    
+    .item-name {
+        color: #334155;
+        font-weight: 600;
+        flex: 1;
+    }
+    
+    .item-qty {
+        color: #64748b;
+        font-size: 0.75rem;
+    }
+    
+    .item-price {
+        color: #059669;
+        font-weight: 700;
+    }
+    
+    .action-buttons {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+    
+    .btn-action {
+        padding: 14px 20px;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        text-decoration: none;
+        transition: all 0.3s;
+    }
+    
+    .btn-primary-action {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.35);
+    }
+    
+    .btn-primary-action:hover {
+        transform: translateY(-2px);
+        color: white;
+    }
+    
+    .btn-secondary-action {
+        background: #f1f5f9;
+        color: #334155;
+        border: 2px solid #e2e8f0;
+    }
+    
+    .btn-secondary-action:hover {
+        background: #e2e8f0;
+        color: #0f172a;
+    }
+    
+    @media (max-width: 768px) {
+        .success-header { padding: 30px 20px; }
+        .success-header h1 { font-size: 1.4rem; }
+        .success-icon { width: 70px; height: 70px; font-size: 38px; }
+        .success-body { padding: 20px; }
+        .action-buttons { grid-template-columns: 1fr; }
+    }
+</style>
+
+<div class="success-container">
+    
+    <div class="success-card">
+        
+        <div class="success-header">
+            <div class="success-icon">
+                <i class="bi bi-check-circle-fill"></i>
+            </div>
+            <h1>🎉 Order Placed!</h1>
+            <p>Aapka order successfully place ho gaya hai</p>
+        </div>
+        
+        <div class="success-body">
+            
+            <div class="order-info-box">
+                <div class="order-info-row">
+                    <span class="order-info-label">
+                        <i class="bi bi-hash"></i> Order Number
+                    </span>
+                    <span class="order-info-value">{{ order.order_no }}</span>
+                </div>
+                
+                <div class="order-info-row">
+                    <span class="order-info-label">
+                        <i class="bi bi-calendar"></i> Order Date
+                    </span>
+                    <span class="order-info-value">
+                        {{ order.order_date|date:"d M, Y — h:i A" }}
+                    </span>
+                </div>
+                
+                <div class="order-info-row">
+                    <span class="order-info-label">
+                        <i class="bi bi-cash-stack"></i> Total Amount
+                    </span>
+                    <span class="order-info-value highlight">
+                        Rs. {{ total_amount|floatformat:2 }}
+                    </span>
+                </div>
+                
+                <div class="order-info-row">
+                    <span class="order-info-label">
+                        <i class="bi bi-clock-history"></i> Status
+                    </span>
+                    <span class="order-info-value">
+                        <span class="badge bg-warning text-dark">
+                            ⏳ {{ order.get_status_display }}
+                        </span>
+                    </span>
+                </div>
+            </div>
+            
+            <div class="items-section">
+                <div class="items-title">
+                    <i class="bi bi-box-seam"></i> Order Items ({{ items|length }})
+                </div>
+                {% for item in items %}
+                <div class="item-row">
+                    <div class="item-name">
+                        {{ item.product.name }}
+                        <div class="item-qty">Qty: {{ item.qty }} × Rs. {{ item.price|floatformat:0 }}</div>
+                    </div>
+                    <div class="item-price">
+                        Rs. {{ item.total_amt|floatformat:0 }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="action-buttons">
+                <a href="{% url 'my_orders' %}" class="btn-action btn-primary-action">
+                    <i class="bi bi-receipt"></i> My Orders
+                </a>
+                <a href="{% url 'shop_home' %}" class="btn-action btn-secondary-action">
+                    <i class="bi bi-shop"></i> Continue Shopping
+                </a>
+            </div>
+            
+        </div>
+    </div>
+    
+</div>
+
+{% endblock %}

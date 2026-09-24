@@ -1,14 +1,10 @@
 """
-Customer Authentication Views — SECURE VERSION
-================================================
-- Customer Registration
-- Customer Login (with next URL support)
-- Customer Logout
-- My Account Dashboard
-- OTP Send / Verify
-- Late OTP Verify
-- Pending OTPs List
-- Quick Verify
+Customer Authentication Views — Professional OTP System
+=========================================================
+✅ Same page OTP verify
+✅ Auto order placement
+✅ Trust system
+✅ Pending OTPs backup
 """
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -21,19 +17,22 @@ from django.urls import reverse
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from datetime import timedelta
+from decimal import Decimal
 import re
 import json
 import uuid
+import logging
 
 from .models import (
     Customer, CustomerProfile, CustomerOTP, CustomerAddress,
-    CustomerOrder, CustomerOrderItem, OrderStatusHistory,
     OTPAuditLog, CompanyInfo, Notification,
-    SaleOrder, SaleOrderItem,
+    SaleOrder, SaleOrderItem, Sale, Warehouse,
+    Product, Inventory
 )
 
-# ✅ Custom decorator import
 from .decorators import customer_login_required
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================
@@ -41,7 +40,7 @@ from .decorators import customer_login_required
 # ============================================
 
 def get_client_ip(request):
-    """Get client IP address safely"""
+    """Get client IP safely"""
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
     if x_forwarded_for:
         ip = x_forwarded_for.split(',')[0].strip()
@@ -51,58 +50,200 @@ def get_client_ip(request):
 
 
 def is_valid_phone(phone):
-    """Validate Pakistani phone number"""
+    """Validate Pakistani phone"""
     pattern = r'^(\+92|92|0)?3\d{9}$'
     return bool(re.match(pattern, phone.replace(' ', '').replace('-', '')))
 
 
 def normalize_phone(phone):
-    """Normalize phone to +923XXXXXXXXX format"""
+    """Normalize to +923XXXXXXXXX"""
     phone = phone.replace(' ', '').replace('-', '').replace('+', '')
-    
     if phone.startswith('92'):
         phone = phone[2:]
     elif phone.startswith('0'):
         phone = phone[1:]
-    
     return f'+92{phone}'
 
 
 def safe_login(request, user):
-    """Safe login with explicit backend"""
-    login(
-        request, 
-        user, 
-        backend='django.contrib.auth.backends.ModelBackend'
-    )
+    """Safe login with backend"""
+    login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+
+
+# ============================================
+# AUTO PLACE ORDER — After OTP Verify
+# ============================================
+
+def auto_place_order(request, customer):
+    """
+    ✅ OTP verify hone ke baad AUTO ORDER PLACE karo
+    """
+    try:
+        with transaction.atomic():
+            # Step 1: Cart check
+            cart = request.session.get('cart', {})
+            if not cart:
+                logger.warning(f"Cart khali hai for {customer.name}")
+                return None, "Cart khali hai"
+            
+            # Step 2: Warehouse
+            warehouse = Warehouse.objects.first()
+            if not warehouse:
+                return None, "Koi warehouse nahi hai"
+            
+            # Step 3: Payment method
+            payment_method = request.session.get('selected_payment', 'cod')
+            valid_methods = ['cod', 'jazzcash', 'easypaisa', 'bank']
+            if payment_method not in valid_methods:
+                payment_method = 'cod'
+            
+            # Step 4: Duplicate check (30 sec)
+            recent_order = SaleOrder.objects.filter(
+                customer=customer,
+                created_at__gte=now() - timedelta(seconds=30),
+                status='pending'
+            ).first()
+            
+            if recent_order:
+                logger.info(f"Duplicate detected: {recent_order.order_no}")
+                return recent_order, None
+            
+            # Step 5: Stock check
+            product_ids = [item['product_id'] for item in cart.values()]
+            products = Product.objects.in_bulk(product_ids)
+            
+            for key, item in cart.items():
+                product = products.get(item['product_id'])
+                if not product:
+                    return None, f"Product not found"
+                
+                stock = Inventory.objects.filter(
+                    product=product, warehouse=warehouse
+                ).values_list('stock', flat=True).first() or 0
+                
+                if stock < item['quantity']:
+                    return None, f"{product.name} ka stock kam hai"
+            
+            # Step 6: Create order
+            order = SaleOrder.objects.create(
+                customer=customer,
+                warehouse=warehouse,
+                order_date=now(),
+                status='pending',
+                notes=f"🌐 WEB ORDER (OTP Verified) | Payment: {payment_method}",
+                discount_value=Decimal('0.00'),
+                advance_payment=Decimal('0.00'),
+                created_by=customer.portal_profile.user,
+            )
+            
+            # Step 7: Add items
+            total_amount = Decimal('0.00')
+            order_summary = []
+            
+            for key, item in cart.items():
+                product = products.get(item['product_id'])
+                quantity = item['quantity']
+                price = Decimal(str(item['price']))
+                
+                SaleOrderItem.objects.create(
+                    order=order,
+                    product=product,
+                    qty=quantity,
+                    price=price,
+                )
+                
+                item_total = price * quantity
+                total_amount += item_total
+                
+                order_summary.append({
+                    'name': product.name,
+                    'qty': quantity,
+                    'price': float(price),
+                    'total': float(item_total),
+                })
+            
+            # Step 8: Trust update
+            customer.portal_profile.record_successful_order()
+            
+            # Step 9: Clear cart + session
+            request.session['cart'] = {}
+            request.session.pop('order_verified', None)
+            request.session.pop('order_verified_at', None)
+            request.session.pop('order_otp_phone', None)
+            request.session.pop('order_otp_id', None)
+            request.session.pop('order_token', None)
+            request.session.pop('selected_payment', None)
+            request.session.modified = True
+            request.session.save()
+            
+            # Step 10: Notify admin
+            try:
+                admins = User.objects.filter(is_superuser=True)
+                for admin in admins:
+                    Notification.send(
+                        user=admin,
+                        title=f'🛒 New Order - {customer.name}',
+                        message=(
+                            f'Order #{order.order_no}\n'
+                            f'Amount: Rs. {total_amount:,.2f}\n'
+                            f'Phone: {customer.contact_number}\n'
+                            f'Items: {len(order_summary)}'
+                        ),
+                        notification_type='sale',
+                        category='sales',
+                        link=f'/orders/sale/{order.id}/'
+                    )
+            except Exception as e:
+                logger.error(f"Notification error: {e}")
+            
+            # Step 11: WhatsApp
+            try:
+                from .whatsapp_utils import WhatsAppSender
+                if customer.contact_number:
+                    WhatsAppSender.send_order_confirmation(
+                        customer.contact_number,
+                        order.order_no,
+                        float(total_amount),
+                        order_summary
+                    )
+            except Exception as e:
+                logger.error(f"WhatsApp error: {e}")
+            
+            logger.info(f"✅ Order placed: {order.order_no}")
+            return order, None
+            
+    except Exception as e:
+        logger.error(f"Auto place order error: {e}")
+        import traceback
+        traceback.print_exc()
+        return None, str(e)
+
+
+# ============================================
+# 1. CUSTOMER REGISTER
+# ============================================
 
 def customer_register(request):
-    """Customer registration — DIRECT (no OTP)"""
+    """Customer registration"""
     if request.user.is_authenticated and hasattr(request.user, 'customer_profile'):
         return redirect('my_account')
     
     if request.method == 'POST':
         try:
-            # ==========================================
-            # Get form data
-            # ==========================================
-            full_name = request.POST.get('full_name', '').strip()
-            phone = request.POST.get('phone', '').strip()
-            email = request.POST.get('email', '').strip()
-            city = request.POST.get('city', '').strip()          # ✅ NEW
-            address = request.POST.get('address', '').strip()    # ✅ NEW
+            full_name = request.POST.get('full_name', '').strip()[:100]
+            phone = request.POST.get('phone', '').strip()[:20]
+            email = request.POST.get('email', '').strip()[:100]
+            city = request.POST.get('city', '').strip()[:100]
+            address = request.POST.get('address', '').strip()[:500]
             password = request.POST.get('password', '')
             confirm_password = request.POST.get('confirm_password', '')
             
-            # ==========================================
-            # Validation
-            # ==========================================
             if not full_name or len(full_name) < 3:
-                messages.error(request, '❌ Poora naam likhein (kam az kam 3 characters)')
+                messages.error(request, '❌ Poora naam likhein')
                 return redirect('customer_register')
             
             if not phone or not is_valid_phone(phone):
-                messages.error(request, '❌ Sahi phone number likhein (03XXXXXXXXX)')
+                messages.error(request, '❌ Sahi phone number likhein')
                 return redirect('customer_register')
             
             if not city:
@@ -110,11 +251,11 @@ def customer_register(request):
                 return redirect('customer_register')
             
             if not address or len(address) < 10:
-                messages.error(request, '❌ Mukammal pata likhein (kam az kam 10 characters)')
+                messages.error(request, '❌ Mukammal pata likhein')
                 return redirect('customer_register')
             
             if not password or len(password) < 6:
-                messages.error(request, '❌ Password kam az kam 6 characters ka hona chahiye')
+                messages.error(request, '❌ Password kam az kam 6 characters')
                 return redirect('customer_register')
             
             if password != confirm_password:
@@ -124,22 +265,19 @@ def customer_register(request):
             phone = normalize_phone(phone)
             
             if Customer.objects.filter(contact_number=phone).exists():
-                messages.error(request, '⚠️ Yeh phone number pehle se registered hai. Login karein.')
+                messages.error(request, '⚠️ Yeh phone pehle se registered hai')
                 return redirect('customer_login')
             
-            if email and email.strip():
+            if email:
                 try:
                     validate_email(email)
                     if User.objects.filter(email=email).exists():
                         messages.error(request, '⚠️ Yeh email pehle se registered hai')
                         return redirect('customer_register')
                 except ValidationError:
-                    messages.error(request, '❌ Sahi email address likhein')
+                    messages.error(request, '❌ Sahi email likhein')
                     return redirect('customer_register')
             
-            # ==========================================
-            # Create user + customer + profile
-            # ==========================================
             with transaction.atomic():
                 username = phone.replace('+', '').replace(' ', '')
                 counter = 1
@@ -158,14 +296,13 @@ def customer_register(request):
                     last_name=' '.join(name_parts[1:]) if len(name_parts) > 1 else ''
                 )
                 
-                # ✅ Full address with city
                 full_address = f"{address}, {city}"
                 
                 customer = Customer.objects.create(
                     name=full_name,
                     contact_number=phone,
                     email=email or None,
-                    address=full_address,           # ✅ Address save
+                    address=full_address,
                     customer_code=f'CUS-{user.id:05d}',
                 )
                 
@@ -177,7 +314,6 @@ def customer_register(request):
                     last_login_at=now()
                 )
                 
-                # ✅ Customer ki default address bhi bana dein
                 CustomerAddress.objects.create(
                     customer=customer,
                     address_type='home',
@@ -190,23 +326,13 @@ def customer_register(request):
                 
                 safe_login(request, user)
                 request.session.save()
-                
-                try:
-                    Notification.objects.create(
-                        user=user,
-                        title="🎉 Welcome!",
-                        message=f"Assalam-o-Alaikum {full_name}! Aapka account ban gaya hai.",
-                        notification_type='success',
-                        category='system',
-                    )
-                except Exception:
-                    pass
             
-            messages.success(request, f'🎉 Welcome {customer.name}! Aapka account ban gaya hai.')
+            messages.success(request, f'🎉 Welcome {customer.name}!')
             return redirect('my_account')
             
         except Exception as e:
-            messages.error(request, f'❌ Error: {str(e)}')
+            logger.error(f"Register error: {e}")
+            messages.error(request, '❌ Register mein masla hua')
             return redirect('customer_register')
     
     company = CompanyInfo.objects.first()
@@ -218,13 +344,12 @@ def customer_register(request):
 
 
 # ============================================
-# 2. CUSTOMER LOGIN — Password Only (with next support)
+# 2. CUSTOMER LOGIN
 # ============================================
 
 def customer_login(request):
-    """Customer login — Password only (with next URL support)"""
+    """Customer login"""
     if request.user.is_authenticated and hasattr(request.user, 'customer_profile'):
-        # Agar already logged in hai aur next hai to wahan bhejo
         next_url = request.GET.get('next')
         if next_url and next_url.startswith('/'):
             return redirect(next_url)
@@ -232,37 +357,35 @@ def customer_login(request):
     
     if request.method == 'POST':
         try:
-            phone = request.POST.get('phone', '').strip()
+            phone = request.POST.get('phone', '').strip()[:20]
             password = request.POST.get('password', '')
             next_url = request.POST.get('next') or request.GET.get('next', '')
             
             if not phone or not password:
                 messages.error(request, '❌ Phone aur password dono likhein')
-                return redirect(f"{reverse('customer_login')}?next={next_url}" if next_url else 'customer_login')
+                return redirect('customer_login')
             
             phone = normalize_phone(phone)
             
             customer = Customer.objects.filter(contact_number=phone).first()
             if not customer or not hasattr(customer, 'portal_profile'):
                 messages.error(request, '❌ Ghalat phone number ya password')
-                return redirect(f"{reverse('customer_login')}?next={next_url}" if next_url else 'customer_login')
+                return redirect('customer_login')
             
             user = customer.portal_profile.user
             if not user:
                 messages.error(request, '❌ Account setup incomplete')
                 return redirect('customer_login')
             
-            # Check admin account
             if user.is_superuser or user.is_staff:
-                messages.error(request, '❌ Yeh admin account hai. Admin panel se login karein.')
+                messages.error(request, '❌ Yeh admin account hai')
                 return redirect('login')
             
-            authenticated_user = authenticate(request, username=user.username, password=password)
+            authenticated_user = authenticate(
+                request, username=user.username, password=password
+            )
             
             if authenticated_user:
-                if not hasattr(authenticated_user, 'backend'):
-                    authenticated_user.backend = 'django.contrib.auth.backends.ModelBackend'
-                
                 safe_login(request, authenticated_user)
                 request.session.save()
                 
@@ -271,17 +394,17 @@ def customer_login(request):
                 
                 messages.success(request, f'🎉 Welcome back, {customer.name}!')
                 
-                # ✅ FIXED: next URL support
                 if next_url and next_url.startswith('/'):
                     return redirect(next_url)
                 
                 return redirect('my_account')
             else:
                 messages.error(request, '❌ Ghalat password')
-                return redirect(f"{reverse('customer_login')}?next={next_url}" if next_url else 'customer_login')
+                return redirect('customer_login')
                 
         except Exception as e:
-            messages.error(request, f'❌ Error: {str(e)}')
+            logger.error(f"Login error: {e}")
+            messages.error(request, '❌ Login mein masla hua')
             return redirect('customer_login')
     
     context = {
@@ -296,21 +419,21 @@ def customer_login(request):
 # ============================================
 
 def customer_logout(request):
-    """Customer logout"""
+    """Logout with session flush"""
+    request.session.flush()
     logout(request)
     messages.success(request, '👋 Aap logout ho gaye hain')
     return redirect('shop_home')
 
 
 # ============================================
-# 4. MY ACCOUNT DASHBOARD — ✅ CUSTOMER LOGIN REQUIRED
+# 4. MY ACCOUNT
 # ============================================
 
 @customer_login_required
 def my_account(request):
     """Customer dashboard"""
     if not hasattr(request.user, 'customer_profile'):
-        messages.error(request, '❌ Yeh page sirf customers ke liye hai')
         return redirect('shop_home')
     
     profile = request.user.customer_profile
@@ -334,12 +457,10 @@ def my_account(request):
     }
     
     recent_orders = orders[:5]
-    
     for order in recent_orders:
         order.calculated_total = sum(item.total_amt for item in order.items.all())
     
     default_address = customer.addresses.filter(is_default=True).first()
-    
     company = CompanyInfo.objects.first()
     
     context = {
@@ -355,12 +476,12 @@ def my_account(request):
 
 
 # ============================================
-# 5. SEND ORDER OTP — ✅ CUSTOMER LOGIN REQUIRED
+# 5. SEND OTP
 # ============================================
 
 @customer_login_required
 def send_order_otp(request):
-    """Send OTP for order verification"""
+    """Send OTP — same page flow"""
     if not hasattr(request.user, 'customer_profile'):
         return JsonResponse({'success': False, 'message': 'Login required'})
     
@@ -380,16 +501,19 @@ def send_order_otp(request):
     
     try:
         order_token = str(uuid.uuid4()).replace('-', '')[:8].upper()
-        
-        while CustomerOTP.objects.filter(order_token=order_token, is_used=False).exists():
+        attempts = 0
+        while CustomerOTP.objects.filter(
+            order_token=order_token, is_used=False
+        ).exists() and attempts < 5:
             order_token = str(uuid.uuid4()).replace('-', '')[:8].upper()
+            attempts += 1
         
         otp = CustomerOTP.generate_otp(
             phone=phone,
             purpose='order',
             customer_name=customer.name,
             ip_address=get_client_ip(request),
-            user_agent=request.META.get('HTTP_USER_AGENT', ''),
+            user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
             order_token=order_token,
         )
         
@@ -397,6 +521,7 @@ def send_order_otp(request):
         request.session['order_otp_id'] = otp.id
         request.session['order_token'] = order_token
         request.session.modified = True
+        request.session.save()
         
         masked = phone[-4:].rjust(len(phone), '*')
         
@@ -409,16 +534,17 @@ def send_order_otp(request):
         })
         
     except Exception as e:
+        logger.error(f"Send OTP error: {e}")
         return JsonResponse({'success': False, 'message': str(e)})
 
 
 # ============================================
-# 6. VERIFY ORDER OTP — ✅ CUSTOMER LOGIN REQUIRED
+# 6. VERIFY OTP — AUTO ORDER PLACE
 # ============================================
 
 @customer_login_required
 def verify_order_otp(request):
-    """Verify OTP for order (normal flow)"""
+    """Verify OTP — Auto order place"""
     if not hasattr(request.user, 'customer_profile'):
         return JsonResponse({'success': False, 'message': 'Login required'})
     
@@ -434,7 +560,7 @@ def verify_order_otp(request):
         
         phone = request.session.get('order_otp_phone')
         if not phone:
-            return JsonResponse({'success': False, 'message': 'Session expired. Please place order again.'})
+            return JsonResponse({'success': False, 'message': 'Session expired'})
         
         success, otp_obj, message = CustomerOTP.find_and_verify(
             phone=phone,
@@ -445,7 +571,6 @@ def verify_order_otp(request):
         if not success:
             return JsonResponse({'success': False, 'message': message})
         
-        # ✅ SESSION FLAGS SET KARO
         request.session['order_verified'] = True
         request.session['order_verified_at'] = now().isoformat()
         request.session['order_otp_phone'] = phone
@@ -456,28 +581,108 @@ def verify_order_otp(request):
         profile.phone_verified = True
         profile.save(update_fields=['phone_verified'])
         
-        return JsonResponse({
-            'success': True,
-            'message': '✅ Order verified successfully!',
-        })
+        # ✅ AUTO ORDER PLACE
+        order, error = auto_place_order(request, profile.customer)
         
+        if order:
+            return JsonResponse({
+                'success': True,
+                'message': '✅ OTP verified! Order place ho gaya.',
+                'redirect_url': f'/shop/order-success/{order.id}/',
+            })
+        else:
+            return JsonResponse({
+                'success': True,
+                'message': f'✅ OTP verified! Lekin order place nahi hua: {error}',
+                'redirect_url': '/shop/cart/',
+            })
+        
+    except Exception as e:
+        logger.error(f"Verify OTP error: {e}")
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+# ============================================
+# 7. SAVE PAYMENT METHOD
+# ============================================
+
+@customer_login_required
+def save_payment_method(request):
+    """Save payment method to session"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False})
+    
+    try:
+        data = json.loads(request.body)
+        payment_method = data.get('payment_method', 'cod')
+        
+        valid_methods = ['cod', 'jazzcash', 'easypaisa', 'bank']
+        if payment_method not in valid_methods:
+            payment_method = 'cod'
+        
+        request.session['selected_payment'] = payment_method
+        request.session.modified = True
+        
+        return JsonResponse({'success': True})
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})
 
 
 # ============================================
-# 7. VERIFY OTP LATER
+# 8. PENDING OTPs (Backup)
+# ============================================
+
+def pending_otps_view(request):
+    """Pending OTPs page"""
+    from django.utils.timezone import now
+    
+    pending_otps = CustomerOTP.objects.filter(
+        is_used=False,
+        expires_at__gt=now(),
+    ).exclude(
+        locked_until__gt=now()
+    ).order_by('-created_at')[:50]
+    
+    otp_list = []
+    for otp in pending_otps:
+        phone = otp.phone or ''
+        masked_phone = '****' + phone[-4:] if len(phone) > 4 else phone
+        
+        otp_list.append({
+            'id': otp.id,
+            'masked_phone': masked_phone,
+            'otp_code': otp.otp_code,
+            'order_token': otp.order_token,
+            'customer_name': otp.customer_name or 'Guest',
+            'purpose': otp.get_purpose_display(),
+            'created_at': otp.created_at,
+            'expires_in': otp.time_remaining_display,
+        })
+    
+    company = CompanyInfo.objects.first()
+    
+    context = {
+        'company_name': company.name if company else 'Shop',
+        'pending_otps': otp_list,
+        'total_pending': len(otp_list),
+        'has_otps': len(otp_list) > 0,
+    }
+    return render(request, 'customer_portal/auth/pending_otps.html', context)
+
+
+# ============================================
+# 9. VERIFY OTP LATER (Backup — Pending OTPs se)
 # ============================================
 
 def verify_otp_later(request):
-    """Late OTP Verification with Pre-fill"""
-    prefill_phone = request.GET.get('phone', '').strip()
-    prefill_token = request.GET.get('token', '').strip().upper()
+    """Verify OTP from Pending OTPs page"""
+    prefill_phone = request.GET.get('phone', '').strip()[:20]
+    prefill_token = request.GET.get('token', '').strip().upper()[:8]
     
     if request.method == 'POST':
         try:
-            phone = request.POST.get('phone', '').strip()
-            order_token = request.POST.get('order_token', '').strip().upper()
+            phone = request.POST.get('phone', '').strip()[:20]
+            order_token = request.POST.get('order_token', '').strip().upper()[:8]
             otp_code = request.POST.get('otp_code', '').strip()
             
             if not all([phone, order_token, otp_code]):
@@ -489,7 +694,6 @@ def verify_otp_later(request):
                 return redirect(f"/shop/verify-otp-later/?phone={prefill_phone}&token={prefill_token}")
             
             phone = normalize_phone(phone)
-            
             otp = CustomerOTP.find_by_token(order_token, phone)
             
             if not otp:
@@ -518,51 +722,57 @@ def verify_otp_later(request):
             
             customer = Customer.objects.filter(contact_number=phone).first()
             
-            if customer and customer.portal_profile.user:
-                
-                # STEP 1: Session flags before login
-                request.session['order_verified'] = True
-                request.session['order_verified_at'] = now().isoformat()
-                request.session['order_token'] = order_token
-                request.session.modified = True
-                
-                # STEP 2: Login
-                safe_login(request, customer.portal_profile.user)
-                
-                # STEP 3: Session flags after login
-                request.session['order_verified'] = True
-                request.session['order_verified_at'] = now().isoformat()
-                request.session['order_token'] = order_token
-                request.session.modified = True
-                request.session.save()
-                
-                customer.portal_profile.phone_verified = True
-                customer.portal_profile.save(update_fields=['phone_verified'])
-                
-                try:
-                    OTPAuditLog.objects.create(
-                        phone=phone,
-                        action='verify_success',
-                        success=True,
-                        notes=f"Late OTP via token: {order_token}"
-                    )
-                except Exception:
-                    pass
-                
-                messages.success(request, '✅ OTP verified! Ab apna order place karein.')
-                return redirect('checkout')
-            else:
+            if not customer or not customer.portal_profile.user:
                 messages.error(request, '❌ Customer account not found')
                 return redirect(f"/shop/verify-otp-later/?phone={phone}&token={order_token}")
+            
+            # Session flags
+            request.session['order_verified'] = True
+            request.session['order_verified_at'] = now().isoformat()
+            request.session['order_token'] = order_token
+            request.session.modified = True
+            
+            # Login
+            safe_login(request, customer.portal_profile.user)
+            
+            request.session['order_verified'] = True
+            request.session['order_verified_at'] = now().isoformat()
+            request.session['order_token'] = order_token
+            request.session.modified = True
+            request.session.save()
+            
+            customer.portal_profile.phone_verified = True
+            customer.portal_profile.save(update_fields=['phone_verified'])
+            
+            try:
+                OTPAuditLog.objects.create(
+                    phone=phone,
+                    action='verify_success',
+                    success=True,
+                    notes=f"Late OTP via token: {order_token}"
+                )
+            except Exception:
+                pass
+            
+            # Auto order place
+            order, error = auto_place_order(request, customer)
+            
+            if order:
+                messages.success(request, f'🎉 Order #{order.order_no} place ho gaya!')
+                return redirect('order_success_page', order_id=order.id)
+            else:
+                messages.warning(request, f'⚠️ OTP verified, lekin order place nahi hua: {error}')
+                return redirect('cart_view')
                 
         except Exception as e:
+            logger.error(f"Verify OTP later error: {e}")
             messages.error(request, f'❌ Error: {str(e)}')
             return redirect('verify_otp_later')
     
     company = CompanyInfo.objects.first()
     context = {
         'company_name': company.name if company else 'Shop',
-        'page_title': 'Verify OTP (Late)',
+        'page_title': 'Verify OTP',
         'prefill_phone': prefill_phone,
         'prefill_token': prefill_token,
     }
@@ -570,57 +780,11 @@ def verify_otp_later(request):
 
 
 # ============================================
-# 8. PENDING OTPs VIEW
-# ============================================
-
-def pending_otps_view(request):
-    """Public page: Saari pending OTPs dikhayein"""
-    from django.utils.timezone import now
-    
-    pending_otps = CustomerOTP.objects.filter(
-        is_used=False,
-        expires_at__gt=now(),
-    ).exclude(
-        locked_until__gt=now()
-    ).order_by('-created_at')[:50]
-    
-    otp_list = []
-    for otp in pending_otps:
-        phone = otp.phone or ''
-        if len(phone) > 4:
-            masked_phone = '****' + phone[-4:]
-        else:
-            masked_phone = phone
-        
-        otp_list.append({
-            'id': otp.id,
-            'masked_phone': masked_phone,
-            'otp_code': otp.otp_code,
-            'order_token': otp.order_token,
-            'customer_name': otp.customer_name or 'Guest',
-            'purpose': otp.get_purpose_display(),
-            'created_at': otp.created_at,
-            'expires_in': otp.time_remaining_display,
-        })
-    
-    company = CompanyInfo.objects.first()
-    
-    context = {
-        'company_name': company.name if company else 'Shop',
-        'pending_otps': otp_list,
-        'total_pending': len(otp_list),
-        'has_otps': len(otp_list) > 0,
-    }
-    return render(request, 'customer_portal/auth/pending_otps.html', context)
-
-
-# ============================================
-# 9. QUICK VERIFY FROM PENDING LIST
+# 10. QUICK VERIFY FROM PENDING LIST
 # ============================================
 
 def quick_verify_otp(request, otp_id):
     """Quick verify from pending list"""
-    from django.utils.timezone import now
     from urllib.parse import quote
     
     try:
@@ -647,3 +811,77 @@ def quick_verify_otp(request, otp_id):
     return redirect(
         f"/shop/verify-otp-later/?phone={phone_encoded}&token={token_encoded}"
     )
+    
+# ============================================
+# ✅ PLACE ORDER DIRECT (Trusted / Verified)
+# ============================================
+
+@customer_login_required
+def place_order_direct(request):
+    """
+    ✅ Trusted/Verified customer ke liye — Direct order place
+    """
+    if not hasattr(request.user, 'customer_profile'):
+        return JsonResponse({'success': False, 'message': 'Login required'})
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'POST required'})
+    
+    try:
+        profile = request.user.customer_profile
+        customer = profile.customer
+        
+        # Trusted ya Verified hona chahiye
+        is_trusted = profile.should_skip_order_otp()
+        is_verified = request.session.get('order_verified', False)
+        
+        if not (is_trusted or is_verified):
+            return JsonResponse({
+                'success': False,
+                'message': 'OTP verify zaroori hai'
+            })
+        
+        # Auto order place
+        order, error = auto_place_order(request, customer)
+        
+        if order:
+            return JsonResponse({
+                'success': True,
+                'message': f'Order #{order.order_no} place ho gaya!',
+                'redirect_url': f'/shop/order-success/{order.id}/',
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'message': error or 'Order place nahi hua'
+            })
+    
+    except Exception as e:
+        logger.error(f"Place order direct error: {e}")
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+# ============================================
+# ✅ SAVE PAYMENT METHOD
+# ============================================
+
+@customer_login_required
+def save_payment_method(request):
+    """Save payment method to session"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False})
+    
+    try:
+        data = json.loads(request.body)
+        payment_method = data.get('payment_method', 'cod')
+        
+        valid_methods = ['cod', 'jazzcash', 'easypaisa', 'bank']
+        if payment_method not in valid_methods:
+            payment_method = 'cod'
+        
+        request.session['selected_payment'] = payment_method
+        request.session.modified = True
+        
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})

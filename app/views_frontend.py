@@ -22065,27 +22065,14 @@ def bulk_process_deductions(request):
 
 @login_required
 def shareholder_balance_summary(request):
-    """✅ ULTRA-FAST: Shareholder balance summary"""
+    """
+    Summary of all shareholder balances with deduction history
+    """
     if not request.user.is_superuser and not request.user.is_staff:
         messages.error(request, '❌ Access denied!')
         return redirect('dashboard')
     
-    from django.db.models import Sum, Count, Value, DecimalField
-    from django.db.models.functions import Coalesce
-    
-    # ✅ Renamed annotation
-    shareholders = Shareholder.objects.filter(
-        status='active'
-    ).annotate(
-        annotated_balance_used=Coalesce(
-            Sum(
-                'balance_used_records__amount_used',
-                output_field=DecimalField(max_digits=15, decimal_places=2)
-            ),
-            Value(Decimal('0.00'))
-        ),
-        deduction_count=Count('balance_used_records'),
-    ).select_related('cash_balance').prefetch_related('shares')
+    shareholders = Shareholder.objects.filter(status='active')
     
     data = []
     total_balance = Decimal('0.00')
@@ -22097,19 +22084,32 @@ def shareholder_balance_summary(request):
         total_shares += shareholder.total_shares()
         total_balance += balance
         
-        # ✅ Read from renamed annotation
-        deduction_total = shareholder.annotated_balance_used or Decimal('0.00')
+        # Get total deductions for this shareholder
+        deduction_total = Decimal('0.00')
+        deduction_count = 0
+        
+        # Check all purchases
+        purchases = Purchase.objects.filter(shareholder_deduction_done=True)
+        for purchase in purchases:
+            data_dict = purchase.shareholder_deduction_data
+            if data_dict and data_dict.get('deducted_from'):
+                for item in data_dict['deducted_from']:
+                    if item.get('name') == shareholder.name:
+                        deduction_total += Decimal(str(item.get('deducted', 0)))
+                        deduction_count += 1
+        
         total_deductions += deduction_total
         
         data.append({
             'shareholder': shareholder,
             'balance': balance,
             'total_shares': shareholder.total_shares(),
+            'deduction_count': deduction_count,
             'deduction_total': deduction_total,
-            'deduction_count': shareholder.deduction_count or 0,
             'status': shareholder.status,
         })
     
+    # Sort by balance
     data.sort(key=lambda x: x['balance'], reverse=True)
     
     context = {
@@ -22124,37 +22124,47 @@ def shareholder_balance_summary(request):
     }
     return render(request, 'shareholders/balance_summary.html', context)
 
+
 # ========================================== #
 # 10. SHAREHOLDER DEDUCTION HISTORY         #
 # ========================================== #
+
 @login_required
 def shareholder_deduction_history(request, pk):
-    """✅ FAST: Shareholder deduction history"""
+    """
+    View deduction history for a specific shareholder
+    """
     shareholder = get_object_or_404(Shareholder, pk=pk)
     
     if not request.user.is_superuser and not request.user.is_staff:
         messages.error(request, '❌ Access denied!')
         return redirect('dashboard')
     
-    deduction_records = ShareholderBalanceUsed.objects.filter(
-        shareholder=shareholder
-    ).select_related('purchase', 'purchase__vendor').order_by('-created_at')
-    
+    # Find all purchases where this shareholder was deducted
     deduction_history = []
     total_deducted = Decimal('0.00')
     
-    for record in deduction_records:
-        deduction_history.append({
-            'purchase': record.purchase,
-            'amount': record.amount_used,
-            'percentage': record.percentage,
-            'balance_before': record.balance_before,
-            'balance_after': record.balance_after,
-            'date': record.created_at,
-            'deduction_type': record.deduction_type,
-        })
-        total_deducted += record.amount_used
+    purchases = Purchase.objects.filter(
+        shareholder_deduction_done=True
+    ).order_by('-shareholder_deduction_date')
     
+    for purchase in purchases:
+        data = purchase.shareholder_deduction_data
+        if data and data.get('deducted_from'):
+            for item in data['deducted_from']:
+                if item.get('name') == shareholder.name:
+                    deduction_history.append({
+                        'purchase': purchase,
+                        'amount': Decimal(str(item.get('deducted', 0))),
+                        'percentage': item.get('percentage', 0),
+                        'balance_before': Decimal(str(item.get('balance_before', 0))),
+                        'balance_after': Decimal(str(item.get('balance_after', 0))),
+                        'date': purchase.shareholder_deduction_date,
+                    })
+                    total_deducted += Decimal(str(item.get('deducted', 0)))
+                    break
+    
+    # Get all transactions for this shareholder
     transactions = ShareholderCashTransaction.objects.filter(
         shareholder=shareholder
     ).order_by('-created_at')[:50]

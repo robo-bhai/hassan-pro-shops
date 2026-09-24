@@ -1066,5 +1066,9 @@ urlpatterns = [
     'shop/pending-otps/verify/<int:otp_id>/',
     views_customer_auth.quick_verify_otp,
     name='quick_verify_otp'),
+    path('shop/order-success/<int:order_id>/', views_customer_portal.order_success_page, name='order_success_page'),
+    path('shop/place-order-direct/', views_customer_auth.place_order_direct, name='place_order_direct'),
+    path('shop/save-payment-method/', views_customer_auth.save_payment_method, name='save_payment_method'),
+    path('shop/order-success/<int:order_id>/', views_customer_portal.order_success_page, name='order_success_page'),
     
 ]

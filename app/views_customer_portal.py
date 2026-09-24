@@ -1,11 +1,10 @@
 """
-Customer Portal Views — Complete with Order OTP + Trust System
-================================================================
-- All customer portal views
-- Custom customer_login_required decorator
-- Fixed redirects (no admin login)
-- ✅ FIXED: calculate_cart_data — no JSON serialization error
-- ✅ Single-page checkout (Payment + OTP + Place Order)
+Customer Portal Views — Complete with All Features
+====================================================
+✅ Cart awareness
+✅ Discount calculation
+✅ Recently viewed tracking
+✅ Image zoom support
 """
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -13,7 +12,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.utils.timezone import now
 from django.db import transaction
-from django.db.models import Sum, Q
+from django.db.models import Sum, Q, Min
 from django.urls import reverse
 from decimal import Decimal
 from datetime import datetime, timedelta
@@ -26,7 +25,7 @@ from .models import (
     Customer, CustomerProfile, CustomerOTP, CustomerAddress,
     SaleOrder, SaleOrderItem, Sale, Warehouse,
     CustomerOrder, CustomerOrderItem, OrderStatusHistory,
-    Notification, Inventory, StockBatch
+    Notification, Inventory, StockBatch, RecentlyViewed
 )
 
 from .decorators import customer_login_required
@@ -53,7 +52,7 @@ def get_client_ip(request):
 
 
 def get_empty_customer():
-    """Return an empty customer namespace for templates"""
+    """Return empty customer namespace"""
     return SimpleNamespace(
         name='',
         email='',
@@ -64,14 +63,25 @@ def get_empty_customer():
 
 
 def calculate_cart_data(cart):
-    """
-    ✅ Helper: Calculate cart items, subtotal, delivery, total
-    - Session cart ko TOUCH nahi karta
-    - Fresh dicts banata hai
-    - Product objects alag key 'product_obj' mein
-    """
+    """Calculate cart items, subtotal, delivery, total"""
     cart_items = []
     subtotal = Decimal('0.00')
+    
+    if not cart:
+        return {
+            'cart_items': [],
+            'subtotal': Decimal('0.00'),
+            'delivery_charges': Decimal('0.00'),
+            'total_amount': Decimal('0.00'),
+        }
+    
+    product_ids = []
+    for item in cart.values():
+        pid = item.get('product_id')
+        if pid:
+            product_ids.append(pid)
+    
+    products = Product.objects.in_bulk(product_ids) if product_ids else {}
     
     for key, item in cart.items():
         cart_item = {
@@ -86,12 +96,7 @@ def calculate_cart_data(cart):
         subtotal += item_total
         cart_item['total'] = float(item_total)
         cart_item['subtotal'] = float(item_total)
-        
-        try:
-            product = Product.objects.get(pk=cart_item['product_id'])
-            cart_item['product_obj'] = product
-        except Product.DoesNotExist:
-            cart_item['product_obj'] = None
+        cart_item['product_obj'] = products.get(cart_item['product_id'])
         
         cart_items.append(cart_item)
     
@@ -110,7 +115,7 @@ def calculate_cart_data(cart):
 
 
 def check_otp_verified(request):
-    """Helper: Check if order_verified flag is still valid (30 min)"""
+    """Check if order_verified flag is still valid (30 min)"""
     order_verified = request.session.get('order_verified', False)
     
     if order_verified:
@@ -135,14 +140,15 @@ def check_otp_verified(request):
 # ============================================
 
 def shop_home(request):
-    """Shop home page with products, filters, and search"""
+    """Shop home page with all features"""
     from django.core.paginator import Paginator
     
     products = Product.objects.filter(is_active=True).select_related(
         'category', 'brand', 'unit'
     )
     
-    search = request.GET.get('search', '').strip()
+    # Search
+    search = request.GET.get('search', '').strip()[:100]
     if search:
         products = products.filter(
             Q(name__icontains=search) |
@@ -151,14 +157,28 @@ def shop_home(request):
             Q(description__icontains=search)
         )
     
+    # Category filter
     category_id = request.GET.get('category', '')
     if category_id:
-        products = products.filter(category_id=category_id)
+        try:
+            category_id = int(category_id)
+            products = products.filter(category_id=category_id)
+        except (ValueError, TypeError):
+            category_id = ''
     
+    # Brand filter
     brand_id = request.GET.get('brand', '')
     if brand_id:
-        products = products.filter(brand_id=brand_id)
+        try:
+            brand_id = int(brand_id)
+            products = products.filter(brand_id=brand_id)
+        except (ValueError, TypeError):
+            brand_id = ''
     
+    # Annotation
+    products = products.annotate(total_stock=Sum('inventory__stock'))
+    
+    # Sort
     sort = request.GET.get('sort', 'newest')
     if sort == 'price_low':
         products = products.order_by('price')
@@ -169,27 +189,66 @@ def shop_home(request):
     else:
         products = products.order_by('-id')
     
-    for product in products:
-        total_stock = Inventory.objects.filter(product=product).aggregate(
-            total=Sum('stock')
-        )['total'] or 0
-        product.available_stock = total_stock
-        
-        batch = StockBatch.objects.filter(
-            product=product,
-            remaining_qty__gt=0,
-            selling_price__gt=0
-        ).order_by('id').first()
-        
-        if batch:
-            product.price = batch.selling_price
-            product.has_batch_price = True
-        else:
-            product.has_batch_price = False
-    
+    # Paginator
     paginator = Paginator(products, 24)
     page = request.GET.get('page', 1)
     page_obj = paginator.get_page(page)
+    
+    # Batch fetch selling prices
+    product_ids = [p.id for p in page_obj]
+    
+    batch_prices = StockBatch.objects.filter(
+        product_id__in=product_ids,
+        remaining_qty__gt=0,
+        selling_price__gt=0
+    ).values('product_id').annotate(
+        best_price=Min('selling_price')
+    )
+    batch_price_map = {bp['product_id']: bp['best_price'] for bp in batch_prices}
+    
+    # Cart awareness
+    cart = request.session.get('cart', {})
+    cart_product_ids = set()
+    cart_quantities = {}
+    
+    for key, item in cart.items():
+        try:
+            pid = int(item.get('product_id'))
+            cart_product_ids.add(pid)
+            cart_quantities[pid] = item.get('quantity', 0)
+        except (ValueError, TypeError):
+            pass
+    
+    # Apply to products
+    for product in page_obj:
+        product.available_stock = product.total_stock or 0
+        
+        if product.id in batch_price_map:
+            product.price = batch_price_map[product.id]
+            product.has_batch_price = True
+        else:
+            product.has_batch_price = False
+        
+        # Discount
+        if product.discount_percentage and product.discount_percentage > 0:
+            if product.original_price and product.original_price > 0:
+                product.discount_amount = round(
+                    float(product.original_price) - float(product.price), 2
+                )
+            else:
+                original = float(product.price) / (1 - float(product.discount_percentage) / 100)
+                product.original_price = round(original, 2)
+                product.discount_amount = round(original - float(product.price), 2)
+            product.has_discount = True
+        else:
+            product.has_discount = False
+        
+        # Cart awareness
+        product.in_cart = product.id in cart_product_ids
+        product.cart_quantity = cart_quantities.get(product.id, 0)
+    
+    # Recently viewed
+    recently_viewed = RecentlyViewed.get_recently_viewed(request, limit=8)
     
     company = CompanyInfo.objects.first()
     
@@ -204,8 +263,9 @@ def shop_home(request):
         'selected_category': category_id,
         'selected_brand': brand_id,
         'selected_sort': sort,
-        'total_products': products.count(),
+        'total_products': paginator.count,
         'cart_count': get_cart_count_value(request),
+        'recently_viewed': recently_viewed,
     }
     return render(request, 'customer_portal/shop.html', context)
 
@@ -221,11 +281,19 @@ def product_detail(request, pk):
         pk=pk, is_active=True
     )
     
+    # Track view
+    try:
+        RecentlyViewed.track_view(request, product)
+    except Exception as e:
+        logger.error(f"Track view error: {e}")
+    
+    # Stock
     total_stock = Inventory.objects.filter(product=product).aggregate(
         total=Sum('stock')
     )['total'] or 0
     product.available_stock = total_stock
     
+    # Batch price
     batch = StockBatch.objects.filter(
         product=product,
         remaining_qty__gt=0,
@@ -238,10 +306,28 @@ def product_detail(request, pk):
     else:
         product.has_batch_price = False
     
+    # Discount
+    if product.discount_percentage and product.discount_percentage > 0:
+        if product.original_price and product.original_price > 0:
+            product.discount_amount = round(
+                float(product.original_price) - float(product.price), 2
+            )
+        else:
+            original = float(product.price) / (1 - float(product.discount_percentage) / 100)
+            product.original_price = round(original, 2)
+            product.discount_amount = round(original - float(product.price), 2)
+        product.has_discount = True
+    else:
+        product.has_discount = False
+    
+    # Related products
     related = Product.objects.filter(
         Q(category=product.category) | Q(brand=product.brand),
         is_active=True
-    ).exclude(id=product.id)[:8]
+    ).exclude(id=product.id).select_related('category', 'brand')[:8]
+    
+    # Recently viewed
+    recently_viewed = RecentlyViewed.get_recently_viewed(request, limit=8)
     
     company = CompanyInfo.objects.first()
     
@@ -250,6 +336,7 @@ def product_detail(request, pk):
         'company': company,
         'product': product,
         'related_products': related,
+        'recently_viewed': recently_viewed,
         'cart_count': get_cart_count_value(request),
     }
     return render(request, 'customer_portal/product_detail.html', context)
@@ -261,16 +348,34 @@ def product_detail(request, pk):
 
 @require_POST
 def add_to_cart(request):
-    """Add product to cart (AJAX)"""
+    """Add product to cart with validation"""
     try:
         data = json.loads(request.body) if request.body else request.POST
-        product_id = str(data.get('product_id'))
-        quantity = int(data.get('quantity', 1))
         
-        if not product_id or quantity < 1:
-            return JsonResponse({'success': False, 'message': 'Invalid data'})
+        try:
+            product_id = int(data.get('product_id'))
+        except (ValueError, TypeError):
+            return JsonResponse({'success': False, 'message': 'Invalid product'})
         
-        product = get_object_or_404(Product, id=int(product_id), is_active=True)
+        try:
+            quantity = int(data.get('quantity', 1))
+        except (ValueError, TypeError):
+            quantity = 1
+        
+        if quantity < 1:
+            return JsonResponse({'success': False, 'message': 'Quantity kam se kam 1 honi chahiye'})
+        
+        if quantity > 1000:
+            return JsonResponse({'success': False, 'message': 'Quantity zyada hai (max 1000)'})
+        
+        product = get_object_or_404(Product, id=product_id, is_active=True)
+        
+        total_stock = Inventory.objects.filter(product=product).aggregate(
+            total=Sum('stock')
+        )['total'] or 0
+        
+        if total_stock <= 0:
+            return JsonResponse({'success': False, 'message': 'Yeh product out of stock hai'})
         
         batch = StockBatch.objects.filter(
             product=product,
@@ -281,11 +386,23 @@ def add_to_cart(request):
         price = float(batch.selling_price) if batch else float(product.price)
         
         cart = request.session.get('cart', {})
+        product_key = str(product_id)
         
-        if product_id in cart:
-            cart[product_id]['quantity'] += quantity
+        if product_key in cart:
+            new_qty = cart[product_key]['quantity'] + quantity
+            if new_qty > total_stock:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Sirf {int(total_stock)} units available hain'
+                })
+            cart[product_key]['quantity'] = new_qty
         else:
-            cart[product_id] = {
+            if quantity > total_stock:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Sirf {int(total_stock)} units available hain'
+                })
+            cart[product_key] = {
                 'product_id': product.id,
                 'name': product.name,
                 'price': price,
@@ -304,7 +421,8 @@ def add_to_cart(request):
             'cart_count': cart_count,
         })
     except Exception as e:
-        return JsonResponse({'success': False, 'message': str(e)})
+        logger.error(f"Add to cart error: {e}")
+        return JsonResponse({'success': False, 'message': 'Kuch masla hua'})
 
 
 # ============================================
@@ -336,26 +454,49 @@ def cart_view(request):
 
 @require_POST
 def update_cart(request):
-    """Update cart item quantity (AJAX)"""
+    """Update cart item quantity"""
     try:
         data = json.loads(request.body)
-        product_id = str(data.get('product_id'))
-        quantity = int(data.get('quantity', 1))
+        
+        try:
+            product_id = int(data.get('product_id'))
+        except (ValueError, TypeError):
+            return JsonResponse({'success': False, 'message': 'Invalid product'})
+        
+        try:
+            quantity = int(data.get('quantity', 1))
+        except (ValueError, TypeError):
+            return JsonResponse({'success': False, 'message': 'Invalid quantity'})
+        
+        if quantity > 0:
+            product = Product.objects.filter(id=product_id).first()
+            if product:
+                total_stock = Inventory.objects.filter(product=product).aggregate(
+                    total=Sum('stock')
+                )['total'] or 0
+                
+                if quantity > total_stock:
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'Sirf {int(total_stock)} units available hain'
+                    })
         
         cart = request.session.get('cart', {})
+        product_key = str(product_id)
         
-        if product_id in cart:
+        if product_key in cart:
             if quantity > 0:
-                cart[product_id]['quantity'] = quantity
+                cart[product_key]['quantity'] = quantity
             else:
-                del cart[product_id]
+                del cart[product_key]
             
             request.session['cart'] = cart
             request.session.modified = True
         
         return JsonResponse({'success': True})
     except Exception as e:
-        return JsonResponse({'success': False, 'message': str(e)})
+        logger.error(f"Update cart error: {e}")
+        return JsonResponse({'success': False, 'message': 'Error'})
 
 
 # ============================================
@@ -366,31 +507,32 @@ def update_cart(request):
 def remove_from_cart(request, product_id):
     """Remove item from cart"""
     try:
-        cart = request.session.get('cart', {})
-        product_id = str(product_id)
+        try:
+            product_id = int(product_id)
+        except (ValueError, TypeError):
+            return JsonResponse({'success': False, 'message': 'Invalid product'})
         
-        if product_id in cart:
-            del cart[product_id]
+        cart = request.session.get('cart', {})
+        product_key = str(product_id)
+        
+        if product_key in cart:
+            del cart[product_key]
             request.session['cart'] = cart
             request.session.modified = True
         
         return JsonResponse({'success': True})
     except Exception as e:
-        return JsonResponse({'success': False, 'message': str(e)})
+        logger.error(f"Remove from cart error: {e}")
+        return JsonResponse({'success': False, 'message': 'Error'})
 
 
 # ============================================
-# 7. CHECKOUT — Payment + OTP + Place Order (SINGLE PAGE)
+# 7. CHECKOUT
 # ============================================
 
 @customer_login_required
 def checkout(request):
-    """
-    Checkout page — Payment + OTP + Place Order (Single Page)
-    ✅ customer always provided (never None)
-    ✅ calculate_cart_data (no JSON serialization error)
-    ✅ Payment method + OTP + Place Order all in one page
-    """
+    """Checkout page"""
     cart = request.session.get('cart', {})
     if not cart:
         messages.warning(request, 'Cart khali hai!')
@@ -398,9 +540,6 @@ def checkout(request):
     
     data = calculate_cart_data(cart)
     
-    # ==========================================
-    # PROFILE / TRUST CHECK
-    # ==========================================
     profile = None
     customer = None
     skip_otp = False
@@ -418,10 +557,8 @@ def checkout(request):
     if customer is None:
         customer = get_empty_customer()
     
-    # Check OTP verified
     order_verified = check_otp_verified(request)
     
-    # Payment methods
     payment_methods = [
         ('cod', '💵 Cash on Delivery', 'Ghar par cash dein'),
         ('jazzcash', '📱 JazzCash', 'Mobile payment'),
@@ -449,70 +586,92 @@ def checkout(request):
 
 
 # ============================================
-# 8. PLACE ORDER (POST) — Creates SaleOrder
+# 8. PLACE ORDER
 # ============================================
 
+@transaction.atomic
 @customer_login_required
 @require_POST
 def place_order(request):
-    """
-    Order place karo — SaleOrder banata hai
-    """
+    """Order place karo"""
     from django.contrib.auth.models import User
     
     try:
-        # ==========================================
-        # OTP VERIFICATION CHECK
-        # ==========================================
+        # Profile lock
         profile = None
         if hasattr(request.user, 'customer_profile'):
-            profile = request.user.customer_profile
-            
-            if not profile.should_skip_order_otp():
-                otp_verified = check_otp_verified(request)
-                
-                if not otp_verified:
-                    messages.error(request, '❌ Pehle OTP verify karein')
-                    return redirect('checkout')
+            try:
+                profile = CustomerProfile.objects.select_for_update().get(
+                    pk=request.user.customer_profile.pk
+                )
+            except CustomerProfile.DoesNotExist:
+                messages.error(request, '❌ Customer profile nahi mila')
+                return redirect('checkout')
         
-        # ==========================================
-        # CUSTOMER INFO FROM PROFILE
-        # ==========================================
-        if profile:
-            customer = profile.customer
-            name = customer.name
-            phone = customer.contact_number
-            email = customer.email or ''
-            address = customer.address or ''
-            notes = ''
-        else:
+        if not profile:
             messages.error(request, '❌ Customer profile nahi mila')
             return redirect('checkout')
         
-        # ==========================================
-        # Payment method
-        # ==========================================
+        # OTP check
+        if not profile.should_skip_order_otp():
+            otp_verified = check_otp_verified(request)
+            if not otp_verified:
+                messages.error(request, '❌ Pehle OTP verify karein')
+                return redirect('checkout')
+        
+        customer = profile.customer
         payment_method = request.POST.get('payment_method', 'cod')
         
-        # ==========================================
-        # Cart
-        # ==========================================
+        valid_methods = ['cod', 'jazzcash', 'easypaisa', 'bank']
+        if payment_method not in valid_methods:
+            payment_method = 'cod'
+        
         cart = request.session.get('cart', {})
         if not cart:
             messages.error(request, 'Cart khali hai!')
             return redirect('shop_home')
         
-        # ==========================================
-        # Warehouse
-        # ==========================================
         warehouse = Warehouse.objects.first()
         if not warehouse:
             messages.error(request, 'Koi warehouse nahi hai!')
             return redirect('shop_home')
         
-        # ==========================================
-        # Create SALE ORDER
-        # ==========================================
+        # Stock check
+        product_ids = [item['product_id'] for item in cart.values()]
+        products = Product.objects.in_bulk(product_ids)
+        
+        for key, item in cart.items():
+            product = products.get(item['product_id'])
+            if not product:
+                messages.error(request, f'Product nahi mila: {item["name"]}')
+                return redirect('cart_view')
+            
+            stock = Inventory.objects.filter(
+                product=product, warehouse=warehouse
+            ).values_list('stock', flat=True).first() or 0
+            
+            if stock < item['quantity']:
+                messages.error(
+                    request,
+                    f'{product.name} ka stock kam hai. Available: {int(stock)}'
+                )
+                return redirect('cart_view')
+        
+        # Duplicate check
+        recent_order = SaleOrder.objects.filter(
+            customer=customer,
+            created_at__gte=now() - timedelta(seconds=30),
+            status='pending'
+        ).first()
+        
+        if recent_order:
+            messages.warning(
+                request,
+                f'Aapka order #{recent_order.order_no} pehle hi place ho chuka hai!'
+            )
+            return redirect('my_orders')
+        
+        # Create order
         order = SaleOrder.objects.create(
             customer=customer,
             warehouse=warehouse,
@@ -524,9 +683,6 @@ def place_order(request):
             created_by=request.user if request.user.is_authenticated else None,
         )
         
-        # ==========================================
-        # Add items
-        # ==========================================
         total_amount = Decimal('0.00')
         order_summary = []
         
@@ -534,7 +690,7 @@ def place_order(request):
             product_id = item['product_id']
             quantity = item['quantity']
             price = Decimal(str(item['price']))
-            product = Product.objects.get(pk=product_id)
+            product = products.get(product_id)
             
             SaleOrderItem.objects.create(
                 order=order,
@@ -553,27 +709,19 @@ def place_order(request):
                 'total': float(item_total),
             })
         
-        # ==========================================
-        # Record successful order
-        # ==========================================
-        if profile:
-            profile.record_successful_order()
-            
-            request.session.pop('order_verified', None)
-            request.session.pop('order_verified_at', None)
-            request.session.pop('order_otp_phone', None)
-            request.session.modified = True
-            request.session.save()
+        profile.record_successful_order()
         
-        # ==========================================
-        # Clear cart
-        # ==========================================
+        # Clear session
+        request.session.pop('order_verified', None)
+        request.session.pop('order_verified_at', None)
+        request.session.pop('order_otp_phone', None)
+        request.session.pop('order_otp_id', None)
+        request.session.pop('order_token', None)
         request.session['cart'] = {}
         request.session.modified = True
+        request.session.save()
         
-        # ==========================================
         # Notify admin
-        # ==========================================
         try:
             admins = User.objects.filter(is_superuser=True)
             for admin in admins:
@@ -583,7 +731,7 @@ def place_order(request):
                     message=(
                         f'Order #{order.order_no}\n'
                         f'Amount: Rs. {total_amount:,.2f}\n'
-                        f'Phone: {phone}\n'
+                        f'Phone: {customer.contact_number}\n'
                         f'Items: {len(order_summary)}'
                     ),
                     notification_type='sale',
@@ -593,14 +741,12 @@ def place_order(request):
         except Exception as e:
             logger.error(f"Notification error: {e}")
         
-        # ==========================================
-        # WhatsApp (optional)
-        # ==========================================
+        # WhatsApp
         try:
             from .whatsapp_utils import WhatsAppSender
-            if phone:
+            if customer.contact_number:
                 WhatsAppSender.send_order_confirmation(
-                    phone,
+                    customer.contact_number,
                     order.order_no,
                     float(total_amount),
                     order_summary
@@ -608,9 +754,6 @@ def place_order(request):
         except Exception as e:
             logger.error(f"WhatsApp error: {e}")
         
-        # ==========================================
-        # Success page
-        # ==========================================
         company = CompanyInfo.objects.first()
         context = {
             'company_name': company.name if company else 'Shop',
@@ -628,7 +771,7 @@ def place_order(request):
         logger.error(f"Order placement error: {e}")
         import traceback
         traceback.print_exc()
-        messages.error(request, f'Order mein masla hua: {str(e)}')
+        messages.error(request, 'Order mein masla hua. Please dobara try karein.')
         return redirect('cart_view')
 
 
@@ -650,8 +793,8 @@ def get_cart_count(request):
 
 def track_order(request):
     """Order track karo"""
-    order_no = request.GET.get('order_no', '').strip()
-    bill_no = request.GET.get('bill_no', '').strip()
+    order_no = request.GET.get('order_no', '').strip()[:50]
+    bill_no = request.GET.get('bill_no', '').strip()[:50]
     
     sale_order = None
     sale = None
@@ -685,7 +828,7 @@ def track_order(request):
 
 @customer_login_required
 def my_orders(request):
-    """Customer order history page"""
+    """Customer order history"""
     from django.core.paginator import Paginator
     
     if not hasattr(request.user, 'customer_profile'):
@@ -694,7 +837,7 @@ def my_orders(request):
     
     customer = request.user.customer_profile.customer
     
-    status_filter = request.GET.get('status', '')
+    status_filter = request.GET.get('status', '')[:20]
     
     orders = SaleOrder.objects.filter(customer=customer).order_by('-order_date')
     if status_filter:
@@ -784,30 +927,38 @@ def order_detail_customer(request, order_id):
 # 13. CANCEL ORDER
 # ============================================
 
+@transaction.atomic
 @customer_login_required
 @require_POST
 def cancel_order_customer(request, order_id):
-    """Customer cancels order"""
+    """Cancel order with lock"""
     if not hasattr(request.user, 'customer_profile'):
         return JsonResponse({'success': False, 'message': 'Access denied'})
     
     customer = request.user.customer_profile.customer
-    order = get_object_or_404(SaleOrder, id=order_id, customer=customer)
+    
+    try:
+        order = SaleOrder.objects.select_for_update().get(
+            id=order_id, customer=customer
+        )
+    except SaleOrder.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Order nahi mila'})
     
     cancellable_statuses = ['pending', 'confirmed']
     if order.status not in cancellable_statuses:
         return JsonResponse({
             'success': False,
-            'message': f'Order cannot be cancelled (status: {order.get_status_display()})'
+            'message': f'Order cancel nahi ho sakta (status: {order.get_status_display()})'
         })
     
     try:
-        reason = request.POST.get('reason', 'Customer requested cancellation')
+        reason = request.POST.get('reason', 'Customer requested cancellation')[:500]
         
         order.status = 'cancelled'
         order.save()
         
-        request.user.customer_profile.record_failed_order(
+        profile = request.user.customer_profile
+        profile.record_failed_order(
             f"Cancelled order #{order.order_no}: {reason}"
         )
         
@@ -827,7 +978,44 @@ def cancel_order_customer(request, order_id):
         
         return JsonResponse({
             'success': True,
-            'message': f'Order #{order.order_no} cancelled successfully',
+            'message': f'Order #{order.order_no} cancel ho gaya',
         })
     except Exception as e:
+        logger.error(f"Cancel order error: {e}")
         return JsonResponse({'success': False, 'message': str(e)})
+
+
+# ============================================
+# 14. ORDER SUCCESS PAGE
+# ============================================
+
+@customer_login_required
+def order_success_page(request, order_id):
+    """Order success page"""
+    if not hasattr(request.user, 'customer_profile'):
+        return redirect('shop_home')
+    
+    customer = request.user.customer_profile.customer
+    
+    try:
+        order = SaleOrder.objects.get(id=order_id, customer=customer)
+    except SaleOrder.DoesNotExist:
+        messages.error(request, 'Order nahi mila')
+        return redirect('my_orders')
+    
+    items = order.items.all().select_related('product')
+    total_amount = sum(item.total_amt for item in items)
+    
+    company = CompanyInfo.objects.first()
+    
+    context = {
+        'company_name': company.name if company else 'Shop',
+        'company': company,
+        'order': order,
+        'customer': customer,
+        'items': items,
+        'total_amount': total_amount,
+        'cart_count': 0,
+        'page_title': f'Order #{order.order_no} Placed!',
+    }
+    return render(request, 'customer_portal/order_success_auto.html', context)
