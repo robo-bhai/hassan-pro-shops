@@ -9,6 +9,8 @@ from app import views_bi
 from app import views_testing  
 from app import views_document
 from app import views_frontend
+from django.urls import path
+from . import views  # <-- Ye line add karein
 
 urlpatterns = [
     # ============================================
@@ -33,7 +35,7 @@ urlpatterns = [
     path('hr/salary-slip/<int:pk>/', views_frontend.print_salary_slip_html, name='print_salary_slip'),
     
     path('prices/create/', views_frontend.share_price_create, name='share_price_create'),
-    path('verify-order-token/<str:token>/', views.verify_order_token, name='verify_order_token'),
+    #path('verify-order-token/<str:token>/', views.verify_order_token, name='verify_order_token'),
     # Custom logout view
     path('logout/', views_frontend.custom_logout, name='logout'),
     path('shareholder/deposit/', views_frontend.shareholder_portal_deposit, name='shareholder_portal_deposit'),
