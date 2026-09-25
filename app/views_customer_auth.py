@@ -523,7 +523,7 @@ logger = logging.getLogger(__name__)
 
 @customer_login_required
 def send_order_otp(request):
-    """Send OTP + Direct Verification Link — email + notification"""
+    """Send OTP — email + notification"""
     if not hasattr(request.user, 'customer_profile'):
         return JsonResponse({'success': False, 'message': 'Login required'})
     
@@ -560,10 +560,10 @@ def send_order_otp(request):
             order_token = str(uuid.uuid4()).replace('-', '')[:8].upper()
             attempts += 1
 
-        # ✅ GENERATE DIRECT VERIFICATION LINK (Without reverse() to prevent NoReverseMatch error)
+        # ✅ DIRECT VERIFICATION LINK
         verify_url = request.build_absolute_uri(f'/shop/verify-order-token/{order_token}/')
         
-        # ✅ Generate OTP WITH EMAIL & VERIFICATION URL
+        # ✅ Generate OTP (Removed unexpected keyword argument 'verify_url')
         otp = CustomerOTP.generate_otp(
             phone=phone,
             purpose='order',
@@ -572,7 +572,6 @@ def send_order_otp(request):
             ip_address=get_client_ip(request),
             user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
             order_token=order_token,
-            verify_url=verify_url,
         )
         
         # Save to session
@@ -595,7 +594,7 @@ def send_order_otp(request):
             return JsonResponse({
                 'success': True,
                 'skip_otp': False,
-                'message': f'✅ OTP and verification link sent to {masked_email}',
+                'message': f'✅ OTP sent to {masked_email}',
                 'otp_id': otp.id,
                 'order_token': order_token,
                 'email_sent': True,
