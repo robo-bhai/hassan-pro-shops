@@ -158,6 +158,12 @@ def send_notification_email(recipient_email, subject, body_html, body_text=None,
         if full_html:
             email.attach_alternative(full_html, "text/html")
 
+        # ⚡ TRACKING DISABLE HEADERS (URL Rewriting ko rokne ke liye)
+        email.extra_headers['X-Mailin-custom'] = '{"click_tracking": 0}'  # Brevo / Sendinblue
+        email.extra_headers['X-SMTPAPI'] = '{"tracking_settings": {"click_tracking": {"enable": false}}}'  # SendGrid
+        email.extra_headers['o:tracking-clicks'] = 'no'  # Mailgun
+        email.extra_headers['X-No-Track'] = '1'
+
         email.send(fail_silently=False)
         logger.info(f"✅ Email sent to {to_list}")
         return True
@@ -200,6 +206,12 @@ def send_custom_user_email(username, recipient_email, subject, body_html, body_t
         if full_html:
             email.attach_alternative(full_html, "text/html")
 
+        # ⚡ TRACKING DISABLE HEADERS
+        email.extra_headers['X-Mailin-custom'] = '{"click_tracking": 0}'
+        email.extra_headers['X-SMTPAPI'] = '{"tracking_settings": {"click_tracking": {"enable": false}}}'
+        email.extra_headers['o:tracking-clicks'] = 'no'
+        email.extra_headers['X-No-Track'] = '1'
+
         email.send(fail_silently=False)
         logger.info(f"✅ Custom email sent to {to_list}")
         return True
@@ -232,7 +244,7 @@ def send_otp_email(recipient_email, otp_code, customer_name="Customer", purpose=
         verify_button_html = f"""
         <div style="margin: 28px 0; text-align: center;">
             <p style="font-size: 14px; color: #111827; font-weight: 600; margin-bottom: 12px;">
-                — YA PHIR NICHE DIVE GAYE LINK PAR CLICK KAREIN —
+                — YA PHIR NICHE DIYE GAYE LINK PAR CLICK KAREIN —
             </p>
             <table border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
@@ -249,8 +261,11 @@ def send_otp_email(recipient_email, otp_code, customer_name="Customer", purpose=
                     </td>
                 </tr>
             </table>
-            <p style="font-size: 12px; color: #6b7280; margin-top: 8px;">
-                (Button par click karte hi aapka order verify hokar place ho jayega)
+            
+            <!-- Direct Text Link (Bypasses Tracking Rewriting Issues) -->
+            <p style="font-size: 12px; color: #4b5563; margin-top: 14px; word-break: break-all;">
+                Agar button kaam na kare to is direct link ko open karein:<br>
+                <a href="{verify_url}" target="_blank" style="color: #2563eb; font-family: monospace; font-weight: 600;">{verify_url}</a>
             </p>
         </div>
         """
