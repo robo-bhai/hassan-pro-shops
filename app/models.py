@@ -4419,6 +4419,14 @@ from app.utils.email_helper import send_notification_email
 User = get_user_model()
 
 
+import logging
+from django.db import models
+from django.contrib.auth import get_user_model
+from django.conf import settings
+
+User = get_user_model()
+logger = logging.getLogger(__name__)
+
 class Notification(models.Model):
     NOTIFICATION_TYPES = [
         ('info', 'ℹ️ Info'),
@@ -4431,7 +4439,6 @@ class Notification(models.Model):
         ('payment', '💰 Payment Received'),
     ]
     
-    # Categories for filtering
     NOTIFICATION_CATEGORIES = [
         ('all', 'All Notifications'),
         ('sales', 'Sales'),
@@ -4464,7 +4471,7 @@ class Notification(models.Model):
     
     @classmethod
     def send(cls, user, title, message, notification_type='info', category='all', link=None):
-        """Create notification for a user and send email to their saved Gmail address from info@uqn88.store"""
+        """Create in-app notification and trigger email dispatch via email_helper."""
         notification = cls.objects.create(
             user=user,
             title=title,
@@ -4474,50 +4481,43 @@ class Notification(models.Model):
             link=link
         )
         
-        # Dispatch email strictly from info@uqn88.store to user's saved personal email
+        # Email Dispatch Logic connected to email_helper.py
         if user and user.email:
-            html_content = f"<h3>{title}</h3><p>{message}</p>"
-            if link:
-                html_content += f'<p><a href="{link}">Click here to view details</a></p>'
-            
-            send_notification_email(
-                recipient_email=user.email,
-                subject=title,
-                body_html=html_content,
-                body_text=message
-            )
+            try:
+                base_url = getattr(settings, 'SITE_URL', 'https://uqn88.store')
+                action_link = None
+                
+                if link:
+                    action_link = f"{base_url}{link}" if not link.startswith('http') else link
+
+                # Import helper inside method to avoid circular import issues
+                from app.utils.email_helper import send_notification_email
+                
+                send_notification_email(
+                    recipient_email=user.email,
+                    subject=title,
+                    body_html=f"<p>{message}</p>",
+                    body_text=message,
+                    action_link=action_link
+                )
+            except Exception as e:
+                logger.error(f"Failed to send email to {user.email}: {e}")
 
         return notification
     
     @classmethod
     def send_to_all(cls, title, message, notification_type='info', category='all', link=None):
-        """Send notification to all staff users and email their saved Gmail addresses from info@uqn88.store"""
-        users = User.objects.filter(is_staff=True)
-        staff_emails = []
+        """Send notification to all active staff users and email their saved addresses."""
+        staff_users = User.objects.filter(is_staff=True, is_active=True)
 
-        for user in users:
-            cls.objects.create(
+        for user in staff_users:
+            cls.send(
                 user=user,
-                title=title,
+                title=f"[Staff Alert] {title}",
                 message=message,
                 notification_type=notification_type,
                 category=category,
                 link=link
-            )
-            if user.email:
-                staff_emails.append(user.email)
-
-        # Bulk email dispatch to all staff members via info@uqn88.store
-        if staff_emails:
-            html_content = f"<h3>{title}</h3><p>{message}</p>"
-            if link:
-                html_content += f'<p><a href="{link}">Click here to view details</a></p>'
-
-            send_notification_email(
-                recipient_email=staff_emails,
-                subject=f"[Staff Alert] {title}",
-                body_html=html_content,
-                body_text=message
             )
     
     @classmethod
@@ -4596,6 +4596,7 @@ class Notification(models.Model):
             category='payments',
             link=f"/installments/{installment.id}/"
         )
+
 
 
 
