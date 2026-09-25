@@ -175,6 +175,66 @@
         box-shadow: 0 0 0 0.25rem rgba(40, 167, 69, 0.25) !important;
     }
     
+    /* ✅ TIMER + RESEND STYLES */
+    .timer-resend-wrapper {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin: 12px 0;
+        min-height: 42px;
+    }
+    
+    .timer-box {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border-radius: 10px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #92400e;
+        border: 1px solid #fcd34d;
+        animation: pulse-timer 1s ease-in-out infinite;
+    }
+    
+    .timer-box.expired {
+        background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+        color: #64748b;
+        border-color: #cbd5e1;
+        animation: none;
+    }
+    
+    @keyframes pulse-timer {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+    
+    #resendOtpBtn {
+        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+        border: none;
+        color: #78350f;
+        font-weight: 700;
+        padding: 10px 18px;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
+        transition: all 0.3s ease;
+        animation: slide-in 0.3s ease;
+    }
+    
+    #resendOtpBtn:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(245, 158, 11, 0.4);
+        color: #78350f;
+    }
+    
+    @keyframes slide-in {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
     /* Already Verified Box */
     .already-verified-box {
         background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
@@ -223,6 +283,12 @@
         animation: spin 0.8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-10px); }
+        75% { transform: translateX(10px); }
+    }
 </style>
 
 <div class="container py-4">
@@ -285,9 +351,7 @@
                     </div>
                 </div>
                 
-                <!-- ============================================ -->
-                <!-- OTP VERIFICATION SECTION                     -->
-                <!-- ============================================ -->
+                <!-- OTP VERIFICATION SECTION -->
                 
                 {% if skip_otp %}
                     <!-- Trusted Customer -->
@@ -330,7 +394,7 @@
                             <div class="alert alert-warning mb-3" role="alert" id="otp-alert">
                                 <i class="bi bi-info-circle-fill"></i>
                                 <strong>Order place karne ke liye pehle OTP verify karna zaroori hai.</strong>
-                                <div class="small mt-1">Aapke registered phone number par 6-digit code bheja jayega.</div>
+                                <div class="small mt-1">Aapki registered email par 6-digit code bheja jayega. <strong>5 minute valid hai.</strong></div>
                             </div>
                             
                             <button type="button" 
@@ -338,7 +402,7 @@
                                     onclick="sendOTP()"
                                     class="btn btn-warning w-100 fw-bold"
                                     style="padding: 14px; font-size: 16px;">
-                                <i class="bi bi-phone-fill"></i> Send OTP
+                                <i class="bi bi-envelope-fill"></i> Send OTP to Email
                             </button>
                             
                             <div id="otp-input-box" style="display: none;">
@@ -374,6 +438,21 @@
                                         style="padding: 14px; font-size: 16px;">
                                     <i class="bi bi-check-circle-fill"></i> Verify OTP
                                 </button>
+                                
+                                <!-- ✅ TIMER + RESEND (5 MIN) -->
+                                <div class="timer-resend-wrapper">
+                                    <div id="timerBox" class="timer-box">
+                                        <i class="bi bi-clock-history"></i>
+                                        <span id="timerText">Resend in 5:00</span>
+                                    </div>
+                                    
+                                    <button type="button" 
+                                            id="resendOtpBtn" 
+                                            style="display: none;"
+                                            onclick="resendOTP()">
+                                        <i class="bi bi-arrow-clockwise"></i> Resend OTP
+                                    </button>
+                                </div>
                                 
                                 <div id="otp-status" class="mt-3 fw-bold text-center"></div>
                                 
@@ -471,6 +550,13 @@
 </div>
 
 <script>
+/* ============================================ */
+/* GLOBAL VARIABLES - ✅ 5 MINUTE TIMER         */
+/* ============================================ */
+let countdownInterval = null;
+let remainingSeconds = 300;        // ✅ 5 minute
+const COUNTDOWN_SECONDS = 300;     // ✅ 5 minute
+
 function getCookie(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {
@@ -554,7 +640,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
 });
 
-// Send OTP
+// ============================================
+// ✅ SEND OTP
+// ============================================
 function sendOTP() {
     const btn = document.getElementById('send-otp-btn');
     const originalText = btn.innerHTML;
@@ -585,11 +673,14 @@ function sendOTP() {
                 
                 document.getElementById('otp-alert').innerHTML = 
                     '<i class="bi bi-check-circle-fill"></i> ' +
-                    '<strong>OTP sent to your phone!</strong> ' +
-                    '<div class="small mt-1">Enter the 6-digit code below.</div>';
+                    '<strong>OTP sent to your email!</strong> ' +
+                    '<div class="small mt-1">Enter the 6-digit code below. <strong>5 minute valid hai.</strong></div>';
                 document.getElementById('otp-alert').className = 'alert alert-success mb-3';
                 
                 document.getElementById('otp-code').focus();
+                
+                // ✅ Start countdown (5 min)
+                startCountdown();
             }
         } else {
             alert('❌ ' + (data.message || 'OTP send nahi ho saki'));
@@ -604,7 +695,111 @@ function sendOTP() {
     });
 }
 
-// Verify OTP
+// ============================================
+// ✅ COUNTDOWN TIMER (5 MINUTE)
+// ============================================
+function startCountdown() {
+    if (countdownInterval) clearInterval(countdownInterval);
+    
+    remainingSeconds = COUNTDOWN_SECONDS;
+    
+    const timerBox = document.getElementById('timerBox');
+    const resendBtn = document.getElementById('resendOtpBtn');
+    
+    timerBox.classList.remove('expired');
+    resendBtn.style.display = 'none';
+    resendBtn.disabled = false;
+    resendBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Resend OTP';
+    
+    updateTimerDisplay(remainingSeconds);
+    
+    countdownInterval = setInterval(() => {
+        remainingSeconds--;
+        updateTimerDisplay(remainingSeconds);
+        
+        if (remainingSeconds <= 0) {
+            clearInterval(countdownInterval);
+            onCountdownComplete();
+        }
+    }, 1000);
+}
+
+// ✅ 5 MINUTE FORMAT (M:SS)
+function updateTimerDisplay(seconds) {
+    const timerText = document.getElementById('timerText');
+    if (seconds > 0) {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        timerText.textContent = `Resend in ${mins}:${secs.toString().padStart(2, '0')}`;
+    } else {
+        timerText.textContent = 'OTP expired';
+    }
+}
+
+function onCountdownComplete() {
+    const timerBox = document.getElementById('timerBox');
+    const timerText = document.getElementById('timerText');
+    const resendBtn = document.getElementById('resendOtpBtn');
+    
+    timerBox.classList.add('expired');
+    timerText.textContent = "Didn't receive?";
+    resendBtn.style.display = 'inline-flex';
+}
+
+// ============================================
+// ✅ RESEND OTP
+// ============================================
+function resendOTP() {
+    const resendBtn = document.getElementById('resendOtpBtn');
+    const statusDiv = document.getElementById('otp-status');
+    
+    resendBtn.disabled = true;
+    resendBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending...';
+    statusDiv.innerHTML = '';
+    
+    fetch('/shop/send-order-otp/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            statusDiv.style.color = 'green';
+            statusDiv.innerHTML = '✅ OTP dobara bhej di gayi!';
+            
+            if (data.order_token) {
+                document.getElementById('token-value').innerText = data.order_token;
+            }
+            
+            document.getElementById('otp-code').value = '';
+            document.getElementById('otp-code').focus();
+            
+            // ✅ Restart countdown (5 min)
+            startCountdown();
+            
+            setTimeout(() => { statusDiv.innerHTML = ''; }, 3000);
+        } else {
+            statusDiv.style.color = 'red';
+            statusDiv.innerHTML = '❌ ' + (data.message || 'Resend failed');
+            resendBtn.disabled = false;
+            resendBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Resend OTP';
+        }
+    })
+    .catch(error => {
+        statusDiv.style.color = 'red';
+        statusDiv.innerHTML = '❌ Network error. Please try again.';
+        resendBtn.disabled = false;
+        resendBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Resend OTP';
+    });
+}
+
+// ============================================
+// ✅ VERIFY OTP
+// ============================================
 function verifyOTP() {
     const otpCode = document.getElementById('otp-code').value.trim();
     const statusDiv = document.getElementById('otp-status');
@@ -675,13 +870,5 @@ function selectPayment(element) {
     }
 }
 </script>
-
-<style>
-@keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-10px); }
-    75% { transform: translateX(10px); }
-}
-</style>
 
 {% endblock %}

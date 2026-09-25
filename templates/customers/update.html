@@ -11,6 +11,7 @@
         --primary-dark: #3a0ca3;
         --success: #4cc9f0;
         --warning: #f8961e;
+        --danger: #f72585;
         --dark: #1a1a2e;
         --gray: #6c757d;
         --border: #e9ecef;
@@ -66,6 +67,11 @@
         display: block;
     }
     
+    .form-label i {
+        color: var(--primary);
+        margin-right: 5px;
+    }
+    
     .form-control, .form-select {
         border: 2px solid var(--border);
         border-radius: 12px;
@@ -76,6 +82,34 @@
     .form-control:focus, .form-select:focus {
         border-color: var(--primary);
         box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+        outline: none;
+    }
+    
+    .form-control.is-invalid {
+        border-color: var(--danger);
+        background-color: rgba(247, 37, 133, 0.02);
+    }
+    
+    .form-text {
+        font-size: 0.7rem;
+        color: var(--gray);
+        margin-top: 6px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .form-text i {
+        font-size: 0.7rem;
+    }
+    
+    .invalid-feedback {
+        font-size: 0.75rem;
+        margin-top: 6px;
+        color: var(--danger);
+        display: flex;
+        align-items: center;
+        gap: 4px;
     }
     
     textarea.form-control {
@@ -101,6 +135,7 @@
     .btn-update:hover {
         transform: translateY(-2px);
         box-shadow: 0 8px 20px rgba(248, 150, 30, 0.3);
+        color: white;
     }
     
     .btn-back {
@@ -145,8 +180,45 @@
         margin-top: 5px;
     }
     
-    .balance-positive { color: var(--success-dark); }
+    .balance-positive { color: #2a9d8f; }
     .balance-negative { color: var(--danger); }
+    
+    /* ✅ Email Status Badge */
+    .email-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        margin-left: 8px;
+    }
+    
+    .email-status.verified {
+        background: rgba(42, 157, 143, 0.1);
+        color: #2a9d8f;
+    }
+    
+    .email-status.missing {
+        background: rgba(247, 37, 133, 0.1);
+        color: var(--danger);
+    }
+    
+    .email-warning {
+        background: rgba(248, 150, 30, 0.08);
+        border-left: 4px solid var(--warning);
+        padding: 12px 15px;
+        border-radius: 8px;
+        margin-top: 10px;
+        font-size: 0.75rem;
+        color: #856404;
+    }
+    
+    .email-warning i {
+        color: var(--warning);
+        margin-right: 5px;
+    }
     
     @media (max-width: 768px) {
         .form-body { padding: 20px; }
@@ -182,7 +254,7 @@
                         </div>
                     </div>
                     
-                    <form method="POST">
+                    <form method="POST" id="customerEditForm" novalidate>
                         {% csrf_token %}
                         
                         <div class="form-group">
@@ -237,6 +309,42 @@
                             </div>
                         </div>
                         
+                        <!-- ✅ NEW: EMAIL FIELD -->
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="bi bi-envelope"></i> Email Address
+                                {% if customer.email %}
+                                <span class="email-status verified">
+                                    <i class="bi bi-check-circle-fill"></i> Set
+                                </span>
+                                {% else %}
+                                <span class="email-status missing">
+                                    <i class="bi bi-exclamation-circle-fill"></i> Missing
+                                </span>
+                                {% endif %}
+                            </label>
+                            <input type="email" name="email" id="customerEmail" 
+                                   class="form-control" 
+                                   value="{{ customer.email|default:'' }}"
+                                   placeholder="customer@example.com"
+                                   autocomplete="email">
+                            <div class="form-text">
+                                <i class="bi bi-info-circle"></i> 
+                                Email zaroori hai OTP, notifications aur receipts ke liye
+                            </div>
+                            <div class="invalid-feedback">
+                                <i class="bi bi-exclamation-circle"></i> Sahi email address daalein (e.g., name@gmail.com)
+                            </div>
+                            
+                            {% if not customer.email %}
+                            <div class="email-warning">
+                                <i class="bi bi-exclamation-triangle-fill"></i>
+                                <strong>⚠️ Email nahi hai!</strong> Customer ko OTP aur notifications nahi milengi. 
+                                Email add karne ke liye recommended hai.
+                            </div>
+                            {% endif %}
+                        </div>
+                        
                         <div class="form-group">
                             <label class="form-label">
                                 <i class="bi bi-geo-alt"></i> Address
@@ -256,4 +364,35 @@
         </div>
     </div>
 </div>
+
+<script>
+    // Form validation
+    const form = document.getElementById('customerEditForm');
+    const emailInput = document.getElementById('customerEmail');
+    
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const emailValue = emailInput.value.trim();
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            
+            // Agar email diya hai to validate karein
+            if (emailValue && !emailRegex.test(emailValue)) {
+                e.preventDefault();
+                emailInput.classList.add('is-invalid');
+                emailInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return false;
+            } else {
+                emailInput.classList.remove('is-invalid');
+            }
+        });
+        
+        // Typing ke doran validation hata dein
+        emailInput.addEventListener('input', function() {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (emailRegex.test(this.value.trim()) || !this.value.trim()) {
+                this.classList.remove('is-invalid');
+            }
+        });
+    }
+</script>
 {% endblock %}
