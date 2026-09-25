@@ -16,6 +16,8 @@ from decimal import Decimal
 from io import BytesIO
 import json
 import re
+# app/views.py ke top par:
+from app.views_customer_auth import verify_order_token
 
 # Models import
 from .models import (
