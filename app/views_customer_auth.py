@@ -487,9 +487,28 @@ def my_account(request):
 # 5. SEND OTP (UPDATED WITH EMAIL)
 # ============================================
 
+
+
+
+import uuid
+import json
+import logging
+from django.http import JsonResponse
+from django.shortcuts import redirect
+from django.urls import reverse
+from django.contrib import messages
+from django.utils.timezone import now
+
+logger = logging.getLogger(__name__)
+
+
+# ============================================
+# 1. SEND OTP WITH TOKEN VERIFICATION LINK
+# ============================================
+
 @customer_login_required
 def send_order_otp(request):
-    """Send OTP — email + notification"""
+    """Send OTP + Direct Verification Link — email + notification"""
     if not hasattr(request.user, 'customer_profile'):
         return JsonResponse({'success': False, 'message': 'Login required'})
     
@@ -525,8 +544,13 @@ def send_order_otp(request):
         ).exists() and attempts < 5:
             order_token = str(uuid.uuid4()).replace('-', '')[:8].upper()
             attempts += 1
+
+        # ✅ GENERATE DIRECT VERIFICATION LINK
+        verify_url = request.build_absolute_uri(
+            reverse('verify_order_token', kwargs={'token': order_token})
+        )
         
-        # ✅ Generate OTP WITH EMAIL
+        # ✅ Generate OTP WITH EMAIL & VERIFICATION URL
         otp = CustomerOTP.generate_otp(
             phone=phone,
             purpose='order',
@@ -535,6 +559,7 @@ def send_order_otp(request):
             ip_address=get_client_ip(request),
             user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
             order_token=order_token,
+            verify_url=verify_url,  # Pass this to your email template logic inside generate_otp
         )
         
         # Save to session
@@ -557,7 +582,7 @@ def send_order_otp(request):
             return JsonResponse({
                 'success': True,
                 'skip_otp': False,
-                'message': f'✅ OTP sent to {masked_email}',
+                'message': f'✅ OTP and verification link sent to {masked_email}',
                 'otp_id': otp.id,
                 'order_token': order_token,
                 'email_sent': True,
@@ -578,12 +603,75 @@ def send_order_otp(request):
 
 
 # ============================================
-# 6. VERIFY OTP — AUTO ORDER PLACE
+# 2. VERIFY VIA MAGIC EMAIL LINK (CLICK ACTION)
+# ============================================
+
+@customer_login_required
+def verify_order_token(request, token):
+    """Directly place order when user clicks email token link"""
+    if not hasattr(request.user, 'customer_profile'):
+        messages.error(request, 'Please log in to continue.')
+        return redirect('login')
+    
+    try:
+        # Check active & unused token
+        otp_obj = CustomerOTP.objects.filter(
+            order_token=token,
+            is_used=False,
+            purpose='order'
+        ).first()
+
+        if not otp_obj:
+            messages.error(request, 'Invalid or expired verification link.')
+            return redirect('/shop/cart/')
+
+        # Check expiry (if method exists on your model)
+        if hasattr(otp_obj, 'is_expired') and otp_obj.is_expired():
+            messages.error(request, 'This verification link has expired.')
+            return redirect('/shop/cart/')
+
+        # Mark OTP as used
+        otp_obj.is_used = True
+        otp_obj.save(update_fields=['is_used'])
+
+        profile = request.user.customer_profile
+        phone = profile.customer.contact_number
+
+        # Session Setup
+        request.session['order_verified'] = True
+        request.session['order_verified_at'] = now().isoformat()
+        request.session['order_otp_phone'] = phone
+        request.session['order_token'] = token
+        request.session.modified = True
+        request.session.save()
+
+        # Update profile phone verification state
+        profile.phone_verified = True
+        profile.save(update_fields=['phone_verified'])
+
+        # ✅ AUTO PLACE ORDER
+        order, error = auto_place_order(request, profile.customer)
+
+        if order:
+            messages.success(request, '✅ Verification successful! Order placed.')
+            return redirect(f'/shop/order-success/{order.id}/')
+        else:
+            messages.error(request, f'Verified, but failed to place order: {error}')
+            return redirect('/shop/cart/')
+
+    except Exception as e:
+        logger.error(f"Token verification error: {e}")
+        messages.error(request, 'An error occurred during verification.')
+        return redirect('/shop/cart/')
+
+
+# ============================================
+# 3. VERIFY OTP — MANUAL CODE INPUT
 # ============================================
 
 @customer_login_required
 def verify_order_otp(request):
-    """Verify OTP — Auto order place"""
+    """Verify OTP code — Auto order place"""
     if not hasattr(request.user, 'customer_profile'):
         return JsonResponse({'success': False, 'message': 'Login required'})
     
@@ -639,6 +727,7 @@ def verify_order_otp(request):
     except Exception as e:
         logger.error(f"Verify OTP error: {e}")
         return JsonResponse({'success': False, 'message': str(e)})
+
 
 
 # ============================================
