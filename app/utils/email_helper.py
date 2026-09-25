@@ -11,64 +11,115 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================
-# HTML TEMPLATE
+# HTML TEMPLATE (Enhanced & Rock-Solid Responsive)
 # ============================================
 
 def get_html_template(title, content, action_link=None, button_text="View Details"):
     """
-    Professional responsive HTML email layout
+    Professional responsive HTML email layout with Dark Mode & Outlook compatibility.
     """
     button_html = ""
     if action_link:
         button_html = f"""
-        <div style="text-align: center; margin: 30px 0 20px 0;">
-            <a href="{action_link}" style="background-color: #ffb703; color: #111111; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: 700; font-size: 14px; display: inline-block; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-                {button_text}
-            </a>
-        </div>
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 28px; margin-bottom: 24px;">
+            <tr>
+                <td align="center">
+                    <table border="0" cellpadding="0" cellspacing="0">
+                        <tr>
+                            <td align="center" bgcolor="#ffb703" style="border-radius: 6px;">
+                                <a href="{action_link}" target="_blank" style="font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-weight: 700; color: #111827; text-decoration: none; padding: 13px 32px; border-radius: 6px; border: 1px solid #ffb703; display: inline-block;">
+                                    {button_text}
+                                </a>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
         """
 
     return f"""<!DOCTYPE html>
-<html>
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="x-apple-disable-message-reformatting">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
     <title>{title}</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+    <style>
+        :root {{ color-scheme: light dark; supported-color-schemes: light dark; }}
+        body, table, td, a {{ -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }}
+        table, td {{ mso-table-lspace: 0pt; mso-table-rspace: 0pt; }}
+        img {{ -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }}
+        table {{ border-collapse: collapse !important; }}
+        body {{ height: 100% !important; margin: 0 !important; padding: 0 !important; width: 100% !important; background-color: #f3f4f6; }}
+        
+        @media screen and (max-width: 600px) {{
+            .email-container {{ width: 100% !important; margin: auto !important; }}
+            .content-padding {{ padding: 24px 20px !important; }}
+            .header-padding {{ padding: 20px 20px !important; }}
+            .otp-box {{ padding: 20px 10px !important; }}
+            .otp-code {{ font-size: 32px !important; letter-spacing: 6px !important; }}
+        }}
+    </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f4f6f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
-    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f6f9; padding: 20px 0;">
-        <tr>
-            <td align="center">
-                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border: 1px solid #e5e7eb;">
-                    <!-- Header -->
-                    <tr>
-                        <td style="background-color: #111827; padding: 24px 30px; text-align: left;">
-                            <h1 style="color: #ffb703; margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">uqn88 Store</h1>
-                        </td>
-                    </tr>
-                    
-                    <!-- Content Area -->
-                    <tr>
-                        <td style="padding: 30px; text-align: left; color: #374151; font-size: 15px; line-height: 1.6;">
-                            <h2 style="color: #111827; font-size: 18px; margin-top: 0; margin-bottom: 16px; font-weight: 600;">{title}</h2>
-                            <div style="color: #4b5563; font-size: 14px; margin-bottom: 20px;">
-                                {content}
-                            </div>
-                            {button_html}
-                        </td>
-                    </tr>
-                    
-                    <!-- Footer -->
-                    <tr>
-                        <td style="background-color: #f9fafb; padding: 20px 30px; text-align: center; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 12px;">
-                            <p style="margin: 0 0 6px 0;">This is an automated notification from <strong>uqn88 Store</strong>.</p>
-                            <p style="margin: 0;">&copy; uqn88.store — All rights reserved.</p>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
+<body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+    <div style="background-color: #f3f4f6; padding: 30px 10px;">
+        <!-- Container -->
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin: 0 auto;" class="email-container">
+            <tr>
+                <td align="center" style="padding: 0;">
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+                        
+                        <!-- Header -->
+                        <tr>
+                            <td class="header-padding" style="background-color: #111827; padding: 24px 32px; text-align: left; border-bottom: 3px solid #ffb703;">
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                    <tr>
+                                        <td>
+                                            <span style="color: #ffb703; font-size: 20px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;">uqn88 Store</span>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                        
+                        <!-- Main Content Area -->
+                        <tr>
+                            <td class="content-padding" style="padding: 36px 32px; text-align: left; color: #374151; font-size: 15px; line-height: 1.6;">
+                                <h2 style="color: #111827; font-size: 19px; margin-top: 0; margin-bottom: 18px; font-weight: 700; letter-spacing: -0.2px;">{title}</h2>
+                                
+                                <div style="color: #4b5563; font-size: 14px; line-height: 1.6;">
+                                    {content}
+                                </div>
+                                
+                                {button_html}
+                            </td>
+                        </tr>
+                        
+                        <!-- Footer -->
+                        <tr>
+                            <td style="background-color: #f9fafb; padding: 24px 32px; text-align: center; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 12px; line-height: 1.5;">
+                                <p style="margin: 0 0 4px 0; font-weight: 500;">This is an automated notification from <strong>uqn88 Store</strong>.</p>
+                                <p style="margin: 0; color: #9ca3af;">&copy; uqn88.store — All rights reserved.</p>
+                            </td>
+                        </tr>
+                        
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </div>
 </body>
 </html>"""
 
@@ -82,7 +133,7 @@ def send_notification_email(recipient_email, subject, body_html, body_text=None,
     System notifications bhejta hai (info@uqn88.store se).
     """
     sender_email = "info@uqn88.store"
-    from_header = f"uqn88 Info Desk <{sender_email}>"
+    from_header = f"UQN88 <{sender_email}>"
     
     to_list = [recipient_email] if isinstance(recipient_email, str) else recipient_email
 
@@ -92,7 +143,6 @@ def send_notification_email(recipient_email, subject, body_html, body_text=None,
 
     plain_content = body_text if body_text else "Please view this email in an HTML-compatible client."
 
-    # Wrap in responsive layout if raw content passed
     if "<html>" not in body_html.lower():
         full_html = get_html_template(title=subject, content=body_html, action_link=action_link)
     else:
@@ -159,21 +209,12 @@ def send_custom_user_email(username, recipient_email, subject, body_html, body_t
 
 
 # ============================================
-# ✅ OTP EMAIL FUNCTION (NAYA)
+# ✅ OTP EMAIL FUNCTION (ENHANCED UI)
 # ============================================
 
 def send_otp_email(recipient_email, otp_code, customer_name="Customer", purpose="verification"):
     """
-    Customer ko OTP email bhejta hai.
-    
-    Args:
-        recipient_email: Customer ka email
-        otp_code: 6-digit OTP
-        customer_name: Customer ka naam
-        purpose: 'register', 'login', 'order', 'forgot_password'
-    
-    Returns:
-        bool: True agar send ho gayi
+    Customer ko high-converting & ultra-clean OTP email bhejta hai.
     """
     subject = f"🔐 Your OTP Code - {otp_code}"
     
@@ -186,39 +227,52 @@ def send_otp_email(recipient_email, otp_code, customer_name="Customer", purpose=
     }.get(purpose, 'Verification')
     
     body_html = f"""
-    <div style="text-align: center; padding: 20px 0;">
-        <p style="font-size: 16px; color: #374151;">
+    <div style="text-align: left;">
+        <p style="font-size: 15px; color: #111827; margin-top: 0; margin-bottom: 12px;">
             Assalam o Alaikum <strong>{customer_name}</strong>,
         </p>
         
-        <p style="font-size: 14px; color: #6b7280;">
-            Aap ka <strong>{purpose_text}</strong> ke liye OTP code yeh hai:
+        <p style="font-size: 14px; color: #4b5563; margin-top: 0; margin-bottom: 20px;">
+            Aap ka <strong>{purpose_text}</strong> ke liye One-Time Password (OTP) neeche diya gaya hai:
         </p>
         
-        <div style="background-color: #f8f9fa; border: 2px dashed #ffb703; 
-                    border-radius: 12px; padding: 25px; margin: 25px 0;">
-            <p style="font-size: 42px; font-weight: bold; color: #1a1d2e; 
-                      letter-spacing: 8px; margin: 0; font-family: monospace;">
-                {otp_code}
-            </p>
-        </div>
+        <!-- OTP Card -->
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 24px 0;">
+            <tr>
+                <td align="center" class="otp-box" style="background-color: #f9fafb; border: 2px dashed #ffb703; border-radius: 10px; padding: 22px 16px;">
+                    <span class="otp-code" style="font-size: 38px; font-weight: 800; color: #111827; letter-spacing: 8px; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; display: block; line-height: 1;">
+                        {otp_code}
+                    </span>
+                </td>
+            </tr>
+        </table>
         
-        <p style="font-size: 13px; color: #dc3545; font-weight: 600;">
-            ⏰ Yeh OTP sirf 5 minute ke liye valid hai
-        </p>
+        <!-- Expiry Badge -->
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 24px;">
+            <tr>
+                <td align="center">
+                    <span style="font-size: 12px; color: #dc2626; font-weight: 700; background-color: #fef2f2; padding: 6px 14px; border-radius: 20px; border: 1px solid #fee2e2; display: inline-block;">
+                        ⏰ Valid for 5 minutes only
+                    </span>
+                </td>
+            </tr>
+        </table>
         
-        <p style="font-size: 12px; color: #9ca3af; margin-top: 20px;">
+        <p style="font-size: 13px; color: #6b7280; margin-bottom: 24px; text-align: center;">
             Agar aap ne OTP request nahi ki, to is email ko ignore karein.
         </p>
         
-        <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; 
-                    padding: 12px; margin-top: 20px; text-align: left; border-radius: 4px;">
-            <p style="font-size: 12px; color: #856404; margin: 0;">
-                <strong>⚠️ Security Warning:</strong> 
-                Yeh OTP kisi ke saath share na karein. uqn88 Store kabhi 
-                bhi aapse OTP nahi maangega.
-            </p>
-        </div>
+        <!-- Security Callout -->
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #fffbe3; border-left: 4px solid #ffb703; border-radius: 0 6px 6px 0;">
+            <tr>
+                <td style="padding: 12px 16px;">
+                    <p style="font-size: 12px; color: #78350f; margin: 0; line-height: 1.5;">
+                        <strong>⚠️ Security Warning:</strong> 
+                        Yeh OTP kisi ke saath share na karein. uqn88 Store aap se kabhi bhi OTP nahi maangega.
+                    </p>
+                </td>
+            </tr>
+        </table>
     </div>
     """
     
