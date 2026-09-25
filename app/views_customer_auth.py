@@ -498,7 +498,7 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from django.contrib import messages
 from django.utils.timezone import now
-
+from django.urls import reverse
 logger = logging.getLogger(__name__)
 
 
@@ -561,7 +561,9 @@ def send_order_otp(request):
             attempts += 1
 
         # ✅ DIRECT VERIFICATION LINK
-        verify_url = request.build_absolute_uri(f'/shop/verify-order-token/{order_token}/')
+        verify_url = request.build_absolute_uri(
+    reverse('verify_order_token', kwargs={'token': order_token})
+)
         
         # ✅ Generate OTP WITH EMAIL & VERIFICATION LINK
         otp = CustomerOTP.generate_otp(
