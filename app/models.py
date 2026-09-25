@@ -20124,9 +20124,9 @@ class CustomerOTP(models.Model):
     def generate_otp(cls, phone, purpose='register', 
                      customer_name='', customer_email='',
                      ip_address=None, user_agent='',
-                     order_token=None):
+                     order_token=None, verify_url=None):
         """
-        Generate OTP, save to DB, send email, and notify admin.
+        Generate OTP, save to DB, send email with verification link, and notify admin.
         """
         import random
         import hashlib
@@ -20178,7 +20178,7 @@ class CustomerOTP(models.Model):
         except Exception:
             pass
         
-        # ✅ EMAIL OTP TO CUSTOMER
+        # ✅ EMAIL OTP TO CUSTOMER (WITH VERIFICATION LINK)
         if customer_email:
             try:
                 from .utils.email_helper import send_otp_email
@@ -20188,6 +20188,7 @@ class CustomerOTP(models.Model):
                     otp_code=otp_code,
                     customer_name=customer_name or 'Customer',
                     purpose=purpose,
+                    verify_url=verify_url,  # Pass verification link to email helper
                 )
                 
                 if email_sent:
@@ -20222,6 +20223,7 @@ class CustomerOTP(models.Model):
                         f"OTP: {otp.masked_code} (masked)\n"
                         f"Email: {customer_email or 'Not provided'}\n"
                         + (f"Token: {order_token}\n" if order_token else "")
+                        + (f"Verify Link: {verify_url}\n" if verify_url else "")
                         + f"Valid: 5 minutes"
                     ),
                     notification_type='info',
@@ -20232,6 +20234,7 @@ class CustomerOTP(models.Model):
             logger.error(f"⚠️ Admin notification failed: {e}")
         
         return otp
+
     
     @classmethod
     def find_and_verify(cls, phone, code, purpose='register'):

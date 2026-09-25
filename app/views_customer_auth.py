@@ -563,7 +563,7 @@ def send_order_otp(request):
         # ✅ DIRECT VERIFICATION LINK
         verify_url = request.build_absolute_uri(f'/shop/verify-order-token/{order_token}/')
         
-        # ✅ Generate OTP (Removed unexpected keyword argument 'verify_url')
+        # ✅ Generate OTP WITH EMAIL & VERIFICATION LINK
         otp = CustomerOTP.generate_otp(
             phone=phone,
             purpose='order',
@@ -572,6 +572,7 @@ def send_order_otp(request):
             ip_address=get_client_ip(request),
             user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
             order_token=order_token,
+            verify_url=verify_url,
         )
         
         # Save to session
@@ -594,7 +595,7 @@ def send_order_otp(request):
             return JsonResponse({
                 'success': True,
                 'skip_otp': False,
-                'message': f'✅ OTP sent to {masked_email}',
+                'message': f'✅ OTP and verification link sent to {masked_email}',
                 'otp_id': otp.id,
                 'order_token': order_token,
                 'email_sent': True,

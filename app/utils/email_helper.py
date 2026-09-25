@@ -209,12 +209,12 @@ def send_custom_user_email(username, recipient_email, subject, body_html, body_t
 
 
 # ============================================
-# ✅ OTP EMAIL FUNCTION (ENHANCED UI)
+# ✅ OTP EMAIL FUNCTION (WITH VERIFY LINK SUPPORT)
 # ============================================
 
-def send_otp_email(recipient_email, otp_code, customer_name="Customer", purpose="verification"):
+def send_otp_email(recipient_email, otp_code, customer_name="Customer", purpose="verification", verify_url=None):
     """
-    Customer ko high-converting & ultra-clean OTP email bhejta hai.
+    Customer ko OTP email + Instant Verification Link bhejta hai.
     """
     subject = f"🔐 Your OTP Code - {otp_code}"
     
@@ -226,6 +226,35 @@ def send_otp_email(recipient_email, otp_code, customer_name="Customer", purpose=
         'email_verification': 'Email Verification',
     }.get(purpose, 'Verification')
     
+    # Check if direct verification link is provided
+    verify_button_html = ""
+    if verify_url:
+        verify_button_html = f"""
+        <div style="margin: 28px 0; text-align: center;">
+            <p style="font-size: 14px; color: #111827; font-weight: 600; margin-bottom: 12px;">
+                — YA PHIR NICHE DIVE GAYE LINK PAR CLICK KAREIN —
+            </p>
+            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                    <td align="center">
+                        <table border="0" cellpadding="0" cellspacing="0">
+                            <tr>
+                                <td align="center" bgcolor="#2563eb" style="border-radius: 8px;">
+                                    <a href="{verify_url}" target="_blank" style="font-size: 15px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-weight: 700; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 8px; border: 1px solid #2563eb; display: inline-block;">
+                                        ⚡ Verify & Place Order Instantly
+                                    </a>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+            <p style="font-size: 12px; color: #6b7280; margin-top: 8px;">
+                (Button par click karte hi aapka order verify hokar place ho jayega)
+            </p>
+        </div>
+        """
+
     body_html = f"""
     <div style="text-align: left;">
         <p style="font-size: 15px; color: #111827; margin-top: 0; margin-bottom: 12px;">
@@ -257,6 +286,8 @@ def send_otp_email(recipient_email, otp_code, customer_name="Customer", purpose=
                 </td>
             </tr>
         </table>
+
+        {verify_button_html}
         
         <p style="font-size: 13px; color: #6b7280; margin-bottom: 24px; text-align: center;">
             Agar aap ne OTP request nahi ki, to is email ko ignore karein.
@@ -276,11 +307,13 @@ def send_otp_email(recipient_email, otp_code, customer_name="Customer", purpose=
     </div>
     """
     
+    plain_verify_text = f"\nYa is link par click kar ke direct verify karein:\n{verify_url}\n" if verify_url else ""
+
     body_text = f"""
 Assalam o Alaikum {customer_name},
 
 Aap ka {purpose_text} ke liye OTP code: {otp_code}
-
+{plain_verify_text}
 Yeh OTP sirf 5 minute ke liye valid hai.
 
 Agar aap ne OTP request nahi ki, to is email ko ignore karein.
