@@ -506,6 +506,21 @@ logger = logging.getLogger(__name__)
 # 1. SEND OTP WITH TOKEN VERIFICATION LINK
 # ============================================
 
+import uuid
+import json
+import logging
+from django.http import JsonResponse
+from django.shortcuts import redirect
+from django.contrib import messages
+from django.utils.timezone import now
+
+logger = logging.getLogger(__name__)
+
+
+# ============================================
+# 1. SEND OTP WITH DIRECT TOKEN LINK
+# ============================================
+
 @customer_login_required
 def send_order_otp(request):
     """Send OTP + Direct Verification Link — email + notification"""
@@ -545,10 +560,8 @@ def send_order_otp(request):
             order_token = str(uuid.uuid4()).replace('-', '')[:8].upper()
             attempts += 1
 
-        # ✅ GENERATE DIRECT VERIFICATION LINK
-        verify_url = request.build_absolute_uri(
-            reverse('verify_order_token', kwargs={'token': order_token})
-        )
+        # ✅ GENERATE DIRECT VERIFICATION LINK (Without reverse() to prevent NoReverseMatch error)
+        verify_url = request.build_absolute_uri(f'/shop/verify-order-token/{order_token}/')
         
         # ✅ Generate OTP WITH EMAIL & VERIFICATION URL
         otp = CustomerOTP.generate_otp(
@@ -559,7 +572,7 @@ def send_order_otp(request):
             ip_address=get_client_ip(request),
             user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
             order_token=order_token,
-            verify_url=verify_url,  # Pass this to your email template logic inside generate_otp
+            verify_url=verify_url,
         )
         
         # Save to session
