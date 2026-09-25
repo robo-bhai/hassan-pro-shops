@@ -1057,15 +1057,7 @@ urlpatterns = [
      path('shop/send-order-otp/', views_customer_auth.send_order_otp, name='send_order_otp'),
      path('shop/verify-order-otp/', views_customer_auth.verify_order_otp, name='verify_order_otp'),
      path('shop/verify-otp-later/', views_customer_auth.verify_otp_later, name='verify_otp_later'),
-     path(
-    'shop/pending-otps/',
-    views_customer_auth.pending_otps_view,
-    name='pending_otps'
-    ),
-    path(
-    'shop/pending-otps/verify/<int:otp_id>/',
-    views_customer_auth.quick_verify_otp,
-    name='quick_verify_otp'),
+     
     path('shop/order-success/<int:order_id>/', views_customer_portal.order_success_page, name='order_success_page'),
     path('shop/place-order-direct/', views_customer_auth.place_order_direct, name='place_order_direct'),
     path('shop/save-payment-method/', views_customer_auth.save_payment_method, name='save_payment_method'),

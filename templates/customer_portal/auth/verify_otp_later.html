@@ -228,29 +228,10 @@
         to { opacity: 1; transform: translateY(0); }
     }
     
-    .alert-error {
-        background: #f8d7da;
-        color: #721c24;
-        border-left: 4px solid #dc3545;
-    }
-    
-    .alert-success {
-        background: #d4edda;
-        color: #155724;
-        border-left: 4px solid #28a745;
-    }
-    
-    .alert-warning {
-        background: #fff3cd;
-        color: #856404;
-        border-left: 4px solid #ffc107;
-    }
-    
-    .alert-info {
-        background: #d1ecf1;
-        color: #0c5460;
-        border-left: 4px solid #17a2b8;
-    }
+    .alert-error { background: #f8d7da; color: #721c24; border-left: 4px solid #dc3545; }
+    .alert-success { background: #d4edda; color: #155724; border-left: 4px solid #28a745; }
+    .alert-warning { background: #fff3cd; color: #856404; border-left: 4px solid #ffc107; }
+    .alert-info { background: #d1ecf1; color: #0c5460; border-left: 4px solid #17a2b8; }
     
     .back-links {
         text-align: center;
@@ -273,9 +254,7 @@
         gap: 5px;
     }
     
-    .back-links a:hover {
-        text-decoration: underline;
-    }
+    .back-links a:hover { text-decoration: underline; }
     
     .steps-info {
         display: flex;
@@ -333,22 +312,14 @@
         50% { box-shadow: 0 0 0 8px rgba(40, 167, 69, 0); }
     }
     
-    .prefilled-alert i {
-        font-size: 20px;
-    }
+    .prefilled-alert i { font-size: 20px; }
     
     @media (max-width: 480px) {
         .verify-header { padding: 25px 20px; }
         .verify-body { padding: 25px 20px; }
         .verify-header h3 { font-size: 19px; }
-        .form-group input.otp-input {
-            font-size: 20px;
-            letter-spacing: 8px;
-        }
-        .form-group input.token-input {
-            font-size: 17px;
-            letter-spacing: 3px;
-        }
+        .form-group input.otp-input { font-size: 20px; letter-spacing: 8px; }
+        .form-group input.token-input { font-size: 17px; letter-spacing: 3px; }
         .step-item small { font-size: 10px; }
     }
 </style>
@@ -399,7 +370,7 @@
                 {% endfor %}
             {% endif %}
             
-            <!-- ✅ PRE-FILL SUCCESS BANNER -->
+            <!-- PRE-FILL SUCCESS BANNER -->
             {% if prefill_phone and prefill_token %}
             <div class="prefilled-alert">
                 <i class="bi bi-check-circle-fill"></i>
@@ -489,7 +460,7 @@
                            required
                            autocomplete="one-time-code"
                            spellcheck="false">
-                    <div class="help-text">6-digit code jo SMS mein aaya tha</div>
+                    <div class="help-text">6-digit code jo Email mein aaya tha</div>
                 </div>
                 
                 <!-- Submit Button -->
@@ -507,9 +478,6 @@
                 <a href="{% url 'customer_login' %}">
                     <i class="bi bi-arrow-left"></i> Back to Login
                 </a>
-                <a href="{% url 'pending_otps' %}">
-                    <i class="bi bi-key"></i> Pending OTPs
-                </a>
                 <a href="{% url 'shop_home' %}">
                     <i class="bi bi-shop"></i> Shop
                 </a>
@@ -524,9 +492,6 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     
-    // ==========================================
-    // PHONE INPUT
-    // ==========================================
     const phoneInput = document.getElementById('phone');
     phoneInput.addEventListener('input', function() {
         if (this.classList.contains('prefilled')) {
@@ -535,9 +500,6 @@ document.addEventListener('DOMContentLoaded', function() {
         this.value = this.value.replace(/[^0-9+\-\s]/g, '');
     });
     
-    // ==========================================
-    // TOKEN INPUT
-    // ==========================================
     const tokenInput = document.getElementById('order_token');
     tokenInput.addEventListener('input', function() {
         if (this.classList.contains('prefilled')) {
@@ -546,17 +508,11 @@ document.addEventListener('DOMContentLoaded', function() {
         this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
     });
     
-    // ==========================================
-    // OTP INPUT
-    // ==========================================
     const otpInput = document.getElementById('otp_code');
     otpInput.addEventListener('input', function() {
         this.value = this.value.replace(/[^0-9]/g, '');
     });
     
-    // ==========================================
-    // FORM SUBMIT
-    // ==========================================
     const form = document.getElementById('verifyForm');
     const btn = document.getElementById('verifyBtn');
     
@@ -572,10 +528,10 @@ document.addEventListener('DOMContentLoaded', function() {
             error = '❌ Please enter a valid phone number (min 10 digits)!';
             focusField = phoneInput;
         } else if (token.length !== 8) {
-            error = '❌ Order Token 8 characters ka hona chahiye! (Aapne ' + token.length + ' characters daale)';
+            error = '❌ Order Token 8 characters ka hona chahiye!';
             focusField = tokenInput;
         } else if (otp.length !== 6) {
-            error = '❌ OTP 6 digits ka hona chahiye! (Aapne ' + otp.length + ' digits daale)';
+            error = '❌ OTP 6 digits ka hona chahiye!';
             focusField = otpInput;
         }
         
@@ -590,9 +546,6 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Verifying...';
     });
     
-    // ==========================================
-    // AUTO-FOCUS BASED ON PREFILL
-    // ==========================================
     const isPhonePrefilled = {{ prefill_phone|yesno:"true,false" }};
     const isTokenPrefilled = {{ prefill_token|yesno:"true,false" }};
     
@@ -604,9 +557,6 @@ document.addEventListener('DOMContentLoaded', function() {
         phoneInput.focus();
     }
     
-    // ==========================================
-    // ENTER KEY NAVIGATION
-    // ==========================================
     phoneInput.addEventListener('keypress', function(e) {
         if (e.key === 'Enter') { e.preventDefault(); tokenInput.focus(); }
     });

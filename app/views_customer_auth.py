@@ -667,48 +667,6 @@ def save_payment_method(request):
         return JsonResponse({'success': False, 'message': str(e)})
 
 
-# ============================================
-# 8. PENDING OTPs (Backup)
-# ============================================
-
-def pending_otps_view(request):
-    """Pending OTPs page"""
-    from django.utils.timezone import now
-    
-    pending_otps = CustomerOTP.objects.filter(
-        is_used=False,
-        expires_at__gt=now(),
-    ).exclude(
-        locked_until__gt=now()
-    ).order_by('-created_at')[:50]
-    
-    otp_list = []
-    for otp in pending_otps:
-        phone = otp.phone or ''
-        masked_phone = '****' + phone[-4:] if len(phone) > 4 else phone
-        
-        otp_list.append({
-            'id': otp.id,
-            'masked_phone': masked_phone,
-            'otp_code': otp.otp_code,
-            'order_token': otp.order_token,
-            'customer_name': otp.customer_name or 'Guest',
-            'customer_email': otp.customer_email or 'N/A',
-            'purpose': otp.get_purpose_display(),
-            'created_at': otp.created_at,
-            'expires_in': otp.time_remaining_display,
-            'email_sent': otp.is_sent_to_customer,
-        })
-    
-    company = CompanyInfo.objects.first()
-    
-    context = {
-        'company_name': company.name if company else 'Shop',
-        'pending_otps': otp_list,
-        'total_pending': len(otp_list),
-        'has_otps': len(otp_list) > 0,
-    }
-    return render(request, 'customer_portal/auth/pending_otps.html', context)
 
 
 # ============================================
@@ -819,39 +777,6 @@ def verify_otp_later(request):
     }
     return render(request, 'customer_portal/auth/verify_otp_later.html', context)
 
-
-# ============================================
-# 10. QUICK VERIFY FROM PENDING LIST
-# ============================================
-
-def quick_verify_otp(request, otp_id):
-    """Quick verify from pending list"""
-    from urllib.parse import quote
-    
-    try:
-        otp = CustomerOTP.objects.get(id=otp_id)
-    except CustomerOTP.DoesNotExist:
-        messages.error(request, '❌ OTP not found!')
-        return redirect('pending_otps')
-    
-    if otp.is_used:
-        messages.error(request, '❌ This OTP is already used!')
-        return redirect('pending_otps')
-    
-    if otp.is_expired():
-        messages.error(request, '❌ This OTP has expired!')
-        return redirect('pending_otps')
-    
-    if otp.is_locked():
-        messages.error(request, '🔒 This OTP is locked!')
-        return redirect('pending_otps')
-    
-    phone_encoded = quote(otp.phone or '')
-    token_encoded = quote(otp.order_token or '')
-    
-    return redirect(
-        f"/shop/verify-otp-later/?phone={phone_encoded}&token={token_encoded}"
-    )
 
 
 # ============================================
