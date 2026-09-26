@@ -1235,6 +1235,124 @@
         @media (max-width: 768px) {
             .summary-card { position: static !important; }
         }
+        
+        /* ============================================ */
+        /* ✅ COLLAPSIBLE SIDEBAR SECTIONS              */
+        /* ============================================ */
+        .sidebar-collapse {
+            width: 100%;
+            margin-bottom: 6px;
+        }
+        
+        .sidebar-collapse-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+            color: var(--gray-700);
+            font-size: 0.88rem;
+            font-weight: 600;
+            background: transparent;
+            border: none;
+            width: 100%;
+            text-align: left;
+        }
+        
+        .sidebar-collapse-header:hover {
+            background: var(--gray-50);
+            color: var(--primary);
+        }
+        
+        .sidebar-collapse-header .collapse-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .sidebar-collapse-header .collapse-title i {
+            font-size: 1rem;
+            color: var(--primary);
+            width: 20px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        
+        .sidebar-collapse-header .collapse-arrow {
+            font-size: 0.75rem;
+            color: var(--gray-400);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            flex-shrink: 0;
+        }
+        
+        .sidebar-collapse-header.open .collapse-arrow {
+            transform: rotate(180deg);
+            color: var(--primary);
+        }
+        
+        .sidebar-collapse-header .collapse-count {
+            font-size: 0.7rem;
+            background: var(--gray-100);
+            color: var(--gray-500);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 700;
+            margin-left: auto;
+            margin-right: 8px;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+        
+        .sidebar-collapse-header.open .collapse-count {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+        }
+        
+        .sidebar-collapse-header.has-active {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            color: var(--primary);
+        }
+        
+        .sidebar-collapse-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+        
+        .sidebar-collapse-body.open {
+            max-height: 600px;
+            overflow-y: auto;
+            padding-top: 4px;
+            padding-bottom: 8px;
+        }
+        
+        .sidebar-collapse-body::-webkit-scrollbar { width: 4px; }
+        .sidebar-collapse-body::-webkit-scrollbar-thumb {
+            background: var(--gray-200);
+            border-radius: 10px;
+        }
+        
+        .sidebar-collapse-body .filter-item {
+            font-size: 0.82rem;
+            padding: 7px 10px;
+            margin-bottom: 2px;
+        }
+        
+        .sidebar-collapse-header.has-active .collapse-count {
+            animation: pulse-count 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse-count {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.08); }
+        }
     </style>
     
     {% block extra_css %}{% endblock %}
@@ -1420,89 +1538,116 @@
     
     <div class="sidebar-content">
         
+        <!-- ✅ COLLAPSIBLE CATEGORIES -->
         {% if request.resolver_match.url_name == 'shop_home' and categories %}
-        <div class="sidebar-section">
-            <div class="sidebar-section-title">
-                <div class="title-text">
-                    <i class="bi bi-grid"></i> CATEGORIES
+        <div class="sidebar-collapse" data-section="categories">
+            <button type="button" 
+                    class="sidebar-collapse-header {% if selected_category %}has-active open{% endif %}"
+                    onclick="toggleSidebarCollapse(this)">
+                <div class="collapse-title">
+                    <i class="bi bi-grid"></i>
+                    <span>Categories</span>
                 </div>
+                {% if selected_category %}
+                <span class="collapse-count">1</span>
+                {% else %}
+                <span class="collapse-count">{{ categories|length }}</span>
+                {% endif %}
+                <i class="bi bi-chevron-down collapse-arrow"></i>
+            </button>
+            
+            <div class="sidebar-collapse-body {% if selected_category %}open{% endif %}">
+                <a href="?{% if search %}search={{ search }}&{% endif %}{% if selected_brand %}brand={{ selected_brand }}&{% endif %}{% if selected_sort %}sort={{ selected_sort }}{% endif %}"
+                   class="filter-item {% if not selected_category %}active{% endif %}">
+                    <span class="filter-dot"></span>
+                    All Categories
+                </a>
+                
+                {% for cat in categories %}
+                <a href="?category={{ cat.id }}{% if search %}&search={{ search }}{% endif %}{% if selected_brand %}&brand={{ selected_brand }}{% endif %}{% if selected_sort %}&sort={{ selected_sort }}{% endif %}"
+                   class="filter-item {% if selected_category == cat.id|stringformat:'s' %}active{% endif %}">
+                    <span class="filter-dot"></span>
+                    {{ cat.name }}
+                </a>
+                {% endfor %}
             </div>
-            
-            <a href="?{% if search %}search={{ search }}&{% endif %}{% if selected_brand %}brand={{ selected_brand }}&{% endif %}{% if selected_sort %}sort={{ selected_sort }}{% endif %}"
-               class="filter-item {% if not selected_category %}active{% endif %}">
-                <span class="filter-dot"></span>
-                All Categories
-            </a>
-            
-            {% for cat in categories %}
-            <a href="?category={{ cat.id }}{% if search %}&search={{ search }}{% endif %}{% if selected_brand %}&brand={{ selected_brand }}{% endif %}{% if selected_sort %}&sort={{ selected_sort }}{% endif %}"
-               class="filter-item {% if selected_category == cat.id|stringformat:'s' %}active{% endif %}">
-                <span class="filter-dot"></span>
-                {{ cat.name }}
-            </a>
-            {% endfor %}
         </div>
-        
-        <div class="sidebar-divider"></div>
         {% endif %}
         
+        <!-- ✅ COLLAPSIBLE BRANDS -->
         {% if request.resolver_match.url_name == 'shop_home' and brands %}
-        <div class="sidebar-section">
-            <div class="sidebar-section-title">
-                <div class="title-text">
-                    <i class="bi bi-award"></i> BRANDS
+        <div class="sidebar-collapse" data-section="brands">
+            <button type="button" 
+                    class="sidebar-collapse-header {% if selected_brand %}has-active open{% endif %}"
+                    onclick="toggleSidebarCollapse(this)">
+                <div class="collapse-title">
+                    <i class="bi bi-award"></i>
+                    <span>Brands</span>
                 </div>
+                {% if selected_brand %}
+                <span class="collapse-count">1</span>
+                {% else %}
+                <span class="collapse-count">{{ brands|length }}</span>
+                {% endif %}
+                <i class="bi bi-chevron-down collapse-arrow"></i>
+            </button>
+            
+            <div class="sidebar-collapse-body {% if selected_brand %}open{% endif %}">
+                <a href="?{% if search %}search={{ search }}&{% endif %}{% if selected_category %}category={{ selected_category }}&{% endif %}{% if selected_sort %}sort={{ selected_sort }}{% endif %}"
+                   class="filter-item {% if not selected_brand %}active{% endif %}">
+                    <span class="filter-dot"></span>
+                    All Brands
+                </a>
+                
+                {% for brand in brands %}
+                <a href="?brand={{ brand.id }}{% if search %}&search={{ search }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if selected_sort %}&sort={{ selected_sort }}{% endif %}"
+                   class="filter-item {% if selected_brand == brand.id|stringformat:'s' %}active{% endif %}">
+                    <span class="filter-dot"></span>
+                    {{ brand.name }}
+                </a>
+                {% endfor %}
             </div>
-            
-            <a href="?{% if search %}search={{ search }}&{% endif %}{% if selected_category %}category={{ selected_category }}&{% endif %}{% if selected_sort %}sort={{ selected_sort }}{% endif %}"
-               class="filter-item {% if not selected_brand %}active{% endif %}">
-                <span class="filter-dot"></span>
-                All Brands
-            </a>
-            
-            {% for brand in brands %}
-            <a href="?brand={{ brand.id }}{% if search %}&search={{ search }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if selected_sort %}&sort={{ selected_sort }}{% endif %}"
-               class="filter-item {% if selected_brand == brand.id|stringformat:'s' %}active{% endif %}">
-                <span class="filter-dot"></span>
-                {{ brand.name }}
-            </a>
-            {% endfor %}
         </div>
-        
-        <div class="sidebar-divider"></div>
         {% endif %}
         
+        <!-- ✅ COLLAPSIBLE SORT BY -->
         {% if request.resolver_match.url_name == 'shop_home' %}
-        <div class="sidebar-section">
-            <div class="sidebar-section-title">
-                <div class="title-text">
-                    <i class="bi bi-sort-down"></i> SORT BY
+        <div class="sidebar-collapse" data-section="sort">
+            <button type="button" 
+                    class="sidebar-collapse-header {% if selected_sort and selected_sort != 'newest' %}has-active open{% endif %}"
+                    onclick="toggleSidebarCollapse(this)">
+                <div class="collapse-title">
+                    <i class="bi bi-sort-down"></i>
+                    <span>Sort By</span>
                 </div>
+                <i class="bi bi-chevron-down collapse-arrow"></i>
+            </button>
+            
+            <div class="sidebar-collapse-body {% if selected_sort and selected_sort != 'newest' %}open{% endif %}">
+                <a href="?{% if search %}search={{ search }}&{% endif %}{% if selected_category %}category={{ selected_category }}&{% endif %}{% if selected_brand %}brand={{ selected_brand }}&{% endif %}sort=newest"
+                   class="filter-item {% if selected_sort == 'newest' or not selected_sort %}active{% endif %}">
+                    <i class="bi bi-stars" style="margin-right: 12px; font-size: 0.9rem;"></i>
+                    Newest First
+                </a>
+                
+                <a href="?{% if search %}search={{ search }}&{% endif %}{% if selected_category %}category={{ selected_category }}&{% endif %}{% if selected_brand %}brand={{ selected_brand }}&{% endif %}sort=price_low"
+                   class="filter-item {% if selected_sort == 'price_low' %}active{% endif %}">
+                    <i class="bi bi-arrow-down" style="margin-right: 12px; font-size: 0.9rem;"></i>
+                    Price: Low to High
+                </a>
+                
+                <a href="?{% if search %}search={{ search }}&{% endif %}{% if selected_category %}category={{ selected_category }}&{% endif %}{% if selected_brand %}brand={{ selected_brand }}&{% endif %}sort=price_high"
+                   class="filter-item {% if selected_sort == 'price_high' %}active{% endif %}">
+                    <i class="bi bi-arrow-up" style="margin-right: 12px; font-size: 0.9rem;"></i>
+                    Price: High to Low
+                </a>
+                
+                <a href="?{% if search %}search={{ search }}&{% endif %}{% if selected_category %}category={{ selected_category }}&{% endif %}{% if selected_brand %}brand={{ selected_brand }}&{% endif %}sort=name"
+                   class="filter-item {% if selected_sort == 'name' %}active{% endif %}">
+                    <i class="bi bi-sort-alpha-down" style="margin-right: 12px; font-size: 0.9rem;"></i>
+                    Name (A-Z)
+                </a>
             </div>
-            
-            <a href="?{% if search %}search={{ search }}&{% endif %}{% if selected_category %}category={{ selected_category }}&{% endif %}{% if selected_brand %}brand={{ selected_brand }}&{% endif %}sort=newest"
-               class="filter-item {% if selected_sort == 'newest' or not selected_sort %}active{% endif %}">
-                <i class="bi bi-stars" style="margin-right: 12px; font-size: 0.9rem;"></i>
-                Newest First
-            </a>
-            
-            <a href="?{% if search %}search={{ search }}&{% endif %}{% if selected_category %}category={{ selected_category }}&{% endif %}{% if selected_brand %}brand={{ selected_brand }}&{% endif %}sort=price_low"
-               class="filter-item {% if selected_sort == 'price_low' %}active{% endif %}">
-                <i class="bi bi-arrow-down" style="margin-right: 12px; font-size: 0.9rem;"></i>
-                Price: Low to High
-            </a>
-            
-            <a href="?{% if search %}search={{ search }}&{% endif %}{% if selected_category %}category={{ selected_category }}&{% endif %}{% if selected_brand %}brand={{ selected_brand }}&{% endif %}sort=price_high"
-               class="filter-item {% if selected_sort == 'price_high' %}active{% endif %}">
-                <i class="bi bi-arrow-up" style="margin-right: 12px; font-size: 0.9rem;"></i>
-                Price: High to Low
-            </a>
-            
-            <a href="?{% if search %}search={{ search }}&{% endif %}{% if selected_category %}category={{ selected_category }}&{% endif %}{% if selected_brand %}brand={{ selected_brand }}&{% endif %}sort=name"
-               class="filter-item {% if selected_sort == 'name' %}active{% endif %}">
-                <i class="bi bi-sort-alpha-down" style="margin-right: 12px; font-size: 0.9rem;"></i>
-                Name (A-Z)
-            </a>
         </div>
         
         {% if search or selected_category or selected_brand or selected_sort %}
@@ -1511,10 +1656,11 @@
             Clear All Filters
         </a>
         {% endif %}
-        
-        <div class="sidebar-divider"></div>
         {% endif %}
         
+        <div class="sidebar-divider"></div>
+        
+        <!-- ✅ MAIN MENU -->
         <div class="sidebar-section">
             <div class="sidebar-section-title">
                 <div class="title-text">
@@ -1574,6 +1720,7 @@
         
         <div class="sidebar-divider"></div>
         
+        <!-- ✅ ACCOUNT -->
         <div class="sidebar-section">
             <div class="sidebar-section-title">
                 <div class="title-text">
@@ -1629,6 +1776,7 @@
         
         <div class="sidebar-divider"></div>
         
+        <!-- ✅ SUPPORT -->
         <div class="sidebar-section">
             <div class="sidebar-section-title">
                 <div class="title-text">
@@ -1768,6 +1916,25 @@ function toggleShopSidebar() {
     }
 }
 
+/* ============================================ */
+/* ✅ TOGGLE SIDEBAR COLLAPSE                    */
+/* ============================================ */
+function toggleSidebarCollapse(button) {
+    const header = button;
+    const body = header.nextElementSibling;
+    
+    if (!body) return;
+    
+    header.classList.toggle('open');
+    body.classList.toggle('open');
+    
+    const section = header.closest('.sidebar-collapse')?.dataset.section;
+    if (section) {
+        const isOpen = body.classList.contains('open');
+        localStorage.setItem(`sidebar_${section}_open`, isOpen ? 'true' : 'false');
+    }
+}
+
 /* Escape key closes sidebar */
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
@@ -1781,6 +1948,24 @@ document.addEventListener('keydown', function(e) {
 /* Reset scroll + fetch cart count on load */
 document.addEventListener('DOMContentLoaded', function() {
     document.body.style.overflow = '';
+    
+    /* ✅ Restore collapsible state from localStorage */
+    document.querySelectorAll('.sidebar-collapse').forEach(function(collapse) {
+        const section = collapse.dataset.section;
+        const body = collapse.querySelector('.sidebar-collapse-body');
+        const header = collapse.querySelector('.sidebar-collapse-header');
+        
+        if (!section || !body || !header) return;
+        
+        const savedState = localStorage.getItem(`sidebar_${section}_open`);
+        const hasActive = header.classList.contains('has-active');
+        
+        // Agar filter active hai ya localStorage mein open hai to kholo
+        if (savedState === 'true' || hasActive) {
+            header.classList.add('open');
+            body.classList.add('open');
+        }
+    });
     
     fetch('/shop/api/cart-count/')
         .then(r => r.json())
