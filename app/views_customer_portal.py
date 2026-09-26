@@ -765,7 +765,12 @@ from decimal import Decimal
 import logging
 
 # Email helper functions import karein
-from .email_helper import send_customer_order_email, send_admin_order_notification
+#from .email_helper import send_customer_order_email, send_admin_order_notification
+
+from app.utils.email_helper import send_customer_order_email, send_admin_order_notification
+# Ya phir relative import:
+# from .utils.email_helper import send_customer_order_email, send_admin_order_notification
+
 
 logger = logging.getLogger(__name__)
 
