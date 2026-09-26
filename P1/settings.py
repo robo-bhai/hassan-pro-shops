@@ -235,14 +235,28 @@ else:
     # Standard Server / Cloud Storage ke liye Cloudinary
     DEFAULT_FILE_STORAGE_BACKEND = "cloudinary_storage.storage.MediaCloudinaryStorage"
 
+
+#((((--++(++++)))))
+
+
+# Backward compatibility & fix for missing files crash during collectstatic
+STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
+
 STORAGES = {
     "default": {
         "BACKEND": DEFAULT_FILE_STORAGE_BACKEND,
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
+
+
+
+
+##()++(+:&&&:&-)
+
+
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
