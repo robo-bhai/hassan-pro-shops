@@ -40,7 +40,50 @@ class ShareholderRestrictionMiddleware:
         
         response = self.get_response(request)
         return response
+
+
+# ============================================
+# ✅ NEW: LIVE VISITOR TRACKING MIDDLEWARE
+# ============================================
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class LiveVisitorMiddleware:
+    """
+    Track live visitors on customer portal (shop) pages
+    
+    Features:
+    - Har visitor ko 1 minute ke liye "active" mark karta hai
+    - Sirf /shop/ se start hone wali pages track karta hai
+    - 5 minute purane visitors auto-delete
+    - Error-safe: agar koi masla ho to request block nahi hoti
+    """
+    
+    def __init__(self, get_response):
+        self.get_response = get_response
+    
+    def __call__(self, request):
+        # ✅ Sirf shop pages par track karo
+        if request.path.startswith('/shop/'):
+            try:
+                # Lazy import (circular import se bachne ke liye)
+                from .models import LiveVisitor
+                LiveVisitor.track_visitor(request)
+            except Exception as e:
+                # Silent fail - request ko block nahi karna
+                logger.error(f"Live visitor tracking error: {e}")
         
+        response = self.get_response(request)
+        return response
+
+
+# ============================================
+# SECURITY MIDDLEWARE
+# ============================================
+
 from django.http import JsonResponse
 from django.utils.timezone import now
 from django.shortcuts import redirect

@@ -1,0 +1,212 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Batch Sale Report - {{ batch.product.name }}{% endblock %}
+
+{% block content %}
+
+<div class="container py-4">
+    
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="mb-0">
+                <i class="bi bi-box-seam-fill text-primary"></i> 
+                Batch Sale Report
+            </h3>
+            <p class="text-muted mb-0">{{ batch.product.name }}</p>
+        </div>
+        <a href="{% url 'batch_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
+    </div>
+    
+    <!-- Batch Info Card -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <small class="text-muted">Batch ID</small>
+                    <h5 class="mb-0">#{{ batch.id }}</h5>
+                </div>
+                <div class="col-md-3">
+                    <small class="text-muted">Cost Price</small>
+                    <h5 class="mb-0">Rs. {{ batch.price|floatformat:2 }}</h5>
+                </div>
+                <div class="col-md-3">
+                    <small class="text-muted">Selling Price</small>
+                    <h5 class="mb-0">Rs. {{ batch.selling_price|floatformat:2 }}</h5>
+                </div>
+                <div class="col-md-3">
+                    <small class="text-muted">Warehouse</small>
+                    <h5 class="mb-0">{{ batch.warehouse.name }}</h5>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Summary Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm" style="border-left: 4px solid #667eea;">
+                <div class="card-body">
+                    <small class="text-muted">Total Qty Sold</small>
+                    <h3 class="mb-0">{{ batch_summary.sold_qty|floatformat:0 }}</h3>
+                    <small class="text-muted">of {{ batch_summary.original_qty|floatformat:0 }}</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm" style="border-left: 4px solid #10b981;">
+                <div class="card-body">
+                    <small class="text-muted">Total Sale Amount</small>
+                    <h3 class="mb-0 text-success">Rs. {{ batch_summary.sold_value|floatformat:2 }}</h3>
+                    <small class="text-muted">{{ stats.total_orders }} orders</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm" style="border-left: 4px solid #f59e0b;">
+                <div class="card-body">
+                    <small class="text-muted">Total Profit</small>
+                    <h3 class="mb-0 text-warning">Rs. {{ batch_summary.total_profit|floatformat:2 }}</h3>
+                    <small class="text-muted">{{ batch_summary.profit_margin|floatformat:1 }}% margin</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm" style="border-left: 4px solid #ef4444;">
+                <div class="card-body">
+                    <small class="text-muted">Remaining Stock</small>
+                    <h3 class="mb-0 text-danger">{{ batch_summary.remaining_qty|floatformat:0 }}</h3>
+                    <small class="text-muted">Value: Rs. {{ batch_summary.remaining_value|floatformat:2 }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Daily Summary -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">
+                <i class="bi bi-calendar-check text-primary"></i> Daily Summary
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th>Date</th>
+                        <th class="text-center">Qty Sold</th>
+                        <th class="text-end">Sale Amount</th>
+                        <th class="text-end">Profit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for day in daily_summary %}
+                    <tr>
+                        <td>{{ day.sale__sale_date__date|date:"d-m-Y" }}</td>
+                        <td class="text-center">{{ day.qty|floatformat:0 }}</td>
+                        <td class="text-end">Rs. {{ day.amount|floatformat:2 }}</td>
+                        <td class="text-end text-success">Rs. {{ day.profit|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-4">
+                            Abhi tak koi sale nahi hui
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Customer-wise Summary -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">
+                <i class="bi bi-people-fill text-primary"></i> Customer-wise Summary
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th>Customer</th>
+                        <th class="text-center">Orders</th>
+                        <th class="text-center">Qty</th>
+                        <th class="text-end">Amount</th>
+                        <th class="text-end">Profit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for customer in customer_summary %}
+                    <tr>
+                        <td>{{ customer.sale__customer__name }}</td>
+                        <td class="text-center">{{ customer.orders }}</td>
+                        <td class="text-center">{{ customer.qty|floatformat:0 }}</td>
+                        <td class="text-end">Rs. {{ customer.amount|floatformat:2 }}</td>
+                        <td class="text-end text-success">Rs. {{ customer.profit|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-4">
+                            Abhi tak koi sale nahi hui
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Detailed Sales List -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">
+                <i class="bi bi-list-ul text-primary"></i> All Sales
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th>Date</th>
+                        <th>Bill No</th>
+                        <th>Customer</th>
+                        <th class="text-center">Qty</th>
+                        <th class="text-end">Price</th>
+                        <th class="text-end">Total</th>
+                        <th class="text-end">Profit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in sales_items %}
+                    <tr>
+                        <td>{{ item.sale.sale_date|date:"d-m-Y" }}</td>
+                        <td>{{ item.sale.bill_no }}</td>
+                        <td>{{ item.sale.customer.name }}</td>
+                        <td class="text-center">{{ item.qty|floatformat:0 }}</td>
+                        <td class="text-end">Rs. {{ item.price|floatformat:2 }}</td>
+                        <td class="text-end">Rs. {{ item.total_amt|floatformat:2 }}</td>
+                        <td class="text-end text-success">Rs. {{ item.profit|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">
+                            Abhi tak koi sale nahi hui
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+</div>
+
+{% endblock %}

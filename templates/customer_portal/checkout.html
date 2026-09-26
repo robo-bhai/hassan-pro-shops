@@ -339,7 +339,7 @@
                     <div class="section-body">
                         
                         <!-- Step 1: Send OTP -->
-                        <div id="otp-step-1">
+                        <div id="otp-step-1" style="{% if otp_is_active %}display:none;{% endif %}">
                             <div class="alert alert-info mb-3">
                                 <i class="bi bi-info-circle-fill"></i>
                                 <strong>Order place karne ke liye OTP verify karein</strong>
@@ -358,7 +358,7 @@
                         </div>
                         
                         <!-- Step 2: Verify OTP -->
-                        <div id="otp-step-2" style="display: none;">
+                        <div id="otp-step-2" style="{% if otp_is_active %}display:block;{% else %}display:none;{% endif %}">
                             <div class="alert alert-success mb-3">
                                 <i class="bi bi-check-circle-fill"></i>
                                 <strong>OTP bhej diya gaya hai!</strong>
@@ -501,11 +501,16 @@
 {% block extra_js %}
 <script>
 /* ============================================ */
-/* GLOBAL VARIABLES - ✅ 5 MINUTE TIMER         */
+/* ✅ REFRESH-PROOF COUNTDOWN TIMER             */
 /* ============================================ */
+
+// Server se aane wala remaining time (agar page refresh hua ho)
+const SERVER_REMAINING_SECONDS = {{ otp_remaining_seconds|default:0 }};
+const OTP_IS_ACTIVE = {{ otp_is_active|yesno:"true,false" }};
+
 let countdownInterval = null;
-let remainingSeconds = 300;        // ✅ 5 minute = 300 seconds
-const COUNTDOWN_SECONDS = 300;     // ✅ 5 minute
+let remainingSeconds = SERVER_REMAINING_SECONDS || 300;
+const COUNTDOWN_SECONDS = 300;  // 5 minutes
 
 function getCookie(name) {
     let cookieValue = null;
@@ -527,6 +532,7 @@ function getCookie(name) {
 // ============================================
 document.addEventListener('DOMContentLoaded', function() {
     
+    // Payment method selection
     const paymentRadios = document.querySelectorAll('input[name="payment_method"]');
     paymentRadios.forEach(radio => {
         radio.addEventListener('change', function() {
@@ -549,6 +555,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
+    // OTP input handling
     const otpInput = document.getElementById('otp-code');
     if (otpInput) {
         otpInput.addEventListener('input', function() {
@@ -563,6 +570,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 verifyOTP();
             }
         });
+    }
+    
+    // ========================================== //
+    // ✅ AUTO-RESUME COUNTDOWN ON PAGE REFRESH    //
+    // ========================================== //
+    if (OTP_IS_ACTIVE && SERVER_REMAINING_SECONDS > 0) {
+        // Server se aaya hai time - countdown resume karo
+        console.log('Resuming countdown from server:', SERVER_REMAINING_SECONDS, 'seconds');
+        resumeCountdown(SERVER_REMAINING_SECONDS);
+    } else if (OTP_IS_ACTIVE) {
+        // Fallback: localStorage se check karo
+        const storedExpiry = localStorage.getItem('otp_expires_at');
+        if (storedExpiry) {
+            const remaining = Math.floor((parseInt(storedExpiry) - Date.now()) / 1000);
+            if (remaining > 0) {
+                console.log('Resuming countdown from localStorage:', remaining, 'seconds');
+                resumeCountdown(remaining);
+            } else {
+                localStorage.removeItem('otp_expires_at');
+            }
+        }
     }
 });
 
@@ -603,6 +631,8 @@ function placeOrderTrusted() {
     .then(data => {
         if (data.success) {
             btn.innerHTML = '<i class="bi bi-check-circle-fill"></i> Placed!';
+            // Clear localStorage
+            localStorage.removeItem('otp_expires_at');
             setTimeout(() => {
                 window.location.href = data.redirect_url;
             }, 500);
@@ -646,8 +676,12 @@ function sendOTP() {
                 document.getElementById('otp-step-1').style.display = 'none';
                 document.getElementById('otp-step-2').style.display = 'block';
                 
+                // ✅ localStorage mein save karo (refresh-proof)
+                const expiresAt = Date.now() + (5 * 60 * 1000);
+                localStorage.setItem('otp_expires_at', expiresAt);
+                
                 // ✅ Start countdown (5 min)
-                startCountdown();
+                startCountdown(COUNTDOWN_SECONDS);
                 
                 setTimeout(() => {
                     document.getElementById('otp-code').focus();
@@ -667,15 +701,17 @@ function sendOTP() {
 }
 
 // ============================================
-// ✅ COUNTDOWN TIMER (5 MINUTE)
+// ✅ START COUNTDOWN
 // ============================================
-function startCountdown() {
+function startCountdown(seconds) {
     if (countdownInterval) clearInterval(countdownInterval);
     
-    remainingSeconds = COUNTDOWN_SECONDS;
+    remainingSeconds = seconds;
     
     const timerBox = document.getElementById('timerBox');
     const resendBtn = document.getElementById('resendOtpBtn');
+    
+    if (!timerBox || !resendBtn) return;
     
     timerBox.classList.remove('expired');
     resendBtn.style.display = 'none';
@@ -695,9 +731,26 @@ function startCountdown() {
     }, 1000);
 }
 
+// ============================================
+// ✅ RESUME COUNTDOWN (AFTER REFRESH)
+// ============================================
+function resumeCountdown(seconds) {
+    // Step 2 dikhao
+    const step1 = document.getElementById('otp-step-1');
+    const step2 = document.getElementById('otp-step-2');
+    
+    if (step1) step1.style.display = 'none';
+    if (step2) step2.style.display = 'block';
+    
+    // Countdown start karo
+    startCountdown(seconds);
+}
+
 // ✅ 5 MINUTE FORMAT (M:SS)
 function updateTimerDisplay(seconds) {
     const timerText = document.getElementById('timerText');
+    if (!timerText) return;
+    
     if (seconds > 0) {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
@@ -712,9 +765,12 @@ function onCountdownComplete() {
     const timerText = document.getElementById('timerText');
     const resendBtn = document.getElementById('resendOtpBtn');
     
-    timerBox.classList.add('expired');
-    timerText.textContent = "Didn't receive?";
-    resendBtn.style.display = 'inline-flex';
+    if (timerBox) timerBox.classList.add('expired');
+    if (timerText) timerText.textContent = "Didn't receive?";
+    if (resendBtn) resendBtn.style.display = 'inline-flex';
+    
+    // localStorage clear karo
+    localStorage.removeItem('otp_expires_at');
 }
 
 // ============================================
@@ -745,8 +801,12 @@ function resendOTP() {
             document.getElementById('otp-code').value = '';
             document.getElementById('otp-code').focus();
             
+            // ✅ localStorage update karo
+            const expiresAt = Date.now() + (5 * 60 * 1000);
+            localStorage.setItem('otp_expires_at', expiresAt);
+            
             // ✅ Restart countdown (5 min)
-            startCountdown();
+            startCountdown(COUNTDOWN_SECONDS);
             
             setTimeout(() => { errorBox.innerHTML = ''; }, 3000);
         } else {
@@ -796,6 +856,12 @@ function verifyOTP() {
             statusDiv.style.color = 'green';
             statusDiv.innerHTML = '✅ OTP Verified! Order place ho raha hai...';
             
+            // localStorage clear karo
+            localStorage.removeItem('otp_expires_at');
+            
+            // Timer stop karo
+            if (countdownInterval) clearInterval(countdownInterval);
+            
             setTimeout(() => {
                 window.location.href = data.redirect_url || '/shop/';
             }, 500);
@@ -820,5 +886,12 @@ function verifyOTP() {
         btn.disabled = false;
     });
 }
+
+// ============================================
+// ✅ CLEANUP ON PAGE UNLOAD
+// ============================================
+window.addEventListener('beforeunload', function() {
+    if (countdownInterval) clearInterval(countdownInterval);
+});
 </script>
 {% endblock %}

@@ -2,9 +2,11 @@
 Customer Portal Views — Complete with All Features
 ====================================================
 ✅ Cart awareness
-✅ Discount calculation
+✅ Discount calculation (FIXED)
 ✅ Recently viewed tracking (with batch prices)
+✅ Live visitor count
 ✅ Image zoom support
+✅ OTP countdown (refresh-proof)
 """
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -25,7 +27,8 @@ from .models import (
     Customer, CustomerProfile, CustomerOTP, CustomerAddress,
     SaleOrder, SaleOrderItem, Sale, Warehouse,
     CustomerOrder, CustomerOrderItem, OrderStatusHistory,
-    Notification, Inventory, StockBatch, RecentlyViewed
+    Notification, Inventory, StockBatch, RecentlyViewed,
+    LiveVisitor
 )
 
 from .decorators import customer_login_required
@@ -135,18 +138,44 @@ def check_otp_verified(request):
     return order_verified
 
 
+def get_otp_remaining_seconds(request):
+    """
+    ✅ NEW: OTP ka remaining time calculate karo (refresh-proof)
+    Returns: (remaining_seconds, otp_object)
+    """
+    otp_phone = request.session.get('order_otp_phone')
+    
+    if not otp_phone:
+        return 0, None
+    
+    try:
+        latest_otp = CustomerOTP.objects.filter(
+            phone=otp_phone,
+            purpose='order',
+            is_used=False
+        ).order_by('-created_at').first()
+        
+        if latest_otp and latest_otp.expires_at > now():
+            delta = latest_otp.expires_at - now()
+            remaining = max(0, int(delta.total_seconds()))
+            return remaining, latest_otp
+        
+        return 0, latest_otp
+    except Exception as e:
+        logger.error(f"OTP remaining calc error: {e}")
+        return 0, None
+
+
 def enrich_recently_viewed_with_prices(recently_viewed):
     """
     ✅ Helper: Recently viewed products ke liye batch price aur stock calculate karo
-    
-    Yeh helper function dono jagah use hoga (shop_home aur product_detail)
+    ✅ NEW: Discount bhi apply karo
     """
     if not recently_viewed:
         return recently_viewed
     
     rv_product_ids = [p.id for p in recently_viewed]
     
-    # ✅ Batch prices fetch (1 query)
     rv_batch_prices = StockBatch.objects.filter(
         product_id__in=rv_product_ids,
         remaining_qty__gt=0,
@@ -156,7 +185,6 @@ def enrich_recently_viewed_with_prices(recently_viewed):
     )
     rv_price_map = {bp['product_id']: bp['best_price'] for bp in rv_batch_prices}
     
-    # ✅ Stock fetch (1 query)
     rv_stocks = Inventory.objects.filter(
         product_id__in=rv_product_ids
     ).values('product_id').annotate(
@@ -164,16 +192,25 @@ def enrich_recently_viewed_with_prices(recently_viewed):
     )
     rv_stock_map = {s['product_id']: s['total_stock'] or 0 for s in rv_stocks}
     
-    # ✅ Apply to each product
     for product in recently_viewed:
+        # ✅ Base price determine karo
         if product.id in rv_price_map:
-            product.price = rv_price_map[product.id]
+            base_price = rv_price_map[product.id]
             product.has_batch_price = True
         else:
-            # Fallback: Original product.price (agar batch nahi mila)
+            base_price = product.price
             product.has_batch_price = False
-            if not product.price or product.price == 0:
-                product.price = 0
+        
+        # ✅ Discount apply karo
+        if product.discount_percentage and product.discount_percentage > 0:
+            product.original_price = base_price
+            discount_amount = base_price * (product.discount_percentage / Decimal('100'))
+            product.price = base_price - discount_amount
+            product.has_discount = True
+        else:
+            product.price = base_price
+            product.has_discount = False
+            product.original_price = base_price
         
         product.available_stock = rv_stock_map.get(product.id, 0)
     
@@ -264,37 +301,42 @@ def shop_home(request):
         except (ValueError, TypeError):
             pass
     
-    # Apply to products
+    # ========================================== #
+    # ✅ Apply Discount & Stock to products       #
+    # ========================================== #
     for product in page_obj:
         product.available_stock = product.total_stock or 0
         
+        # Base price determine karo
         if product.id in batch_price_map:
-            product.price = batch_price_map[product.id]
+            base_price = batch_price_map[product.id]
             product.has_batch_price = True
         else:
+            base_price = product.price
             product.has_batch_price = False
         
-        # Discount
+        # ✅ Discount price calculation
         if product.discount_percentage and product.discount_percentage > 0:
-            if product.original_price and product.original_price > 0:
-                product.discount_amount = round(
-                    float(product.original_price) - float(product.price), 2
-                )
-            else:
-                original = float(product.price) / (1 - float(product.discount_percentage) / 100)
-                product.original_price = round(original, 2)
-                product.discount_amount = round(original - float(product.price), 2)
+            product.original_price = base_price
+            discount_amount = base_price * (product.discount_percentage / Decimal('100'))
+            product.price = base_price - discount_amount
+            product.discount_amount = discount_amount
             product.has_discount = True
         else:
+            product.price = base_price
             product.has_discount = False
+            product.original_price = base_price
         
         # Cart awareness
         product.in_cart = product.id in cart_product_ids
         product.cart_quantity = cart_quantities.get(product.id, 0)
     
-    # ✅ Recently viewed — with batch prices (FIXED)
+    # ✅ Recently viewed — with batch prices
     recently_viewed = RecentlyViewed.get_recently_viewed(request, limit=8)
     recently_viewed = enrich_recently_viewed_with_prices(recently_viewed)
+    
+    # ✅ Live visitor count
+    live_visitor_count = LiveVisitor.get_active_count(seconds=60)
     
     company = CompanyInfo.objects.first()
     
@@ -312,6 +354,7 @@ def shop_home(request):
         'total_products': paginator.count,
         'cart_count': get_cart_count_value(request),
         'recently_viewed': recently_viewed,
+        'live_visitor_count': live_visitor_count,
     }
     return render(request, 'customer_portal/shop.html', context)
 
@@ -339,7 +382,7 @@ def product_detail(request, pk):
     )['total'] or 0
     product.available_stock = total_stock
     
-    # Batch price
+    # ✅ Base price determine karo
     batch = StockBatch.objects.filter(
         product=product,
         remaining_qty__gt=0,
@@ -347,32 +390,30 @@ def product_detail(request, pk):
     ).order_by('id').first()
     
     if batch:
-        product.price = batch.selling_price
+        base_price = batch.selling_price
         product.has_batch_price = True
     else:
+        base_price = product.price
         product.has_batch_price = False
     
-    # Discount
+    # ✅ Discount price calculation
     if product.discount_percentage and product.discount_percentage > 0:
-        if product.original_price and product.original_price > 0:
-            product.discount_amount = round(
-                float(product.original_price) - float(product.price), 2
-            )
-        else:
-            original = float(product.price) / (1 - float(product.discount_percentage) / 100)
-            product.original_price = round(original, 2)
-            product.discount_amount = round(original - float(product.price), 2)
+        product.original_price = base_price
+        discount_amount = base_price * (product.discount_percentage / Decimal('100'))
+        product.price = base_price - discount_amount
+        product.discount_amount = discount_amount
         product.has_discount = True
     else:
+        product.price = base_price
         product.has_discount = False
+        product.original_price = base_price
     
-    # Related products — with batch prices
+    # Related products
     related = Product.objects.filter(
         Q(category=product.category) | Q(brand=product.brand),
         is_active=True
     ).exclude(id=product.id).select_related('category', 'brand')[:8]
     
-    # ✅ Related products ke liye bhi batch prices fetch karo
     if related:
         related_ids = [p.id for p in related]
         
@@ -394,13 +435,25 @@ def product_detail(request, pk):
         
         for rp in related:
             if rp.id in related_price_map:
-                rp.price = related_price_map[rp.id]
+                rp_base_price = related_price_map[rp.id]
                 rp.has_batch_price = True
             else:
+                rp_base_price = rp.price
                 rp.has_batch_price = False
+            
+            if rp.discount_percentage and rp.discount_percentage > 0:
+                rp.original_price = rp_base_price
+                rp_discount = rp_base_price * (rp.discount_percentage / Decimal('100'))
+                rp.price = rp_base_price - rp_discount
+                rp.has_discount = True
+            else:
+                rp.price = rp_base_price
+                rp.has_discount = False
+                rp.original_price = rp_base_price
+            
             rp.available_stock = related_stock_map.get(rp.id, 0)
     
-    # ✅ Recently viewed — with batch prices (FIXED)
+    # Recently viewed
     recently_viewed = RecentlyViewed.get_recently_viewed(request, limit=8)
     recently_viewed = enrich_recently_viewed_with_prices(recently_viewed)
     
@@ -452,13 +505,24 @@ def add_to_cart(request):
         if total_stock <= 0:
             return JsonResponse({'success': False, 'message': 'Yeh product out of stock hai'})
         
+        # ✅ Base price
         batch = StockBatch.objects.filter(
             product=product,
             remaining_qty__gt=0,
             selling_price__gt=0
         ).order_by('id').first()
         
-        price = float(batch.selling_price) if batch else float(product.price)
+        if batch:
+            base_price = batch.selling_price
+        else:
+            base_price = product.price
+        
+        # ✅ Discount apply
+        if product.discount_percentage and product.discount_percentage > 0:
+            discount_amount = base_price * (product.discount_percentage / Decimal('100'))
+            final_price = base_price - discount_amount
+        else:
+            final_price = base_price
         
         cart = request.session.get('cart', {})
         product_key = str(product_id)
@@ -471,6 +535,7 @@ def add_to_cart(request):
                     'message': f'Sirf {int(total_stock)} units available hain'
                 })
             cart[product_key]['quantity'] = new_qty
+            cart[product_key]['price'] = float(final_price)
         else:
             if quantity > total_stock:
                 return JsonResponse({
@@ -480,7 +545,7 @@ def add_to_cart(request):
             cart[product_key] = {
                 'product_id': product.id,
                 'name': product.name,
-                'price': price,
+                'price': float(final_price),
                 'quantity': quantity,
                 'image': product.image.url if product.image else None,
             }
@@ -602,12 +667,12 @@ def remove_from_cart(request, product_id):
 
 
 # ============================================
-# 7. CHECKOUT
+# 7. CHECKOUT (WITH OTP COUNTDOWN)
 # ============================================
 
 @customer_login_required
 def checkout(request):
-    """Checkout page"""
+    """Checkout page with OTP countdown (refresh-proof)"""
     cart = request.session.get('cart', {})
     if not cart:
         messages.warning(request, 'Cart khali hai!')
@@ -634,6 +699,27 @@ def checkout(request):
     
     order_verified = check_otp_verified(request)
     
+    # ========================================== #
+    # ✅ OTP COUNTDOWN (Refresh-Proof)            #
+    # ========================================== #
+    otp_remaining_seconds, otp_obj = get_otp_remaining_seconds(request)
+    otp_is_active = otp_remaining_seconds > 0 and not order_verified
+    
+    # Agar OTP verified hai to countdown band karo
+    if order_verified:
+        otp_remaining_seconds = 0
+        otp_is_active = False
+    
+    # ✅ Masked email for display
+    otp_masked_email = ''
+    if otp_obj and customer.email:
+        email = customer.email
+        if '@' in email:
+            name, domain = email.split('@')
+            otp_masked_email = f"{name[:2]}***@{domain}"
+        else:
+            otp_masked_email = email
+    
     payment_methods = [
         ('cod', '💵 Cash on Delivery', 'Ghar par cash dein'),
         ('jazzcash', '📱 JazzCash', 'Mobile payment'),
@@ -656,6 +742,11 @@ def checkout(request):
         'skip_otp': skip_otp,
         'order_verified': order_verified,
         'payment_methods': payment_methods,
+        
+        # ✅ NEW: OTP countdown data
+        'otp_remaining_seconds': otp_remaining_seconds,
+        'otp_is_active': otp_is_active,
+        'otp_masked_email': otp_masked_email,
     }
     return render(request, 'customer_portal/checkout.html', context)
 
@@ -672,7 +763,6 @@ def place_order(request):
     from django.contrib.auth.models import User
     
     try:
-        # Profile lock
         profile = None
         if hasattr(request.user, 'customer_profile'):
             try:
@@ -859,6 +949,55 @@ def get_cart_count(request):
     return JsonResponse({
         'success': True,
         'cart_count': get_cart_count_value(request),
+    })
+
+
+# ============================================
+# 9.1 GET LIVE VISITOR COUNT (AJAX)
+# ============================================
+
+def get_live_visitors(request):
+    """Live visitor count (AJAX)"""
+    count = LiveVisitor.get_active_count(seconds=60)
+    
+    if count < 1:
+        count = 1
+    
+    return JsonResponse({
+        'success': True,
+        'count': count,
+        'message': f'{count} log abhi yeh store dekh rahe hain',
+    })
+
+
+# ============================================
+# 9.2 GET OTP REMAINING TIME (AJAX)
+# ============================================
+
+def get_otp_remaining_api(request):
+    """
+    ✅ AJAX: OTP ka remaining time server se fetch karo
+    Frontend isse polling kar sakta hai taake countdown accurate rahe
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'message': 'Login required'})
+    
+    remaining, otp_obj = get_otp_remaining_seconds(request)
+    order_verified = check_otp_verified(request)
+    
+    if order_verified:
+        return JsonResponse({
+            'success': True,
+            'remaining': 0,
+            'is_active': False,
+            'verified': True,
+        })
+    
+    return JsonResponse({
+        'success': True,
+        'remaining': remaining,
+        'is_active': remaining > 0,
+        'verified': False,
     })
 
 

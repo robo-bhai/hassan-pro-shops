@@ -111,7 +111,7 @@
     .product-table {
         width: 100%;
         border-collapse: collapse;
-        min-width: 1050px;  /* ✅ 950 → 1050 (image column add hua) */
+        min-width: 1120px;  /* ✅ 1050 → 1120 (discount column add hua) */
     }
     
     .product-table thead th {
@@ -158,7 +158,7 @@
     .text-center { text-align: center; }
     
     /* ============================================ */
-    /* ✅ NEW: PRODUCT IMAGE COLUMN                 */
+    /* PRODUCT IMAGE COLUMN                         */
     /* ============================================ */
     .product-thumb {
         width: 50px;
@@ -232,6 +232,38 @@
         color: #dc3545;
     }
     
+    /* ============================================ */
+    /* ✅ DISCOUNT BADGE                             */
+    /* ============================================ */
+    .discount-badge-cell {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border-radius: 10px;
+        font-size: 0.75rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+        box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+    }
+    
+    .discount-badge-cell.no-discount {
+        background: #f1f5f9;
+        color: #94a3b8;
+        font-weight: 600;
+        box-shadow: none;
+    }
+    
+    .original-price-small {
+        display: block;
+        font-size: 0.7rem;
+        color: #94a3b8;
+        text-decoration: line-through;
+        font-weight: 600;
+        margin-top: 2px;
+    }
+    
     .info-badge {
         display: inline-block;
         padding: 3px 12px;
@@ -282,6 +314,7 @@
         transition: all 0.2s;
         text-decoration: none;
         font-size: 0.85rem;
+        margin: 0 2px;
     }
     
     .btn-icon-action:hover {
@@ -297,6 +330,25 @@
         background: #fff3e0;
         color: #e65100;
         border-color: #f2994a;
+    }
+    
+    .btn-discount {
+        color: #dc3545;
+        border-color: #fecaca;
+    }
+    
+    .btn-discount:hover {
+        background: #fef2f2;
+        color: #dc3545;
+        border-color: #dc3545;
+        transform: scale(1.1) rotate(-10deg);
+    }
+    
+    .btn-discount.active {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        color: white;
+        border-color: transparent;
+        box-shadow: 0 3px 10px rgba(239, 68, 68, 0.4);
     }
     
     /* Import/Export Buttons */
@@ -449,7 +501,7 @@
     
     @media (max-width: 768px) {
         .filter-bar { padding: 14px 16px; }
-        .product-table { min-width: 850px; }
+        .product-table { min-width: 950px; }
         .product-table thead th,
         .product-table tbody td { padding: 10px 12px; font-size: 0.78rem; }
         .table-header { padding: 14px 16px; }
@@ -458,7 +510,6 @@
         .quick-stat { padding: 8px 14px; }
         .quick-stat .stat-number { font-size: 1rem; }
         
-        /* ✅ Mobile: image thoda chota */
         .product-thumb,
         .product-thumb-placeholder {
             width: 40px;
@@ -601,24 +652,24 @@
         <table class="product-table">
             <thead>
                 <tr>
-                    <!-- ✅ NEW: Image Column -->
                     <th class="text-center" style="width:70px;">📷 Image</th>
                     <th>Serial No</th>
                     <th>Product Name</th>
                     <th>Barcode</th>
                     <th class="text-right">Price</th>
+                    <th class="text-center" style="width:100px;">🏷️ Discount</th>
                     <th>Category</th>
                     <th>Brand</th>
                     <th>Unit</th>
                     <th>Location</th>
-                    <th class="text-center" style="width:50px;">Edit</th>
+                    <th class="text-center" style="width:100px;">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for product in page_obj %}
                 <tr class="{% if not product.barcode %}row-no-barcode{% endif %}">
                     
-                    <!-- ✅ NEW: Product Image -->
+                    <!-- Product Image -->
                     <td class="text-center">
                         {% if product.image %}
                             <img src="{{ product.image.url }}" 
@@ -666,19 +717,45 @@
                         <span class="price-tag zero">Rs. 0.00</span>
                         {% endif %}
                     </td>
+                    
+                    <!-- ✅ DISCOUNT COLUMN -->
+                    <td class="text-center">
+                        {% if product.discount_percentage > 0 %}
+                            <div class="discount-badge-cell">
+                                <i class="bi bi-tag-fill"></i> {{ product.discount_percentage|floatformat:0 }}% OFF
+                            </div>
+                            {% if product.original_price > 0 %}
+                            <span class="original-price-small">
+                                Rs. {{ product.original_price|floatformat:0 }}
+                            </span>
+                            {% endif %}
+                        {% else %}
+                            <span class="discount-badge-cell no-discount">
+                                No Discount
+                            </span>
+                        {% endif %}
+                    </td>
+                    
                     <td>{% if product.category %}<span class="info-badge category">{{ product.category.name }}</span>{% else %}<span class="no-info">-</span>{% endif %}</td>
                     <td>{% if product.brand %}<span class="info-badge brand">{{ product.brand.name }}</span>{% else %}<span class="no-info">-</span>{% endif %}</td>
                     <td>{% if product.unit %}<span class="info-badge unit">{{ product.unit.name }}</span>{% else %}<span class="no-info">-</span>{% endif %}</td>
                     <td>{% if product.location %}<span class="info-badge location">{{ product.location.name }}</span>{% else %}<span class="no-info">-</span>{% endif %}</td>
-                    <td class="text-center">
+                    
+                    <!-- ✅ ACTIONS: Edit + Discount -->
+                    <td class="text-center" style="white-space: nowrap;">
                         <a href="{% url 'product_update' product.pk %}" class="btn-icon-action btn-edit" title="Edit Product">
                             ✏️
+                        </a>
+                        <a href="{% url 'product_set_discount' product.pk %}" 
+                           class="btn-icon-action btn-discount {% if product.discount_percentage > 0 %}active{% endif %}" 
+                           title="{% if product.discount_percentage > 0 %}Edit Discount{% else %}Set Discount{% endif %}">
+                            🏷️
                         </a>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="10">
+                    <td colspan="11">
                         <div class="empty-state">
                             <div class="empty-icon">🏷️</div>
                             <h4>No Products Found</h4>

@@ -1065,5 +1065,9 @@ urlpatterns = [
     path('shop/place-order-direct/', views_customer_auth.place_order_direct, name='place_order_direct'),
     path('shop/save-payment-method/', views_customer_auth.save_payment_method, name='save_payment_method'),
     path('shop/order-success/<int:order_id>/', views_customer_portal.order_success_page, name='order_success_page'),
+    path('shop/api/live-visitors/', views_customer_portal.get_live_visitors, name='get_live_visitors'),
+    path('products/<int:pk>/set-discount/', views_frontend.product_set_discount, name='product_set_discount'),
+    path('batches/<int:pk>/sale-report/', views_frontend.batch_sale_report, name='batch_sale_report'),
+    path('shop/api/otp-remaining/', views_customer_portal.get_otp_remaining_api, name='get_otp_remaining_api'),
     
 ]

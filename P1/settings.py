@@ -94,6 +94,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'axes.middleware.AxesMiddleware',
     'app.middleware.ShareholderRestrictionMiddleware',
+    'app.middleware.LiveVisitorMiddleware',
     'app.middleware.SecurityMiddleware',
 ]
 

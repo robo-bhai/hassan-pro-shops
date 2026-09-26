@@ -233,6 +233,82 @@
     }
     
     /* ============================================ */
+    /* ✅ LIVE VISITOR COUNT                        */
+    /* ============================================ */
+    .live-visitors-banner {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 12px 20px;
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        border: 1.5px solid #10b981;
+        border-radius: 12px;
+        margin-bottom: 12px;
+        box-shadow: 0 3px 12px rgba(16, 185, 129, 0.15);
+        animation: live-pulse 3s ease-in-out infinite;
+    }
+    
+    @keyframes live-pulse {
+        0%, 100% { box-shadow: 0 3px 12px rgba(16, 185, 129, 0.15); }
+        50% { box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3); }
+    }
+    
+    .live-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #10b981;
+        position: relative;
+        flex-shrink: 0;
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+        animation: live-dot-pulse 2s infinite;
+    }
+    
+    @keyframes live-dot-pulse {
+        0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+    
+    .live-text {
+        font-size: 0.85rem;
+        color: #065f46;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+    }
+    
+    .live-text strong {
+        font-size: 1rem;
+        font-weight: 900;
+        color: #047857;
+        transition: all 0.3s ease;
+        display: inline-block;
+        min-width: 20px;
+        text-align: center;
+    }
+    
+    .live-text strong.updated {
+        animation: count-update 0.5s ease;
+    }
+    
+    @keyframes count-update {
+        0% { transform: scale(1); color: #047857; }
+        50% { transform: scale(1.3); color: #10b981; }
+        100% { transform: scale(1); color: #047857; }
+    }
+    
+    @media (max-width: 768px) {
+        .live-visitors-banner {
+            padding: 10px 15px;
+            gap: 8px;
+        }
+        .live-text { font-size: 0.78rem; }
+        .live-text strong { font-size: 0.9rem; }
+        .live-dot { width: 8px; height: 8px; }
+    }
+    
+    /* ============================================ */
     /* TRUST BADGES                                 */
     /* ============================================ */
     .trust-badges-section {
@@ -824,6 +900,23 @@
     <!-- Anchor for Products -->
     <div id="products-section"></div>
     
+    <!-- ✅ LIVE VISITOR COUNT -->
+    {% if live_visitor_count > 0 %}
+    <div class="live-visitors-banner" id="liveVisitorsBanner">
+        <div class="live-dot"></div>
+        <span class="live-text">
+            <strong id="liveCount">{{ live_visitor_count }}</strong> 
+            <span id="liveLabel">
+                {% if live_visitor_count == 1 %}
+                    person abhi yeh store dekh raha hai
+                {% else %}
+                    log abhi yeh store dekh rahe hain
+                {% endif %}
+            </span>
+        </span>
+    </div>
+    {% endif %}
+    
     <!-- Trust Badges -->
     <div class="trust-badges-section">
         <div class="trust-badge-item">
@@ -948,12 +1041,15 @@
                     <a href="{% url 'shop_product_detail' product.id %}">{{ product.name }}</a>
                 </div>
                 
+                {# ========================================== #}
+                {# ✅ FIXED: DISCOUNT PRICE DISPLAY             #}
+                {# ========================================== #}
                 <div class="product-price-wrapper">
                     <div class="product-price">
                         <span class="currency">Rs.</span>
                         {{ product.price|floatformat:0 }}
                     </div>
-                    {% if product.has_discount %}
+                    {% if product.has_discount and product.original_price and product.original_price > product.price %}
                     <div class="original-price-strike">
                         Rs. {{ product.original_price|floatformat:0 }}
                     </div>
@@ -1062,5 +1158,53 @@
     {% endif %}
     
 </div>
+
+<!-- ============================================ -->
+<!-- ✅ LIVE VISITOR COUNT AUTO-UPDATE SCRIPT     -->
+<!-- ============================================ -->
+<script>
+(function() {
+    const liveCountEl = document.getElementById('liveCount');
+    const liveLabelEl = document.getElementById('liveLabel');
+    const liveBanner = document.getElementById('liveVisitorsBanner');
+    
+    if (!liveCountEl) return;
+    
+    let currentCount = parseInt(liveCountEl.textContent) || 0;
+    
+    async function updateLiveCount() {
+        try {
+            const response = await fetch('/shop/api/live-visitors/');
+            const data = await response.json();
+            
+            if (data.success && data.count !== currentCount) {
+                // Update text
+                liveCountEl.textContent = data.count;
+                
+                // Label update
+                if (data.count === 1) {
+                    liveLabelEl.textContent = 'person abhi yeh store dekh raha hai';
+                } else {
+                    liveLabelEl.textContent = 'log abhi yeh store dekh rahe hain';
+                }
+                
+                // Animation
+                liveCountEl.classList.add('updated');
+                setTimeout(() => liveCountEl.classList.remove('updated'), 500);
+                
+                currentCount = data.count;
+            }
+        } catch (error) {
+            // Silent fail
+        }
+    }
+    
+    // ✅ Har 30 second mein update
+    setInterval(updateLiveCount, 30000);
+    
+    // ✅ Pehla update 5 second baad
+    setTimeout(updateLiveCount, 5000);
+})();
+</script>
 
 {% endblock %}

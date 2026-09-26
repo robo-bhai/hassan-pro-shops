@@ -37489,3 +37489,169 @@ def business_ratios_dashboard(request):
         'today': date.today(),
     }
     return render(request, 'reports/business_ratios.html', context)
+    
+# ============================================
+# ✅ PRODUCT DISCOUNT SET (Frontend)
+# ============================================
+
+@login_required
+def product_set_discount(request, pk):
+    """
+    Product par discount set karein (batch price se auto-calculate)
+    
+    - Batch ki selling price = Original price
+    - Discount % set karein
+    - New price auto-calculate hoga
+    """
+    from decimal import Decimal
+    
+    product = get_object_or_404(Product, pk=pk)
+    
+    # ✅ Check permission
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('product_list')
+    
+    # ✅ Batch se current price lo
+    batch = StockBatch.objects.filter(
+        product=product,
+        remaining_qty__gt=0,
+        selling_price__gt=0
+    ).order_by('id').first()
+    
+    if batch:
+        batch_price = batch.selling_price
+    else:
+        batch_price = product.price or Decimal('0.00')
+    
+    if request.method == 'POST':
+        try:
+            discount_percentage = request.POST.get('discount_percentage', '0').strip()
+            
+            try:
+                discount_percentage = Decimal(discount_percentage)
+            except:
+                discount_percentage = Decimal('0')
+            
+            if discount_percentage < 0 or discount_percentage > 100:
+                messages.error(request, '❌ Discount 0-100 ke darmiyan honi chahiye!')
+                return redirect('product_set_discount', pk=pk)
+            
+            # ✅ Original price = batch price
+            product.original_price = batch_price
+            product.discount_percentage = discount_percentage
+            
+            # ✅ New price calculate karo
+            if discount_percentage > 0:
+                new_price = batch_price * (1 - discount_percentage / 100)
+                product.price = new_price
+            else:
+                product.price = batch_price
+            
+            product.save()
+            
+            messages.success(
+                request,
+                f'✅ Discount set!\n'
+                f'Original: Rs. {batch_price:,.2f}\n'
+                f'Discount: {discount_percentage}%\n'
+                f'New Price: Rs. {product.price:,.2f}'
+            )
+            
+            return redirect('product_set_discount', pk=pk)
+            
+        except Exception as e:
+            messages.error(request, f'❌ Error: {str(e)}')
+            return redirect('product_set_discount', pk=pk)
+    
+    # GET request
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'product': product,
+        'batch_price': batch_price,
+    }
+    return render(request, 'products/set_discount.html', context)
+
+
+# ============================================
+# ✅ BATCH SALE REPORT
+# ============================================
+
+@login_required
+def batch_sale_report(request, pk):
+    """
+    Batch se kitne ka sale hua — complete report
+    """
+    from django.db.models import Sum, Count
+    from decimal import Decimal
+    
+    batch = get_object_or_404(StockBatch, pk=pk)
+    
+    # ✅ Is batch se saari sales
+    sales_items = SaleItem.objects.filter(
+        batches_used=batch
+    ).select_related('sale', 'sale__customer', 'product').order_by('-sale__sale_date')
+    
+    # ✅ Statistics
+    stats = sales_items.aggregate(
+        total_qty=Sum('qty'),
+        total_sales=Sum('total_amt'),
+        total_profit=Sum('profit'),
+        total_orders=Count('id', distinct=True),
+    )
+    
+    total_qty = stats['total_qty'] or 0
+    total_sales = stats['total_sales'] or Decimal('0.00')
+    total_profit = stats['total_profit'] or Decimal('0.00')
+    total_orders = stats['total_orders'] or 0
+    
+    # ✅ Total cost (batch se)
+    total_cost = Decimal(str(total_qty)) * batch.price
+    
+    # ✅ Remaining
+    remaining_qty = batch.remaining_qty
+    remaining_value = Decimal(str(remaining_qty)) * batch.price
+    
+    # ✅ Batch summary
+    batch_summary = {
+        'original_qty': batch.qty,
+        'sold_qty': total_qty,
+        'remaining_qty': remaining_qty,
+        'original_value': Decimal(str(batch.qty)) * batch.price,
+        'sold_value': total_sales,
+        'remaining_value': remaining_value,
+        'total_profit': total_profit,
+        'profit_margin': (total_profit / total_sales * 100) if total_sales > 0 else Decimal('0.00'),
+    }
+    
+    # ✅ Daily summary
+    daily_summary = sales_items.values(
+        'sale__sale_date__date'
+    ).annotate(
+        qty=Sum('qty'),
+        amount=Sum('total_amt'),
+        profit=Sum('profit'),
+    ).order_by('-sale__sale_date__date')
+    
+    # ✅ Customer-wise
+    customer_summary = sales_items.values(
+        'sale__customer__name',
+        'sale__customer__customer_code'
+    ).annotate(
+        qty=Sum('qty'),
+        amount=Sum('total_amt'),
+        profit=Sum('profit'),
+        orders=Count('id'),
+    ).order_by('-amount')
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'batch': batch,
+        'sales_items': sales_items,
+        'stats': stats,
+        'batch_summary': batch_summary,
+        'daily_summary': daily_summary,
+        'customer_summary': customer_summary,
+        'total_cost': total_cost,
+    }
+    return render(request, 'inventory/batch_sale_report.html', context)

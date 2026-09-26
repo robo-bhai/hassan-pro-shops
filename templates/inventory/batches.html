@@ -129,7 +129,7 @@
     }
     
     .batch-table {
-        width: 100%; border-collapse: collapse; min-width: 1000px;
+        width: 100%; border-collapse: collapse; min-width: 1100px;
     }
     
     .batch-table thead th {
@@ -179,6 +179,61 @@
     .price-cell { font-weight: 600; }
     .price-cell.cost { color: #6b7280; }
     .price-cell.selling { color: var(--accent); }
+    
+    /* ✅ Discount Badge */
+    .discount-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+        box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
+    }
+    
+    .discount-badge.none {
+        background: #f1f5f9;
+        color: #94a3b8;
+        box-shadow: none;
+    }
+    
+    .final-price {
+        font-weight: 800;
+        color: #10b981;
+    }
+    
+    .original-price-strike {
+        font-size: 0.72rem;
+        color: #94a3b8;
+        text-decoration: line-through;
+        margin-left: 4px;
+    }
+    
+    /* ✅ Report Button */
+    .btn-report {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 5px 12px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .btn-report:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        color: white;
+    }
     
     .empty-state { text-align: center; padding: 60px 20px; }
     .empty-state .empty-icon { font-size: 5rem; opacity: 0.2; margin-bottom: 15px; }
@@ -233,7 +288,7 @@
 
 <!-- Filter -->
 <div class="filter-bar">
-    <form method="post">{% csrf_token %} method="GET" class="row g-2 align-items-end">
+    <form method="GET" class="row g-2 align-items-end">
         <div class="col-md-4">
             <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">🔍 Search</label>
             <input type="text" name="search" class="form-control" placeholder="Product name, bill no..." value="{{ search }}">
@@ -283,9 +338,10 @@
                     <th class="text-right">Remaining</th>
                     <th class="text-right">Cost Price</th>
                     <th class="text-right">Selling Price</th>
+                    <th class="text-center">Discount</th>
                     <th class="text-right">Profit/Unit</th>
                     <th class="text-right">Total Value</th>
-                    <th>Action</th>
+                    <th class="text-center">Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -321,6 +377,20 @@
                                onchange="updateSellingPrice('{{ batch.id }}', this.value)"
                                title="Enter selling price">
                     </td>
+                    
+                    <!-- ✅ DISCOUNT COLUMN -->
+                    <td class="text-center">
+                        {% if batch.product.discount_percentage and batch.product.discount_percentage > 0 %}
+                        <span class="discount-badge">
+                            <i class="bi bi-tag-fill"></i> {{ batch.product.discount_percentage|floatformat:0 }}%
+                        </span>
+                        <br>
+                        <small class="final-price">Rs. {{ batch.product.price|floatformat:0 }}</small>
+                        {% else %}
+                        <span class="discount-badge none">No Discount</span>
+                        {% endif %}
+                    </td>
+                    
                     <td class="text-right">
                         {% with profit=batch.profit_per_unit %}
                         {% if profit > 0 %}
@@ -335,16 +405,25 @@
                     <td class="text-right">
                         <strong>Rs. {{ batch.selling_value|floatformat:0 }}</strong>
                     </td>
-                    <td>
-                        <button class="btn btn-sm btn-outline-warning" style="border-radius:8px; padding:5px 12px; font-size:0.75rem;"
-                                onclick="quickSetSP('{{ batch.id }}', '{{ batch.price }}')" title="Quick Set 20% Margin">
-                            💰 +20%
-                        </button>
+                    <td class="text-center">
+                        <div class="d-flex gap-1 justify-content-center">
+                            <button class="btn btn-sm btn-outline-warning" style="border-radius:8px; padding:5px 10px; font-size:0.72rem;"
+                                    onclick="quickSetSP('{{ batch.id }}', '{{ batch.price }}')" title="Quick Set 20% Margin">
+                                💰 +20%
+                            </button>
+                            
+                            <!-- ✅ SALE REPORT BUTTON -->
+                            <a href="{% url 'batch_sale_report' batch.id %}" 
+                               class="btn-report"
+                               title="Sale Report">
+                                <i class="bi bi-file-earmark-bar-graph"></i> Report
+                            </a>
+                        </div>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="10">
+                    <td colspan="11">
                         <div class="empty-state">
                             <div class="empty-icon">📦</div>
                             <h4>No Batches Found</h4>

@@ -1,0 +1,542 @@
+{% extends 'customer_portal/base_shop.html' %}
+{% load static %}
+
+{% block title %}Pending OTPs - {{ company_name }}{% endblock %}
+
+{% block content %}
+
+<style>
+    body { padding-bottom: 30px !important; }
+    .mobile-bottom-nav { display: none !important; }
+    
+    .otps-container {
+        max-width: 700px;
+        margin: 20px auto;
+        padding: 0 15px;
+    }
+    
+    .page-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px 25px;
+        border-radius: 16px 16px 0 0;
+        text-align: center;
+    }
+    
+    .page-header i {
+        font-size: 40px;
+        margin-bottom: 10px;
+    }
+    
+    .page-header h2 {
+        margin: 0 0 5px;
+        font-weight: 700;
+        font-size: 22px;
+    }
+    
+    .page-header p {
+        margin: 0;
+        opacity: 0.9;
+        font-size: 13px;
+    }
+    
+    .otps-body {
+        background: white;
+        padding: 25px;
+        border-radius: 0 0 16px 16px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    }
+    
+    .info-banner {
+        background: #e7f3ff;
+        border-left: 4px solid #17a2b8;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        font-size: 13px;
+        color: #0c5460;
+        line-height: 1.6;
+    }
+    
+    .info-banner i {
+        color: #17a2b8;
+        margin-right: 5px;
+    }
+    
+    .stats-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    
+    .stat-card {
+        flex: 1;
+        background: #f8f9fc;
+        padding: 15px;
+        border-radius: 10px;
+        text-align: center;
+        border: 1px solid #e0e3eb;
+    }
+    
+    .stat-card .stat-num {
+        font-size: 26px;
+        font-weight: 700;
+        color: #667eea;
+        line-height: 1;
+    }
+    
+    .stat-card .stat-label {
+        font-size: 11px;
+        color: #6b7280;
+        text-transform: uppercase;
+        font-weight: 600;
+        margin-top: 5px;
+    }
+    
+    .otp-card {
+        background: white;
+        border: 2px solid #e0e3eb;
+        border-radius: 12px;
+        padding: 18px;
+        margin-bottom: 12px;
+        transition: all 0.2s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .otp-card:hover {
+        border-color: #667eea;
+        box-shadow: 0 5px 20px rgba(102, 126, 234, 0.15);
+        transform: translateY(-2px);
+    }
+    
+    .otp-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: linear-gradient(180deg, #667eea, #764ba2);
+    }
+    
+    .otp-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 12px;
+        padding-left: 10px;
+    }
+    
+    .otp-card-name {
+        font-weight: 700;
+        color: #1a1a2e;
+        font-size: 15px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .otp-card-name i {
+        color: #667eea;
+    }
+    
+    .otp-card-phone {
+        font-size: 12px;
+        color: #6b7280;
+        font-family: monospace;
+        font-weight: 600;
+        margin-top: 3px;
+    }
+    
+    .otp-badge {
+        background: #d4edda;
+        color: #155724;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+    
+    .otp-badge.warning {
+        background: #fff3cd;
+        color: #856404;
+    }
+    
+    .otp-card-body {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 12px 10px;
+        background: #f8f9fc;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+    }
+    
+    .otp-field {
+        flex: 1;
+        min-width: 120px;
+    }
+    
+    .otp-field-label {
+        font-size: 10px;
+        text-transform: uppercase;
+        color: #6b7280;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        margin-bottom: 3px;
+    }
+    
+    .otp-field-value {
+        font-family: 'Courier New', monospace;
+        font-weight: 700;
+        font-size: 16px;
+        color: #1a1a2e;
+        letter-spacing: 1px;
+    }
+    
+    .otp-field-value.code {
+        color: #dc3545;
+        font-size: 18px;
+    }
+    
+    .otp-field-value.token {
+        color: #17a2b8;
+        font-size: 14px;
+        letter-spacing: 2px;
+    }
+    
+    .otp-card-footer {
+        display: flex;
+        gap: 8px;
+        padding-left: 10px;
+    }
+    
+    .btn-verify-quick {
+        flex: 1;
+        padding: 10px;
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 13px;
+        cursor: pointer;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-verify-quick:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+        color: white;
+    }
+    
+    .btn-copy {
+        padding: 10px 15px;
+        background: white;
+        color: #667eea;
+        border: 2px solid #667eea;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 13px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-copy:hover {
+        background: #667eea;
+        color: white;
+    }
+    
+    .btn-copy.copied {
+        background: #28a745;
+        border-color: #28a745;
+        color: white;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 50px 20px;
+    }
+    
+    .empty-state i {
+        font-size: 70px;
+        color: #d1d5db;
+        margin-bottom: 20px;
+        display: block;
+    }
+    
+    .empty-state h4 {
+        color: #1a1a2e;
+        font-weight: 700;
+        margin-bottom: 10px;
+    }
+    
+    .empty-state p {
+        color: #6b7280;
+        font-size: 14px;
+        margin-bottom: 25px;
+    }
+    
+    .btn-shop {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 24px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        text-decoration: none;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 14px;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-shop:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        color: white;
+    }
+    
+    .refresh-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    
+    .refresh-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 8px 14px;
+        background: #f8f9fc;
+        border: 1px solid #e0e3eb;
+        border-radius: 8px;
+        color: #667eea;
+        font-weight: 600;
+        font-size: 13px;
+        cursor: pointer;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+    
+    .refresh-btn:hover {
+        background: #667eea;
+        color: white;
+        border-color: #667eea;
+    }
+    
+    .back-links {
+        text-align: center;
+        margin-top: 25px;
+        padding-top: 20px;
+        border-top: 1px solid #e0e3eb;
+    }
+    
+    .back-links a {
+        color: #667eea;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 14px;
+        margin: 0 10px;
+    }
+    
+    .back-links a:hover {
+        text-decoration: underline;
+    }
+    
+    @media (max-width: 480px) {
+        .otp-card-body { gap: 10px; }
+        .otp-field { min-width: 100px; }
+        .otp-field-value { font-size: 14px; }
+        .otp-field-value.code { font-size: 16px; }
+        .page-header h2 { font-size: 19px; }
+    }
+</style>
+
+<div class="otps-container">
+    
+    <div class="page-header">
+        <i class="bi bi-key-fill"></i>
+        <h2>Pending OTPs</h2>
+        <p>Apni OTP dhundhein aur order verify karein</p>
+    </div>
+    
+    <div class="otps-body">
+        
+        <div class="info-banner">
+            <i class="bi bi-info-circle-fill"></i>
+            <strong>Yeh page aapki pending OTPs dikhata hai.</strong>
+            <br>
+            Order place karne ke liye OTP verify karein. Apni OTP dhundein neeche list mein.
+        </div>
+        
+        {% if has_otps %}
+        
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-num">{{ total_pending }}</div>
+                <div class="stat-label">Total Pending</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-num">5</div>
+                <div class="stat-label">Minutes Valid</div>
+            </div>
+        </div>
+        
+        <div class="refresh-bar">
+            <small class="text-muted">
+                <i class="bi bi-clock-history"></i> Live Updates
+            </small>
+            <a href="{% url 'pending_otps' %}" class="refresh-btn">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </a>
+        </div>
+        
+        {% for otp in pending_otps %}
+        <div class="otp-card">
+            
+            <div class="otp-card-header">
+                <div>
+                    <div class="otp-card-name">
+                        <i class="bi bi-person-circle"></i>
+                        {{ otp.customer_name|default:"Customer" }}
+                    </div>
+                    <div class="otp-card-phone">
+                        📱 {{ otp.masked_phone }}
+                    </div>
+                </div>
+                <div class="otp-badge">
+                    ⏱ {{ otp.expires_in }}
+                </div>
+            </div>
+            
+            <div class="otp-card-body">
+                
+                <div class="otp-field">
+                    <div class="otp-field-label">OTP Code</div>
+                    <div class="otp-field-value code" 
+                         id="otp-code-{{ otp.id }}">
+                        {{ otp.otp_code }}
+                    </div>
+                </div>
+                
+                {% if otp.order_token %}
+                <div class="otp-field">
+                    <div class="otp-field-label">Order Token</div>
+                    <div class="otp-field-value token" 
+                         id="otp-token-{{ otp.id }}">
+                        {{ otp.order_token }}
+                    </div>
+                </div>
+                {% endif %}
+                
+            </div>
+            
+            <div class="otp-card-footer">
+                
+                <a href="{% url 'quick_verify_otp' otp.id %}" 
+                   class="btn-verify-quick">
+                    <i class="bi bi-shield-check"></i> Verify Now
+                </a>
+                
+                <button type="button" 
+                        class="btn-copy" 
+                        onclick="copyDetails('{{ otp.otp_code }}', '{{ otp.order_token|default:'' }}', this)"
+                        title="Copy OTP & Token">
+                    <i class="bi bi-clipboard"></i>
+                </button>
+                
+            </div>
+            
+        </div>
+        {% endfor %}
+        
+        {% else %}
+        
+        <div class="empty-state">
+            <i class="bi bi-inbox"></i>
+            <h4>No Pending OTPs</h4>
+            <p>
+                Abhi koi pending OTP nahi hai. 
+                Naya order place karke OTP generate karein.
+            </p>
+            <a href="{% url 'shop_home' %}" class="btn-shop">
+                <i class="bi bi-shop"></i> Shop Now
+            </a>
+        </div>
+        
+        {% endif %}
+        
+        <div class="back-links">
+            <a href="{% url 'customer_login' %}">
+                <i class="bi bi-box-arrow-in-right"></i> Login
+            </a>
+            <a href="{% url 'shop_home' %}">
+                <i class="bi bi-shop"></i> Shop
+            </a>
+        </div>
+        
+    </div>
+    
+</div>
+
+<script>
+function copyDetails(otpCode, token, btn) {
+    let text = '📱 OTP Code: ' + otpCode;
+    if (token) {
+        text += '\n🔑 Order Token: ' + token;
+    }
+    text += '\n\nVerify at: ' + window.location.origin + '/shop/verify-otp-later/';
+    
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(function() {
+            showCopied(btn);
+        }).catch(function() {
+            fallbackCopy(text, btn);
+        });
+    } else {
+        fallbackCopy(text, btn);
+    }
+}
+
+function fallbackCopy(text, btn) {
+    var textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        document.execCommand('copy');
+        showCopied(btn);
+    } catch (err) {
+        alert('❌ Copy failed. Please manually note the details.');
+    }
+    document.body.removeChild(textarea);
+}
+
+function showCopied(btn) {
+    var originalHTML = btn.innerHTML;
+    btn.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+    btn.classList.add('copied');
+    setTimeout(function() {
+        btn.innerHTML = originalHTML;
+        btn.classList.remove('copied');
+    }, 1500);
+}
+</script>
+
+{% endblock %}

@@ -285,6 +285,24 @@ class Product(models.Model):
         return None
 
     def save(self, *args, **kwargs):
+        # ========================================== #
+        # ✅ DISCOUNT PRICE AUTO-CALCULATE            #
+        # ========================================== #
+        if self.discount_percentage and self.discount_percentage > 0:
+            # Agar original_price set nahi hai to current price ko original maan lo
+            if not self.original_price or self.original_price <= 0:
+                self.original_price = self.price if self.price else Decimal('0.00')
+            
+            # ✅ Discount ke baad wali price calculate karo
+            if self.original_price and self.original_price > 0:
+                discount_amount = self.original_price * (self.discount_percentage / Decimal('100'))
+                self.price = self.original_price - discount_amount
+        else:
+            # Agar discount nahi hai to original_price ko reset karo
+            self.discount_percentage = Decimal('0.00')
+            if self.original_price and self.original_price > 0:
+                self.price = self.original_price
+        
         # ✅ Agar use_custom_barcode True hai ya barcode already set hai to auto-generate NA karein
         if not self.use_custom_barcode and not self.barcode:
             self.barcode = self.generate_barcode()
@@ -20787,3 +20805,145 @@ class RecentlyViewed(models.Model):
             return []
         
         return [view.product for view in views]
+        
+# ============================================
+# ✅ LIVE VISITOR TRACKING
+# ============================================
+
+class LiveVisitor(models.Model):
+    """
+    Track live visitors on the customer shop
+    
+    Features:
+    - Har visitor 60 second tak "active" rehta hai
+    - Har 30 second mein count update hota hai
+    - 5 minute purane visitors auto-delete
+    - Session-based tracking (same user ek hi count hoga)
+    """
+    
+    # ✅ Basic Fields
+    session_key = models.CharField(
+        max_length=100, 
+        db_index=True,
+        verbose_name="Session Key",
+        help_text="Django session key of the visitor"
+    )
+    ip_address = models.GenericIPAddressField(
+        null=True, 
+        blank=True,
+        verbose_name="IP Address"
+    )
+    user_agent = models.TextField(
+        blank=True, 
+        null=True,
+        verbose_name="User Agent",
+        help_text="Browser/device information"
+    )
+    page_url = models.CharField(
+        max_length=255, 
+        blank=True, 
+        null=True,
+        verbose_name="Page URL",
+        help_text="Current page the visitor is on"
+    )
+    last_seen = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Last Seen"
+    )
+    
+    # ✅ Meta
+    class Meta:
+        verbose_name = "🟢 Live Visitor"
+        verbose_name_plural = "🟢 Live Visitors"
+        ordering = ['-last_seen']
+        indexes = [
+            models.Index(fields=['session_key']),
+            models.Index(fields=['last_seen']),
+        ]
+    
+    # ✅ String Representation
+    def __str__(self):
+        return f"{self.session_key[:8]}... - {self.last_seen.strftime('%d-%m-%Y %H:%M:%S')}"
+    
+    # ==========================================
+    # ✅ CLASS METHODS
+    # ==========================================
+    
+    @classmethod
+    def get_active_count(cls, seconds=60):
+        """
+        Kitne log abhi active hain (last N seconds)
+        
+        Args:
+            seconds: Kitne seconds ke andar active visitors count karne hain
+        
+        Returns:
+            int: Active visitors count
+        """
+        from django.utils.timezone import now
+        from datetime import timedelta
+        
+        cutoff = now() - timedelta(seconds=seconds)
+        return cls.objects.filter(last_seen__gte=cutoff).count()
+    
+    @classmethod
+    def track_visitor(cls, request):
+        """
+        Current visitor ko track karo
+        
+        Args:
+            request: Django request object
+        
+        Returns:
+            LiveVisitor instance
+        """
+        from django.utils.timezone import now
+        
+        # ✅ Session key nikalo (agar nahi hai to banao)
+        if not request.session.session_key:
+            request.session.create()
+        session_key = request.session.session_key
+        
+        # ✅ IP address nikalo
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0].strip()
+        else:
+            ip = request.META.get('REMOTE_ADDR', '')
+        
+        # ✅ User agent
+        user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]
+        
+        # ✅ Current page URL
+        page_url = request.path[:255]
+        
+        # ✅ Update ya create (same session = 1 entry)
+        visitor, created = cls.objects.update_or_create(
+            session_key=session_key,
+            defaults={
+                'ip_address': ip or None,
+                'user_agent': user_agent or None,
+                'page_url': page_url,
+            }
+        )
+        
+        # ✅ Purane visitors clean karo (5 minute se purane)
+        cls.cleanup_old_visitors(minutes=5)
+        
+        return visitor
+    
+    @classmethod
+    def cleanup_old_visitors(cls, minutes=5):
+        """
+        Purane visitors delete karo
+        
+        Args:
+            minutes: Kitne minute se purane visitors delete karne hain
+        """
+        from django.utils.timezone import now
+        from datetime import timedelta
+        
+        cutoff = now() - timedelta(minutes=minutes)
+        deleted_count, _ = cls.objects.filter(last_seen__lt=cutoff).delete()
+        
+        return deleted_count
