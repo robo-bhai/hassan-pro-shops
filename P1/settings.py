@@ -157,6 +157,9 @@ DATABASES = {
 }
 
 # --- DB BACKUP CONFIGURATION ---
+# Backward compatibility for django-cloudinary-storage / collectstatic
+STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
+
 DBBACKUP_STORAGE = 'django.core.files.storage.FileSystemStorage'
 DBBACKUP_STORAGE_OPTIONS = {
     'location': BASE_DIR / 'dbbackup',
