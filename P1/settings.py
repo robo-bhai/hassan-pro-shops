@@ -74,7 +74,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'pwa',
     'django.contrib.messages',
+    'cloudinary_storage',
     'django.contrib.staticfiles',
+    'cloudinary',
     'django.contrib.humanize',
     'app',
     'dbbackup',
@@ -82,6 +84,13 @@ INSTALLED_APPS = [
     'axes',
     'ceo_module',
 ]
+
+# --- CLOUDINARY CONFIGURATION (FROM ENVIRONMENT/GIT SECRETS) ---
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -220,8 +229,8 @@ if IS_TERMUX:
     # Android / Termux ke liye custom storage
     DEFAULT_FILE_STORAGE_BACKEND = "app.custom_storage.TermuxFileSystemStorage"
 else:
-    # GitHub Actions / Linux / Standard Server ke liye default storage
-    DEFAULT_FILE_STORAGE_BACKEND = "django.core.files.storage.FileSystemStorage"
+    # Standard Server / Cloud Storage ke liye Cloudinary
+    DEFAULT_FILE_STORAGE_BACKEND = "cloudinary_storage.storage.MediaCloudinaryStorage"
 
 STORAGES = {
     "default": {

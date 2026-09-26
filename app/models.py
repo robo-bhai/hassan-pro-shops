@@ -340,11 +340,11 @@ class Product(models.Model):
                 base_name = os.path.splitext(os.path.basename(self.image.name))[0]
                 new_filename = f"{base_name}.webp"
 
-                # 6. Processed file attach karein
-                self.image.save(new_filename, ContentFile(buffer.getvalue()), save=False)
-                
                 # Infinite loop prevent karne ke liye flag set karein
                 self._image_processed = True
+
+                # 6. Processed file attach karein (Cloudinary Storage automatically handles this upload)
+                self.image.save(new_filename, ContentFile(buffer.getvalue()), save=False)
             except Exception as e:
                 pass
 
@@ -381,6 +381,7 @@ class Product(models.Model):
         """Deactivate product"""
         self.is_active = False
         self.save()
+
 
 
 
