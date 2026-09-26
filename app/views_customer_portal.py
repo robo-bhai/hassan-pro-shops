@@ -755,11 +755,26 @@ def checkout(request):
 # 8. PLACE ORDER
 # ============================================
 
+from django.db import transaction
+from django.views.decorators.http import require_POST
+from django.shortcuts import redirect, render
+from django.contrib import messages
+from django.utils.timezone import now
+from datetime import timedelta
+from decimal import Decimal
+import logging
+
+# Email helper functions import karein
+from .email_helper import send_customer_order_email, send_admin_order_notification
+
+logger = logging.getLogger(__name__)
+
+
 @transaction.atomic
 @customer_login_required
 @require_POST
 def place_order(request):
-    """Order place karo"""
+    """Order place karo with email_helper integration"""
     from django.contrib.auth.models import User
     
     try:
@@ -886,7 +901,10 @@ def place_order(request):
         request.session.modified = True
         request.session.save()
         
-        # Notify admin
+        company = CompanyInfo.objects.first()
+        company_name_str = company.name if company else 'Shop'
+
+        # Notify admin via in-app notification
         try:
             admins = User.objects.filter(is_superuser=True)
             for admin in admins:
@@ -905,8 +923,50 @@ def place_order(request):
                 )
         except Exception as e:
             logger.error(f"Notification error: {e}")
-        
-        # WhatsApp
+
+        # =========================================================
+        # ⚡ SEND RESPONSIVE HTML EMAILS VIA EMAIL_HELPER.PY
+        # =========================================================
+        try:
+            customer_email = getattr(customer, 'email', None)
+            customer_address = getattr(customer, 'address', 'N/A')
+            customer_phone = getattr(customer, 'contact_number', 'N/A')
+
+            # 1. Customer Email
+            if customer_email:
+                send_customer_order_email(
+                    recipient_email=customer_email,
+                    order_no=order.order_no,
+                    customer_name=customer.name,
+                    order_summary=order_summary,
+                    total_amount=float(total_amount),
+                    payment_method=payment_method,
+                    address=customer_address
+                )
+
+            # 2. Admin Emails
+            admin_emails = list(
+                User.objects.filter(is_superuser=True, is_active=True, email__gt='')
+                .values_list('email', flat=True)
+            )
+
+            if admin_emails:
+                admin_order_link = request.build_absolute_uri(f'/orders/sale/{order.id}/')
+                send_admin_order_notification(
+                    admin_emails=admin_emails,
+                    order_no=order.order_no,
+                    customer_name=customer.name,
+                    customer_phone=customer_phone,
+                    total_amount=float(total_amount),
+                    items_count=len(order_summary),
+                    payment_method=payment_method,
+                    order_link=admin_order_link
+                )
+
+        except Exception as e:
+            logger.error(f"Order email sending error via email_helper: {e}")
+
+        # WhatsApp Notification
         try:
             from .whatsapp_utils import WhatsAppSender
             if customer.contact_number:
@@ -919,9 +979,8 @@ def place_order(request):
         except Exception as e:
             logger.error(f"WhatsApp error: {e}")
         
-        company = CompanyInfo.objects.first()
         context = {
-            'company_name': company.name if company else 'Shop',
+            'company_name': company_name_str,
             'company': company,
             'order': order,
             'customer': customer,

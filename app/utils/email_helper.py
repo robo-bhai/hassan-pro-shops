@@ -1,20 +1,22 @@
 """
-Email Helper — Complete OTP + Notification System
-==================================================
-Sab emails info@uqn88.store se bhejte hain.
+Email Helper — Complete OTP + Notification + Order System
+===========================================================
+Default sender: info@uqn88.store
+Fully responsive HTML email layout with Dark Mode & Outlook compatibility.
 """
 
 import logging
 from django.core.mail import EmailMultiAlternatives
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
 
 # ============================================
-# HTML TEMPLATE (Enhanced & Rock-Solid Responsive)
+# BASE HTML TEMPLATE (Modern & Bulletproof)
 # ============================================
 
-def get_html_template(title, content, action_link=None, button_text="View Details"):
+def get_html_template(title, content, action_link=None, button_text="View Details", accent_color="#ffb703"):
     """
     Professional responsive HTML email layout with Dark Mode & Outlook compatibility.
     """
@@ -26,8 +28,8 @@ def get_html_template(title, content, action_link=None, button_text="View Detail
                 <td align="center">
                     <table border="0" cellpadding="0" cellspacing="0">
                         <tr>
-                            <td align="center" bgcolor="#ffb703" style="border-radius: 6px;">
-                                <a href="{action_link}" target="_blank" style="font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-weight: 700; color: #111827; text-decoration: none; padding: 13px 32px; border-radius: 6px; border: 1px solid #ffb703; display: inline-block;">
+                            <td align="center" bgcolor="{accent_color}" style="border-radius: 6px;">
+                                <a href="{action_link}" target="_blank" style="font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-weight: 700; color: #111827; text-decoration: none; padding: 13px 32px; border-radius: 6px; border: 1px solid {accent_color}; display: inline-block;">
                                     {button_text}
                                 </a>
                             </td>
@@ -70,12 +72,12 @@ def get_html_template(title, content, action_link=None, button_text="View Detail
             .header-padding {{ padding: 20px 20px !important; }}
             .otp-box {{ padding: 20px 10px !important; }}
             .otp-code {{ font-size: 32px !important; letter-spacing: 6px !important; }}
+            .responsive-table th, .responsive-table td {{ padding: 8px 6px !important; font-size: 13px !important; }}
         }}
     </style>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
     <div style="background-color: #f3f4f6; padding: 30px 10px;">
-        <!-- Container -->
         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin: 0 auto;" class="email-container">
             <tr>
                 <td align="center" style="padding: 0;">
@@ -83,7 +85,7 @@ def get_html_template(title, content, action_link=None, button_text="View Detail
                         
                         <!-- Header -->
                         <tr>
-                            <td class="header-padding" style="background-color: #111827; padding: 24px 32px; text-align: left; border-bottom: 3px solid #ffb703;">
+                            <td class="header-padding" style="background-color: #111827; padding: 24px 32px; text-align: left; border-bottom: 3px solid {accent_color};">
                                 <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                     <tr>
                                         <td>
@@ -110,7 +112,7 @@ def get_html_template(title, content, action_link=None, button_text="View Detail
                         <!-- Footer -->
                         <tr>
                             <td style="background-color: #f9fafb; padding: 24px 32px; text-align: center; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 12px; line-height: 1.5;">
-                                <p style="margin: 0 0 4px 0; font-weight: 500;">This is an automated notification from <strong>uqn88 Store</strong>.</p>
+                                <p style="margin: 0 0 4px 0; font-weight: 500;">This is an automated email from <strong>uqn88 Store</strong>.</p>
                                 <p style="margin: 0; color: #9ca3af;">&copy; uqn88.store — All rights reserved.</p>
                             </td>
                         </tr>
@@ -125,15 +127,15 @@ def get_html_template(title, content, action_link=None, button_text="View Detail
 
 
 # ============================================
-# MAIN EMAIL SENDER
+# MAIN SENDER CORE ENGINE
 # ============================================
 
-def send_notification_email(recipient_email, subject, body_html, body_text=None, action_link=None):
+def send_notification_email(recipient_email, subject, body_html, body_text=None, action_link=None, button_text="View Details"):
     """
     System notifications bhejta hai (info@uqn88.store se).
     """
-    sender_email = "info@uqn88.store"
-    from_header = f"UQN88 <{sender_email}>"
+    sender_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'info@uqn88.store')
+    from_header = f"UQN88 Store <{sender_email}>"
     
     to_list = [recipient_email] if isinstance(recipient_email, str) else recipient_email
 
@@ -144,7 +146,7 @@ def send_notification_email(recipient_email, subject, body_html, body_text=None,
     plain_content = body_text if body_text else "Please view this email in an HTML-compatible client."
 
     if "<html>" not in body_html.lower():
-        full_html = get_html_template(title=subject, content=body_html, action_link=action_link)
+        full_html = get_html_template(title=subject, content=body_html, action_link=action_link, button_text=button_text)
     else:
         full_html = body_html
 
@@ -158,10 +160,10 @@ def send_notification_email(recipient_email, subject, body_html, body_text=None,
         if full_html:
             email.attach_alternative(full_html, "text/html")
 
-        # ⚡ TRACKING DISABLE HEADERS (URL Rewriting ko rokne ke liye)
-        email.extra_headers['X-Mailin-custom'] = '{"click_tracking": 0}'  # Brevo / Sendinblue
-        email.extra_headers['X-SMTPAPI'] = '{"tracking_settings": {"click_tracking": {"enable": false}}}'  # SendGrid
-        email.extra_headers['o:tracking-clicks'] = 'no'  # Mailgun
+        # Tracking Headers Override
+        email.extra_headers['X-Mailin-custom'] = '{"click_tracking": 0}'
+        email.extra_headers['X-SMTPAPI'] = '{"tracking_settings": {"click_tracking": {"enable": false}}}'
+        email.extra_headers['o:tracking-clicks'] = 'no'
         email.extra_headers['X-No-Track'] = '1'
 
         email.send(fail_silently=False)
@@ -171,10 +173,6 @@ def send_notification_email(recipient_email, subject, body_html, body_text=None,
         logger.error(f"❌ Failed to send email to {to_list}: {str(e)}")
         return False
 
-
-# ============================================
-# CUSTOM USER EMAIL
-# ============================================
 
 def send_custom_user_email(username, recipient_email, subject, body_html, body_text=None, action_link=None):
     """
@@ -206,7 +204,6 @@ def send_custom_user_email(username, recipient_email, subject, body_html, body_t
         if full_html:
             email.attach_alternative(full_html, "text/html")
 
-        # ⚡ TRACKING DISABLE HEADERS
         email.extra_headers['X-Mailin-custom'] = '{"click_tracking": 0}'
         email.extra_headers['X-SMTPAPI'] = '{"tracking_settings": {"click_tracking": {"enable": false}}}'
         email.extra_headers['o:tracking-clicks'] = 'no'
@@ -221,7 +218,7 @@ def send_custom_user_email(username, recipient_email, subject, body_html, body_t
 
 
 # ============================================
-# ✅ OTP EMAIL FUNCTION (WITH VERIFY LINK SUPPORT)
+# 1. OTP EMAIL TEMPLATE
 # ============================================
 
 def send_otp_email(recipient_email, otp_code, customer_name="Customer", purpose="verification", verify_url=None):
@@ -238,13 +235,12 @@ def send_otp_email(recipient_email, otp_code, customer_name="Customer", purpose=
         'email_verification': 'Email Verification',
     }.get(purpose, 'Verification')
     
-    # Check if direct verification link is provided
     verify_button_html = ""
     if verify_url:
         verify_button_html = f"""
         <div style="margin: 28px 0; text-align: center;">
-            <p style="font-size: 14px; color: #111827; font-weight: 600; margin-bottom: 12px;">
-                — YA PHIR NICHE DIYE GAYE LINK PAR CLICK KAREIN —
+            <p style="font-size: 13px; color: #6b7280; font-weight: 600; margin-bottom: 12px;">
+                — OR CLICK THE BUTTON BELOW —
             </p>
             <table border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
@@ -252,8 +248,8 @@ def send_otp_email(recipient_email, otp_code, customer_name="Customer", purpose=
                         <table border="0" cellpadding="0" cellspacing="0">
                             <tr>
                                 <td align="center" bgcolor="#2563eb" style="border-radius: 8px;">
-                                    <a href="{verify_url}" target="_blank" style="font-size: 15px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-weight: 700; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 8px; border: 1px solid #2563eb; display: inline-block;">
-                                        ⚡ Verify & Place Order Instantly
+                                    <a href="{verify_url}" target="_blank" style="font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-weight: 700; color: #ffffff; text-decoration: none; padding: 13px 26px; border-radius: 8px; border: 1px solid #2563eb; display: inline-block;">
+                                        ⚡ Verify & Proceed Instantly
                                     </a>
                                 </td>
                             </tr>
@@ -261,16 +257,13 @@ def send_otp_email(recipient_email, otp_code, customer_name="Customer", purpose=
                     </td>
                 </tr>
             </table>
-            
-            <!-- Direct Text Link (Bypasses Tracking Rewriting Issues) -->
-            <p style="font-size: 12px; color: #4b5563; margin-top: 14px; word-break: break-all;">
-                Agar button kaam na kare to is direct link ko open karein:<br>
-                <a href="{verify_url}" target="_blank" style="color: #2563eb; font-family: monospace; font-weight: 600;">{verify_url}</a>
+            <p style="font-size: 12px; color: #6b7280; margin-top: 14px; word-break: break-all;">
+                Direct Link: <a href="{verify_url}" target="_blank" style="color: #2563eb; font-family: monospace;">{verify_url}</a>
             </p>
         </div>
         """
 
-    body_html = f"""
+    body_content = f"""
     <div style="text-align: left;">
         <p style="font-size: 15px; color: #111827; margin-top: 0; margin-bottom: 12px;">
             Assalam o Alaikum <strong>{customer_name}</strong>,
@@ -280,7 +273,6 @@ def send_otp_email(recipient_email, otp_code, customer_name="Customer", purpose=
             Aap ka <strong>{purpose_text}</strong> ke liye One-Time Password (OTP) neeche diya gaya hai:
         </p>
         
-        <!-- OTP Card -->
         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 24px 0;">
             <tr>
                 <td align="center" class="otp-box" style="background-color: #f9fafb; border: 2px dashed #ffb703; border-radius: 10px; padding: 22px 16px;">
@@ -291,7 +283,6 @@ def send_otp_email(recipient_email, otp_code, customer_name="Customer", purpose=
             </tr>
         </table>
         
-        <!-- Expiry Badge -->
         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 24px;">
             <tr>
                 <td align="center">
@@ -308,7 +299,6 @@ def send_otp_email(recipient_email, otp_code, customer_name="Customer", purpose=
             Agar aap ne OTP request nahi ki, to is email ko ignore karein.
         </p>
         
-        <!-- Security Callout -->
         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #fffbe3; border-left: 4px solid #ffb703; border-radius: 0 6px 6px 0;">
             <tr>
                 <td style="padding: 12px 16px;">
@@ -321,27 +311,163 @@ def send_otp_email(recipient_email, otp_code, customer_name="Customer", purpose=
         </table>
     </div>
     """
-    
-    plain_verify_text = f"\nYa is link par click kar ke direct verify karein:\n{verify_url}\n" if verify_url else ""
 
-    body_text = f"""
-Assalam o Alaikum {customer_name},
-
-Aap ka {purpose_text} ke liye OTP code: {otp_code}
-{plain_verify_text}
-Yeh OTP sirf 5 minute ke liye valid hai.
-
-Agar aap ne OTP request nahi ki, to is email ko ignore karein.
-
-Shukriya,
-uqn88 Store
-    """
-    
     return send_notification_email(
         recipient_email=recipient_email,
         subject=subject,
-        body_html=body_html,
-        body_text=body_text,
+        body_html=body_content
+    )
+
+
+# ============================================
+# 2. CUSTOMER ORDER CONFIRMATION EMAIL
+# ============================================
+
+def send_customer_order_email(recipient_email, order_no, customer_name, order_summary, total_amount, payment_method="COD", address="N/A"):
+    """
+    Customer ko Order Confirmation Email bhejta hai with detailed Itemized Breakdown.
+    """
+    subject = f"🛍️ Order Confirmed #{order_no} - uqn88 Store"
+
+    items_rows = ""
+    for item in order_summary:
+        items_rows += f"""
+        <tr>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; color: #111827; font-weight: 500;">{item['name']}</td>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #4b5563;">{item['qty']}</td>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; color: #4b5563;">Rs. {item['price']:,.2f}</td>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; color: #111827; font-weight: 600;">Rs. {item['total']:,.2f}</td>
+        </tr>
+        """
+
+    content = f"""
+    <p style="font-size: 15px; color: #111827; margin-top: 0;">
+        Assalam o Alaikum <strong>{customer_name}</strong>,
+    </p>
+    <p style="font-size: 14px; color: #4b5563;">
+        Shukriya! Aap ka order <strong>#{order_no}</strong> successfully receive ho gaya hai. Hum jald hi isse dispatch karenge.
+    </p>
+
+    <!-- Order Info Card -->
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; margin: 20px 0;">
+        <tr>
+            <td style="padding: 16px;">
+                <p style="margin: 0 0 6px 0; font-size: 13px; color: #4b5563;"><strong>Order Number:</strong> #{order_no}</p>
+                <p style="margin: 0 0 6px 0; font-size: 13px; color: #4b5563;"><strong>Payment Method:</strong> <span style="background-color: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 11px;">{str(payment_method).upper()}</span></p>
+                <p style="margin: 0; font-size: 13px; color: #4b5563;"><strong>Shipping Address:</strong> {address}</p>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Items Table -->
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" class="responsive-table" style="margin-top: 15px; font-size: 14px;">
+        <thead>
+            <tr style="background-color: #f3f4f6;">
+                <th style="padding: 10px 12px; text-align: left; font-weight: 700; color: #374151; border-bottom: 2px solid #d1d5db;">Item</th>
+                <th style="padding: 10px 12px; text-align: center; font-weight: 700; color: #374151; border-bottom: 2px solid #d1d5db;">Qty</th>
+                <th style="padding: 10px 12px; text-align: right; font-weight: 700; color: #374151; border-bottom: 2px solid #d1d5db;">Price</th>
+                <th style="padding: 10px 12px; text-align: right; font-weight: 700; color: #374151; border-bottom: 2px solid #d1d5db;">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {items_rows}
+            <tr>
+                <td colspan="3" style="padding: 12px; text-align: right; font-weight: 700; color: #111827; border-top: 2px solid #111827;">Grand Total:</td>
+                <td style="padding: 12px; text-align: right; font-weight: 800; color: #16a34a; font-size: 16px; border-top: 2px solid #111827;">Rs. {total_amount:,.2f}</td>
+            </tr>
+        </tbody>
+    </table>
+    """
+
+    return send_notification_email(
+        recipient_email=recipient_email,
+        subject=subject,
+        body_html=content
+    )
+
+
+# ============================================
+# 3. ADMIN NEW ORDER ALERT EMAIL
+# ============================================
+
+def send_admin_order_notification(admin_emails, order_no, customer_name, customer_phone, total_amount, items_count, payment_method="COD", order_link=None):
+    """
+    Admin ko naye order placement par instant alert Email bhejta hai.
+    """
+    subject = f"🚨 NEW ORDER #{order_no} - Rs. {total_amount:,.2f}"
+
+    content = f"""
+    <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 14px 16px; border-radius: 0 6px 6px 0; margin-bottom: 20px;">
+        <p style="margin: 0; color: #991b1b; font-weight: 700; font-size: 15px;">
+            🛒 Web Store par Naya Order Aaya Hai!
+        </p>
+    </div>
+
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 20px;">
+        <tr>
+            <td style="padding: 16px;">
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #111827;"><strong>Order ID:</strong> #{order_no}</p>
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #111827;"><strong>Customer:</strong> {customer_name}</p>
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #111827;"><strong>Phone:</strong> {customer_phone}</p>
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #111827;"><strong>Items Count:</strong> {items_count}</p>
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #111827;"><strong>Payment:</strong> <span style="background-color: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px;">{str(payment_method).upper()}</span></p>
+                <p style="margin: 0; font-size: 16px; color: #16a34a; font-weight: 800;"><strong>Total Value:</strong> Rs. {total_amount:,.2f}</p>
+            </td>
+        </tr>
+    </table>
+    """
+
+    return send_notification_email(
+        recipient_email=admin_emails,
+        subject=subject,
+        body_html=content,
+        action_link=order_link,
+        button_text="⚙️ Manage Order in Admin Panel"
+    )
+
+
+# ============================================
+# 4. ORDER STATUS UPDATE EMAIL
+# ============================================
+
+def send_order_status_update_email(recipient_email, order_no, customer_name, new_status, tracking_url=None):
+    """
+    Order Status Change hone par Customer ko Email notification bheje ga.
+    """
+    status_config = {
+        'confirmed': ('Order Confirmed', '✅', '#16a34a'),
+        'processing': ('Processing & Packing', '⚙️', '#2563eb'),
+        'ready': ('Ready to Ship', '📦', '#8b5cf6'),
+        'dispatched': ('Out for Delivery', '🚚', '#0284c7'),
+        'delivered': ('Delivered Successfully', '🎉', '#16a34a'),
+        'cancelled': ('Order Cancelled', '❌', '#dc2626'),
+    }
+
+    status_label, emoji, status_color = status_config.get(new_status.lower(), ('Status Update', '📢', '#ffb703'))
+
+    subject = f"{emoji} Order #{order_no} Update: {status_label}"
+
+    content = f"""
+    <p style="font-size: 15px; color: #111827; margin-top: 0;">
+        Assalam o Alaikum <strong>{customer_name}</strong>,
+    </p>
+    <p style="font-size: 14px; color: #4b5563;">
+        Aap ke Order <strong>#{order_no}</strong> ka status update kar diya gaya hai:
+    </p>
+
+    <div style="text-align: center; margin: 24px 0;">
+        <span style="font-size: 16px; font-weight: 800; color: #ffffff; background-color: {status_color}; padding: 10px 24px; border-radius: 30px; display: inline-block;">
+            {emoji} {status_label.upper()}
+        </span>
+    </div>
+    """
+
+    return send_notification_email(
+        recipient_email=recipient_email,
+        subject=subject,
+        body_html=content,
+        action_link=tracking_url,
+        button_text="🔍 Track Your Order"
     )
 
 
