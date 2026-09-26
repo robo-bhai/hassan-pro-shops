@@ -307,28 +307,7 @@ jobs:
 
       # --- OPTIMIZED MEDIA CACHE RESTORE & DRIVE FALLBACK ---
 
-      - name: Restore Media Cache Directory
-        id: media-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: ./media
-          key: media-cache-${{ runner.os }}-${{ github.run_id }}
-          restore-keys: |
-            media-cache-${{ runner.os }}-
 
-      - name: Download Media Files from Google Drive (Fallback)
-        if: steps.media-cache.outputs.cache-hit != 'true'
-        env:
-          RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
-        run: |
-          echo "Cache missed or unavailable! Downloading from Google Drive..."
-          mkdir -p /home/runner/.config/rclone
-          echo "$RCLONE_CONFIG_DATA" > /home/runner/.config/rclone/rclone.conf
-          mkdir -p media
-          RCLONE_REMOTE=$(rclone listremotes | head -n 1)
-          echo "Syncing from Google Drive: ${RCLONE_REMOTE}hassan_shops/media/"
-          rclone copy "${RCLONE_REMOTE}hassan_shops/media/" ./media/ -v
-          chmod -R 755 ./media/
 
 
       - name: Apply Migrations & Create Superuser on Cloud Aiven MySQL
@@ -673,22 +652,7 @@ jobs:
 
 
       # 1. Google Drive par new media upload karega
-      - name: Sync Media Files back to Google Drive
-        if: always()
-        env:
-          RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
-        run: |
-          RCLONE_REMOTE=$(rclone listremotes | head -n 1)
-          echo "Uploading local media changes..."
-          rclone copy ./media "${RCLONE_REMOTE}hassan_shops/media/" --update -v
 
-      # 2. Yeh actual step hai jo media folder ko GITHUB CACHE mein save karega
-      - name: Save Updated Media Directory to GitHub Cache
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: ./media
-          key: media-cache-${{ runner.os }}-${{ github.run_id }}
 
 
       - name: Sync Local Runner MySQL Back to Cloud Aiven MySQL
