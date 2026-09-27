@@ -7,6 +7,8 @@ Customer Portal Views — Complete with All Features
 ✅ Live visitor count
 ✅ Image zoom support
 ✅ OTP countdown (refresh-proof)
+✅ Search optimization with caching
+✅ Category & Brand search
 """
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -14,7 +16,9 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.utils.timezone import now
 from django.db import transaction
-from django.db.models import Sum, Q, Min
+from django.db.models import Sum, Q, Min, Value, DecimalField
+from django.db.models.functions import Coalesce
+from django.core.cache import cache
 from django.urls import reverse
 from decimal import Decimal
 from datetime import datetime, timedelta
@@ -140,7 +144,7 @@ def check_otp_verified(request):
 
 def get_otp_remaining_seconds(request):
     """
-    ✅ NEW: OTP ka remaining time calculate karo (refresh-proof)
+    ✅ OTP ka remaining time calculate karo (refresh-proof)
     Returns: (remaining_seconds, otp_object)
     """
     otp_phone = request.session.get('order_otp_phone')
@@ -169,7 +173,7 @@ def get_otp_remaining_seconds(request):
 def enrich_recently_viewed_with_prices(recently_viewed):
     """
     ✅ Helper: Recently viewed products ke liye batch price aur stock calculate karo
-    ✅ NEW: Discount bhi apply karo
+    ✅ Discount bhi apply karo
     """
     if not recently_viewed:
         return recently_viewed
@@ -218,28 +222,48 @@ def enrich_recently_viewed_with_prices(recently_viewed):
 
 
 # ============================================
-# 1. SHOP HOME
+# 1. SHOP HOME — OPTIMIZED WITH SEARCH
 # ============================================
 
 def shop_home(request):
-    """Shop home page with all features"""
+    """
+    Shop home page with search optimization and caching
+    ✅ Optimized for speed
+    ✅ Category & Brand search
+    ✅ Live visitor count (cached)
+    """
     from django.core.paginator import Paginator
     
-    products = Product.objects.filter(is_active=True).select_related(
+    # ========================================== #
+    # 1. BASE QUERYSET - Optimized                  #
+    # ========================================== #
+    products = Product.objects.filter(
+        is_active=True
+    ).select_related(
         'category', 'brand', 'unit'
+    ).only(
+        'id', 'name', 'price', 'discount_percentage', 'original_price',
+        'image', 'serial_no', 'barcode', 'description',
+        'category__name', 'brand__name', 'unit__name'
     )
     
-    # Search
+    # ========================================== #
+    # 2. SEARCH - Optimized with Q objects         #
+    # ========================================== #
     search = request.GET.get('search', '').strip()[:100]
     if search:
         products = products.filter(
             Q(name__icontains=search) |
             Q(serial_no__icontains=search) |
             Q(barcode__icontains=search) |
-            Q(description__icontains=search)
+            Q(description__icontains=search) |
+            Q(category__name__icontains=search) |
+            Q(brand__name__icontains=search)
         )
     
-    # Category filter
+    # ========================================== #
+    # 3. FILTERS - Fast                           #
+    # ========================================== #
     category_id = request.GET.get('category', '')
     if category_id:
         try:
@@ -248,7 +272,6 @@ def shop_home(request):
         except (ValueError, TypeError):
             category_id = ''
     
-    # Brand filter
     brand_id = request.GET.get('brand', '')
     if brand_id:
         try:
@@ -257,10 +280,20 @@ def shop_home(request):
         except (ValueError, TypeError):
             brand_id = ''
     
-    # Annotation
-    products = products.annotate(total_stock=Sum('inventory__stock'))
+    # ========================================== #
+    # 4. ANNOTATE - Single query mein stock         #
+    # ========================================== #
+    products = products.annotate(
+        total_stock=Coalesce(
+            Sum('inventory__stock'),
+            Value(0.0),
+            output_field=DecimalField(max_digits=20, decimal_places=2)
+        )
+    )
     
-    # Sort
+    # ========================================== #
+    # 5. SORT                                     #
+    # ========================================== #
     sort = request.GET.get('sort', 'newest')
     if sort == 'price_low':
         products = products.order_by('price')
@@ -271,12 +304,16 @@ def shop_home(request):
     else:
         products = products.order_by('-id')
     
-    # Paginator
+    # ========================================== #
+    # 6. PAGINATE                                  #
+    # ========================================== #
     paginator = Paginator(products, 24)
     page = request.GET.get('page', 1)
     page_obj = paginator.get_page(page)
     
-    # Batch fetch selling prices
+    # ========================================== #
+    # 7. BATCH FETCH SELLING PRICES - Single query  #
+    # ========================================== #
     product_ids = [p.id for p in page_obj]
     
     batch_prices = StockBatch.objects.filter(
@@ -288,7 +325,9 @@ def shop_home(request):
     )
     batch_price_map = {bp['product_id']: bp['best_price'] for bp in batch_prices}
     
-    # Cart awareness
+    # ========================================== #
+    # 8. CART AWARENESS - Fast                     #
+    # ========================================== #
     cart = request.session.get('cart', {})
     cart_product_ids = set()
     cart_quantities = {}
@@ -302,12 +341,11 @@ def shop_home(request):
             pass
     
     # ========================================== #
-    # ✅ Apply Discount & Stock to products       #
+    # 9. APPLY PRICES - Python loop (fast)         #
     # ========================================== #
     for product in page_obj:
         product.available_stock = product.total_stock or 0
         
-        # Base price determine karo
         if product.id in batch_price_map:
             base_price = batch_price_map[product.id]
             product.has_batch_price = True
@@ -315,7 +353,6 @@ def shop_home(request):
             base_price = product.price
             product.has_batch_price = False
         
-        # ✅ Discount price calculation
         if product.discount_percentage and product.discount_percentage > 0:
             product.original_price = base_price
             discount_amount = base_price * (product.discount_percentage / Decimal('100'))
@@ -327,30 +364,78 @@ def shop_home(request):
             product.has_discount = False
             product.original_price = base_price
         
-        # Cart awareness
         product.in_cart = product.id in cart_product_ids
         product.cart_quantity = cart_quantities.get(product.id, 0)
     
-    # ✅ Recently viewed — with batch prices
+    # ========================================== #
+    # 10. RECENTLY VIEWED                           #
+    # ========================================== #
     recently_viewed = RecentlyViewed.get_recently_viewed(request, limit=8)
     recently_viewed = enrich_recently_viewed_with_prices(recently_viewed)
     
-    # ✅ Live visitor count
-    live_visitor_count = LiveVisitor.get_active_count(seconds=60)
+    # ========================================== #
+    # 11. LIVE VISITOR COUNT - Cached              #
+    # ========================================== #
+    cache_key = 'live_visitor_count'
+    live_visitor_count = cache.get(cache_key)
+    if live_visitor_count is None:
+        live_visitor_count = LiveVisitor.get_active_count(seconds=60)
+        cache.set(cache_key, live_visitor_count, 15)
     
-    company = CompanyInfo.objects.first()
+    # ========================================== #
+    # 12. COMPANY INFO - Cached                    #
+    # ========================================== #
+    company = cache.get('company_info')
+    if not company:
+        company = CompanyInfo.objects.first()
+        cache.set('company_info', company, 300)
     
+    # ========================================== #
+    # 13. CATEGORIES & BRANDS - Cached             #
+    # ========================================== #
+    categories = cache.get('all_categories')
+    if not categories:
+        categories = list(Category.objects.all().only('id', 'name'))
+        cache.set('all_categories', categories, 600)
+    
+    brands = cache.get('all_brands')
+    if not brands:
+        brands = list(Brand.objects.all().only('id', 'name'))
+        cache.set('all_brands', brands, 600)
+    
+    # ========================================== #
+    # 14. SELECTED CATEGORY/BRAND NAMES (for chips)#
+    # ========================================== #
+    selected_category_name = ''
+    if category_id:
+        for cat in categories:
+            if cat.id == category_id:
+                selected_category_name = cat.name
+                break
+    
+    selected_brand_name = ''
+    if brand_id:
+        for br in brands:
+            if br.id == brand_id:
+                selected_brand_name = br.name
+                break
+    
+    # ========================================== #
+    # 15. CONTEXT                                  #
+    # ========================================== #
     context = {
         'company_name': company.name if company else 'Shop',
         'company': company,
         'products': page_obj,
         'page_obj': page_obj,
-        'categories': Category.objects.all(),
-        'brands': Brand.objects.all(),
+        'categories': categories,
+        'brands': brands,
         'search': search,
         'selected_category': category_id,
         'selected_brand': brand_id,
         'selected_sort': sort,
+        'selected_category_name': selected_category_name,
+        'selected_brand_name': selected_brand_name,
         'total_products': paginator.count,
         'cart_count': get_cart_count_value(request),
         'recently_viewed': recently_viewed,
@@ -667,7 +752,7 @@ def remove_from_cart(request, product_id):
 
 
 # ============================================
-# 7. CHECKOUT (WITH OTP COUNTDOWN)
+# 7. CHECKOUT
 # ============================================
 
 @customer_login_required
@@ -699,18 +784,14 @@ def checkout(request):
     
     order_verified = check_otp_verified(request)
     
-    # ========================================== #
-    # ✅ OTP COUNTDOWN (Refresh-Proof)            #
-    # ========================================== #
+    # OTP COUNTDOWN
     otp_remaining_seconds, otp_obj = get_otp_remaining_seconds(request)
     otp_is_active = otp_remaining_seconds > 0 and not order_verified
     
-    # Agar OTP verified hai to countdown band karo
     if order_verified:
         otp_remaining_seconds = 0
         otp_is_active = False
     
-    # ✅ Masked email for display
     otp_masked_email = ''
     if otp_obj and customer.email:
         email = customer.email
@@ -742,8 +823,6 @@ def checkout(request):
         'skip_otp': skip_otp,
         'order_verified': order_verified,
         'payment_methods': payment_methods,
-        
-        # ✅ NEW: OTP countdown data
         'otp_remaining_seconds': otp_remaining_seconds,
         'otp_is_active': otp_is_active,
         'otp_masked_email': otp_masked_email,
@@ -755,32 +834,13 @@ def checkout(request):
 # 8. PLACE ORDER
 # ============================================
 
-from django.db import transaction
-from django.views.decorators.http import require_POST
-from django.shortcuts import redirect, render
-from django.contrib import messages
-from django.utils.timezone import now
-from datetime import timedelta
-from decimal import Decimal
-import logging
-
-# Email helper functions import karein
-#from .email_helper import send_customer_order_email, send_admin_order_notification
-
-from app.utils.email_helper import send_customer_order_email, send_admin_order_notification
-# Ya phir relative import:
-# from .utils.email_helper import send_customer_order_email, send_admin_order_notification
-
-
-logger = logging.getLogger(__name__)
-
-
 @transaction.atomic
 @customer_login_required
 @require_POST
 def place_order(request):
     """Order place karo with email_helper integration"""
     from django.contrib.auth.models import User
+    from app.utils.email_helper import send_customer_order_email, send_admin_order_notification
     
     try:
         profile = None
@@ -929,15 +989,12 @@ def place_order(request):
         except Exception as e:
             logger.error(f"Notification error: {e}")
 
-        # =========================================================
-        # ⚡ SEND RESPONSIVE HTML EMAILS VIA EMAIL_HELPER.PY
-        # =========================================================
+        # Send emails
         try:
             customer_email = getattr(customer, 'email', None)
             customer_address = getattr(customer, 'address', 'N/A')
             customer_phone = getattr(customer, 'contact_number', 'N/A')
 
-            # 1. Customer Email
             if customer_email:
                 send_customer_order_email(
                     recipient_email=customer_email,
@@ -949,7 +1006,6 @@ def place_order(request):
                     address=customer_address
                 )
 
-            # 2. Admin Emails
             admin_emails = list(
                 User.objects.filter(is_superuser=True, is_active=True, email__gt='')
                 .values_list('email', flat=True)
@@ -1022,7 +1078,12 @@ def get_cart_count(request):
 
 def get_live_visitors(request):
     """Live visitor count (AJAX)"""
-    count = LiveVisitor.get_active_count(seconds=60)
+    cache_key = 'live_visitor_count'
+    count = cache.get(cache_key)
+    
+    if count is None:
+        count = LiveVisitor.get_active_count(seconds=60)
+        cache.set(cache_key, count, 15)
     
     if count < 1:
         count = 1
@@ -1039,10 +1100,7 @@ def get_live_visitors(request):
 # ============================================
 
 def get_otp_remaining_api(request):
-    """
-    ✅ AJAX: OTP ka remaining time server se fetch karo
-    Frontend isse polling kar sakta hai taake countdown accurate rahe
-    """
+    """AJAX: OTP ka remaining time server se fetch karo"""
     if not request.user.is_authenticated:
         return JsonResponse({'success': False, 'message': 'Login required'})
     

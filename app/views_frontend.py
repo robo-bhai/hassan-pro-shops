@@ -9735,10 +9735,16 @@ def get_batch_selling_price(request):
 @login_required
 def dashboard_view(request):
     """
-    Main Dashboard - FULLY OPTIMIZED (50 queries → 8 queries)
+    Main Dashboard - Role-based (Superuser / CEO / MD / CTO)
+    ✅ All real data from database & system
     """
-    from django.db.models import Sum, Count, Q, F, Value, DecimalField, ExpressionWrapper
+    from django.db.models import Sum, Count, Q, F, Value, DecimalField, ExpressionWrapper, IntegerField, Prefetch
     from django.db.models.functions import Coalesce
+    from django.contrib.sessions.models import Session
+    import os
+    import glob
+    import shutil
+    from django.conf import settings
     
     # ========================================== #
     # REDIRECTS                                   #
@@ -9754,20 +9760,34 @@ def dashboard_view(request):
         return redirect('my_account')
     
     # ========================================== #
+    # ✅ ROLE DETECTION                           #
+    # Priority: Superuser > CEO > MD > CTO        #
+    # ========================================== #
+    is_superuser = request.user.is_superuser
+    in_ceo_group = request.user.groups.filter(name='CEO').exists()
+    in_md_group = (
+        request.user.groups.filter(name='MD').exists() or 
+        request.user.groups.filter(name='Managing Director').exists()
+    )
+    in_cto_group = (
+        request.user.groups.filter(name='CTO').exists() or 
+        request.user.groups.filter(name='Chief Technology Officer').exists()
+    )
+    
+    # Strict priority
+    is_ceo = in_ceo_group and not is_superuser
+    is_md = not is_superuser and not is_ceo and in_md_group
+    is_cto = not is_superuser and not is_ceo and not is_md and in_cto_group
+    
+    # ========================================== #
     # SETUP                                       #
     # ========================================== #
     today = localdate()
     month_ago = today - timedelta(days=30)
     month_start = today.replace(day=1)
     
-    cache_key = f'dashboard_data_{request.user.id}_{today.strftime("%Y%m%d")}'
-    cached_data = cache.get(cache_key)
-    
-    if cached_data:
-        return render(request, 'index.html', cached_data)
-    
     # ========================================== #
-    # 1. TODAY'S STATS (1 query)                 #
+    # 1. TODAY'S STATS                            #
     # ========================================== #
     today_stats = Sale.objects.filter(sale_date__date=today).aggregate(
         total_sales=Coalesce(
@@ -9785,7 +9805,6 @@ def dashboard_view(request):
     today_sales_count = today_stats['sales_count'] or 0
     today_discount = today_stats['total_discount']
     
-    # ✅ FIX: 3 separate queries → 1 query
     today_purchases = Purchase.objects.filter(pur_date__date=today).aggregate(
         total=Coalesce(
             Sum('purchaseitem__total_amt', output_field=DecimalField(max_digits=20, decimal_places=2)),
@@ -9807,7 +9826,7 @@ def dashboard_view(request):
     today_profit = today_profit_raw - today_discount
     
     # ========================================== #
-    # 2. LOW STOCK ALERT                         #
+    # 2. LOW STOCK ALERT                          #
     # ========================================== #
     low_stock_items = Inventory.objects.select_related(
         'product', 'warehouse', 'product__unit'
@@ -9820,34 +9839,7 @@ def dashboard_view(request):
     ).count()
     
     # ========================================== #
-    # 3. CHART DATA (LAST 30 DAYS) - 1 query     #
-    # ========================================== #
-    chart_labels = []
-    chart_data = []
-    
-    last_30_days = [today - timedelta(days=i) for i in range(29, -1, -1)]
-    
-    daily_sales = Sale.objects.filter(
-        sale_date__date__gte=last_30_days[0],
-        sale_date__date__lte=last_30_days[-1]
-    ).extra(
-        {'date': "DATE(sale_date)"}
-    ).values('date').annotate(
-        total=Coalesce(
-            Sum('saleitem__total_amt', output_field=DecimalField(max_digits=20, decimal_places=2)),
-            Value(Decimal('0.00'))
-        )
-    ).order_by('date')
-    
-    sales_by_date = {str(item['date']): float(item['total'] or 0) for item in daily_sales}
-    
-    for d in last_30_days:
-        date_key = d.strftime('%Y-%m-%d')
-        chart_labels.append(d.strftime('%d %b'))
-        chart_data.append(sales_by_date.get(date_key, 0))
-    
-    # ========================================== #
-    # 4. TOP PRODUCTS (1 query)                  #
+    # 3. TOP PRODUCTS (30 DAYS)                   #
     # ========================================== #
     top_products_qs = SaleItem.objects.filter(
         sale__sale_date__date__gte=month_ago
@@ -9869,7 +9861,6 @@ def dashboard_view(request):
     ).order_by('-total_sales')[:8]
     
     top_products = list(top_products_qs)
-    
     if top_products:
         max_sales = max((p['total_sales'] for p in top_products), default=Decimal('1.00')) or Decimal('1.00')
         for p in top_products:
@@ -9877,10 +9868,8 @@ def dashboard_view(request):
             p['product_name'] = p['product__name']
     
     # ========================================== #
-    # 5. RECENT SALES - ✅ FIXED N+1              #
+    # 4. RECENT SALES                             #
     # ========================================== #
-    from django.db.models import Prefetch
-    
     recent_sales = Sale.objects.select_related(
         'customer', 'warehouse', 'customer__group', 'created_by'
     ).prefetch_related(
@@ -9890,7 +9879,6 @@ def dashboard_view(request):
         )
     ).order_by('-sale_date')[:10]
     
-    # ✅ FIX: Pre-calculate totals in Python (no extra queries)
     recent_sales_list = []
     for sale in recent_sales:
         sale.cached_total = sum(
@@ -9900,7 +9888,7 @@ def dashboard_view(request):
         recent_sales_list.append(sale)
     
     # ========================================== #
-    # 6. MONTHLY STATS (2 queries)               #
+    # 5. MONTHLY STATS                            #
     # ========================================== #
     monthly_stats = Sale.objects.filter(
         sale_date__date__gte=month_start
@@ -9938,46 +9926,61 @@ def dashboard_view(request):
     monthly_profit = monthly_profit_raw - monthly_discount
     
     # ========================================== #
-    # 7. TOTAL COUNTS (5 queries → bulk)         #
+    # 6. TOTAL COUNTS                             #
     # ========================================== #
     total_customers = Customer.objects.count()
     total_vendors = Vendor.objects.count()
     total_products = Product.objects.count()
-    
-    active_installments = SaleInstallment.objects.filter(
-        status__in=['pending', 'partial']
-    ).count()
-    
+    active_installments = SaleInstallment.objects.filter(status__in=['pending', 'partial']).count()
     pending_sale_orders = SaleOrder.objects.filter(status='pending').count()
-    
-    # ========================================== #
-    # 8. PENDING APPROVALS                       #
-    # ========================================== #
-    pending_purchases = Purchase.objects.filter(
-        shareholder_deduction_done=False
-    ).count()
-    
+    pending_purchases = Purchase.objects.filter(shareholder_deduction_done=False).count()
     pending_leave_requests = LeaveRequest.objects.filter(status='pending').count()
-    
     pending_orders = PurchaseOrder.objects.filter(
         status__in=['pending', 'confirmed', 'processing']
     ).count()
     
     # ========================================== #
-    # 9. CEO STATS                               #
+    # 7. ROLE-BASED STATS                         #
     # ========================================== #
-    is_ceo = request.user.is_superuser
-    
+    admin_stats = None
     ceo_stats = None
+    md_stats = None
+    cto_stats = None
+    
+    # ========== ADMIN (SUPERUSER) STATS ==========
+    if is_superuser:
+        total_stock_value = Inventory.objects.aggregate(
+            total=Coalesce(
+                Sum(ExpressionWrapper(
+                    F('stock') * F('product__price'),
+                    output_field=DecimalField(max_digits=20, decimal_places=2)
+                )),
+                Value(Decimal('0.00'))
+            )
+        )['total'] or Decimal('0.00')
+        
+        admin_stats = {
+            'total_users': User.objects.count(),
+            'active_users': User.objects.filter(is_active=True).count(),
+            'total_employees': Employee.objects.count(),
+            'total_shareholders': Shareholder.objects.filter(status='active').count(),
+            'total_products': total_products,
+            'total_stock_value': total_stock_value,
+            'total_customers': total_customers,
+            'total_vendors': total_vendors,
+            'total_profit': get_cached_total_profit(),
+            'today_sales': today_sales,
+            'monthly_profit': monthly_profit,
+        }
+    
+    # ========== CEO STATS (REAL DATA) ==========
     if is_ceo:
         total_stock_value = Inventory.objects.aggregate(
             total=Coalesce(
-                Sum(
-                    ExpressionWrapper(
-                        F('stock') * F('product__price'),
-                        output_field=DecimalField(max_digits=20, decimal_places=2)
-                    )
-                ),
+                Sum(ExpressionWrapper(
+                    F('stock') * F('product__price'),
+                    output_field=DecimalField(max_digits=20, decimal_places=2)
+                )),
                 Value(Decimal('0.00'))
             )
         )['total'] or Decimal('0.00')
@@ -9993,6 +9996,17 @@ def dashboard_view(request):
             )
         )['total'] or Decimal('0.00')
         
+        # ✅ Real financial metrics - FIXED: date → expense_date
+        total_expenses_month = Expense.objects.filter(
+            expense_date__gte=month_start,
+            status__in=['approved', 'paid']
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        
+        # Gross margin
+        gross_margin = 0
+        if monthly_sales > 0:
+            gross_margin = float((monthly_profit / monthly_sales) * 100)
+        
         ceo_stats = {
             'total_users': User.objects.count(),
             'active_users': User.objects.filter(is_active=True).count(),
@@ -10005,6 +10019,8 @@ def dashboard_view(request):
             'total_profit': get_cached_total_profit(),
             'monthly_revenue': monthly_sales,
             'monthly_profit': monthly_profit,
+            'monthly_expenses': total_expenses_month,
+            'gross_margin': round(gross_margin, 1),
             'today_revenue': today_sales,
             'today_profit': today_profit,
             'total_customers': total_customers,
@@ -10024,11 +10040,281 @@ def dashboard_view(request):
             'total_dividends': total_dividends,
         }
     
+    # ========== MD STATS (REAL DATA) ==========
+    if is_md:
+        today_orders = SaleOrder.objects.filter(order_date__date=today).count()
+        today_challans = DeliveryChallan.objects.filter(challan_date__date=today).count()
+        today_grns = GoodsReceivedNote.objects.filter(grn_date__date=today).count()
+        today_returns = SaleRetrn.objects.filter(sale_return_date__date=today).count()
+        today_purchase_returns = PurchaseRetrn.objects.filter(purchase_return_date__date=today).count()
+        
+        pending_deliveries = SaleOrder.objects.filter(
+            status__in=['confirmed', 'processing', 'ready']
+        ).count()
+        pending_receipts = PurchaseOrder.objects.filter(
+            status__in=['confirmed', 'processing', 'shipped']
+        ).count()
+        
+        today_attendance = Attendance.objects.filter(date=today, status='present').count()
+        today_absent = Attendance.objects.filter(date=today, status='absent').count()
+        
+        total_stock_items = Inventory.objects.filter(stock__gt=0).count()
+        out_of_stock_items = Inventory.objects.filter(stock=0).count()
+        
+        # ✅ Real sales metrics
+        today_avg_sale = Decimal('0.00')
+        if today_sales_count > 0:
+            today_avg_sale = today_sales / today_sales_count
+        
+        md_stats = {
+            # Daily Operations
+            'today_orders': today_orders,
+            'today_challans': today_challans,
+            'today_grns': today_grns,
+            'today_returns': today_returns,
+            'today_purchase_returns': today_purchase_returns,
+            
+            # Pending
+            'pending_deliveries': pending_deliveries,
+            'pending_receipts': pending_receipts,
+            'pending_purchases': pending_purchases,
+            'pending_leave_requests': pending_leave_requests,
+            
+            # Sales & Purchase
+            'today_sales': today_sales,
+            'today_purchases': today_purchases_amount,
+            'monthly_sales': monthly_sales,
+            'monthly_purchases': monthly_purchases,
+            'today_sales_count': today_sales_count,
+            'today_purchase_count': today_purchase_count,
+            'today_avg_sale': round(today_avg_sale, 2),
+            
+            # Customers & Vendors
+            'total_customers': total_customers,
+            'total_vendors': total_vendors,
+            'pending_orders': pending_orders,
+            
+            # Inventory
+            'low_stock_count': low_stock_count,
+            'total_stock_items': total_stock_items,
+            'out_of_stock_items': out_of_stock_items,
+            
+            # HR
+            'total_employees': Employee.objects.count(),
+            'active_employees': Employee.objects.filter(status='active').count(),
+            'today_present': today_attendance,
+            'today_absent': today_absent,
+            
+            # Installments
+            'active_installments': active_installments,
+            
+            # Profit
+            'today_profit': today_profit,
+            'monthly_profit': monthly_profit,
+        }
+    
+    # ========== CTO STATS (REAL DATA) ==========
+    if is_cto:
+        from django.contrib.admin.models import LogEntry
+        
+        # ========================================== #
+        # 1. REAL DATABASE SIZE
+        # ========================================== #
+        total_db_size = "N/A"
+        db_size_mb = 0
+        try:
+            db_engine = settings.DATABASES['default']['ENGINE']
+            
+            if 'sqlite' in db_engine:
+                db_path = settings.DATABASES['default']['NAME']
+                if os.path.exists(db_path):
+                    db_size_bytes = os.path.getsize(db_path)
+                    db_size_mb = db_size_bytes / (1024 * 1024)
+                    if db_size_mb >= 1024:
+                        total_db_size = f"{db_size_mb / 1024:.2f} GB"
+                    else:
+                        total_db_size = f"{db_size_mb:.2f} MB"
+            else:
+                from django.db import connection
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) 
+                        FROM information_schema.tables 
+                        WHERE table_schema = DATABASE();
+                    """)
+                    result = cursor.fetchone()
+                    if result and result[0]:
+                        db_size_mb = float(result[0])
+                        if db_size_mb >= 1024:
+                            total_db_size = f"{db_size_mb / 1024:.2f} GB"
+                        else:
+                            total_db_size = f"{db_size_mb:.2f} MB"
+        except Exception as e:
+            print(f"[CTO] DB size error: {e}")
+        
+        # ========================================== #
+        # 2. REAL BACKUP DATA
+        # ========================================== #
+        backup_dir = getattr(settings, 'BACKUP_DIR', '')
+        backup_count = 0
+        latest_backup_time = None
+        latest_backup_size = "N/A"
+        
+        if backup_dir and os.path.exists(backup_dir):
+            try:
+                backup_files = glob.glob(os.path.join(backup_dir, '*.gz')) + \
+                               glob.glob(os.path.join(backup_dir, '*.sqlite3'))
+                backup_count = len(backup_files)
+                
+                if backup_files:
+                    latest_file = max(backup_files, key=os.path.getctime)
+                    latest_backup_time = datetime.fromtimestamp(os.path.getctime(latest_file))
+                    
+                    size_bytes = os.path.getsize(latest_file)
+                    size_mb = size_bytes / (1024 * 1024)
+                    latest_backup_size = f"{size_mb:.2f} MB"
+            except Exception as e:
+                print(f"[CTO] Backup error: {e}")
+        
+        # ========================================== #
+        # 3. REAL ACTIVE SESSIONS
+        # ========================================== #
+        active_sessions = 0
+        try:
+            active_sessions = Session.objects.filter(expire_date__gte=now()).count()
+        except Exception as e:
+            print(f"[CTO] Session error: {e}")
+        
+        # ========================================== #
+        # 4. REAL USERS ONLINE (Last 30 min)
+        # ========================================== #
+        users_online = User.objects.filter(
+            last_login__gte=now() - timedelta(minutes=30)
+        ).count()
+        
+        # ========================================== #
+        # 5. REAL RECENT LOGS (Last 24 hours)
+        # ========================================== #
+        try:
+            recent_logs = LogEntry.objects.filter(
+                action_time__gte=now() - timedelta(days=1)
+            ).count()
+        except Exception:
+            recent_logs = 0
+        
+        # ========================================== #
+        # 6. REAL DATABASE RECORDS
+        # ========================================== #
+        total_records = (
+            Sale.objects.count() + 
+            Purchase.objects.count() + 
+            Customer.objects.count() + 
+            Vendor.objects.count() +
+            Product.objects.count() +
+            SaleOrder.objects.count() + 
+            PurchaseOrder.objects.count() +
+            SaleItem.objects.count() +
+            PurchaseItem.objects.count()
+        )
+        
+        # ========================================== #
+        # 7. REAL DISK USAGE
+        # ========================================== #
+        disk_usage_percent = 0
+        disk_total_gb = 0
+        disk_used_gb = 0
+        disk_free_gb = 0
+        
+        try:
+            total, used, free = shutil.disk_usage("/")
+            disk_total_gb = total / (1024**3)
+            disk_used_gb = used / (1024**3)
+            disk_free_gb = free / (1024**3)
+            disk_usage_percent = (used / total) * 100
+        except Exception as e:
+            print(f"[CTO] Disk error: {e}")
+        
+        # ========================================== #
+        # 8. REAL MEMORY USAGE
+        # ========================================== #
+        memory_usage_percent = 0
+        memory_total_gb = 0
+        memory_used_gb = 0
+        memory_free_gb = 0
+        
+        try:
+            if os.path.exists('/proc/meminfo'):
+                with open('/proc/meminfo', 'r') as f:
+                    meminfo = f.read()
+                
+                total_line = [l for l in meminfo.split('\n') if l.startswith('MemTotal:')]
+                available_line = [l for l in meminfo.split('\n') if l.startswith('MemAvailable:')]
+                
+                if total_line and available_line:
+                    total_kb = int(total_line[0].split()[1])
+                    available_kb = int(available_line[0].split()[1])
+                    used_kb = total_kb - available_kb
+                    
+                    memory_total_gb = total_kb / (1024**2)
+                    memory_used_gb = used_kb / (1024**2)
+                    memory_free_gb = available_kb / (1024**2)
+                    memory_usage_percent = (used_kb / total_kb) * 100
+        except Exception as e:
+            print(f"[CTO] Memory error: {e}")
+        
+        # ========================================== #
+        # 9. REAL USER ACTIVITY (Last 7 days)
+        # ========================================== #
+        users_active_7d = User.objects.filter(
+            last_login__gte=now() - timedelta(days=7)
+        ).count()
+        
+        # ========================================== #
+        # FINAL CTO STATS
+        # ========================================== #
+        cto_stats = {
+            'total_users': User.objects.count(),
+            'active_users': User.objects.filter(is_active=True).count(),
+            'users_online': users_online,
+            'users_active_7d': users_active_7d,
+            'active_sessions': active_sessions,
+            'total_db_size': total_db_size,
+            'db_size_mb': round(db_size_mb, 2),
+            'recent_logs': recent_logs,
+            'backup_count': backup_count,
+            'latest_backup_time': latest_backup_time,
+            'latest_backup_size': latest_backup_size,
+            'total_records': total_records,
+            'total_products': total_products,
+            'total_transactions': Sale.objects.count() + Purchase.objects.count(),
+            
+            # System Resources
+            'disk_usage_percent': round(disk_usage_percent, 1),
+            'disk_total_gb': round(disk_total_gb, 2),
+            'disk_used_gb': round(disk_used_gb, 2),
+            'disk_free_gb': round(disk_free_gb, 2),
+            
+            'memory_usage_percent': round(memory_usage_percent, 1),
+            'memory_total_gb': round(memory_total_gb, 2),
+            'memory_used_gb': round(memory_used_gb, 2),
+            'memory_free_gb': round(memory_free_gb, 2),
+        }
+    
     # ========================================== #
-    # 10. QUICK ACTIONS                          #
+    # 8. QUICK ACTIONS (Role-based)               #
     # ========================================== #
     quick_actions = []
-    if is_ceo:
+    
+    if is_superuser:
+        quick_actions = [
+            {'name': '👥 Manage Users', 'url': '/users/', 'icon': 'bi-people', 'color': 'primary'},
+            {'name': '⚙️ Module Settings', 'url': '/module-settings/', 'icon': 'bi-gear', 'color': 'success'},
+            {'name': '💾 Backup', 'url': '/database-backup/', 'icon': 'bi-hdd-stack', 'color': 'info'},
+            {'name': '🔐 Security', 'url': '/security/', 'icon': 'bi-shield-lock', 'color': 'danger'},
+            {'name': '📊 Reports', 'url': '/reports/dashboard/', 'icon': 'bi-graph-up', 'color': 'warning'},
+            {'name': '👑 Django Admin', 'url': '/admin/', 'icon': 'bi-shield-check', 'color': 'secondary'},
+        ]
+    elif is_ceo:
         quick_actions = [
             {'name': '👥 Manage Users', 'url': '/users/', 'icon': 'bi-people', 'color': 'primary'},
             {'name': '👔 HR Management', 'url': '/hr/employees/', 'icon': 'bi-person-badge', 'color': 'success'},
@@ -10037,9 +10323,27 @@ def dashboard_view(request):
             {'name': '⚙️ Settings', 'url': '/settings/', 'icon': 'bi-gear', 'color': 'danger'},
             {'name': '💾 Backup', 'url': '/database-backup/', 'icon': 'bi-hdd-stack', 'color': 'secondary'},
         ]
+    elif is_md:
+        quick_actions = [
+            {'name': '🛒 New Sale', 'url': '/sales/create/', 'icon': 'bi-cart-plus', 'color': 'primary'},
+            {'name': '📥 New Purchase', 'url': '/purchases/create/', 'icon': 'bi-box-arrow-in-down', 'color': 'success'},
+            {'name': '📦 Inventory', 'url': '/inventory/', 'icon': 'bi-box', 'color': 'info'},
+            {'name': '👥 Customers', 'url': '/customers/', 'icon': 'bi-people', 'color': 'warning'},
+            {'name': '🏪 Vendors', 'url': '/vendors/', 'icon': 'bi-shop', 'color': 'danger'},
+            {'name': '📊 Reports', 'url': '/reports/dashboard/', 'icon': 'bi-graph-up', 'color': 'secondary'},
+        ]
+    elif is_cto:
+        quick_actions = [
+            {'name': '🔧 System Status', 'url': '/system-status/', 'icon': 'bi-cpu', 'color': 'primary'},
+            {'name': '💾 Backup', 'url': '/database-backup/', 'icon': 'bi-hdd-stack', 'color': 'success'},
+            {'name': '🔐 Security', 'url': '/security/', 'icon': 'bi-shield-lock', 'color': 'danger'},
+            {'name': '📊 BI Dashboard', 'url': '/bi/', 'icon': 'bi-bar-chart', 'color': 'info'},
+            {'name': '🤖 AI Dashboard', 'url': '/ai/dashboard/', 'icon': 'bi-robot', 'color': 'warning'},
+            {'name': '👥 Users', 'url': '/users/', 'icon': 'bi-people', 'color': 'secondary'},
+        ]
     
     # ========================================== #
-    # 11. CONTEXT                                #
+    # 9. CONTEXT                                  #
     # ========================================== #
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
@@ -10051,8 +10355,6 @@ def dashboard_view(request):
         'low_stock_count': low_stock_count,
         'low_stock_items': low_stock_items,
         'pending_approvals': pending_purchases,
-        'chart_labels': json.dumps(chart_labels),
-        'chart_data': json.dumps(chart_data),
         'top_products': top_products,
         'recent_sales': recent_sales_list,
         'monthly_sales': monthly_sales,
@@ -10064,14 +10366,23 @@ def dashboard_view(request):
         'active_installments': active_installments,
         'pending_sale_orders': pending_sale_orders,
         'pending_orders': pending_orders,
+        
+        # Role flags
+        'is_superuser': is_superuser,
         'is_ceo': is_ceo,
+        'is_md': is_md,
+        'is_cto': is_cto,
+        
+        # Role stats
+        'admin_stats': admin_stats,
         'ceo_stats': ceo_stats,
+        'md_stats': md_stats,
+        'cto_stats': cto_stats,
+        
         'quick_actions': quick_actions,
         'today': today,
         'month_start': month_start,
     }
-    
-    cache.set(cache_key, context, 300)
     
     return render(request, 'index.html', context)
 
@@ -10089,24 +10400,21 @@ def get_cached_total_profit():
         total_sales = Sale.objects.aggregate(
             total=Coalesce(
                 Sum('saleitem__total_amt', output_field=DecimalField(max_digits=20, decimal_places=2)),
-                Value(Decimal('0.00')),
-                output_field=DecimalField(max_digits=20, decimal_places=2)
+                Value(Decimal('0.00'))
             )
         )['total'] or Decimal('0.0')
         
         total_purchases = Purchase.objects.aggregate(
             total=Coalesce(
                 Sum('purchaseitem__total_amt', output_field=DecimalField(max_digits=20, decimal_places=2)),
-                Value(Decimal('0.00')),
-                output_field=DecimalField(max_digits=20, decimal_places=2)
+                Value(Decimal('0.00'))
             )
         )['total'] or Decimal('0.0')
         
         total_expenses = Expense.objects.aggregate(
             total=Coalesce(
                 Sum('amount', output_field=DecimalField(max_digits=20, decimal_places=2)),
-                Value(Decimal('0.00')),
-                output_field=DecimalField(max_digits=20, decimal_places=2)
+                Value(Decimal('0.00'))
             )
         )['total'] or Decimal('0.0')
         
@@ -10123,24 +10431,50 @@ def get_total_profit():
     total_sales = Sale.objects.aggregate(
         total=Coalesce(
             Sum('saleitem__total_amt', output_field=DecimalField(max_digits=20, decimal_places=2)),
-            Value(Decimal('0.00')),
-            output_field=DecimalField(max_digits=20, decimal_places=2)
+            Value(Decimal('0.00'))
         )
     )['total'] or Decimal('0.0')
     
     total_purchases = Purchase.objects.aggregate(
         total=Coalesce(
             Sum('purchaseitem__total_amt', output_field=DecimalField(max_digits=20, decimal_places=2)),
-            Value(Decimal('0.00')),
-            output_field=DecimalField(max_digits=20, decimal_places=2)
+            Value(Decimal('0.00'))
         )
     )['total'] or Decimal('0.0')
     
     total_expenses = Expense.objects.aggregate(
         total=Coalesce(
             Sum('amount', output_field=DecimalField(max_digits=20, decimal_places=2)),
-            Value(Decimal('0.00')),
-            output_field=DecimalField(max_digits=20, decimal_places=2)
+            Value(Decimal('0.00'))
+        )
+    )['total'] or Decimal('0.0')
+    
+    gross_profit = total_sales - total_purchases
+    net_profit = gross_profit - total_expenses
+    
+    return net_profit
+
+
+def get_total_profit():
+    """Calculate total profit from system"""
+    total_sales = Sale.objects.aggregate(
+        total=Coalesce(
+            Sum('saleitem__total_amt', output_field=DecimalField(max_digits=20, decimal_places=2)),
+            Value(Decimal('0.00'))
+        )
+    )['total'] or Decimal('0.0')
+    
+    total_purchases = Purchase.objects.aggregate(
+        total=Coalesce(
+            Sum('purchaseitem__total_amt', output_field=DecimalField(max_digits=20, decimal_places=2)),
+            Value(Decimal('0.00'))
+        )
+    )['total'] or Decimal('0.0')
+    
+    total_expenses = Expense.objects.aggregate(
+        total=Coalesce(
+            Sum('amount', output_field=DecimalField(max_digits=20, decimal_places=2)),
+            Value(Decimal('0.00'))
         )
     )['total'] or Decimal('0.0')
     

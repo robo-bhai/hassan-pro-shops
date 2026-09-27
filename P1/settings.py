@@ -309,6 +309,15 @@ LOGGING = {
     },
 }
 
+# ============================================ #
+# ✅ DJANGO ADMIN - FILE UPLOAD & FIELD LIMITS #
+# ============================================ #
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000  # Default: 1000
+DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB (Default: 2.5 MB)
+FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB
+
+
+
 LOGS_DIR = BASE_DIR / 'logs'
 os.makedirs(LOGS_DIR, exist_ok=True)
 

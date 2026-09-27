@@ -876,19 +876,14 @@
                     <button class="btn btn-link d-lg-none text-dark p-0" onclick="toggleSidebar()" style="font-size: 1.3rem;">
                         <i class="bi bi-list"></i>
                     </button>
-                    
                 </div>
                 <div class="d-flex align-items-center gap-3 user-menu">
                     
-                    <!-- ============================================ -->
-                    <!-- 🤖 CHATBOT BUTTON (Topbar) -->
-                    <!-- ============================================ -->
+                    <!-- 🤖 CHATBOT BUTTON -->
                     <button class="chatbot-topbar-btn" id="chatbotTopbarBtn" title="Business Assistant">
                         <i class="bi bi-chat-dots-fill"></i>
                         <span class="chatbot-topbar-badge" id="chatbotTopbarBadge" style="display:none;">1</span>
                     </button>
-                    
-                    
                     
                     <!-- Notification Bell -->
                     <div style="position: relative;">
@@ -908,16 +903,20 @@
                     </div>
                     
                     <!-- ========================================== -->
-                    <!-- USER DROPDOWN                              -->
+                    <!-- ✅ USER DROPDOWN (Superuser / CEO / MD / CTO) -->
                     <!-- ========================================== -->
                     <div class="dropdown">
                         <button class="btn btn-link text-dark p-0 dropdown-toggle" data-bs-toggle="dropdown" style="text-decoration: none;">
                             <i class="bi bi-person-circle"></i> {{ request.user.username|default:'User' }}
                             
-                            {% if request.user.is_superuser %}
+                            {% if request.user.groups.filter.name == 'CEO' %}
                                 <span class="badge bg-primary ms-1" style="font-size:0.6rem; padding:2px 6px;">👑 CEO</span>
-                            {% elif request.user.groups.filter.name == 'CEO' %}
-                                <span class="badge bg-primary ms-1" style="font-size:0.6rem; padding:2px 6px;">👑 CEO</span>
+                            {% elif request.user.groups.filter.name == 'MD' or request.user.groups.filter.name == 'Managing Director' %}
+                                <span class="badge bg-success ms-1" style="font-size:0.6rem; padding:2px 6px;">👔 MD</span>
+                            {% elif request.user.groups.filter.name == 'CTO' or request.user.groups.filter.name == 'Chief Technology Officer' %}
+                                <span class="badge ms-1" style="font-size:0.6rem; padding:2px 6px; background: linear-gradient(135deg, #6366f1, #4f46e5); color: white;">💻 CTO</span>
+                            {% elif request.user.is_superuser %}
+                                <span class="badge bg-dark ms-1" style="font-size:0.6rem; padding:2px 6px;">⚙️ Admin</span>
                             {% elif request.user.groups.filter.name == 'Owner' %}
                                 <span class="badge bg-success ms-1" style="font-size:0.6rem; padding:2px 6px;">🏢 Owner</span>
                             {% elif request.user.groups.filter.name == 'Store Manager' %}
@@ -928,17 +927,55 @@
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><a class="dropdown-item" href="{% url 'dashboard' %}"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
                             
+                            <!-- ⚙️ ADMIN PANEL (Superuser) -->
                             {% if request.user.is_superuser %}
                             <li><hr class="dropdown-divider"></li>
+                            <li class="dropdown-header text-dark"><i class="bi bi-shield-check"></i> ⚙️ Admin Panel</li>
+                            <li><a class="dropdown-item" href="{% url 'user_list' %}"><i class="bi bi-people"></i> Manage Users</a></li>
+                            <li><a class="dropdown-item" href="{% url 'module_settings' %}"><i class="bi bi-gear"></i> Module Settings</a></li>
+                            <li><a class="dropdown-item" href="{% url 'database_backup' %}"><i class="bi bi-hdd-stack"></i> Backup</a></li>
+                            <li><a class="dropdown-item" href="{% url 'security_dashboard' %}"><i class="bi bi-shield-lock"></i> Security</a></li>
+                            <li><a class="dropdown-item" href="{% url 'reports_dashboard' %}"><i class="bi bi-graph-up"></i> Reports</a></li>
+                            <li><a class="dropdown-item" href="/admin/" target="_blank"><i class="bi bi-shield-check"></i> Django Admin</a></li>
+                            {% endif %}
+                            
+                            <!-- 👑 CEO PANEL -->
+                            {% if request.user.groups.filter.name == 'CEO' %}
+                            <li><hr class="dropdown-divider"></li>
                             <li class="dropdown-header text-primary"><i class="bi bi-crown"></i> 👑 CEO Panel</li>
-                            <li><a class="dropdown-item" href="{% url 'user_list' %}"><i class="bi bi-people"></i> 👑 Manage Users</a></li>
-                            <li><a class="dropdown-item" href="{% url 'employee_list' %}"><i class="bi bi-person-badge"></i> 👑 HR Management</a></li>
-                            <li><a class="dropdown-item" href="{% url 'shareholder_list' %}"><i class="bi bi-building"></i> 👑 Shareholders</a></li>
-                            <li><a class="dropdown-item" href="{% url 'reports_dashboard' %}"><i class="bi bi-graph-up"></i> 👑 Reports</a></li>
-                            <li><a class="dropdown-item" href="{% url 'module_settings' %}"><i class="bi bi-gear"></i> 👑 Module Settings</a></li>
-                            <li><a class="dropdown-item" href="{% url 'database_backup' %}"><i class="bi bi-hdd-stack"></i> 👑 Backup</a></li>
-                            <li><a class="dropdown-item" href="{% url 'dividend_list' %}"><i class="bi bi-coin"></i> 👑 Dividends</a></li>
-                            <li><a class="dropdown-item" href="{% url 'shareholder_balance_dashboard' %}"><i class="bi bi-wallet2"></i> 👑 Balances</a></li>
+                            <li><a class="dropdown-item" href="{% url 'user_list' %}"><i class="bi bi-people"></i> Manage Users</a></li>
+                            <li><a class="dropdown-item" href="{% url 'employee_list' %}"><i class="bi bi-person-badge"></i> HR Management</a></li>
+                            <li><a class="dropdown-item" href="{% url 'shareholder_list' %}"><i class="bi bi-building"></i> Shareholders</a></li>
+                            <li><a class="dropdown-item" href="{% url 'reports_dashboard' %}"><i class="bi bi-graph-up"></i> Reports</a></li>
+                            <li><a class="dropdown-item" href="{% url 'module_settings' %}"><i class="bi bi-gear"></i> Module Settings</a></li>
+                            <li><a class="dropdown-item" href="{% url 'database_backup' %}"><i class="bi bi-hdd-stack"></i> Backup</a></li>
+                            <li><a class="dropdown-item" href="{% url 'dividend_list' %}"><i class="bi bi-coin"></i> Dividends</a></li>
+                            <li><a class="dropdown-item" href="{% url 'shareholder_balance_dashboard' %}"><i class="bi bi-wallet2"></i> Balances</a></li>
+                            {% endif %}
+                            
+                            <!-- 👔 MD PANEL -->
+                            {% if request.user.groups.filter.name == 'MD' or request.user.groups.filter.name == 'Managing Director' %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li class="dropdown-header text-success"><i class="bi bi-person-badge"></i> 👔 MD Panel</li>
+                            <li><a class="dropdown-item" href="{% url 'sale_create' %}"><i class="bi bi-cart-plus"></i> New Sale</a></li>
+                            <li><a class="dropdown-item" href="{% url 'purchase_create' %}"><i class="bi bi-box-arrow-in-down"></i> New Purchase</a></li>
+                            <li><a class="dropdown-item" href="{% url 'sale_order_list' %}"><i class="bi bi-cart-check"></i> Sale Orders</a></li>
+                            <li><a class="dropdown-item" href="{% url 'purchase_order_list' %}"><i class="bi bi-clipboard-check"></i> Purchase Orders</a></li>
+                            <li><a class="dropdown-item" href="{% url 'inventory_list' %}"><i class="bi bi-box"></i> Inventory</a></li>
+                            <li><a class="dropdown-item" href="{% url 'employee_list' %}"><i class="bi bi-people"></i> Staff</a></li>
+                            <li><a class="dropdown-item" href="{% url 'reports_dashboard' %}"><i class="bi bi-graph-up"></i> Reports</a></li>
+                            {% endif %}
+                            
+                            <!-- 💻 CTO PANEL -->
+                            {% if request.user.groups.filter.name == 'CTO' or request.user.groups.filter.name == 'Chief Technology Officer' %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li class="dropdown-header" style="color: #6366f1;"><i class="bi bi-cpu"></i> 💻 CTO Panel</li>
+                            <li><a class="dropdown-item" href="{% url 'security_dashboard' %}"><i class="bi bi-shield-lock"></i> Security</a></li>
+                            <li><a class="dropdown-item" href="{% url 'database_backup' %}"><i class="bi bi-hdd-stack"></i> Backup</a></li>
+                            <li><a class="dropdown-item" href="{% url 'bi_dashboard' %}"><i class="bi bi-bar-chart"></i> BI Dashboard</a></li>
+                            <li><a class="dropdown-item" href="{% url 'ai_dashboard' %}"><i class="bi bi-robot"></i> AI Dashboard</a></li>
+                            <li><a class="dropdown-item" href="{% url 'security_logs' %}"><i class="bi bi-journal-text"></i> Audit Logs</a></li>
+                            <li><a class="dropdown-item" href="{% url 'user_list' %}"><i class="bi bi-people"></i> Users</a></li>
                             {% endif %}
                             
                             <li><hr class="dropdown-divider"></li>
@@ -995,9 +1032,8 @@
         }
         
         // ============================================
-        // IMPROVED DARK/LIGHT MODE WITH PERSISTENCE
+        // DARK/LIGHT MODE
         // ============================================
-        
         const THEMES = { LIGHT: 'light', DARK: 'dark', AUTO: 'auto' };
         
         function getSystemTheme() {
@@ -1193,7 +1229,6 @@
         // KEYBOARD SHORTCUTS
         // ============================================
         document.addEventListener('keydown', function(e) {
-            // Ctrl + S = Save/Submit
             if (e.ctrlKey && e.key === 's') {
                 e.preventDefault();
                 const form = document.querySelector('form');
@@ -1205,7 +1240,6 @@
                 }
             }
             
-            // Ctrl + N = New
             if (e.ctrlKey && e.key === 'n') {
                 e.preventDefault();
                 const currentPath = window.location.pathname;
@@ -1217,13 +1251,11 @@
                 else showToast('No create page available for this section', 'warning');
             }
             
-            // Ctrl + H = Go to Dashboard/Home
             if (e.ctrlKey && e.key === 'h') {
                 e.preventDefault();
                 window.location.href = '/';
             }
             
-            // Ctrl + L = Logout
             if (e.ctrlKey && e.key === 'l') {
                 e.preventDefault();
                 if (confirm('Are you sure you want to logout?')) {
@@ -1232,7 +1264,6 @@
                 }
             }
             
-            // Ctrl + / = Show shortcuts
             if (e.ctrlKey && e.key === '/') {
                 e.preventDefault();
                 showKeyboardShortcuts();
@@ -1338,7 +1369,6 @@
             }
         }
         
-        // Update badge on page load
         fetch('/api/notifications/unread-count/')
             .then(response => response.json())
             .then(data => {
@@ -1346,7 +1376,6 @@
             })
             .catch(error => console.error('Error:', error));
         
-        // Click outside to close notification dropdown
         document.addEventListener('click', function(event) {
             const dropdown = document.getElementById('notificationDropdown');
             const bell = document.querySelector('.notification-bell');
@@ -1355,7 +1384,6 @@
             }
         });
         
-        // Auto-refresh notifications every 30 seconds
         setInterval(function() {
             fetch('/api/notifications/unread-count/')
                 .then(response => response.json())
@@ -1364,31 +1392,24 @@
         }, 30000);
         
         // ============================================
-        // PAGE LOAD - Hide any loaders
+        // PAGE LOAD
         // ============================================
         window.addEventListener('load', function() {
             hideGlobalLoader();
         });
         
         // ============================================
-        // 🎤 VOICE OUTPUT - User Name Setup
+        // VOICE OUTPUT - User Name Setup
         // ============================================
         window.ERP_USER_NAME = "{{ request.user.get_full_name|default:request.user.username|escapejs }}";
     </script>
     
-    <!-- ============================================ -->
     <!-- 🎤 VOICE OUTPUT SYSTEM -->
-    <!-- ============================================ -->
-    <!-- 🔊 VOICE OUTPUT SYSTEM -->
-<script src="{% static 'js/voice_output.js' %}"></script>
-
-<!-- 📢 VOICE ANNOUNCER -->
-<script src="{% static 'js/voice_announcer.js' %}"></script>
-<script src="{% static 'js/announcement_events.js' %}"></script>
+    <script src="{% static 'js/voice_output.js' %}"></script>
+    <script src="{% static 'js/voice_announcer.js' %}"></script>
+    <script src="{% static 'js/announcement_events.js' %}"></script>
     
-    <!-- ============================================ -->
     <!-- 🤖 CHATBOT WIDGET -->
-    <!-- ============================================ -->
     {% include 'chatbot/widget.html' %}
     
     {% block extra_js %}{% endblock %}
