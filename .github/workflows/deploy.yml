@@ -376,28 +376,19 @@ jobs:
       - name: Smart Cache Validation & Safe Database Restore
         if: ${{ env.RESTORE_REQUESTED != 'true' && !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now') }}
         run: |
-          echo "=== CHECKING CACHE AGE & VALIDITY ==="
+          echo "=== CHECKING CACHE AVAILABILITY ==="
           python -c "
-          import os, time
+          import os
 
           CACHE_FILE = 'cloud_data_dump.sql.gz'
-          TIME_FILE = 'cache_time.txt'
-          MAX_AGE = 24 * 60 * 60 # 1 day (24 hours)
-
           use_cache = False
 
-          if os.path.exists(CACHE_FILE) and os.path.exists(TIME_FILE):
-              try:
-                  with open(TIME_FILE, 'r') as f:
-                      cached_timestamp = float(f.read().strip())
-                  age = time.time() - cached_timestamp
-                  if age <= MAX_AGE and os.path.getsize(CACHE_FILE) > 10240:
-                      print(f'VALID CACHE: Cache age is {round(age/3600, 2)} hours (Under 24 hours).')
-                      use_cache = True
-                  else:
-                      print(f'EXPIRED CACHE: Cache age is {round(age/3600, 2)} hours (Exceeds 24 hours).')
-              except Exception as e:
-                  print(f'Cache validation error: {e}')
+          # Time ki koi pabandi nahi — sirf check karo file exist karti hai aur valid size ki hai
+          if os.path.exists(CACHE_FILE) and os.path.getsize(CACHE_FILE) > 10240:
+              print('VALID CACHE FOUND: Using existing cached database dump.')
+              use_cache = True
+          else:
+              print('NO CACHE FOUND OR FILE CORRUPTED: Will download fresh dump.')
 
           with open('cache_decision.txt', 'w') as f:
               f.write('USE_CACHE' if use_cache else 'DOWNLOAD_FRESH')
@@ -424,6 +415,7 @@ jobs:
             rm -f cloud_fresh_dump.sql
             echo "Fresh Safe Cloud Data Applied to Local MySQL Successfully."
           fi
+
 
       - name: Sync Migrations & Ensure Superuser on Local DB
         if: ${{ !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now') }}
