@@ -376,19 +376,28 @@ jobs:
       - name: Smart Cache Validation & Safe Database Restore
         if: ${{ env.RESTORE_REQUESTED != 'true' && !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now') }}
         run: |
-          echo "=== CHECKING CACHE AVAILABILITY ==="
+          echo "=== CHECKING CACHE AGE & VALIDITY ==="
           python -c "
-          import os
+          import os, time
 
           CACHE_FILE = 'cloud_data_dump.sql.gz'
+          TIME_FILE = 'cache_time.txt'
+          MAX_AGE = 24 * 60 * 60 # 1 day (24 hours)
+
           use_cache = False
 
-          # Time ki koi pabandi nahi — sirf check karo file exist karti hai aur valid size ki hai
-          if os.path.exists(CACHE_FILE) and os.path.getsize(CACHE_FILE) > 10240:
-              print('VALID CACHE FOUND: Using existing cached database dump.')
-              use_cache = True
-          else:
-              print('NO CACHE FOUND OR FILE CORRUPTED: Will download fresh dump.')
+          if os.path.exists(CACHE_FILE) and os.path.exists(TIME_FILE):
+              try:
+                  with open(TIME_FILE, 'r') as f:
+                      cached_timestamp = float(f.read().strip())
+                  age = time.time() - cached_timestamp
+                  if age <= MAX_AGE and os.path.getsize(CACHE_FILE) > 10240:
+                      print(f'VALID CACHE: Cache age is {round(age/3600, 2)} hours (Under 24 hours).')
+                      use_cache = True
+                  else:
+                      print(f'EXPIRED CACHE: Cache age is {round(age/3600, 2)} hours (Exceeds 24 hours).')
+              except Exception as e:
+                  print(f'Cache validation error: {e}')
 
           with open('cache_decision.txt', 'w') as f:
               f.write('USE_CACHE' if use_cache else 'DOWNLOAD_FRESH')
@@ -415,7 +424,6 @@ jobs:
             rm -f cloud_fresh_dump.sql
             echo "Fresh Safe Cloud Data Applied to Local MySQL Successfully."
           fi
-
 
       - name: Sync Migrations & Ensure Superuser on Local DB
         if: ${{ !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now') }}
@@ -651,106 +659,57 @@ jobs:
         if: always()
         run: |
           echo "=========================================="
-          echo " STEP 1: SAVE LOCAL DB TO LOCAL CACHE FILE "
+          echo " 1. CREATING SAFE CACHE DUMP FOR FUTURE RUNS "
           echo "=========================================="
           MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
             --set-gtid-purged=OFF \
             --column-statistics=0 \
             --single-transaction \
             --replace local_django_db | gzip > cloud_data_dump.sql.gz
-          echo "✅ Local cache file created."
+
+          python -c "
+          import time
+          with open('cache_time.txt', 'w') as f:
+              f.write(str(time.time()))
+          "
 
           echo "=========================================="
-          echo " STEP 2: CHECK CLOUD MYSQL CONNECTION "
+          echo " 2. PUSHING UPDATED LOCAL DATA TO CLOUD MYSQL SAFELY "
           echo "=========================================="
+          echo "Checking table existence and applying migrations..."
           python manage.py migrate --noinput || true
 
-          SYNC_FAILED=0
-          FAIL_REASON=""
+          echo "Dumping data rows only (preserving existing cloud tables)..."
+          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
+            --set-gtid-purged=OFF \
+            --column-statistics=0 \
+            --no-create-info \
+            --replace local_django_db > runner_updated_data.sql
 
-          if ! MYSQL_PWD="$DB_PASS" mysqladmin ping -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED --connect-timeout=5 > /dev/null 2>&1; then
-            SYNC_FAILED=1
-            FAIL_REASON="🔌 CONNECTION ERROR: Unable to reach Cloud MySQL Host ($DB_HOST:$DB_PORT). Connection failed or timed out."
-            echo "❌ Cloud MySQL unreachable!"
+          gzip -f runner_updated_data.sql
+
+          echo "Syncing data to Cloud MySQL without dropping tables..."
+          if gunzip -c runner_updated_data.sql.gz | MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME"; then
+            echo "Data sync completed successfully without dropping tables!"
           else
-            echo "✅ Cloud MySQL is reachable."
-
-            echo "=========================================="
-            echo " STEP 3 & 4: CHECK STRUCTURE & UPLOAD / OVERRIDE "
-            echo "=========================================="
-            
-            # Data-Only dump for structure test & fast upload
+            echo "Table structure mismatch detected! Forcing one-time schema recreation..."
             MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
               --set-gtid-purged=OFF \
               --column-statistics=0 \
-              --no-create-info \
-              --replace local_django_db > runner_data_only.sql
-
-            gzip -f runner_data_only.sql
-
-            # Attempt normal upload
-            if gunzip -c runner_data_only.sql.gz | MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME" 2> sync_error.log; then
-              echo "✅ STRUCTURE MATCHED: Data uploaded smoothly without modifying schema."
-            else
-              echo "⚠️ STRUCTURE MISMATCHED! Triggering Force Override..."
-              
-              # Generate Full Dump with DROP TABLE logic
-              MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
-                --set-gtid-purged=OFF \
-                --column-statistics=0 \
-                --single-transaction \
-                --add-drop-table \
-                local_django_db > runner_full_dump.sql
-
-              gzip -f runner_full_dump.sql
-
-              # Force Override
-              if gunzip -c runner_full_dump.sql.gz | MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME" 2> override_error.log; then
-                echo "✅ FORCE OVERRIDE SUCCESSFUL: Cloud MySQL structure & data replaced with Local state."
-              else
-                SYNC_FAILED=1
-                ERR_MSG=$(tail -n 3 override_error.log | tr '\n' ' ')
-                FAIL_REASON="❌ OVERRIDE FAILED: Connected to Cloud, but force sync failed. Error: $ERR_MSG"
-              fi
-
-              rm -f runner_full_dump.sql.gz override_error.log
-            fi
-
-            rm -f runner_data_only.sql.gz sync_error.log
+              --single-transaction \
+              --add-drop-table \
+              local_django_db > runner_full_dump.sql
+            gzip -f runner_full_dump.sql
+            gunzip -c runner_full_dump.sql.gz | MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME"
+            echo "Schema recreated and synced successfully."
           fi
+          echo "Sync Up Back to Cloud Completed Successfully!"
 
-          # Send Alert if Connection Failed or Override Failed
-          if [ $SYNC_FAILED -eq 1 ]; then
-            echo "::error:: Cloud Sync skipped. Sending ntfy alert."
-            
-            NTFY_TOPIC="${{ secrets.CLOUD_ERROR }}"
-            if [ -n "$NTFY_TOPIC" ]; then
-              MESSAGE=$(cat <<EOF
-          ❌ Cloud DB Sync Alert
-
-          • Repo: ${{ github.repository }}
-          • Run ID: #${{ github.run_id }}
-          • Host: $DB_HOST
-
-          📋 Reason:
-          $FAIL_REASON
-
-          ✅ Safe Action: Cloud sync skipped. Local cache is preserved for next run.
-          EOF
-              )
-
-              curl -s -X POST "https://ntfy.sh/$NTFY_TOPIC" \
-                -H "Title: Cloud DB Sync Warning" \
-                -H "Priority: high" \
-                -H "Tags: warning,database" \
-                -d "$MESSAGE" || true
-            fi
-          fi
-
-      - name: Save Updated DB Dump to GitHub Cache
+      - name: Save Updated DB Dump & Timestamp to GitHub Cache
         if: always()
         uses: actions/cache/save@v4
         with:
           path: |
             cloud_data_dump.sql.gz
+            cache_time.txt
           key: mysql-db-cache-${{ runner.os }}-${{ github.run_id }}
