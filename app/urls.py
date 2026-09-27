@@ -1069,5 +1069,6 @@ urlpatterns = [
     path('products/<int:pk>/set-discount/', views_frontend.product_set_discount, name='product_set_discount'),
     path('batches/<int:pk>/sale-report/', views_frontend.batch_sale_report, name='batch_sale_report'),
     path('shop/api/otp-remaining/', views_customer_portal.get_otp_remaining_api, name='get_otp_remaining_api'),
-    
+    path('shop/buy-now/<int:product_id>/', views_customer_portal.buy_now, name='buy_now'),
+    path('shop/update-address/', views_customer_portal.update_delivery_address, name='update_delivery_address'),
 ]

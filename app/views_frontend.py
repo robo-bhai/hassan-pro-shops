@@ -9757,7 +9757,7 @@ def dashboard_view(request):
     if (hasattr(request.user, 'customer_profile') 
         and not request.user.is_superuser 
         and not request.user.is_staff):
-        return redirect('my_account')
+        return redirect('shop_home')
     
     # ========================================== #
     # ✅ ROLE DETECTION                           #

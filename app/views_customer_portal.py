@@ -2,13 +2,14 @@
 Customer Portal Views — Complete with All Features
 ====================================================
 ✅ Cart awareness
-✅ Discount calculation (FIXED)
-✅ Recently viewed tracking (with batch prices)
-✅ Live visitor count
-✅ Image zoom support
+✅ Discount calculation
+✅ Recently viewed tracking (with cart state)
+✅ Live visitor count (minimum 1)
 ✅ OTP countdown (refresh-proof)
 ✅ Search optimization with caching
 ✅ Category & Brand search
+✅ Smart Search with Typo Correction
+✅ Buy Now + Add to Cart (Dual Buttons)
 """
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -38,6 +39,104 @@ from .models import (
 from .decorators import customer_login_required
 
 logger = logging.getLogger(__name__)
+
+
+# ============================================
+# ✅ TYPO CORRECTION HELPERS
+# ============================================
+
+def levenshtein_distance(a, b):
+    """Calculate Levenshtein distance between two strings (optimized)"""
+    if len(a) == 0:
+        return len(b)
+    if len(b) == 0:
+        return len(a)
+    
+    previous_row = list(range(len(b) + 1))
+    
+    for i, ca in enumerate(a, 1):
+        current_row = [i]
+        for j, cb in enumerate(b, 1):
+            insertions = previous_row[j] + 1
+            deletions = current_row[j - 1] + 1
+            substitutions = previous_row[j - 1] + (ca != cb)
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+    
+    return previous_row[-1]
+
+
+def get_max_typo_distance(length):
+    """Max typo distance based on word length"""
+    if length <= 4:
+        return 1
+    elif length <= 7:
+        return 2
+    elif length <= 10:
+        return 3
+    else:
+        return max(3, int(length * 0.3))
+
+
+def find_typo_correction(query, max_suggestions=3):
+    """Find typo correction for a search query"""
+    from .models import Product
+    
+    if not query or len(query) < 3:
+        return query, None
+    
+    query_lower = query.lower().strip()
+    
+    cache_key = 'all_product_words'
+    all_words = cache.get(cache_key)
+    
+    if all_words is None:
+        all_words_set = set()
+        
+        products = Product.objects.filter(is_active=True).select_related(
+            'category', 'brand'
+        ).values('name', 'category__name', 'brand__name')[:500]
+        
+        for p in products:
+            for field in ['name', 'category__name', 'brand__name']:
+                text = p.get(field, '') or ''
+                for word in text.lower().split():
+                    word = word.strip('.,-_/()[]:;!?')
+                    if len(word) >= 2:
+                        all_words_set.add(word)
+        
+        all_words = list(all_words_set)
+        cache.set(cache_key, all_words, 3600)
+    
+    if query_lower in all_words:
+        return query, None
+    
+    max_distance = get_max_typo_distance(len(query_lower))
+    best_match = None
+    best_distance = float('inf')
+    
+    for word in all_words:
+        if abs(len(word) - len(query_lower)) > max_distance:
+            continue
+        
+        is_prefix_match = word.startswith(query_lower[:min(3, len(query_lower))])
+        distance = levenshtein_distance(query_lower, word)
+        adjusted_distance = distance - 0.5 if is_prefix_match else distance
+        
+        if adjusted_distance < best_distance and distance <= max_distance:
+            best_distance = adjusted_distance
+            best_match = word
+    
+    if not best_match:
+        for word in all_words:
+            if word in query_lower or query_lower in word:
+                if len(word) <= len(query_lower) + 2:
+                    best_match = word
+                    break
+    
+    if best_match:
+        return best_match, query
+    return query, None
 
 
 # ============================================
@@ -143,10 +242,7 @@ def check_otp_verified(request):
 
 
 def get_otp_remaining_seconds(request):
-    """
-    ✅ OTP ka remaining time calculate karo (refresh-proof)
-    Returns: (remaining_seconds, otp_object)
-    """
+    """OTP ka remaining time calculate karo (refresh-proof)"""
     otp_phone = request.session.get('order_otp_phone')
     
     if not otp_phone:
@@ -170,16 +266,24 @@ def get_otp_remaining_seconds(request):
         return 0, None
 
 
-def enrich_recently_viewed_with_prices(recently_viewed):
+def enrich_recently_viewed_with_prices(recently_viewed, cart=None):
     """
-    ✅ Helper: Recently viewed products ke liye batch price aur stock calculate karo
-    ✅ Discount bhi apply karo
+    ✅ FIXED: Recently viewed products ke liye batch price, stock aur cart state
+    
+    Args:
+        recently_viewed: QuerySet/list of Product objects
+        cart: Optional cart dict from session — cart state add karne ke liye
+    
+    Returns:
+        Enriched list with: price, original_price, has_discount, has_batch_price,
+                            available_stock, in_cart, cart_quantity
     """
     if not recently_viewed:
         return recently_viewed
     
     rv_product_ids = [p.id for p in recently_viewed]
     
+    # ✅ Batch prices
     rv_batch_prices = StockBatch.objects.filter(
         product_id__in=rv_product_ids,
         remaining_qty__gt=0,
@@ -189,6 +293,7 @@ def enrich_recently_viewed_with_prices(recently_viewed):
     )
     rv_price_map = {bp['product_id']: bp['best_price'] for bp in rv_batch_prices}
     
+    # ✅ Stocks
     rv_stocks = Inventory.objects.filter(
         product_id__in=rv_product_ids
     ).values('product_id').annotate(
@@ -196,8 +301,20 @@ def enrich_recently_viewed_with_prices(recently_viewed):
     )
     rv_stock_map = {s['product_id']: s['total_stock'] or 0 for s in rv_stocks}
     
+    # ✅ Cart state (NEW)
+    cart_product_ids = set()
+    cart_quantities = {}
+    if cart:
+        for key, item in cart.items():
+            try:
+                pid = int(item.get('product_id'))
+                cart_product_ids.add(pid)
+                cart_quantities[pid] = item.get('quantity', 0)
+            except (ValueError, TypeError):
+                pass
+    
     for product in recently_viewed:
-        # ✅ Base price determine karo
+        # ✅ Batch price or default price
         if product.id in rv_price_map:
             base_price = rv_price_map[product.id]
             product.has_batch_price = True
@@ -205,7 +322,7 @@ def enrich_recently_viewed_with_prices(recently_viewed):
             base_price = product.price
             product.has_batch_price = False
         
-        # ✅ Discount apply karo
+        # ✅ Discount calculation
         if product.discount_percentage and product.discount_percentage > 0:
             product.original_price = base_price
             discount_amount = base_price * (product.discount_percentage / Decimal('100'))
@@ -216,27 +333,49 @@ def enrich_recently_viewed_with_prices(recently_viewed):
             product.has_discount = False
             product.original_price = base_price
         
+        # ✅ Stock
         product.available_stock = rv_stock_map.get(product.id, 0)
+        
+        # ✅ Cart state (NEW)
+        product.in_cart = product.id in cart_product_ids
+        product.cart_quantity = cart_quantities.get(product.id, 0)
     
     return recently_viewed
 
 
+def get_product_final_price(product):
+    """Product ka final price determine karo (batch + discount)"""
+    batch = StockBatch.objects.filter(
+        product=product,
+        remaining_qty__gt=0,
+        selling_price__gt=0
+    ).order_by('id').first()
+    
+    if batch:
+        base_price = batch.selling_price
+    else:
+        base_price = product.price
+    
+    if product.discount_percentage and product.discount_percentage > 0:
+        discount_amount = base_price * (product.discount_percentage / Decimal('100'))
+        return base_price - discount_amount
+    return base_price
+
+
 # ============================================
-# 1. SHOP HOME — OPTIMIZED WITH SEARCH
+# 1. SHOP HOME — OPTIMIZED WITH TYPO CORRECTION
 # ============================================
 
 def shop_home(request):
     """
-    Shop home page with search optimization and caching
-    ✅ Optimized for speed
-    ✅ Category & Brand search
-    ✅ Live visitor count (cached)
+    Shop home page with search optimization + typo correction + caching
+    
+    ✅ FIXED:
+    - Recently viewed with cart state
+    - Live visitor minimum 1
     """
     from django.core.paginator import Paginator
     
-    # ========================================== #
-    # 1. BASE QUERYSET - Optimized                  #
-    # ========================================== #
     products = Product.objects.filter(
         is_active=True
     ).select_related(
@@ -247,10 +386,11 @@ def shop_home(request):
         'category__name', 'brand__name', 'unit__name'
     )
     
-    # ========================================== #
-    # 2. SEARCH - Optimized with Q objects         #
-    # ========================================== #
+    # ✅ SEARCH WITH TYPO CORRECTION
     search = request.GET.get('search', '').strip()[:100]
+    original_search = search
+    typo_corrected = None
+    
     if search:
         products = products.filter(
             Q(name__icontains=search) |
@@ -260,10 +400,31 @@ def shop_home(request):
             Q(category__name__icontains=search) |
             Q(brand__name__icontains=search)
         )
+        
+        if not products.exists() and len(search) >= 3:
+            corrected, original = find_typo_correction(search)
+            
+            if corrected != search.lower() and original:
+                products = Product.objects.filter(
+                    is_active=True
+                ).select_related(
+                    'category', 'brand', 'unit'
+                ).only(
+                    'id', 'name', 'price', 'discount_percentage', 'original_price',
+                    'image', 'serial_no', 'barcode', 'description',
+                    'category__name', 'brand__name', 'unit__name'
+                ).filter(
+                    Q(name__icontains=corrected) |
+                    Q(serial_no__icontains=corrected) |
+                    Q(barcode__icontains=corrected) |
+                    Q(description__icontains=corrected) |
+                    Q(category__name__icontains=corrected) |
+                    Q(brand__name__icontains=corrected)
+                )
+                typo_corrected = corrected
+                logger.info(f"🔍 Typo correction: '{search}' → '{corrected}'")
     
-    # ========================================== #
-    # 3. FILTERS - Fast                           #
-    # ========================================== #
+    # ✅ FILTERS
     category_id = request.GET.get('category', '')
     if category_id:
         try:
@@ -280,9 +441,7 @@ def shop_home(request):
         except (ValueError, TypeError):
             brand_id = ''
     
-    # ========================================== #
-    # 4. ANNOTATE - Single query mein stock         #
-    # ========================================== #
+    # ✅ STOCK ANNOTATION
     products = products.annotate(
         total_stock=Coalesce(
             Sum('inventory__stock'),
@@ -291,9 +450,7 @@ def shop_home(request):
         )
     )
     
-    # ========================================== #
-    # 5. SORT                                     #
-    # ========================================== #
+    # ✅ SORT
     sort = request.GET.get('sort', 'newest')
     if sort == 'price_low':
         products = products.order_by('price')
@@ -304,16 +461,12 @@ def shop_home(request):
     else:
         products = products.order_by('-id')
     
-    # ========================================== #
-    # 6. PAGINATE                                  #
-    # ========================================== #
+    # ✅ PAGINATE
     paginator = Paginator(products, 24)
     page = request.GET.get('page', 1)
     page_obj = paginator.get_page(page)
     
-    # ========================================== #
-    # 7. BATCH FETCH SELLING PRICES - Single query  #
-    # ========================================== #
+    # ✅ BATCH PRICES
     product_ids = [p.id for p in page_obj]
     
     batch_prices = StockBatch.objects.filter(
@@ -325,9 +478,7 @@ def shop_home(request):
     )
     batch_price_map = {bp['product_id']: bp['best_price'] for bp in batch_prices}
     
-    # ========================================== #
-    # 8. CART AWARENESS - Fast                     #
-    # ========================================== #
+    # ✅ CART AWARENESS
     cart = request.session.get('cart', {})
     cart_product_ids = set()
     cart_quantities = {}
@@ -340,9 +491,7 @@ def shop_home(request):
         except (ValueError, TypeError):
             pass
     
-    # ========================================== #
-    # 9. APPLY PRICES - Python loop (fast)         #
-    # ========================================== #
+    # ✅ APPLY PRICES
     for product in page_obj:
         product.available_stock = product.total_stock or 0
         
@@ -367,32 +516,27 @@ def shop_home(request):
         product.in_cart = product.id in cart_product_ids
         product.cart_quantity = cart_quantities.get(product.id, 0)
     
-    # ========================================== #
-    # 10. RECENTLY VIEWED                           #
-    # ========================================== #
+    # ✅ RECENTLY VIEWED (with cart state)
     recently_viewed = RecentlyViewed.get_recently_viewed(request, limit=8)
-    recently_viewed = enrich_recently_viewed_with_prices(recently_viewed)
+    recently_viewed = enrich_recently_viewed_with_prices(recently_viewed, cart=cart)
     
-    # ========================================== #
-    # 11. LIVE VISITOR COUNT - Cached              #
-    # ========================================== #
+    # ✅ LIVE VISITOR COUNT — Minimum 1
     cache_key = 'live_visitor_count'
     live_visitor_count = cache.get(cache_key)
     if live_visitor_count is None:
         live_visitor_count = LiveVisitor.get_active_count(seconds=60)
+        # ✅ FIX: Minimum 1 (taake 0 pe bhi dikhe)
+        if live_visitor_count < 1:
+            live_visitor_count = 1
         cache.set(cache_key, live_visitor_count, 15)
     
-    # ========================================== #
-    # 12. COMPANY INFO - Cached                    #
-    # ========================================== #
+    # ✅ COMPANY INFO - Cached
     company = cache.get('company_info')
     if not company:
         company = CompanyInfo.objects.first()
         cache.set('company_info', company, 300)
     
-    # ========================================== #
-    # 13. CATEGORIES & BRANDS - Cached             #
-    # ========================================== #
+    # ✅ CATEGORIES & BRANDS - Cached
     categories = cache.get('all_categories')
     if not categories:
         categories = list(Category.objects.all().only('id', 'name'))
@@ -403,9 +547,7 @@ def shop_home(request):
         brands = list(Brand.objects.all().only('id', 'name'))
         cache.set('all_brands', brands, 600)
     
-    # ========================================== #
-    # 14. SELECTED CATEGORY/BRAND NAMES (for chips)#
-    # ========================================== #
+    # ✅ SELECTED CATEGORY/BRAND NAMES
     selected_category_name = ''
     if category_id:
         for cat in categories:
@@ -420,9 +562,6 @@ def shop_home(request):
                 selected_brand_name = br.name
                 break
     
-    # ========================================== #
-    # 15. CONTEXT                                  #
-    # ========================================== #
     context = {
         'company_name': company.name if company else 'Shop',
         'company': company,
@@ -431,6 +570,8 @@ def shop_home(request):
         'categories': categories,
         'brands': brands,
         'search': search,
+        'original_search': original_search,
+        'typo_corrected': typo_corrected,
         'selected_category': category_id,
         'selected_brand': brand_id,
         'selected_sort': sort,
@@ -455,19 +596,16 @@ def product_detail(request, pk):
         pk=pk, is_active=True
     )
     
-    # Track view
     try:
         RecentlyViewed.track_view(request, product)
     except Exception as e:
         logger.error(f"Track view error: {e}")
     
-    # Stock
     total_stock = Inventory.objects.filter(product=product).aggregate(
         total=Sum('stock')
     )['total'] or 0
     product.available_stock = total_stock
     
-    # ✅ Base price determine karo
     batch = StockBatch.objects.filter(
         product=product,
         remaining_qty__gt=0,
@@ -481,7 +619,6 @@ def product_detail(request, pk):
         base_price = product.price
         product.has_batch_price = False
     
-    # ✅ Discount price calculation
     if product.discount_percentage and product.discount_percentage > 0:
         product.original_price = base_price
         discount_amount = base_price * (product.discount_percentage / Decimal('100'))
@@ -493,7 +630,6 @@ def product_detail(request, pk):
         product.has_discount = False
         product.original_price = base_price
     
-    # Related products
     related = Product.objects.filter(
         Q(category=product.category) | Q(brand=product.brand),
         is_active=True
@@ -538,9 +674,10 @@ def product_detail(request, pk):
             
             rp.available_stock = related_stock_map.get(rp.id, 0)
     
-    # Recently viewed
+    # ✅ Recently viewed with cart state
+    cart = request.session.get('cart', {})
     recently_viewed = RecentlyViewed.get_recently_viewed(request, limit=8)
-    recently_viewed = enrich_recently_viewed_with_prices(recently_viewed)
+    recently_viewed = enrich_recently_viewed_with_prices(recently_viewed, cart=cart)
     
     company = CompanyInfo.objects.first()
     
@@ -556,14 +693,76 @@ def product_detail(request, pk):
 
 
 # ============================================
-# 3. ADD TO CART
+# 3. ✅ BUY NOW — Direct Checkout
+# ============================================
+
+def buy_now(request, product_id):
+    """
+    Buy Now — Single product direct checkout
+    - Cart clear karta hai
+    - Sirf yeh product add karta hai
+    - Direct checkout par bhejta hai
+    """
+    try:
+        product = get_object_or_404(Product, id=product_id, is_active=True)
+        
+        # ✅ Stock check
+        total_stock = Inventory.objects.filter(product=product).aggregate(
+            total=Sum('stock')
+        )['total'] or 0
+        
+        if total_stock <= 0:
+            messages.error(request, f'{product.name} out of stock hai!')
+            return redirect('shop_product_detail', pk=product.id)
+        
+        # ✅ Final price
+        final_price = get_product_final_price(product)
+        
+        # ✅ Cart clear karke sirf yeh product daalo
+        request.session['cart'] = {
+            str(product_id): {
+                'product_id': product.id,
+                'name': product.name,
+                'price': float(final_price),
+                'quantity': 1,
+                'image': product.image.url if product.image else None,
+            }
+        }
+        
+        # ✅ Buy Now mode flag
+        request.session['buy_now_mode'] = True
+        request.session['buy_now_product_id'] = product.id
+        request.session.modified = True
+        request.session.save()
+        
+        # ✅ Login check
+        if request.user.is_authenticated and hasattr(request.user, 'customer_profile'):
+            return redirect('checkout')
+        else:
+            # Login page with next parameter
+            return redirect(f'/shop/login/?next=/shop/checkout/')
+    
+    except Exception as e:
+        logger.error(f"Buy Now error: {e}")
+        messages.error(request, 'Kuch masla hua. Dobara try karein.')
+        return redirect('shop_home')
+
+
+# ============================================
+# 4. ✅ ADD TO CART (BUY NOW MODE CLEAR KARTA HAI)
 # ============================================
 
 @require_POST
 def add_to_cart(request):
-    """Add product to cart with validation"""
+    """Add product to cart with validation + Buy Now mode clear"""
     try:
         data = json.loads(request.body) if request.body else request.POST
+        
+        # ✅ Buy Now mode clear karo (agar active hai)
+        if request.session.get('buy_now_mode'):
+            del request.session['buy_now_mode']
+        if request.session.get('buy_now_product_id'):
+            del request.session['buy_now_product_id']
         
         try:
             product_id = int(data.get('product_id'))
@@ -590,24 +789,8 @@ def add_to_cart(request):
         if total_stock <= 0:
             return JsonResponse({'success': False, 'message': 'Yeh product out of stock hai'})
         
-        # ✅ Base price
-        batch = StockBatch.objects.filter(
-            product=product,
-            remaining_qty__gt=0,
-            selling_price__gt=0
-        ).order_by('id').first()
-        
-        if batch:
-            base_price = batch.selling_price
-        else:
-            base_price = product.price
-        
-        # ✅ Discount apply
-        if product.discount_percentage and product.discount_percentage > 0:
-            discount_amount = base_price * (product.discount_percentage / Decimal('100'))
-            final_price = base_price - discount_amount
-        else:
-            final_price = base_price
+        # ✅ Final price
+        final_price = get_product_final_price(product)
         
         cart = request.session.get('cart', {})
         product_key = str(product_id)
@@ -651,7 +834,7 @@ def add_to_cart(request):
 
 
 # ============================================
-# 4. CART VIEW
+# 5. CART VIEW
 # ============================================
 
 def cart_view(request):
@@ -674,7 +857,7 @@ def cart_view(request):
 
 
 # ============================================
-# 5. UPDATE CART
+# 6. UPDATE CART
 # ============================================
 
 @require_POST
@@ -725,7 +908,7 @@ def update_cart(request):
 
 
 # ============================================
-# 6. REMOVE FROM CART
+# 7. REMOVE FROM CART
 # ============================================
 
 @require_POST
@@ -752,18 +935,22 @@ def remove_from_cart(request, product_id):
 
 
 # ============================================
-# 7. CHECKOUT
+# 8. CHECKOUT (Buy Now Mode Support)
 # ============================================
 
 @customer_login_required
 def checkout(request):
-    """Checkout page with OTP countdown (refresh-proof)"""
+    """Checkout page with OTP countdown + Buy Now mode support"""
     cart = request.session.get('cart', {})
     if not cart:
         messages.warning(request, 'Cart khali hai!')
         return redirect('shop_home')
     
     data = calculate_cart_data(cart)
+    
+    # ✅ Buy Now mode check
+    buy_now_mode = request.session.get('buy_now_mode', False)
+    buy_now_product_id = request.session.get('buy_now_product_id')
     
     profile = None
     customer = None
@@ -784,7 +971,6 @@ def checkout(request):
     
     order_verified = check_otp_verified(request)
     
-    # OTP COUNTDOWN
     otp_remaining_seconds, otp_obj = get_otp_remaining_seconds(request)
     otp_is_active = otp_remaining_seconds > 0 and not order_verified
     
@@ -826,12 +1012,14 @@ def checkout(request):
         'otp_remaining_seconds': otp_remaining_seconds,
         'otp_is_active': otp_is_active,
         'otp_masked_email': otp_masked_email,
+        'buy_now_mode': buy_now_mode,
+        'buy_now_product_id': buy_now_product_id,
     }
     return render(request, 'customer_portal/checkout.html', context)
 
 
 # ============================================
-# 8. PLACE ORDER
+# 9. PLACE ORDER
 # ============================================
 
 @transaction.atomic
@@ -840,7 +1028,12 @@ def checkout(request):
 def place_order(request):
     """Order place karo with email_helper integration"""
     from django.contrib.auth.models import User
-    from app.utils.email_helper import send_customer_order_email, send_admin_order_notification
+    
+    try:
+        from app.utils.email_helper import send_customer_order_email, send_admin_order_notification
+    except ImportError:
+        send_customer_order_email = None
+        send_admin_order_notification = None
     
     try:
         profile = None
@@ -857,7 +1050,6 @@ def place_order(request):
             messages.error(request, '❌ Customer profile nahi mila')
             return redirect('checkout')
         
-        # OTP check
         if not profile.should_skip_order_otp():
             otp_verified = check_otp_verified(request)
             if not otp_verified:
@@ -881,7 +1073,6 @@ def place_order(request):
             messages.error(request, 'Koi warehouse nahi hai!')
             return redirect('shop_home')
         
-        # Stock check
         product_ids = [item['product_id'] for item in cart.values()]
         products = Product.objects.in_bulk(product_ids)
         
@@ -902,7 +1093,6 @@ def place_order(request):
                 )
                 return redirect('cart_view')
         
-        # Duplicate check
         recent_order = SaleOrder.objects.filter(
             customer=customer,
             created_at__gte=now() - timedelta(seconds=30),
@@ -916,7 +1106,6 @@ def place_order(request):
             )
             return redirect('my_orders')
         
-        # Create order
         order = SaleOrder.objects.create(
             customer=customer,
             warehouse=warehouse,
@@ -956,12 +1145,14 @@ def place_order(request):
         
         profile.record_successful_order()
         
-        # Clear session
+        # ✅ Session clear karo
         request.session.pop('order_verified', None)
         request.session.pop('order_verified_at', None)
         request.session.pop('order_otp_phone', None)
         request.session.pop('order_otp_id', None)
         request.session.pop('order_token', None)
+        request.session.pop('buy_now_mode', None)
+        request.session.pop('buy_now_product_id', None)
         request.session['cart'] = {}
         request.session.modified = True
         request.session.save()
@@ -969,7 +1160,6 @@ def place_order(request):
         company = CompanyInfo.objects.first()
         company_name_str = company.name if company else 'Shop'
 
-        # Notify admin via in-app notification
         try:
             admins = User.objects.filter(is_superuser=True)
             for admin in admins:
@@ -989,45 +1179,43 @@ def place_order(request):
         except Exception as e:
             logger.error(f"Notification error: {e}")
 
-        # Send emails
-        try:
-            customer_email = getattr(customer, 'email', None)
-            customer_address = getattr(customer, 'address', 'N/A')
-            customer_phone = getattr(customer, 'contact_number', 'N/A')
+        if send_customer_order_email or send_admin_order_notification:
+            try:
+                customer_email = getattr(customer, 'email', None)
+                customer_address = getattr(customer, 'address', 'N/A')
+                customer_phone = getattr(customer, 'contact_number', 'N/A')
 
-            if customer_email:
-                send_customer_order_email(
-                    recipient_email=customer_email,
-                    order_no=order.order_no,
-                    customer_name=customer.name,
-                    order_summary=order_summary,
-                    total_amount=float(total_amount),
-                    payment_method=payment_method,
-                    address=customer_address
+                if customer_email and send_customer_order_email:
+                    send_customer_order_email(
+                        recipient_email=customer_email,
+                        order_no=order.order_no,
+                        customer_name=customer.name,
+                        order_summary=order_summary,
+                        total_amount=float(total_amount),
+                        payment_method=payment_method,
+                        address=customer_address
+                    )
+
+                admin_emails = list(
+                    User.objects.filter(is_superuser=True, is_active=True, email__gt='')
+                    .values_list('email', flat=True)
                 )
 
-            admin_emails = list(
-                User.objects.filter(is_superuser=True, is_active=True, email__gt='')
-                .values_list('email', flat=True)
-            )
+                if admin_emails and send_admin_order_notification:
+                    admin_order_link = request.build_absolute_uri(f'/orders/sale/{order.id}/')
+                    send_admin_order_notification(
+                        admin_emails=admin_emails,
+                        order_no=order.order_no,
+                        customer_name=customer.name,
+                        customer_phone=customer_phone,
+                        total_amount=float(total_amount),
+                        items_count=len(order_summary),
+                        payment_method=payment_method,
+                        order_link=admin_order_link
+                    )
+            except Exception as e:
+                logger.error(f"Order email sending error: {e}")
 
-            if admin_emails:
-                admin_order_link = request.build_absolute_uri(f'/orders/sale/{order.id}/')
-                send_admin_order_notification(
-                    admin_emails=admin_emails,
-                    order_no=order.order_no,
-                    customer_name=customer.name,
-                    customer_phone=customer_phone,
-                    total_amount=float(total_amount),
-                    items_count=len(order_summary),
-                    payment_method=payment_method,
-                    order_link=admin_order_link
-                )
-
-        except Exception as e:
-            logger.error(f"Order email sending error via email_helper: {e}")
-
-        # WhatsApp Notification
         try:
             from .whatsapp_utils import WhatsAppSender
             if customer.contact_number:
@@ -1061,7 +1249,7 @@ def place_order(request):
 
 
 # ============================================
-# 9. GET CART COUNT (AJAX)
+# 10. AJAX ENDPOINTS
 # ============================================
 
 def get_cart_count(request):
@@ -1072,10 +1260,6 @@ def get_cart_count(request):
     })
 
 
-# ============================================
-# 9.1 GET LIVE VISITOR COUNT (AJAX)
-# ============================================
-
 def get_live_visitors(request):
     """Live visitor count (AJAX)"""
     cache_key = 'live_visitor_count'
@@ -1085,6 +1269,7 @@ def get_live_visitors(request):
         count = LiveVisitor.get_active_count(seconds=60)
         cache.set(cache_key, count, 15)
     
+    # ✅ FIX: Minimum 1
     if count < 1:
         count = 1
     
@@ -1095,12 +1280,8 @@ def get_live_visitors(request):
     })
 
 
-# ============================================
-# 9.2 GET OTP REMAINING TIME (AJAX)
-# ============================================
-
 def get_otp_remaining_api(request):
-    """AJAX: OTP ka remaining time server se fetch karo"""
+    """AJAX: OTP remaining time"""
     if not request.user.is_authenticated:
         return JsonResponse({'success': False, 'message': 'Login required'})
     
@@ -1124,7 +1305,7 @@ def get_otp_remaining_api(request):
 
 
 # ============================================
-# 10. TRACK ORDER
+# 11. TRACK ORDER
 # ============================================
 
 def track_order(request):
@@ -1159,7 +1340,7 @@ def track_order(request):
 
 
 # ============================================
-# 11. MY ORDERS
+# 12. MY ORDERS
 # ============================================
 
 @customer_login_required
@@ -1210,7 +1391,7 @@ def my_orders(request):
 
 
 # ============================================
-# 12. ORDER DETAIL
+# 13. ORDER DETAIL
 # ============================================
 
 @customer_login_required
@@ -1260,7 +1441,7 @@ def order_detail_customer(request, order_id):
 
 
 # ============================================
-# 13. CANCEL ORDER
+# 14. CANCEL ORDER
 # ============================================
 
 @transaction.atomic
@@ -1322,7 +1503,7 @@ def cancel_order_customer(request, order_id):
 
 
 # ============================================
-# 14. ORDER SUCCESS PAGE
+# 15. ORDER SUCCESS PAGE
 # ============================================
 
 @customer_login_required
@@ -1355,3 +1536,100 @@ def order_success_page(request, order_id):
         'page_title': f'Order #{order.order_no} Placed!',
     }
     return render(request, 'customer_portal/order_success_auto.html', context)
+    
+# ============================================
+# ✅ UPDATE DELIVERY ADDRESS (AJAX)
+# ============================================
+
+@customer_login_required
+@require_POST
+def update_delivery_address(request):
+    """
+    AJAX endpoint: Customer apna delivery address update kare
+    Checkout page pe 'Change Address' button se call hoga
+    """
+    from .models import CustomerAddress
+    
+    if not hasattr(request.user, 'customer_profile'):
+        return JsonResponse({'success': False, 'message': 'Login required'})
+    
+    try:
+        data = json.loads(request.body) if request.body else request.POST
+        
+        full_name = data.get('full_name', '').strip()
+        phone = data.get('phone', '').strip()
+        address_line_1 = data.get('address_line_1', '').strip()
+        city = data.get('city', '').strip()
+        postal_code = data.get('postal_code', '').strip()
+        landmark = data.get('landmark', '').strip()
+        
+        # Validation
+        if not full_name:
+            return JsonResponse({'success': False, 'message': 'Full name zaroori hai'})
+        if not phone:
+            return JsonResponse({'success': False, 'message': 'Phone number zaroori hai'})
+        if not address_line_1:
+            return JsonResponse({'success': False, 'message': 'Address zaroori hai'})
+        if not city:
+            return JsonResponse({'success': False, 'message': 'City zaroori hai'})
+        
+        # Validate phone (Pakistani format)
+        import re
+        phone_clean = phone.replace(' ', '').replace('-', '')
+        if not re.match(r'^(\+92|92|0)?3\d{9}$', phone_clean):
+            return JsonResponse({'success': False, 'message': 'Sahi phone number daalein (e.g., 03001234567)'})
+        
+        profile = request.user.customer_profile
+        customer = profile.customer
+        
+        # ✅ Update customer record
+        customer.name = full_name
+        customer.contact_number = phone
+        customer.address = f"{address_line_1}, {city}" + (f", {postal_code}" if postal_code else "")
+        customer.save()
+        
+        # ✅ Update or create default address
+        default_addr = CustomerAddress.objects.filter(
+            customer=customer,
+            is_default=True
+        ).first()
+        
+        if default_addr:
+            default_addr.full_name = full_name
+            default_addr.phone = phone
+            default_addr.address_line_1 = address_line_1
+            default_addr.city = city
+            default_addr.postal_code = postal_code
+            default_addr.landmark = landmark
+            default_addr.save()
+        else:
+            CustomerAddress.objects.create(
+                customer=customer,
+                address_type='home',
+                full_name=full_name,
+                phone=phone,
+                address_line_1=address_line_1,
+                city=city,
+                postal_code=postal_code,
+                landmark=landmark,
+                is_default=True,
+            )
+        
+        return JsonResponse({
+            'success': True,
+            'message': '✅ Address update ho gaya!',
+            'address': {
+                'full_name': full_name,
+                'phone': phone,
+                'address_line_1': address_line_1,
+                'city': city,
+                'postal_code': postal_code,
+                'landmark': landmark,
+                'full_address': customer.address,
+            }
+        })
+        
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Update address error: {e}")
+        return JsonResponse({'success': False, 'message': str(e)})

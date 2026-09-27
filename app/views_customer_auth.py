@@ -6,6 +6,8 @@ Customer Authentication Views — Professional OTP System
 ✅ Trust system
 ✅ Pending OTPs backup
 ✅ Email OTP sending
+✅ Login/Register → Shop Page Redirect (FIXED)
+✅ Welcome messages with Shop greeting
 """
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -225,9 +227,9 @@ def auto_place_order(request, customer):
 # ============================================
 
 def customer_register(request):
-    """Customer registration - Email mandatory"""
+    """Customer registration - Email mandatory - Redirect to Shop after register"""
     if request.user.is_authenticated and hasattr(request.user, 'customer_profile'):
-        return redirect('my_account')
+        return redirect('shop_home')   # ✅ CHANGE: my_account → shop_home
     
     if request.method == 'POST':
         try:
@@ -335,8 +337,12 @@ def customer_register(request):
                 safe_login(request, user)
                 request.session.save()
             
-            messages.success(request, f'🎉 Welcome {customer.name}!')
-            return redirect('my_account')
+            # ✅ WELCOME MESSAGE WITH SHOP GREETING
+            messages.success(
+                request, 
+                f'🎉 Welcome {customer.name}! Shop par khush aamdeed.'
+            )
+            return redirect('shop_home')   # ✅ CHANGE: my_account → shop_home
             
         except Exception as e:
             logger.error(f"Register error: {e}")
@@ -356,12 +362,12 @@ def customer_register(request):
 # ============================================
 
 def customer_login(request):
-    """Customer login"""
+    """Customer login - Redirect to shop page after login"""
     if request.user.is_authenticated and hasattr(request.user, 'customer_profile'):
         next_url = request.GET.get('next')
         if next_url and next_url.startswith('/'):
             return redirect(next_url)
-        return redirect('my_account')
+        return redirect('shop_home')   # ✅ CHANGE: my_account → shop_home
     
     if request.method == 'POST':
         try:
@@ -400,12 +406,16 @@ def customer_login(request):
                 customer.portal_profile.last_login_at = now()
                 customer.portal_profile.save()
                 
-                messages.success(request, f'🎉 Welcome back, {customer.name}!')
+                # ✅ WELCOME MESSAGE WITH SHOP GREETING
+                messages.success(
+                    request, 
+                    f'🎉 Welcome back, {customer.name}! Shop par khush aamdeed.'
+                )
                 
                 if next_url and next_url.startswith('/'):
                     return redirect(next_url)
                 
-                return redirect('my_account')
+                return redirect('shop_home')   # ✅ CHANGE: my_account → shop_home
             else:
                 messages.error(request, '❌ Ghalat password')
                 return redirect('customer_login')
@@ -430,7 +440,7 @@ def customer_logout(request):
     """Logout with session flush"""
     request.session.flush()
     logout(request)
-    messages.success(request, '👋 Aap logout ho gaye hain')
+    messages.success(request, '👋 Aap logout ho gaye hain. Phir milenge!')
     return redirect('shop_home')
 
 
@@ -484,41 +494,7 @@ def my_account(request):
 
 
 # ============================================
-# 5. SEND OTP (UPDATED WITH EMAIL)
-# ============================================
-
-
-
-
-import uuid
-import json
-import logging
-from django.http import JsonResponse
-from django.shortcuts import redirect
-from django.urls import reverse
-from django.contrib import messages
-from django.utils.timezone import now
-from django.urls import reverse
-logger = logging.getLogger(__name__)
-
-
-# ============================================
-# 1. SEND OTP WITH TOKEN VERIFICATION LINK
-# ============================================
-
-import uuid
-import json
-import logging
-from django.http import JsonResponse
-from django.shortcuts import redirect
-from django.contrib import messages
-from django.utils.timezone import now
-
-logger = logging.getLogger(__name__)
-
-
-# ============================================
-# 1. SEND OTP WITH DIRECT TOKEN LINK
+# 5. SEND OTP WITH DIRECT TOKEN LINK
 # ============================================
 
 @customer_login_required
@@ -562,8 +538,8 @@ def send_order_otp(request):
 
         # ✅ DIRECT VERIFICATION LINK
         verify_url = request.build_absolute_uri(
-    reverse('verify_order_token', kwargs={'token': order_token})
-)
+            reverse('verify_order_token', kwargs={'token': order_token})
+        )
         
         # ✅ Generate OTP WITH EMAIL & VERIFICATION LINK
         otp = CustomerOTP.generate_otp(
@@ -618,7 +594,7 @@ def send_order_otp(request):
 
 
 # ============================================
-# 2. VERIFY VIA MAGIC EMAIL LINK (CLICK ACTION)
+# 6. VERIFY VIA MAGIC EMAIL LINK (CLICK ACTION)
 # ============================================
 
 @customer_login_required
@@ -681,7 +657,7 @@ def verify_order_token(request, token):
 
 
 # ============================================
-# 3. VERIFY OTP — MANUAL CODE INPUT
+# 7. VERIFY OTP — MANUAL CODE INPUT
 # ============================================
 
 @customer_login_required
@@ -744,9 +720,8 @@ def verify_order_otp(request):
         return JsonResponse({'success': False, 'message': str(e)})
 
 
-
 # ============================================
-# 7. SAVE PAYMENT METHOD
+# 8. SAVE PAYMENT METHOD
 # ============================================
 
 @customer_login_required
@@ -769,8 +744,6 @@ def save_payment_method(request):
         return JsonResponse({'success': True})
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})
-
-
 
 
 # ============================================
@@ -882,9 +855,8 @@ def verify_otp_later(request):
     return render(request, 'customer_portal/auth/verify_otp_later.html', context)
 
 
-
 # ============================================
-# 11. PLACE ORDER DIRECT (Trusted / Verified)
+# 10. PLACE ORDER DIRECT (Trusted / Verified)
 # ============================================
 
 @customer_login_required
