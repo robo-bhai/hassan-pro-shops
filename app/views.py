@@ -245,6 +245,181 @@ def generate_invoice_pdf(request, sale_id):
     return response
 
 
+import io
+import pandas as pd
+from decimal import Decimal
+from django.shortcuts import render, redirect
+from django.http import HttpResponse, Http404
+from django.contrib import messages
+from django.conf import settings
+from cryptography.fernet import Fernet
+import base64
+import hashlib
+
+# Models Import
+from .models import Product, Unit, Brand, Category, Types, Location
+from django.contrib.auth.models import User
+
+
+def derive_key_from_password(password: str) -> bytes:
+    key = hashlib.sha256(password.encode()).digest()
+    return base64.urlsafe_b64encode(key)
+
+
+def backup_restore_view(request, word):
+    # 🔒 SECRET WORD VALIDATION
+    # Agar URL wala word settings/env ke SECRET_ROUTE_WORD se match na kare, to Page Hide (404) kar do
+    if word != settings.SECRET_ROUTE_WORD:
+        raise Http404("Page not found")
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        password = request.POST.get('password', '').strip()
+
+        if not password:
+            messages.error(request, "Encryption / Decryption password required hai!")
+            return redirect('backup_restore', word=word)
+
+        key = derive_key_from_password(password)
+        fernet = Fernet(key)
+
+        # ==========================================
+        # 1. EXPORT LOGIC (EXCEL + IMAGE LINKS)
+        # ==========================================
+        if action == 'export':
+            products = Product.objects.all()
+            data_list = []
+
+            for p in products:
+                image_link = ''
+                if p.image:
+                    try:
+                        image_link = p.image.url
+                    except Exception:
+                        image_link = str(p.image)
+
+                data_list.append({
+                    'serial_no': p.serial_no or '',
+                    'barcode': p.barcode or '',
+                    'use_custom_barcode': p.use_custom_barcode,
+                    'name': p.name,
+                    'description': p.description or '',
+                    'used': p.used or '',
+                    'unit': p.unit.name if p.unit else '',
+                    'brand': p.brand.name if p.brand else '',
+                    'category': p.category.name if p.category else '',
+                    'types': p.types.name if p.types else '',
+                    'location': p.location.name if p.location else '',
+                    'original_price': float(p.original_price or 0.0),
+                    'discount_percentage': float(p.discount_percentage or 0.0),
+                    'low_stock_threshold': p.low_stock_threshold,
+                    'is_active': p.is_active,
+                    'image_link': image_link,
+                    'created_by': p.created_by.username if p.created_by else '',
+                })
+
+            df = pd.DataFrame(data_list)
+
+            data_buffer = io.BytesIO()
+            with pd.ExcelWriter(data_buffer, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='Products')
+            
+            excel_bytes = data_buffer.getvalue()
+            encrypted_data = fernet.encrypt(excel_bytes)
+
+            response = HttpResponse(encrypted_data, content_type='application/octet-stream')
+            response['Content-Disposition'] = 'attachment; filename="product_backup.enc"'
+            return response
+
+        # ==========================================
+        # 2. IMPORT LOGIC (RESTORE IMAGE LINKS)
+        # ==========================================
+        elif action == 'import':
+            uploaded_file = request.FILES.get('backup_file')
+            if not uploaded_file:
+                messages.error(request, "Koi file upload nahi ki gayi!")
+                return redirect('backup_restore', word=word)
+
+            try:
+                encrypted_bytes = uploaded_file.read()
+                decrypted_excel_bytes = fernet.decrypt(encrypted_bytes)
+                df = pd.read_excel(io.BytesIO(decrypted_excel_bytes))
+
+                imported_count = 0
+                for _, row in df.iterrows():
+                    unit_obj = Unit.objects.filter(name=row.get('unit')).first() if pd.notna(row.get('unit')) and str(row.get('unit')).strip() else None
+                    brand_obj = Brand.objects.filter(name=row.get('brand')).first() if pd.notna(row.get('brand')) and str(row.get('brand')).strip() else None
+                    category_obj = Category.objects.filter(name=row.get('category')).first() if pd.notna(row.get('category')) and str(row.get('category')).strip() else None
+                    types_obj = Types.objects.filter(name=row.get('types')).first() if pd.notna(row.get('types')) and str(row.get('types')).strip() else None
+                    location_obj = Location.objects.filter(name=row.get('location')).first() if pd.notna(row.get('location')) and str(row.get('location')).strip() else None
+                    user_obj = User.objects.filter(username=row.get('created_by')).first() if pd.notna(row.get('created_by')) and str(row.get('created_by')).strip() else None
+
+                    barcode_val = str(row['barcode']).strip() if pd.notna(row.get('barcode')) and str(row.get('barcode')).strip() != '' else None
+                    serial_val = str(row['serial_no']).strip() if pd.notna(row.get('serial_no')) and str(row.get('serial_no')).strip() != '' else None
+
+                    product = None
+                    if barcode_val:
+                        product = Product.objects.filter(barcode=barcode_val).first()
+                    if not product and serial_val:
+                        product = Product.objects.filter(serial_no=serial_val).first()
+
+                    img_link = str(row.get('image_link', '')).strip() if pd.notna(row.get('image_link')) else ''
+
+                    if not product:
+                        product = Product(
+                            serial_no=serial_val,
+                            barcode=barcode_val,
+                            use_custom_barcode=bool(row.get('use_custom_barcode', False)),
+                            name=row.get('name', ''),
+                            description=row.get('description', ''),
+                            used=row.get('used', ''),
+                            unit=unit_obj,
+                            brand=brand_obj,
+                            category=category_obj,
+                            types=types_obj,
+                            location=location_obj,
+                            original_price=Decimal(str(row.get('original_price', 0.0))),
+                            discount_percentage=Decimal(str(row.get('discount_percentage', 0.0))),
+                            low_stock_threshold=float(row.get('low_stock_threshold', 10.0)),
+                            is_active=bool(row.get('is_active', True)),
+                            created_by=user_obj
+                        )
+                    else:
+                        product.serial_no = serial_val
+                        product.use_custom_barcode = bool(row.get('use_custom_barcode', False))
+                        product.name = row.get('name', product.name)
+                        product.description = row.get('description', product.description)
+                        product.used = row.get('used', product.used)
+                        product.unit = unit_obj
+                        product.brand = brand_obj
+                        product.category = category_obj
+                        product.types = types_obj
+                        product.location = location_obj
+                        product.original_price = Decimal(str(row.get('original_price', product.original_price)))
+                        product.discount_percentage = Decimal(str(row.get('discount_percentage', product.discount_percentage)))
+                        product.low_stock_threshold = float(row.get('low_stock_threshold', product.low_stock_threshold))
+                        product.is_active = bool(row.get('is_active', product.is_active))
+
+                    if img_link:
+                        product.image = img_link
+
+                    product._image_processed = True
+                    product.save()
+
+                    imported_count += 1
+
+                messages.success(request, f"Kamyabi se {imported_count} products (Image Links ke sath) restore ho gaye hain!")
+
+            except Exception as e:
+                messages.error(request, f"Ghalti! Decryption fail ho gayi ya password ghalat hai: {str(e)}")
+
+            return redirect('backup_restore', word=word)
+
+    return render(request, 'app/backup_restore.html', {'word': word})
+
+
+
+
 def some_default_view(request):
     return HttpResponse("Sale ID is required to generate an invoice.")
 

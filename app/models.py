@@ -221,13 +221,15 @@ class Product(models.Model):
     use_custom_barcode = models.BooleanField(default=False, verbose_name=_("Use Custom/Supplier Barcode"), help_text="Check this to manually enter supplier barcode instead of auto-generating")
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
-    image = models.ImageField(
-        upload_to='products/',
-        null=True,
-        blank=True,
-        verbose_name="Product Image",
-        help_text="Product ki tasveer"
+
+    image = models.URLField(
+        max_length=2000, 
+        null=True, 
+        blank=True, 
+        verbose_name="Product Image Link",
+        help_text="Product ki tasveer ka URL link"
     )
+
     used = models.TextField(null=True, blank=True)
     unit = models.ForeignKey(Unit, on_delete=models.SET_NULL, null=True, blank=True, related_name="products")
     brand = models.ForeignKey(Brand, on_delete=models.SET_NULL, null=True, blank=True, related_name="products")
@@ -381,7 +383,6 @@ class Product(models.Model):
         """Deactivate product"""
         self.is_active = False
         self.save()
-
 
 
 

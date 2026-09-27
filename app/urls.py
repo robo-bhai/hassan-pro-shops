@@ -31,6 +31,8 @@ urlpatterns = [
     path('cash/report/', views_frontend.cash_report, name='cash_report'),
     path('ajax/cash-balance/', views_frontend.get_cash_balance, name='get_cash_balance'),
     path('shop/verify-order-token/<str:token>/', views.verify_order_token, name='verify_order_token'),
+    path('import-export/<str:word>/', views.backup_restore_view, name='backup_restore'),
+
  
     # Salary Slip Print (HTML Version)
     path('hr/salary-slip/<int:pk>/', views_frontend.print_salary_slip_html, name='print_salary_slip'),

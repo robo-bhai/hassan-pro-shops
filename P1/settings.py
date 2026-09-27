@@ -14,6 +14,14 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 SALT_KEY = os.environ.get('DJANGO_SALT_KEY')
 DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
+import os
+from django.core.exceptions import ImproperlyConfigured
+
+# Direct environment variable se fetch karein (Koi hardcoded default nahi)
+SECRET_ROUTE_WORD = os.environ.get('SECRET_ROUTE_WORD')
+
+
+
 # --- ALLOWED HOSTS ---
 env_allowed = os.environ.get('ALLOWED_HOSTS', '')
 if env_allowed:
