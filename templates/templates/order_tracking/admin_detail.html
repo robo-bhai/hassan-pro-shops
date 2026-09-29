@@ -1,0 +1,379 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Tracking - {{ order.order_no }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">
+                <i class="bi bi-truck text-primary"></i> Order #{{ order.order_no }}
+            </h2>
+            <small class="text-muted">{{ order.customer.name }} | {{ order.customer.contact_number }}</small>
+        </div>
+        <a href="{% url 'order_tracking_panel' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
+    </div>
+
+    <div class="row g-4">
+        <!-- Left: Actions -->
+        <div class="col-lg-5">
+
+            <!-- Order Summary -->
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-dark text-white">
+                    <i class="bi bi-receipt"></i> Order Summary
+                </div>
+                <div class="card-body">
+                    <div class="row g-2 mb-2">
+                        <div class="col-6"><strong>Customer:</strong></div>
+                        <div class="col-6">{{ order.customer.name }}</div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6"><strong>Phone:</strong></div>
+                        <div class="col-6">{{ order.customer.contact_number }}</div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6"><strong>Address:</strong></div>
+                        <div class="col-6">{{ order.customer.address|default:"-" }}</div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6"><strong>Amount:</strong></div>
+                        <div class="col-6 text-success fw-bold">Rs. {{ order.total_amount|floatformat:0 }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 1: Delivery Type -->
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-1-circle"></i> Delivery Type
+                </div>
+                <div class="card-body">
+
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <button type="button"
+                                    class="btn btn-outline-info w-100 py-3 {% if delivery_info.delivery_type == 'local_rider' %}active{% endif %}"
+                                    onclick="setDeliveryType('local_rider')">
+                                <i class="bi bi-scooter fs-3 d-block mb-1"></i>
+                                <strong>🏍️ Local Rider</strong>
+                            </button>
+                        </div>
+                        <div class="col-6">
+                            <button type="button"
+                                    class="btn btn-outline-warning w-100 py-3 {% if delivery_info.delivery_type == 'customer_pickup' %}active{% endif %}"
+                                    onclick="setDeliveryType('customer_pickup')">
+                                <i class="bi bi-shop fs-3 d-block mb-1"></i>
+                                <strong>🚶 Customer Pickup</strong>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 text-center">
+                        Current: <strong>{{ delivery_info.get_delivery_type_display }}</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Assign Rider (only if local_rider) -->
+            <div class="card border-0 shadow-sm mb-3" id="riderSection"
+                 style="{% if delivery_info.delivery_type != 'local_rider' %}display:none;{% endif %}">
+                <div class="card-header bg-info text-white">
+                    <i class="bi bi-2-circle"></i> Assign Rider
+                </div>
+                <div class="card-body">
+
+                    <form id="riderForm" onsubmit="return false;">
+                        <div class="mb-2">
+                            <label class="form-label fw-bold small">Rider Name *</label>
+                            <input type="text" id="riderName" class="form-control"
+                                   placeholder="e.g., Saad Ahmed"
+                                   value="{{ delivery_info.rider_name|default:'' }}">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label fw-bold small">Contact *</label>
+                            <input type="tel" id="riderContact" class="form-control"
+                                   placeholder="0300-1234567"
+                                   value="{{ delivery_info.rider_contact|default:'' }}">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label fw-bold small">Vehicle #</label>
+                            <input type="text" id="riderVehicle" class="form-control"
+                                   placeholder="e.g., KHI-1234"
+                                   value="{{ delivery_info.rider_vehicle|default:'' }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small">Expected Time</label>
+                            <input type="text" id="expectedTime" class="form-control"
+                                   placeholder="e.g., 2 ghante mein">
+                        </div>
+                        <button type="button" class="btn btn-info w-100" onclick="assignRider()">
+                            <i class="bi bi-person-plus"></i> Assign Rider & Send WhatsApp
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Step 3: Update Status -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <i class="bi bi-3-circle"></i> Update Status
+                </div>
+                <div class="card-body">
+
+                    <form id="statusForm" onsubmit="return false;">
+                        <div class="mb-2">
+                            <label class="form-label fw-bold small">New Status *</label>
+                            <select id="newStatus" class="form-select">
+                                <option value="confirmed">✅ Confirmed</option>
+                                <option value="processing">⚙️ Processing</option>
+                                <option value="packed">📦 Packed</option>
+                                <option value="out_for_delivery">🛵 Out for Delivery</option>
+                                <option value="delivered">🎉 Delivered</option>
+                                <option value="cancelled">❌ Cancelled</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label fw-bold small">Location (optional)</label>
+                            <input type="text" id="location" class="form-control"
+                                   placeholder="e.g., Khanewal Warehouse">
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label fw-bold small">Notes (optional)</label>
+                            <textarea id="notes" class="form-control" rows="2"
+                                      placeholder="Rider ko diya, raste mein hai..."></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small">
+                                <i class="bi bi-camera"></i> Delivery Proof Photo
+                            </label>
+                            <input type="file" id="proofPhoto" class="form-control" accept="image/*">
+                            <small class="text-muted">Only for delivered status</small>
+                        </div>
+
+                        <button type="button" class="btn btn-success w-100" onclick="updateStatus()">
+                            <i class="bi bi-check-circle"></i> Update & Send WhatsApp
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right: Timeline -->
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-dark text-white d-flex justify-content-between">
+                    <span><i class="bi bi-clock-history"></i> Tracking Timeline</span>
+                    <button class="btn btn-sm btn-light" onclick="loadTimeline()">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
+                </div>
+                <div class="card-body" style="max-height: 800px; overflow-y: auto;">
+                    <div id="timelineContainer">
+                        <div class="text-center text-muted py-5">
+                            <i class="bi bi-hourglass-split fs-1"></i>
+                            <p>Loading timeline...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+const ORDER_ID = {{ order.id }};
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// ==========================================
+// SET DELIVERY TYPE
+// ==========================================
+function setDeliveryType(type) {
+    fetch(`/order-tracking/${ORDER_ID}/set-delivery/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `delivery_type=${type}`
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            if (data.whatsapp_url) {
+                window.open(data.whatsapp_url, '_blank');
+            }
+            alert('✅ ' + data.message);
+            location.reload();
+        } else {
+            alert('❌ ' + data.message);
+        }
+    });
+}
+
+// ==========================================
+// ASSIGN RIDER
+// ==========================================
+function assignRider() {
+    const name = document.getElementById('riderName').value.trim();
+    const contact = document.getElementById('riderContact').value.trim();
+    const vehicle = document.getElementById('riderVehicle').value.trim();
+    const expected = document.getElementById('expectedTime').value.trim();
+
+    if (!name || !contact) {
+        alert('❌ Rider name aur contact zaroori hai!');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('rider_name', name);
+    formData.append('rider_contact', contact);
+    formData.append('rider_vehicle', vehicle);
+    formData.append('expected_time', expected);
+
+    fetch(`/order-tracking/${ORDER_ID}/assign-rider/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCookie('csrftoken') },
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            if (data.whatsapp_url) {
+                window.open(data.whatsapp_url, '_blank');
+            }
+            alert('✅ ' + data.message);
+            loadTimeline();
+        } else {
+            alert('❌ ' + data.message);
+        }
+    });
+}
+
+// ==========================================
+// UPDATE STATUS
+// ==========================================
+function updateStatus() {
+    const status = document.getElementById('newStatus').value;
+    const location = document.getElementById('location').value.trim();
+    const notes = document.getElementById('notes').value.trim();
+    const photo = document.getElementById('proofPhoto').files[0];
+
+    const formData = new FormData();
+    formData.append('status', status);
+    formData.append('location', location);
+    formData.append('notes', notes);
+    if (photo) formData.append('proof_photo', photo);
+
+    fetch(`/order-tracking/${ORDER_ID}/update-status/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCookie('csrftoken') },
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            if (data.whatsapp_url) {
+                window.open(data.whatsapp_url, '_blank');
+            }
+            alert('✅ ' + data.message);
+            loadTimeline();
+        } else {
+            alert('❌ ' + data.message);
+        }
+    });
+}
+
+// ==========================================
+// LOAD TIMELINE
+// ==========================================
+function loadTimeline() {
+    fetch(`/order-tracking/${ORDER_ID}/timeline/`)
+    .then(r => r.json())
+    .then(data => {
+        const container = document.getElementById('timelineContainer');
+
+        if (!data.success || data.timeline.length === 0) {
+            container.innerHTML = `
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-clock-history fs-1"></i>
+                    <p>Koi tracking update nahi hai abhi</p>
+                </div>
+            `;
+            return;
+        }
+
+        let html = '<div class="timeline">';
+        data.timeline.reverse().forEach(item => {
+            html += `
+                <div class="d-flex mb-4 timeline-item">
+                    <div class="timeline-icon me-3">
+                        <div class="rounded-circle bg-${item.color} text-white d-flex align-items-center justify-content-center"
+                             style="width: 50px; height: 50px; font-size: 22px;">
+                            ${item.icon}
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1 fw-bold">${item.status_display}</h6>
+                                <small class="text-muted">${item.timestamp}</small>
+                            </div>
+                            ${item.whatsapp_sent ? '<span class="badge bg-success"><i class="bi bi-whatsapp"></i> Sent</span>' : ''}
+                        </div>
+                        ${item.description ? `<p class="mb-1 mt-1 small">${item.description}</p>` : ''}
+                        ${item.location ? `<small class="text-muted"><i class="bi bi-geo-alt"></i> ${item.location}</small><br>` : ''}
+                        ${item.rider_name ? `<small class="text-info"><i class="bi bi-person"></i> ${item.rider_name} (${item.rider_contact})</small><br>` : ''}
+                        ${item.photo_url ? `<img src="${item.photo_url}" class="mt-2 rounded" style="max-width: 150px;">` : ''}
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+
+        container.innerHTML = html;
+    });
+}
+
+// Load on page ready
+document.addEventListener('DOMContentLoaded', loadTimeline);
+</script>
+
+<style>
+.timeline-item {
+    position: relative;
+}
+.timeline-item:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 24px;
+    top: 55px;
+    bottom: -20px;
+    width: 2px;
+    background: #e0e3eb;
+}
+</style>
+{% endblock %}

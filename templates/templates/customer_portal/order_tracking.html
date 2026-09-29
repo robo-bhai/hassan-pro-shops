@@ -1,0 +1,431 @@
+{% extends 'customer_portal/base_shop.html' %}
+{% load static %}
+
+{% block title %}Order {{ order.order_no }} - Tracking{% endblock %}
+
+{% block content %}
+
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 16px;
+        padding: 30px;
+        color: white;
+        margin-bottom: 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+    .page-header h1 {
+        font-size: 1.5rem;
+        font-weight: 800;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .page-header .badge {
+        font-size: 0.85rem;
+        padding: 8px 14px;
+        border-radius: 8px;
+    }
+    
+    .status-summary {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        margin-bottom: 24px;
+    }
+    
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+    }
+    .info-item {
+        padding: 12px 16px;
+        background: #f8fafc;
+        border-radius: 10px;
+        border-left: 3px solid #667eea;
+    }
+    .info-item small {
+        display: block;
+        color: #64748b;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+    }
+    .info-item strong {
+        color: #1a1d2e;
+        font-size: 1rem;
+    }
+    
+    /* Timeline */
+    .timeline-container {
+        background: white;
+        border-radius: 16px;
+        padding: 30px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    }
+    .timeline-container h5 {
+        font-weight: 800;
+        margin-bottom: 24px;
+        color: #1a1d2e;
+    }
+    
+    .timeline-step {
+        display: flex;
+        gap: 20px;
+        padding-bottom: 30px;
+        position: relative;
+    }
+    .timeline-step:last-child {
+        padding-bottom: 0;
+    }
+    .timeline-step::before {
+        content: '';
+        position: absolute;
+        left: 25px;
+        top: 55px;
+        bottom: 0;
+        width: 2px;
+        background: #e0e3eb;
+    }
+    .timeline-step:last-child::before {
+        display: none;
+    }
+    .timeline-step.completed::before {
+        background: #28a745;
+    }
+    
+    .timeline-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        flex-shrink: 0;
+        background: #f1f5f9;
+        color: #94a3b8;
+        z-index: 2;
+    }
+    .timeline-step.completed .timeline-icon {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.35);
+    }
+    .timeline-step.current .timeline-icon {
+        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+        color: white;
+        box-shadow: 0 4px 12px rgba(251, 191, 36, 0.4);
+        animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+        0%, 100% { box-shadow: 0 4px 12px rgba(251, 191, 36, 0.4); }
+        50% { box-shadow: 0 4px 20px rgba(251, 191, 36, 0.8); }
+    }
+    
+    .timeline-content {
+        flex: 1;
+        padding-top: 8px;
+    }
+    .timeline-title {
+        font-weight: 800;
+        font-size: 1rem;
+        color: #1a1d2e;
+        margin-bottom: 4px;
+    }
+    .timeline-step:not(.completed):not(.current) .timeline-title {
+        color: #94a3b8;
+    }
+    .timeline-time {
+        font-size: 0.8rem;
+        color: #64748b;
+        margin-bottom: 6px;
+    }
+    .timeline-desc {
+        font-size: 0.9rem;
+        color: #475569;
+        line-height: 1.5;
+        margin-bottom: 6px;
+    }
+    .timeline-meta {
+        font-size: 0.8rem;
+        color: #64748b;
+        background: #f8fafc;
+        padding: 6px 12px;
+        border-radius: 8px;
+        display: inline-block;
+        margin-top: 4px;
+        margin-right: 6px;
+    }
+    
+    .proof-photo {
+        max-width: 220px;
+        border-radius: 10px;
+        margin-top: 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .rider-card {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        border: 2px solid #60a5fa;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 24px;
+    }
+    .rider-card h6 {
+        color: #1e40af;
+        font-weight: 800;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .rider-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 0.95rem;
+        color: #1e3a8a;
+        margin-bottom: 8px;
+    }
+    .rider-info i {
+        font-size: 1.1rem;
+        width: 20px;
+    }
+    .rider-call-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #1e40af;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 10px;
+        text-decoration: none;
+        font-weight: 700;
+        margin-top: 10px;
+        transition: all 0.3s;
+    }
+    .rider-call-btn:hover {
+        background: #1e3a8a;
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(30, 64, 175, 0.3);
+    }
+    
+    .pickup-card {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border: 2px solid #fcd34d;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 24px;
+    }
+    .pickup-card h6 {
+        color: #78350f;
+        font-weight: 800;
+        margin-bottom: 12px;
+    }
+    .pickup-card p {
+        color: #78350f;
+        margin-bottom: 6px;
+    }
+    
+    .action-btns {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 24px;
+    }
+    .action-btns .btn {
+        border-radius: 10px;
+        padding: 10px 20px;
+        font-weight: 700;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 50px 20px;
+        color: #94a3b8;
+    }
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 16px;
+        opacity: 0.5;
+    }
+    
+    @media (max-width: 768px) {
+        .page-header { padding: 20px; }
+        .page-header h1 { font-size: 1.1rem; }
+        .timeline-container, .status-summary { padding: 20px; }
+        .timeline-icon { width: 42px; height: 42px; font-size: 18px; }
+        .timeline-step::before { left: 21px; top: 47px; }
+    }
+</style>
+
+<div class="container py-4">
+
+    <!-- Header -->
+    <div class="page-header">
+        <div>
+            <h1>
+                <i class="bi bi-truck"></i>
+                Order #{{ order.order_no }}
+            </h1>
+            <p class="mb-0 mt-2" style="opacity: 0.9; font-size: 0.9rem;">
+                <i class="bi bi-calendar"></i> 
+                {{ order.order_date|date:"d M, Y - h:i A" }}
+            </p>
+        </div>
+        <div>
+            {% if order.status == 'delivered' %}
+                <span class="badge bg-success">🎉 Delivered</span>
+            {% elif order.status == 'cancelled' %}
+                <span class="badge bg-danger">❌ Cancelled</span>
+            {% elif order.status == 'ready' %}
+                <span class="badge bg-warning text-dark">📦 Ready</span>
+            {% elif order.status == 'processing' %}
+                <span class="badge bg-info">⚙️ Processing</span>
+            {% elif order.status == 'confirmed' %}
+                <span class="badge bg-primary">✅ Confirmed</span>
+            {% else %}
+                <span class="badge bg-secondary">{{ order.get_status_display }}</span>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Action Buttons -->
+    <div class="action-btns">
+        <a href="{% url 'my_orders' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> My Orders
+        </a>
+        <a href="{% url 'order_detail_customer' order.id %}" class="btn btn-outline-primary">
+            <i class="bi bi-receipt"></i> Order Details
+        </a>
+        <a href="{% url 'shop_home' %}" class="btn btn-outline-success">
+            <i class="bi bi-cart"></i> Continue Shopping
+        </a>
+    </div>
+    
+    <!-- Status Summary -->
+    <div class="status-summary">
+        <h6 class="fw-bold mb-3"><i class="bi bi-info-circle"></i> Order Summary</h6>
+        <div class="info-grid">
+            <div class="info-item">
+                <small>Customer</small>
+                <strong>{{ order.customer.name }}</strong>
+            </div>
+            <div class="info-item">
+                <small>Total Amount</small>
+                <strong class="text-success">Rs. {{ order.total_amount|floatformat:0 }}</strong>
+            </div>
+            <div class="info-item">
+                <small>Items</small>
+                <strong>{{ order.items.count }} items</strong>
+            </div>
+            <div class="info-item">
+                <small>Warehouse</small>
+                <strong>{{ order.warehouse.name|default:"-" }}</strong>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Rider Card -->
+    {% if delivery_info and delivery_info.rider_name %}
+    <div class="rider-card">
+        <h6><i class="bi bi-person-badge-fill"></i> Aapka Rider</h6>
+        <div class="rider-info">
+            <i class="bi bi-person-fill"></i>
+            <strong>{{ delivery_info.rider_name }}</strong>
+        </div>
+        <div class="rider-info">
+            <i class="bi bi-telephone-fill"></i>
+            {{ delivery_info.rider_contact }}
+        </div>
+        {% if delivery_info.rider_vehicle %}
+        <div class="rider-info">
+            <i class="bi bi-truck"></i>
+            {{ delivery_info.rider_vehicle }}
+        </div>
+        {% endif %}
+        <a href="tel:{{ delivery_info.rider_contact }}" class="rider-call-btn">
+            <i class="bi bi-telephone-outbound-fill"></i> Call Rider
+        </a>
+    </div>
+    {% endif %}
+    
+    <!-- Pickup Card -->
+    {% if delivery_info and delivery_info.delivery_type == 'customer_pickup' %}
+    <div class="pickup-card">
+        <h6><i class="bi bi-shop"></i> Pickup Location</h6>
+        <p><i class="bi bi-geo-alt-fill"></i> 
+            {{ delivery_info.pickup_location|default:"Our Store" }}
+        </p>
+        <p><i class="bi bi-clock-fill"></i> Timing: 10 AM - 8 PM</p>
+        <p class="mb-0"><strong>Apni ID saath le kar aayein.</strong></p>
+    </div>
+    {% endif %}
+    
+    <!-- Timeline -->
+    <div class="timeline-container">
+        <h5>
+            <i class="bi bi-clock-history"></i> Order Timeline
+        </h5>
+        
+        {% if tracking_history %}
+            {% for track in tracking_history %}
+            <div class="timeline-step 
+                        {% if forloop.last %}current completed{% else %}completed{% endif %}">
+                <div class="timeline-icon">
+                    {{ track.icon }}
+                </div>
+                <div class="timeline-content">
+                    <div class="timeline-title">
+                        {{ track.get_status_display }}
+                    </div>
+                    <div class="timeline-time">
+                        <i class="bi bi-clock"></i>
+                        {{ track.timestamp|date:"d M, Y - h:i A" }}
+                    </div>
+                    {% if track.description %}
+                    <div class="timeline-desc">{{ track.description }}</div>
+                    {% endif %}
+                    {% if track.location %}
+                    <div class="timeline-meta">
+                        <i class="bi bi-geo-alt-fill"></i> {{ track.location }}
+                    </div>
+                    {% endif %}
+                    {% if track.rider_name %}
+                    <div class="timeline-meta">
+                        <i class="bi bi-person-fill"></i> 
+                        {{ track.rider_name }} ({{ track.rider_contact }})
+                    </div>
+                    {% endif %}
+                    {% if track.proof_photo %}
+                    <div>
+                        <img src="{{ track.proof_photo.url }}" 
+                             class="proof-photo" 
+                             alt="Delivery Proof">
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <i class="bi bi-hourglass-split"></i>
+                <h6>Koi Tracking Update Nahi</h6>
+                <p>Order ki processing shuru hone par yahan updates dikhengi</p>
+            </div>
+        {% endif %}
+    </div>
+
+</div>
+
+{% endblock %}

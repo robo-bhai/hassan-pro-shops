@@ -437,7 +437,16 @@ def customer_login(request):
 # ============================================
 
 def customer_logout(request):
-    """Logout with session flush"""
+    """Logout with session flush + admin presence offline"""
+    from .models import AdminPresence
+    
+    # ✅ Admin offline mark karo (agar staff hai)
+    if request.user.is_authenticated and request.user.is_staff:
+        try:
+            AdminPresence.mark_offline(request.user)
+        except Exception:
+            pass
+    
     request.session.flush()
     logout(request)
     messages.success(request, '👋 Aap logout ho gaye hain. Phir milenge!')

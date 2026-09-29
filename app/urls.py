@@ -10,7 +10,9 @@ from app import views_testing
 from app import views_document
 from app import views_frontend
 from django.urls import path
-from . import views  # <-- Ye line add karein
+from . import views
+from . import views_delivery
+from . import views_order_tracking
 
 urlpatterns = [
     # ============================================
@@ -1071,4 +1073,46 @@ urlpatterns = [
     path('shop/api/otp-remaining/', views_customer_portal.get_otp_remaining_api, name='get_otp_remaining_api'),
     path('shop/buy-now/<int:product_id>/', views_customer_portal.buy_now, name='buy_now'),
     path('shop/update-address/', views_customer_portal.update_delivery_address, name='update_delivery_address'),
+    path('shop/chat/send/', views_customer_portal.chat_send_message, name='chat_send'),
+    path('shop/chat/messages/', views_customer_portal.chat_get_messages, name='chat_get_messages'),
+    path('shop/chat/typing/', views_customer_portal.chat_typing, name='chat_typing'),
+    path('shop/chat/unread/', views_customer_portal.chat_unread_count, name='chat_unread'),
+    path('shop/chat/close/', views_customer_portal.chat_close, name='chat_close'),
+    path('admin-chat/', views_frontend.admin_chat_panel, name='admin_chat_panel'),
+    path('admin-chat/<int:pk>/', views_frontend.admin_chat_detail, name='admin_chat_detail'),
+    path('admin-chat/send/', views_frontend.admin_chat_send, name='admin_chat_send'),
+    path('shop/chat/new/', views_customer_portal.chat_new, name='chat_new'),
+    path('admin-chat/<int:pk>/messages/', views_frontend.admin_chat_messages_api, name='admin_chat_messages_api'),
+    path('admin-chat/typing/', views_frontend.admin_chat_typing, name='admin_chat_typing'),
+    path('admin-chat/<int:pk>/close/', views_frontend.admin_chat_close, name='admin_chat_close'),
+    path('admin-chat/<int:pk>/reopen/', views_frontend.admin_chat_reopen, name='admin_chat_reopen'),
+    path('admin-chat/stats/', views_frontend.admin_chat_stats_api, name='admin_chat_stats_api'),
+    path('shop/set-delivery-type/', views_customer_portal.set_delivery_type, name='set_delivery_type'),
+    path('settings/delivery/', views_delivery.delivery_settings_view, name='delivery_settings_view'),
+    path('settings/delivery/toggle/', views_delivery.delivery_settings_toggle, name='delivery_settings_toggle'),
+    path('settings/delivery/reset/', views_delivery.delivery_settings_reset, name='delivery_settings_reset'),
+    path('order-tracking/', 
+     views_order_tracking.order_tracking_panel, 
+     name='order_tracking_panel'),
+     path('order-tracking/<int:order_id>/', 
+     views_order_tracking.order_tracking_detail, 
+     name='order_tracking_detail'),
+     path('order-tracking/<int:order_id>/set-delivery/', 
+     views_order_tracking.order_set_delivery_type, 
+     name='order_set_delivery_type'),
+     path('order-tracking/<int:order_id>/assign-rider/', 
+     views_order_tracking.order_assign_rider, 
+     name='order_assign_rider'),
+     path('order-tracking/<int:order_id>/update-status/', 
+     views_order_tracking.order_update_status, 
+     name='order_update_status'),
+     path('order-tracking/<int:order_id>/timeline/', 
+     views_order_tracking.order_tracking_timeline, 
+     name='order_tracking_timeline'),
+     path('track-order/', 
+     views_order_tracking.track_order_public, 
+     name='track_order_public'),
+     path('my-order/<int:order_id>/tracking/', 
+     views_order_tracking.customer_order_tracking, 
+     name='customer_order_tracking'),
 ]

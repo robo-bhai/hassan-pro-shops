@@ -1,0 +1,228 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Order Tracking Panel{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold mb-0">
+            <i class="bi bi-truck text-primary"></i> Order Tracking Panel
+        </h2>
+        <a href="/track-order/" target="_blank" class="btn btn-outline-primary">
+            <i class="bi bi-search"></i> Public Tracking Page
+        </a>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <small class="text-muted">Total Orders</small>
+                            <h3 class="mb-0 fw-bold">{{ stats.total }}</h3>
+                        </div>
+                        <i class="bi bi-cart-check fs-1 text-primary opacity-25"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <small class="text-muted">Active</small>
+                            <h3 class="mb-0 fw-bold text-warning">{{ stats.active }}</h3>
+                        </div>
+                        <i class="bi bi-clock-history fs-1 text-warning opacity-25"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <small class="text-muted">Out for Delivery</small>
+                            <h3 class="mb-0 fw-bold text-info">{{ stats.out_for_delivery }}</h3>
+                        </div>
+                        <i class="bi bi-scooter fs-1 text-info opacity-25"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <small class="text-muted">Delivered</small>
+                            <h3 class="mb-0 fw-bold text-success">{{ stats.delivered }}</h3>
+                        </div>
+                        <i class="bi bi-check-circle fs-1 text-success opacity-25"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <input type="text" name="search" class="form-control"
+                           placeholder="🔍 Search order, customer, phone..."
+                           value="{{ search }}">
+                </div>
+                <div class="col-md-3">
+                    <select name="status" class="form-select">
+                        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>🔄 Active Orders</option>
+                        <option value="delivered" {% if status_filter == 'delivered' %}selected{% endif %}>✅ Delivered</option>
+                        <option value="cancelled" {% if status_filter == 'cancelled' %}selected{% endif %}>❌ Cancelled</option>
+                        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>📋 All</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select name="delivery" class="form-select">
+                        <option value="">🚚 All Delivery Types</option>
+                        <option value="local_rider" {% if delivery_filter == 'local_rider' %}selected{% endif %}>🏍️ Local Rider</option>
+                        <option value="customer_pickup" {% if delivery_filter == 'customer_pickup' %}selected{% endif %}>🚶 Customer Pickup</option>
+                        <option value="no_delivery" {% if delivery_filter == 'no_delivery' %}selected{% endif %}>⚠️ No Delivery Set</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-primary w-100">
+                        <i class="bi bi-search"></i> Filter
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Orders Table -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Order #</th>
+                            <th>Customer</th>
+                            <th>Amount</th>
+                            <th>Delivery Type</th>
+                            <th>Status</th>
+                            <th>Rider</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                        <tr>
+                            <td>
+                                <strong class="text-primary">{{ order.order_no }}</strong>
+                                <br>
+                                <small class="text-muted">{{ order.order_date|date:"d M, H:i" }}</small>
+                            </td>
+                            <td>
+                                <strong>{{ order.customer.name }}</strong>
+                                <br>
+                                <small class="text-muted">
+                                    <i class="bi bi-telephone"></i> {{ order.customer.contact_number }}
+                                </small>
+                            </td>
+                            <td>
+                                <strong class="text-success">
+                                    Rs. {{ order.total_amount|floatformat:0 }}
+                                </strong>
+                            </td>
+                            <td>
+                                {% if order.delivery_info %}
+                                    {% if order.delivery_info.delivery_type == 'local_rider' %}
+                                        <span class="badge bg-info">🏍️ Local Rider</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">🚶 Pickup</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-secondary">⚠️ Not Set</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if order.status == 'pending' %}
+                                    <span class="badge bg-secondary">⏳ Pending</span>
+                                {% elif order.status == 'confirmed' %}
+                                    <span class="badge bg-info">✅ Confirmed</span>
+                                {% elif order.status == 'processing' %}
+                                    <span class="badge bg-primary">⚙️ Processing</span>
+                                {% elif order.status == 'ready' %}
+                                    <span class="badge bg-warning">📦 Ready</span>
+                                {% elif order.status == 'delivered' %}
+                                    <span class="badge bg-success">🎉 Delivered</span>
+                                {% elif order.status == 'cancelled' %}
+                                    <span class="badge bg-danger">❌ Cancelled</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ order.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if order.delivery_info.rider_name %}
+                                    <strong>{{ order.delivery_info.rider_name }}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ order.delivery_info.rider_contact }}</small>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'order_tracking_detail' order.id %}"
+                                   class="btn btn-sm btn-primary">
+                                    <i class="bi bi-eye"></i> Manage
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5">
+                                <i class="bi bi-inbox fs-1 text-muted"></i>
+                                <p class="text-muted mt-2">No orders found</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&status={{ status_filter }}&search={{ search }}">
+                    ← Previous
+                </a>
+            </li>
+            {% endif %}
+            <li class="page-item active">
+                <span class="page-link">{{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+            </li>
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}&status={{ status_filter }}&search={{ search }}">
+                    Next →
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+</div>
+{% endblock %}

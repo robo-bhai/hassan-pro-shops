@@ -1,0 +1,830 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Delivery Settings - {{ company_name }}{% endblock %}
+
+{% block content %}
+
+<style>
+    .delivery-settings-container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .settings-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px 40px;
+        border-radius: 20px;
+        margin-bottom: 30px;
+        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+    }
+    
+    .settings-header h1 {
+        margin: 0 0 8px;
+        font-size: 1.8rem;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .settings-header p {
+        margin: 0;
+        opacity: 0.9;
+        font-size: 0.95rem;
+    }
+    
+    .settings-card {
+        background: white;
+        border-radius: 16px;
+        padding: 25px 30px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        border: 1px solid #e2e8f0;
+    }
+    
+    .settings-card h3 {
+        margin: 0 0 20px;
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: #1a1d2e;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid #f1f5f9;
+    }
+    
+    .settings-card h3 .icon-box {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+    }
+    
+    .icon-box.primary {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15));
+        color: #667eea;
+    }
+    
+    .icon-box.success {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.15));
+        color: #10b981;
+    }
+    
+    .icon-box.warning {
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(217, 119, 6, 0.15));
+        color: #f59e0b;
+    }
+    
+    .icon-box.danger {
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.15));
+        color: #ef4444;
+    }
+    
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .form-group {
+        margin-bottom: 16px;
+    }
+    
+    .form-group label {
+        display: block;
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: #475569;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .form-group input[type="text"],
+    .form-group input[type="number"],
+    .form-group input[type="email"] {
+        width: 100%;
+        padding: 12px 14px;
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        font-size: 0.95rem;
+        transition: all 0.2s;
+        background: #f8fafc;
+    }
+    
+    .form-group input:focus {
+        outline: none;
+        border-color: #667eea;
+        background: white;
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+    }
+    
+    .form-group small {
+        display: block;
+        font-size: 0.75rem;
+        color: #94a3b8;
+        margin-top: 4px;
+    }
+    
+    .switch-group {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 18px;
+        background: #f8fafc;
+        border-radius: 12px;
+        border: 2px solid #e2e8f0;
+        margin-bottom: 12px;
+    }
+    
+    .switch-group-label {
+        flex: 1;
+    }
+    
+    .switch-group-label strong {
+        display: block;
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: #1a1d2e;
+        margin-bottom: 2px;
+    }
+    
+    .switch-group-label small {
+        color: #64748b;
+        font-size: 0.8rem;
+    }
+    
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 54px;
+        height: 30px;
+        flex-shrink: 0;
+    }
+    
+    .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #cbd5e1;
+        transition: 0.3s;
+        border-radius: 30px;
+    }
+    
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 22px;
+        width: 22px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: 0.3s;
+        border-radius: 50%;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    input:checked + .slider {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    input:checked + .slider:before {
+        transform: translateX(24px);
+    }
+    
+    /* City Charges */
+    .city-charges-container {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .city-charge-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr auto;
+        gap: 10px;
+        align-items: center;
+        padding: 12px 16px;
+        background: #f8fafc;
+        border-radius: 10px;
+        border: 1.5px solid #e2e8f0;
+        transition: all 0.2s;
+    }
+    
+    .city-charge-row:hover {
+        border-color: #667eea;
+        background: #eef2ff;
+    }
+    
+    .city-charge-row input {
+        padding: 9px 12px;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        background: white;
+    }
+    
+    .city-charge-row input:focus {
+        outline: none;
+        border-color: #667eea;
+    }
+    
+    .remove-city-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        background: #fee2e2;
+        color: #ef4444;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        transition: all 0.2s;
+    }
+    
+    .remove-city-btn:hover {
+        background: #ef4444;
+        color: white;
+    }
+    
+    .add-city-btn {
+        padding: 11px 20px;
+        background: #eef2ff;
+        color: #667eea;
+        border: 2px dashed #c7d2fe;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 0.88rem;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s;
+        margin-top: 10px;
+    }
+    
+    .add-city-btn:hover {
+        background: #c7d2fe;
+        border-color: #667eea;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 12px;
+        padding: 20px 30px;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        border: 1px solid #e2e8f0;
+        position: sticky;
+        bottom: 20px;
+        margin-top: 20px;
+    }
+    
+    .btn-save {
+        flex: 1;
+        padding: 15px 30px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-weight: 800;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+    
+    .btn-save:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.5);
+    }
+    
+    .btn-reset {
+        padding: 15px 30px;
+        background: #fef2f2;
+        color: #ef4444;
+        border: 2px solid #fecaca;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .btn-reset:hover {
+        background: #ef4444;
+        color: white;
+        border-color: #ef4444;
+    }
+    
+    .info-banner {
+        background: #eff6ff;
+        border: 1.5px solid #bfdbfe;
+        border-radius: 12px;
+        padding: 14px 18px;
+        font-size: 0.88rem;
+        color: #1e40af;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .info-banner i {
+        font-size: 1.1rem;
+        flex-shrink: 0;
+        margin-top: 1px;
+    }
+    
+    .preview-box {
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        border: 1.5px solid #bae6fd;
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-top: 15px;
+    }
+    
+    .preview-box h6 {
+        margin: 0 0 10px;
+        font-weight: 800;
+        color: #075985;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .preview-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        font-size: 0.88rem;
+        color: #0c4a6e;
+    }
+    
+    @media (max-width: 768px) {
+        .settings-header {
+            padding: 20px;
+        }
+        
+        .settings-header h1 {
+            font-size: 1.3rem;
+        }
+        
+        .settings-card {
+            padding: 18px 20px;
+        }
+        
+        .form-row {
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+        
+        .city-charge-row {
+            grid-template-columns: 1fr;
+            gap: 8px;
+        }
+        
+        .remove-city-btn {
+            width: 100%;
+            height: 38px;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+            padding: 16px 20px;
+        }
+        
+        .btn-save, .btn-reset {
+            width: 100%;
+        }
+    }
+</style>
+
+<div class="container-fluid py-3">
+    <div class="delivery-settings-container">
+        
+        <!-- HEADER -->
+        <div class="settings-header">
+            <h1>
+                <i class="bi bi-truck"></i> Delivery Settings
+            </h1>
+            <p>Configure delivery charges, times, and options for your customer portal</p>
+        </div>
+        
+        <!-- INFO BANNER -->
+        <div class="info-banner">
+            <i class="bi bi-info-circle-fill"></i>
+            <div>
+                <strong>Ye settings customer portal pe apply hongi.</strong> 
+                Delivery charges, free delivery threshold, city-wise rates — sab yahan se control karein.
+            </div>
+        </div>
+        
+        <!-- FORM -->
+        <form method="POST" id="deliverySettingsForm">
+            {% csrf_token %}
+            
+            <!-- ============================================ -->
+            <!-- STANDARD DELIVERY                             -->
+            <!-- ============================================ -->
+            <div class="settings-card">
+                <h3>
+                    <div class="icon-box primary">
+                        <i class="bi bi-box-seam"></i>
+                    </div>
+                    Standard Delivery
+                </h3>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Standard Delivery Charge (Rs.)</label>
+                        <input type="number" 
+                               name="standard_charge" 
+                               value="{{ settings.standard_charge|floatformat:'-2' }}"
+                               min="0" 
+                               step="0.01"
+                               required>
+                        <small>Default charge jab subtotal threshold se kam ho</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Delivery Time Estimate</label>
+                        <input type="text" 
+                               name="standard_delivery_time" 
+                               value="{{ settings.standard_delivery_time }}"
+                               placeholder="e.g., 2-4 working days"
+                               required>
+                        <small>Customer ko ye text dikhega</small>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ============================================ -->
+            <!-- FREE DELIVERY                                 -->
+            <!-- ============================================ -->
+            <div class="settings-card">
+                <h3>
+                    <div class="icon-box success">
+                        <i class="bi bi-gift-fill"></i>
+                    </div>
+                    Free Delivery Threshold
+                </h3>
+                
+                <div class="switch-group">
+                    <div class="switch-group-label">
+                        <strong>Enable Free Delivery</strong>
+                        <small>Bade orders pe free delivery</small>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" 
+                               name="free_delivery_enabled"
+                               {% if settings.free_delivery_enabled %}checked{% endif %}>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                
+                <div class="form-group">
+                    <label>Free Delivery Threshold (Rs.)</label>
+                    <input type="number" 
+                           name="free_delivery_threshold" 
+                           value="{{ settings.free_delivery_threshold|floatformat:'-2' }}"
+                           min="0" 
+                           step="0.01"
+                           required>
+                    <small>Is amount se zyada order pe delivery FREE hogi</small>
+                </div>
+                
+                <!-- Preview -->
+                <div class="preview-box">
+                    <h6>📊 Preview</h6>
+                    <div class="preview-item">
+                        <span>Order: Rs. 500</span>
+                        <span>Delivery: Rs. {{ settings.standard_charge|floatformat:'-2' }}</span>
+                    </div>
+                    <div class="preview-item">
+                        <span>Order: Rs. {{ settings.free_delivery_threshold|floatformat:'-2' }}+</span>
+                        <span style="color: #059669; font-weight: 800;">🎁 FREE</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ============================================ -->
+            <!-- EXPRESS DELIVERY                              -->
+            <!-- ============================================ -->
+            <div class="settings-card">
+                <h3>
+                    <div class="icon-box warning">
+                        <i class="bi bi-lightning-charge-fill"></i>
+                    </div>
+                    Express Delivery
+                </h3>
+                
+                <div class="switch-group">
+                    <div class="switch-group-label">
+                        <strong>Enable Express Delivery</strong>
+                        <small>Fast delivery option for customers</small>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" 
+                               name="express_delivery_enabled"
+                               {% if settings.express_delivery_enabled %}checked{% endif %}>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Express Charge (Rs.)</label>
+                        <input type="number" 
+                               name="express_charge" 
+                               value="{{ settings.express_charge|floatformat:'-2' }}"
+                               min="0" 
+                               step="0.01">
+                        <small>Fast delivery ke liye extra charge</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Express Delivery Time</label>
+                        <input type="text" 
+                               name="express_delivery_time" 
+                               value="{{ settings.express_delivery_time }}"
+                               placeholder="e.g., Same day (within city)">
+                        <small>Customer ko ye text dikhega</small>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ============================================ -->
+            <!-- STORE PICKUP                                  -->
+            <!-- ============================================ -->
+            <div class="settings-card">
+                <h3>
+                    <div class="icon-box success">
+                        <i class="bi bi-shop"></i>
+                    </div>
+                    Store Pickup
+                </h3>
+                
+                <div class="switch-group">
+                    <div class="switch-group-label">
+                        <strong>Enable Store Pickup</strong>
+                        <small>Customer khud store se le sakta hai (FREE)</small>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" 
+                               name="store_pickup_enabled"
+                               {% if settings.store_pickup_enabled %}checked{% endif %}>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+            
+            <!-- ============================================ -->
+            <!-- CITY-WISE CHARGES                             -->
+            <!-- ============================================ -->
+            <div class="settings-card">
+                <h3>
+                    <div class="icon-box primary">
+                        <i class="bi bi-geo-alt-fill"></i>
+                    </div>
+                    City-wise Delivery Charges
+                </h3>
+                
+                <div class="info-banner" style="background: #fef3c7; border-color: #fcd34d; color: #92400e; margin-bottom: 15px;">
+                    <i class="bi bi-lightbulb-fill"></i>
+                    <div>
+                        <strong>Tip:</strong> Sirf woh cities add karein jahan aap deliver karte hain. 
+                        Baaki sab "Other" charge use karengi.
+                    </div>
+                </div>
+                
+                <div class="city-charges-container" id="cityChargesContainer">
+                    {% for city in city_charges_list %}
+                    <div class="city-charge-row" data-city-row>
+                        <input type="text" 
+                               name="city_name[]" 
+                               value="{{ city.name }}"
+                               placeholder="City name (e.g., karachi)"
+                               required>
+                        <input type="number" 
+                               name="city_charge[]" 
+                               value="{{ city.charge|floatformat:'-2' }}"
+                               placeholder="Charge (Rs.)"
+                               min="0"
+                               step="0.01"
+                               required>
+                        <button type="button" 
+                                class="remove-city-btn" 
+                                onclick="removeCityRow(this)"
+                                title="Remove city">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <button type="button" class="add-city-btn" onclick="addCityRow()">
+                    <i class="bi bi-plus-circle-fill"></i>
+                    Add Another City
+                </button>
+                
+                <div class="form-group" style="margin-top: 20px;">
+                    <label>Other Cities Charge (Rs.)</label>
+                    <input type="number" 
+                           name="other_city_charge" 
+                           value="{{ other_charge|floatformat:'-2' }}"
+                           min="0" 
+                           step="0.01"
+                           required>
+                    <small>Ye charge un sab cities pe apply hoga jo list mein nahi hain</small>
+                </div>
+            </div>
+            
+            <!-- ============================================ -->
+            <!-- ACTION BUTTONS                                -->
+            <!-- ============================================ -->
+            <div class="action-buttons">
+                <button type="submit" class="btn-save">
+                    <i class="bi bi-check-circle-fill"></i>
+                    Save Delivery Settings
+                </button>
+                
+                <button type="button" 
+                        class="btn-reset" 
+                        onclick="resetSettings()">
+                    <i class="bi bi-arrow-clockwise"></i>
+                    Reset to Default
+                </button>
+            </div>
+        </form>
+        
+        <!-- Reset Form (Hidden) -->
+        <form method="POST" 
+              action="{% url 'delivery_settings_reset' %}" 
+              id="resetForm" 
+              style="display: none;">
+            {% csrf_token %}
+        </form>
+        
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // ==========================================
+    // ADD CITY ROW
+    // ==========================================
+    function addCityRow() {
+        const container = document.getElementById('cityChargesContainer');
+        const newRow = document.createElement('div');
+        newRow.className = 'city-charge-row';
+        newRow.setAttribute('data-city-row', '');
+        newRow.innerHTML = `
+            <input type="text" 
+                   name="city_name[]" 
+                   placeholder="City name (e.g., lahore)"
+                   required>
+            <input type="number" 
+                   name="city_charge[]" 
+                   placeholder="Charge (Rs.)"
+                   min="0"
+                   step="0.01"
+                   required>
+            <button type="button" 
+                    class="remove-city-btn" 
+                    onclick="removeCityRow(this)"
+                    title="Remove city">
+                <i class="bi bi-trash"></i>
+            </button>
+        `;
+        container.appendChild(newRow);
+        
+        // Focus on new input
+        newRow.querySelector('input[name="city_name[]"]').focus();
+    }
+    
+    // ==========================================
+    // REMOVE CITY ROW
+    // ==========================================
+    function removeCityRow(btn) {
+        if (!confirm('Is city ko remove karna hai?')) return;
+        
+        const row = btn.closest('[data-city-row]');
+        if (row) {
+            row.style.opacity = '0';
+            row.style.transform = 'translateX(-20px)';
+            setTimeout(() => {
+                row.remove();
+            }, 200);
+        }
+    }
+    
+    // ==========================================
+    // RESET SETTINGS
+    // ==========================================
+    function resetSettings() {
+        if (!confirm('⚠️ Kya aap delivery settings reset karna chahte hain?\n\nYe sab kuch default values pe set kar dega.')) {
+            return;
+        }
+        
+        document.getElementById('resetForm').submit();
+    }
+    
+    // ==========================================
+    // FORM SUBMIT VALIDATION
+    // ==========================================
+    document.getElementById('deliverySettingsForm').addEventListener('submit', function(e) {
+        // Check at least one city
+        const cityRows = document.querySelectorAll('[data-city-row]');
+        
+        // Validate city names
+        let hasError = false;
+        cityRows.forEach(row => {
+            const nameInput = row.querySelector('input[name="city_name[]"]');
+            const chargeInput = row.querySelector('input[name="city_charge[]"]');
+            
+            if (!nameInput.value.trim()) {
+                nameInput.style.borderColor = '#ef4444';
+                hasError = true;
+            } else {
+                nameInput.style.borderColor = '#e2e8f0';
+            }
+            
+            if (!chargeInput.value || parseFloat(chargeInput.value) < 0) {
+                chargeInput.style.borderColor = '#ef4444';
+                hasError = true;
+            } else {
+                chargeInput.style.borderColor = '#e2e8f0';
+            }
+        });
+        
+        if (hasError) {
+            e.preventDefault();
+            alert('❌ Please fill all city fields correctly.');
+            return false;
+        }
+    });
+    
+    // ==========================================
+    // PREVIEW LIVE UPDATE
+    // ==========================================
+    const standardChargeInput = document.querySelector('input[name="standard_charge"]');
+    const freeThresholdInput = document.querySelector('input[name="free_delivery_threshold"]');
+    
+    function updatePreview() {
+        const previewBox = document.querySelector('.preview-box');
+        if (!previewBox) return;
+        
+        const standardCharge = standardChargeInput.value || 100;
+        const freeThreshold = freeThresholdInput.value || 1000;
+        
+        previewBox.innerHTML = `
+            <h6>📊 Preview</h6>
+            <div class="preview-item">
+                <span>Order: Rs. 500</span>
+                <span>Delivery: Rs. ${parseFloat(standardCharge).toFixed(2)}</span>
+            </div>
+            <div class="preview-item">
+                <span>Order: Rs. ${parseFloat(freeThreshold).toFixed(2)}+</span>
+                <span style="color: #059669; font-weight: 800;">🎁 FREE</span>
+            </div>
+        `;
+    }
+    
+    if (standardChargeInput) {
+        standardChargeInput.addEventListener('input', updatePreview);
+    }
+    if (freeThresholdInput) {
+        freeThresholdInput.addEventListener('input', updatePreview);
+    }
+</script>
+{% endblock %}

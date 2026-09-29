@@ -2,6 +2,9 @@
 
 from django.shortcuts import redirect
 from django.contrib import messages
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ShareholderRestrictionMiddleware:
@@ -12,28 +15,23 @@ class ShareholderRestrictionMiddleware:
     
     def __init__(self, get_response):
         self.get_response = get_response
-        
-        # ✅ Shareholder allowed prefix - SIRF /shareholder/ SE START
         self.shareholder_allowed_prefix = '/shareholder/'
 
     def __call__(self, request):
-        # ✅ Check if user is logged in
         if hasattr(request, 'user') and request.user.is_authenticated:
             is_shareholder = hasattr(request.user, 'shareholder_profile')
             
-            # ✅ If shareholder is trying to access pages
             if is_shareholder:
                 path = request.path
                 
-                # ✅ Allow media and static files (always accessible)
+                # Allow media and static files
                 if path.startswith('/media/') or path.startswith('/static/'):
                     response = self.get_response(request)
                     return response
                 
-                # ✅ Check if path starts with /shareholder/
+                # Check if path starts with /shareholder/
                 is_shareholder_path = path.startswith(self.shareholder_allowed_prefix)
                 
-                # ✅ If not shareholder path, block and redirect
                 if not is_shareholder_path:
                     messages.error(request, '⚠️ Access denied! Shareholders can only access the shareholder portal.')
                     return redirect('shareholder_portal_dashboard')
@@ -43,13 +41,8 @@ class ShareholderRestrictionMiddleware:
 
 
 # ============================================
-# ✅ NEW: LIVE VISITOR TRACKING MIDDLEWARE
+# ✅ LIVE VISITOR TRACKING MIDDLEWARE
 # ============================================
-
-import logging
-
-logger = logging.getLogger(__name__)
-
 
 class LiveVisitorMiddleware:
     """
@@ -69,14 +62,54 @@ class LiveVisitorMiddleware:
         # ✅ Sirf shop pages par track karo
         if request.path.startswith('/shop/'):
             try:
-                # Lazy import (circular import se bachne ke liye)
                 from .models import LiveVisitor
                 LiveVisitor.track_visitor(request)
             except Exception as e:
-                # Silent fail - request ko block nahi karna
                 logger.error(f"Live visitor tracking error: {e}")
         
         response = self.get_response(request)
+        return response
+
+
+# ============================================
+# ✅ NEW: ADMIN ACTIVITY TRACKING MIDDLEWARE
+# ============================================
+
+class AdminActivityMiddleware:
+    """
+    Har request pe admin ki REAL-TIME activity track karo
+    
+    Yeh LAST_LOGIN se alag hai:
+    - last_login = jab login kiya (stale ho jata hai)
+    - last_activity = abhi kaam kar raha hai (fresh)
+    
+    Isse pata chalta hai ke konsa admin ABHI LIVE hai.
+    """
+    
+    def __init__(self, get_response):
+        self.get_response = get_response
+    
+    def __call__(self, request):
+        # ✅ Response PEHLE process karo
+        response = self.get_response(request)
+        
+        # ✅ Sirf authenticated staff users ke liye track karo
+        if hasattr(request, 'user') and request.user.is_authenticated and request.user.is_staff:
+            try:
+                # Static files skip karo
+                path = request.path
+                if not path.startswith('/static/') and \
+                   not path.startswith('/media/') and \
+                   not path.startswith('/favicon'):
+                    
+                    from .models import AdminPresence
+                    AdminPresence.mark_activity(
+                        user=request.user,
+                        page=path
+                    )
+            except Exception as e:
+                logger.error(f"Admin presence tracking error: {e}")
+        
         return response
 
 

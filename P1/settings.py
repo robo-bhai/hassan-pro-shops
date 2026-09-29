@@ -94,17 +94,17 @@ CLOUDINARY_STORAGE = {
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'axes.middleware.AxesMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'axes.middleware.AxesMiddleware',
     'app.middleware.ShareholderRestrictionMiddleware',
     'app.middleware.LiveVisitorMiddleware',
     'app.middleware.SecurityMiddleware',
+    'app.middleware.AdminActivityMiddleware',
 ]
 
 AUTHENTICATION_BACKENDS = [
