@@ -1,8 +1,9 @@
 """
 WhatsApp Sender - Android & Desktop Compatible
 All Features: Invoice, Reminder, PDF, Daily Summary, Order Status, Broadcast
++ Order Tracking System (Rider, Pickup, ETA, Delivery)
 """
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from decimal import Decimal
 from urllib.parse import quote
 from django.db.models import Sum, F
@@ -14,6 +15,8 @@ class WhatsAppSender:
     @staticmethod
     def format_phone(phone):
         """Phone number ko +92 format mein convert karo"""
+        if not phone:
+            return None
         phone = str(phone).replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
         if phone.startswith('+'):
             return phone
@@ -23,6 +26,27 @@ class WhatsAppSender:
             return '+' + phone
         else:
             return '+92' + phone
+    
+    @staticmethod
+    def _generate_link(phone, message):
+        """WhatsApp link generate karo"""
+        formatted = WhatsAppSender.format_phone(phone)
+        if not formatted:
+            return None
+        # Remove + for wa.me
+        clean_phone = formatted.replace('+', '').replace(' ', '')
+        encoded_msg = quote(message)
+        return f"https://wa.me/{clean_phone}?text={encoded_msg}"
+    
+    @staticmethod
+    def get_company_name():
+        """Get company name"""
+        try:
+            from .models import CompanyInfo
+            company = CompanyInfo.objects.first()
+            return company.name if company else "Our Shop"
+        except:
+            return "Our Shop"
     
     # ============================================
     # 1. TEXT INVOICE
@@ -160,29 +184,24 @@ class WhatsAppSender:
             
             today = date.today()
             
-            # Aaj ki sales
             sales = Sale.objects.filter(sale_date__date=today)
             total_sales = sum(s.total_amount() for s in sales)
             total_profit = sum(s.total_profit() for s in sales)
             sale_count = sales.count()
             
-            # Aaj ki purchases
             purchases = Purchase.objects.filter(pur_date__date=today)
             total_purchase = sum(p.total_amount() for p in purchases)
             purchase_count = purchases.count()
             
-            # Low stock
             low_stock = Inventory.objects.filter(
                 stock__lt=F('product__low_stock_threshold')
             ).count()
             
-            # Outstanding
             total_outstanding = sum(
                 c.adjusted_outstanding_balance() 
                 for c in Customer.objects.all()
             )
             
-            # Cash in/out
             cash_in = sales.aggregate(t=Sum('paid'))['t'] or Decimal('0')
             cash_out = purchases.aggregate(t=Sum('paid'))['t'] or Decimal('0')
             
@@ -260,6 +279,172 @@ class WhatsAppSender:
             return {'success': False, 'error': str(e)}
     
     # ============================================
+    # ✅ 7.1 ORDER TRACKING — RIDER ASSIGNED
+    # ============================================
+    
+    @staticmethod
+    def send_rider_assigned(customer_phone, customer_name, order_no,
+                            rider_name, rider_contact, rider_vehicle='', expected_time=''):
+        """Rider assigned message"""
+        try:
+            company = WhatsAppSender.get_company_name()
+            msg = f"""🏍️ *RIDER ASSIGNED*
+
+{customer_name}, aapka order *#{order_no}* rider ko de diya gaya hai.
+
+👤 *Rider Name:* {rider_name}
+📞 *Contact:* {rider_contact}"""
+            
+            if rider_vehicle:
+                msg += f"\n🏍️ *Vehicle:* {rider_vehicle}"
+            if expected_time:
+                msg += f"\n⏰ *Expected:* {expected_time}"
+            
+            msg += f"""
+
+Aap rider se direct rabta kar sakte hain.
+
+Shukriya! ❤️
+_{company}_"""
+            
+            return WhatsAppSender._generate_link(customer_phone, msg)
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    # ============================================
+    # ✅ 7.2 ORDER TRACKING — READY FOR PICKUP
+    # ============================================
+    
+    @staticmethod
+    def send_ready_for_pickup(customer_phone, customer_name, order_no,
+                              pickup_address, timing='10 AM - 8 PM'):
+        """Ready for pickup message"""
+        try:
+            company = WhatsAppSender.get_company_name()
+            msg = f"""🚶 *ORDER READY FOR PICKUP*
+
+{customer_name}, aapka order *#{order_no}* pickup ke liye tayyar hai!
+
+📍 *Pickup Address:*
+{pickup_address}
+
+⏰ *Timing:* {timing}
+
+Apni ID saath le kar aayein.
+
+Shukriya! ❤️
+_{company}_"""
+            
+            return WhatsAppSender._generate_link(customer_phone, msg)
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    # ============================================
+    # ✅ 7.3 ORDER TRACKING — OUT FOR DELIVERY
+    # ============================================
+    
+    @staticmethod
+    def send_out_for_delivery(customer_phone, customer_name, order_no,
+                              rider_name='', rider_contact='', expected_time=''):
+        """Out for delivery message"""
+        try:
+            company = WhatsAppSender.get_company_name()
+            msg = f"""🛵 *ORDER RASTE MEIN HAI*
+
+{customer_name}, aapka order *#{order_no}* aapki taraf rawana ho gaya hai!"""
+            
+            if rider_name:
+                msg += f"\n\n👤 *Rider:* {rider_name}"
+            if rider_contact:
+                msg += f"\n📞 *Contact:* {rider_contact}"
+            if expected_time:
+                msg += f"\n⏰ *Expected:* {expected_time}"
+            
+            msg += f"""
+
+Apna phone paas rakhein. Rider call karega.
+
+_{company}_"""
+            
+            return WhatsAppSender._generate_link(customer_phone, msg)
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    # ============================================
+    # ✅ 7.4 ORDER TRACKING — DELIVERED
+    # ============================================
+    
+    @staticmethod
+    def send_delivered(customer_phone, customer_name, order_no, amount=0):
+        """Order delivered message"""
+        try:
+            company = WhatsAppSender.get_company_name()
+            msg = f"""🎉 *ORDER DELIVER HO GAYA*
+
+{customer_name}, aapka order *#{order_no}* successfully deliver ho gaya!"""
+            
+            if amount > 0:
+                msg += f"\n\n💰 *Amount Received:* Rs. {amount:,.0f}"
+            
+            msg += f"""
+
+Shukriya shopping karne ka! ❤️
+Hamari service kaise lagi? Apna feedback zaroor dein.
+
+_{company}_"""
+            
+            return WhatsAppSender._generate_link(customer_phone, msg)
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    # ============================================
+    # ✅ 7.5 ORDER TRACKING — CANCELLED
+    # ============================================
+    
+    @staticmethod
+    def send_order_cancelled(customer_phone, customer_name, order_no, reason=''):
+        """Order cancelled message"""
+        try:
+            company = WhatsAppSender.get_company_name()
+            msg = f"""❌ *ORDER CANCELLED*
+
+{customer_name}, aapka order *#{order_no}* cancel kar diya gaya hai."""
+            
+            if reason:
+                msg += f"\n\n*Reason:* {reason}"
+            
+            msg += f"""
+
+Kisi bhi sawal ke liye hum se rabta karein.
+
+_{company}_"""
+            
+            return WhatsAppSender._generate_link(customer_phone, msg)
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    # ============================================
+    # ✅ 7.6 ORDER TRACKING — PICKED UP
+    # ============================================
+    
+    @staticmethod
+    def send_picked_up(customer_phone, customer_name, order_no):
+        """Customer picked up order"""
+        try:
+            company = WhatsAppSender.get_company_name()
+            msg = f"""✋ *ORDER PICKED UP*
+
+{customer_name}, aapne order *#{order_no}* pickup kar liya hai.
+
+Shukriya shopping karne ka! ❤️
+
+_{company}_"""
+            
+            return WhatsAppSender._generate_link(customer_phone, msg)
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    # ============================================
     # 8. BIRTHDAY WISH
     # ============================================
     
@@ -299,6 +484,10 @@ class WhatsAppSender:
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
+
+# ============================================
+# BULK SENDER
+# ============================================
 
 class WhatsAppBulkSender:
     """Multiple customers ke liye sender"""
@@ -398,208 +587,9 @@ class WhatsAppBulkSender:
             contact_number__isnull=True
         ).exclude(contact_number='')
 
-# ============================================
-# 10. EMI REMINDER FOR INSTALLMENT PLANS
-# ============================================
-
-@staticmethod
-def send_emi_reminder(customer_phone, customer_name, bill_no, emi_number, 
-                       due_date, amount_due, remaining_balance, plan_name, late_fee_per_day):
-    """EMI payment reminder for installment plans"""
-    try:
-        phone = WhatsAppSender.format_phone(customer_phone)
-        
-        today = date.today()
-        days_left = (due_date - today).days
-        
-        if days_left < 0:
-            emoji = "🔴"
-            urgency = "OVERDUE"
-            days_text = f"{abs(days_left)} days overdue"
-        elif days_left == 0:
-            emoji = "🔔"
-            urgency = "DUE TODAY"
-            days_text = "today"
-        else:
-            emoji = "📅"
-            urgency = f"DUE IN {days_left} DAYS"
-            days_text = f"in {days_left} days"
-        
-        message = f"""{emoji} *EMI PAYMENT REMINDER* {emoji}
-─────────────────────
-👤 *Customer:* {customer_name}
-📋 *Bill No:* {bill_no}
-📦 *Plan:* {plan_name}
-
-💰 *EMI #{emi_number}*
-├─ Amount: *Rs. {amount_due:,.2f}*
-├─ Due Date: {due_date.strftime('%d-%b-%Y')}
-└─ Status: *{urgency}* ({days_text})
-
-📊 *Summary*
-├─ Remaining: Rs. {remaining_balance:,.2f}
-└─ Late Fee: Rs. {late_fee_per_day}/day
-
-─────────────────────
-🙏 Please clear your payment on time!
-Click below to send reminder 👇"""
-
-        wa_url = f"https://api.whatsapp.com/send?phone={phone}&text={quote(message)}"
-        
-        return {
-            'success': True,
-            'url': wa_url,
-            'phone': phone,
-            'message': 'EMI reminder link generated!'
-        }
-    except Exception as e:
-        return {'success': False, 'error': str(e)}
-
-
-@staticmethod
-def send_emi_payment_confirmation(customer_phone, customer_name, bill_no, 
-                                   emi_number, amount_paid, due_date, 
-                                   remaining_balance, next_due_date):
-    """Payment confirmation after EMI payment"""
-    try:
-        phone = WhatsAppSender.format_phone(customer_phone)
-        
-        message = f"""✅ *PAYMENT CONFIRMATION* ✅
-─────────────────────
-👤 *Customer:* {customer_name}
-📋 *Bill No:* {bill_no}
-
-💰 *EMI #{emi_number}*
-├─ Amount Paid: *Rs. {amount_paid:,.2f}*
-├─ Payment Date: {datetime.now().strftime('%d-%b-%Y %I:%M %p')}
-└─ Due Date: {due_date.strftime('%d-%b-%Y')}
-
-📊 *Updated Status*
-├─ Remaining Balance: Rs. {remaining_balance:,.2f}
-└─ Next Due: {next_due_date.strftime('%d-%b-%Y') if next_due_date else 'Completed 🎉'}
-
-─────────────────────
-🙏 Thank you for your payment!
-Click below to send confirmation 👇"""
-
-        wa_url = f"https://api.whatsapp.com/send?phone={phone}&text={quote(message)}"
-        
-        return {
-            'success': True,
-            'url': wa_url,
-            'phone': phone,
-            'message': 'Payment confirmation link generated!'
-        }
-    except Exception as e:
-        return {'success': False, 'error': str(e)}
-
-
-@staticmethod
-def send_installment_summary(customer_phone, customer_name, bill_no, plan_name,
-                              total_payable, total_paid, remaining, 
-                              total_emis, paid_emis, pending_emis, 
-                              overdue_count, start_date, end_date, next_due_date):
-    """Complete installment plan summary"""
-    try:
-        phone = WhatsAppSender.format_phone(customer_phone)
-        
-        progress = (total_paid / total_payable * 100) if total_payable > 0 else 0
-        
-        # Progress bar (10 blocks)
-        filled = int(progress / 10)
-        empty = 10 - filled
-        progress_bar = "█" * filled + "░" * empty
-        
-        overdue_icon = "⚠️" if overdue_count > 0 else "✅"
-        
-        message = f"""📊 *INSTALLMENT PLAN SUMMARY* 📊
-─────────────────────
-👤 *Customer:* {customer_name}
-📋 *Bill No:* {bill_no}
-📦 *Plan:* {plan_name}
-
-💰 *FINANCIAL SUMMARY*
-├─ Total Payable: Rs. {total_payable:,.2f}
-├─ Total Paid: Rs. {total_paid:,.2f}
-├─ Remaining: Rs. {remaining:,.2f}
-└─ Progress: {progress:.0f}% [{progress_bar}]
-
-📅 *PAYMENT STATUS*
-├─ Total EMIs: {total_emis}
-├─ Paid: {paid_emis} ✅
-├─ Pending: {pending_emis} ⏳
-└─ Overdue: {overdue_count} {overdue_icon}
-
-📆 *DATES*
-├─ Start: {start_date.strftime('%d-%b-%Y')}
-├─ Expected End: {end_date.strftime('%d-%b-%Y') if end_date else 'In progress'}
-└─ Next Due: {next_due_date.strftime('%d-%b-%Y') if next_due_date else 'Completed 🎉'}
-
-─────────────────────
-Click below to send summary 👇"""
-
-        wa_url = f"https://api.whatsapp.com/send?phone={phone}&text={quote(message)}"
-        
-        return {
-            'success': True,
-            'url': wa_url,
-            'phone': phone,
-            'message': 'Installment summary link generated!'
-        }
-    except Exception as e:
-        return {'success': False, 'error': str(e)}
-
-
-@staticmethod
-def send_overdue_alert(customer_phone, customer_name, bill_no, 
-                        overdue_emis_list, total_overdue, days_overdue, 
-                        late_fee_per_day, remaining_balance):
-    """Urgent overdue alert for multiple EMIs"""
-    try:
-        phone = WhatsAppSender.format_phone(customer_phone)
-        
-        # Build EMI list
-        emi_text = ""
-        for emi in overdue_emis_list[:5]:  # Max 5 EMIs in message
-            emi_text += f"\n   └─ EMI #{emi['number']}: Rs. {emi['amount']:,.2f} (Due: {emi['due_date']})"
-        
-        if len(overdue_emis_list) > 5:
-            emi_text += f"\n   └─ ... and {len(overdue_emis_list) - 5} more"
-        
-        message = f"""🚨 *URGENT: OVERDUE PAYMENT ALERT* 🚨
-─────────────────────
-👤 *Customer:* {customer_name}
-📋 *Bill No:* {bill_no}
-
-⚠️ *You have {len(overdue_emis_list)} overdue EMI(s):*
-{emi_text}
-
-💰 *Total Overdue Amount:* Rs. {total_overdue:,.2f}
-📅 *Days Overdue:* {days_overdue} days
-
-❗ *Late Fee:* Rs. {late_fee_per_day}/day will be added
-
-📊 *Remaining Balance:* Rs. {remaining_balance:,.2f}
-
-─────────────────────
-⚠️ Please clear your payment IMMEDIATELY to avoid additional charges!
-
-Click below to send alert 👇"""
-
-        wa_url = f"https://api.whatsapp.com/send?phone={phone}&text={quote(message)}"
-        
-        return {
-            'success': True,
-            'url': wa_url,
-            'phone': phone,
-            'message': 'Overdue alert link generated!'
-        }
-    except Exception as e:
-        return {'success': False, 'error': str(e)}
-
 
 # ============================================
-# BULK SENDER FOR INSTALLMENTS
+# INSTALLMENT WhatsApp SENDER
 # ============================================
 
 class InstallmentWhatsAppSender:
@@ -608,24 +598,21 @@ class InstallmentWhatsAppSender:
     @staticmethod
     def get_pending_emis():
         """Get all pending EMIs with customer details"""
-        from .models import EmiPayment, SaleInstallment
+        from .models import EmiPayment
         
         today = date.today()
         
-        # EMIs due today
         due_today = EmiPayment.objects.filter(
             due_date=today,
             status='pending'
         ).select_related('installment__sale__customer', 'installment__plan')
         
-        # EMIs due in next 7 days
         upcoming = EmiPayment.objects.filter(
             due_date__gt=today,
             due_date__lte=today + timedelta(days=7),
             status='pending'
         ).select_related('installment__sale__customer', 'installment__plan')
         
-        # Overdue EMIs
         overdue = EmiPayment.objects.filter(
             due_date__lt=today,
             status='pending'
@@ -643,89 +630,29 @@ class InstallmentWhatsAppSender:
         emis = InstallmentWhatsAppSender.get_pending_emis()
         all_links = []
         
-        # Due today
-        for emi in emis['due_today']:
-            inst = emi.installment
-            cust = inst.sale.customer
-            result = WhatsAppSender.send_emi_reminder(
-                cust.contact_number,
-                cust.name,
-                inst.sale.bill_no,
-                emi.installment_number,
-                emi.due_date,
-                emi.amount_due - emi.amount_paid,
-                inst.remaining_amount(),
-                inst.plan.name if inst.plan else 'Installment',
-                inst.plan.late_fee_per_day if inst.plan else 0
-            )
-            if result['success']:
-                all_links.append({
-                    'type': 'due_today',
-                    'customer': cust.name,
-                    'bill_no': inst.sale.bill_no,
-                    'emi_no': emi.installment_number,
-                    'amount': float(emi.amount_due - emi.amount_paid),
-                    'url': result['url']
-                })
-        
-        # Upcoming
-        for emi in emis['upcoming']:
-            inst = emi.installment
-            cust = inst.sale.customer
-            result = WhatsAppSender.send_emi_reminder(
-                cust.contact_number,
-                cust.name,
-                inst.sale.bill_no,
-                emi.installment_number,
-                emi.due_date,
-                emi.amount_due - emi.amount_paid,
-                inst.remaining_amount(),
-                inst.plan.name if inst.plan else 'Installment',
-                inst.plan.late_fee_per_day if inst.plan else 0
-            )
-            if result['success']:
-                all_links.append({
-                    'type': 'upcoming',
-                    'customer': cust.name,
-                    'bill_no': inst.sale.bill_no,
-                    'emi_no': emi.installment_number,
-                    'amount': float(emi.amount_due - emi.amount_paid),
-                    'due_date': emi.due_date.strftime('%d-%b-%Y'),
-                    'url': result['url']
-                })
-        
-        # Overdue
-        for emi in emis['overdue']:
-            inst = emi.installment
-            cust = inst.sale.customer
-            result = WhatsAppSender.send_emi_reminder(
-                cust.contact_number,
-                cust.name,
-                inst.sale.bill_no,
-                emi.installment_number,
-                emi.due_date,
-                emi.amount_due - emi.amount_paid,
-                inst.remaining_amount(),
-                inst.plan.name if inst.plan else 'Installment',
-                inst.plan.late_fee_per_day if inst.plan else 0
-            )
-            if result['success']:
-                all_links.append({
-                    'type': 'overdue',
-                    'customer': cust.name,
-                    'bill_no': inst.sale.bill_no,
-                    'emi_no': emi.installment_number,
-                    'amount': float(emi.amount_due - emi.amount_paid),
-                    'due_date': emi.due_date.strftime('%d-%b-%Y'),
-                    'days_overdue': (date.today() - emi.due_date).days,
-                    'url': result['url']
-                })
+        for emi_type, emi_list in emis.items():
+            for emi in emi_list:
+                inst = emi.installment
+                cust = inst.sale.customer
+                result = WhatsAppSender.send_direct_message(
+                    cust.contact_number,
+                    f"📅 EMI #{emi.installment_number} Reminder\nAmount: Rs. {emi.amount_due - emi.amount_paid:,.2f}\nDue: {emi.due_date.strftime('%d-%b-%Y')}"
+                )
+                if result.get('success'):
+                    all_links.append({
+                        'type': emi_type,
+                        'customer': cust.name,
+                        'bill_no': inst.sale.bill_no,
+                        'emi_no': emi.installment_number,
+                        'amount': float(emi.amount_due - emi.amount_paid),
+                        'url': result['url']
+                    })
         
         return all_links
     
     @staticmethod
     def get_overdue_installments():
-        """Get all overdue installments with complete details"""
+        """Get all overdue installments"""
         from .models import SaleInstallment
         
         today = date.today()
@@ -745,32 +672,13 @@ class InstallmentWhatsAppSender:
             total_overdue = sum(emi.amount_due - emi.amount_paid for emi in overdue_emis)
             days_overdue = (today - inst.next_due_date).days if inst.next_due_date else 0
             
-            emi_list = [{
-                'number': emi.installment_number,
-                'amount': float(emi.amount_due - emi.amount_paid),
-                'due_date': emi.due_date.strftime('%d-%b-%Y')
-            } for emi in overdue_emis]
-            
-            result = WhatsAppSender.send_overdue_alert(
-                cust.contact_number,
-                cust.name,
-                inst.sale.bill_no,
-                emi_list,
-                float(total_overdue),
-                days_overdue,
-                float(inst.plan.late_fee_per_day) if inst.plan else 0,
-                float(inst.remaining_amount())
-            )
-            
-            if result['success']:
-                reports.append({
-                    'customer': cust.name,
-                    'bill_no': inst.sale.bill_no,
-                    'phone': cust.contact_number,
-                    'days_overdue': days_overdue,
-                    'total_overdue': float(total_overdue),
-                    'emi_count': overdue_emis.count(),
-                    'url': result['url']
-                })
+            reports.append({
+                'customer': cust.name,
+                'bill_no': inst.sale.bill_no,
+                'phone': cust.contact_number,
+                'days_overdue': days_overdue,
+                'total_overdue': float(total_overdue),
+                'emi_count': overdue_emis.count(),
+            })
         
         return reports
