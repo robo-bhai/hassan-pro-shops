@@ -34,7 +34,6 @@
         align-items: center;
         gap: 12px;
         transition: all 0.3s;
-        cursor: default;
     }
     
     .stat-card-mini:hover {
@@ -186,7 +185,7 @@
     .inventory-table {
         width: 100%;
         border-collapse: collapse;
-        min-width: 900px;
+        min-width: 1000px;
     }
     
     .inventory-table thead th {
@@ -209,10 +208,6 @@
         vertical-align: middle;
     }
     
-    .inventory-table tbody tr {
-        transition: all 0.2s;
-    }
-    
     .inventory-table tbody tr:hover {
         background: #f8f9ff;
     }
@@ -225,7 +220,6 @@
         background: #f0f4ff;
     }
     
-    /* Low Stock Row */
     .inventory-table tbody tr.row-low-stock {
         background: #fff5f5 !important;
         border-left: 3px solid #dc3545;
@@ -237,6 +231,36 @@
     
     .text-right { text-align: right; }
     .text-center { text-align: center; }
+    
+    /* ========== ✅ PRODUCT PHOTO ========== */
+    .product-photo {
+        width: 55px;
+        height: 55px;
+        border-radius: 10px;
+        object-fit: cover;
+        border: 2px solid #e0e3eb;
+        transition: all 0.3s;
+        cursor: pointer;
+    }
+    
+    .product-photo:hover {
+        transform: scale(1.15);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        border-color: #667eea;
+    }
+    
+    .product-photo-placeholder {
+        width: 55px;
+        height: 55px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid #e0e3eb;
+        color: #94a3b8;
+        font-size: 1.5rem;
+    }
     
     .product-name {
         font-weight: 600;
@@ -258,6 +282,20 @@
         color: #5a6070;
     }
     
+    /* ========== ✅ COST PRICE STYLE ========== */
+    .cost-price {
+        font-weight: 700;
+        color: #28a745;
+        font-size: 0.95rem;
+    }
+    
+    .cost-label {
+        font-size: 0.65rem;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
     /* Stock Status */
     .stock-status {
         padding: 5px 14px;
@@ -276,32 +314,14 @@
         display: inline-block;
     }
     
-    .stock-normal {
-        background: #d4edda;
-        color: #155724;
-    }
+    .stock-normal { background: #d4edda; color: #155724; }
+    .stock-normal .stock-dot { background: #28a745; }
     
-    .stock-normal .stock-dot {
-        background: #28a745;
-    }
+    .stock-low { background: #fce4ec; color: #721c24; }
+    .stock-low .stock-dot { background: #dc3545; }
     
-    .stock-low {
-        background: #fce4ec;
-        color: #721c24;
-    }
-    
-    .stock-low .stock-dot {
-        background: #dc3545;
-    }
-    
-    .stock-zero {
-        background: #f5f5f5;
-        color: #888;
-    }
-    
-    .stock-zero .stock-dot {
-        background: #aaa;
-    }
+    .stock-zero { background: #f5f5f5; color: #888; }
+    .stock-zero .stock-dot { background: #aaa; }
     
     /* Stock Value */
     .stock-value {
@@ -309,7 +329,7 @@
         color: var(--accent);
     }
     
-    /* Progress Bar for Stock */
+    /* Progress Bar */
     .stock-progress {
         width: 60px;
         height: 6px;
@@ -370,7 +390,7 @@
         }
         
         .inventory-table {
-            min-width: 700px;
+            min-width: 800px;
         }
         
         .inventory-table thead th,
@@ -382,11 +402,11 @@
         .table-header {
             padding: 14px 16px;
         }
-    }
-    
-    @media (max-width: 400px) {
-        .stats-bar {
-            grid-template-columns: 1fr 1fr;
+        
+        .product-photo,
+        .product-photo-placeholder {
+            width: 45px;
+            height: 45px;
         }
     }
 </style>
@@ -394,7 +414,7 @@
 
 {% block content %}
 
-<!-- ✅ TOTAL STOCK VALUE HIGHLIGHT CARD (OPTION 1) -->
+<!-- ✅ TOTAL STOCK VALUE HIGHLIGHT CARD -->
 <div class="row mb-3">
     <div class="col-12">
         <div class="card total-value-card border-0">
@@ -402,13 +422,13 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h6 class="text-white-50 mb-1" style="letter-spacing: 1px; font-size: 0.7rem;">
-                            📊 TOTAL STOCK VALUE
+                            📊 TOTAL STOCK VALUE (COST)
                         </h6>
                         <h2 class="text-white mb-0 fw-bold" style="font-size: 1.8rem;">
                             Rs. {{ total_stock_value|floatformat:2|default:'0.00' }}
                         </h2>
                         <small class="text-white-50" style="font-size: 0.7rem;">
-                            Based on purchase price (FIFO)
+                            Based on purchase cost (FIFO)
                         </small>
                     </div>
                     <div>
@@ -468,14 +488,14 @@
 
 <!-- Filter Bar -->
 <div class="filter-bar">
-    <form method="post">{% csrf_token %} method="GET" class="row g-2 align-items-end">
+    <form method="GET" class="row g-2 align-items-end">
         <div class="col-md-5">
-            <label class="form-label-mini" style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">🔍 Search</label>
+            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">🔍 Search</label>
             <input type="text" name="search" class="form-control" 
                    placeholder="Product name, serial, barcode..." value="{{ search }}">
         </div>
         <div class="col-md-4">
-            <label class="form-label-mini" style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">🏭 Warehouse</label>
+            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">🏭 Warehouse</label>
             <select name="warehouse" class="form-select">
                 <option value="">All Warehouses</option>
                 {% for wh in warehouses %}
@@ -484,7 +504,7 @@
             </select>
         </div>
         <div class="col-md-2">
-            <label class="form-label-mini" style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">📊 Stock</label>
+            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">📊 Stock</label>
             <select name="stock_status" class="form-select">
                 <option value="">All</option>
                 <option value="low" {% if stock_status == 'low' %}selected{% endif %}>⚠️ Low Stock</option>
@@ -518,11 +538,13 @@
         <table class="inventory-table">
             <thead>
                 <tr>
+                    <th style="width: 80px;">Photo</th>
                     <th>Product</th>
                     <th>Category</th>
                     <th>Warehouse</th>
                     <th class="text-right">Stock</th>
-                    <th class="text-right">Price</th>
+                    <!-- ✅ COST PRICE COLUMN -->
+                    <th class="text-right">Cost Price</th>
                     <th class="text-right">Stock Value</th>
                     <th>Status</th>
                 </tr>
@@ -530,18 +552,45 @@
             <tbody>
                 {% for item in page_obj %}
                 <tr class="{% if item.check_low_stock %}row-low-stock{% endif %}">
+                    
+                    <!-- Photo -->
+                    <td class="text-center">
+                        {% if item.product.image %}
+                            <a href="{{ item.product.image.url }}" target="_blank">
+                                <img src="{{ item.product.image.url }}" 
+                                     alt="{{ item.product.name }}"
+                                     class="product-photo"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            </a>
+                            <div class="product-photo-placeholder" style="display: none;">
+                                <i class="bi bi-box"></i>
+                            </div>
+                        {% else %}
+                            <div class="product-photo-placeholder">
+                                <i class="bi bi-box"></i>
+                            </div>
+                        {% endif %}
+                    </td>
+                    
+                    <!-- Product -->
                     <td>
                         <div class="product-name">{{ item.product.name }}</div>
                         {% if item.product.serial_no %}
                         <div class="product-meta">S/N: {{ item.product.serial_no }}</div>
                         {% endif %}
                     </td>
+                    
+                    <!-- Category -->
                     <td class="text-center">
                         <span class="product-meta">{{ item.product.category.name|default:'-' }}</span>
                     </td>
+                    
+                    <!-- Warehouse -->
                     <td class="text-center">
                         <span class="warehouse-badge">{{ item.warehouse.name }}</span>
                     </td>
+                    
+                    <!-- Stock -->
                     <td class="text-right">
                         <strong>{{ item.stock|floatformat:2 }}</strong>
                         {% if item.stock > 0 and item.product.low_stock_threshold > 0 %}
@@ -551,10 +600,19 @@
                         </div>
                         {% endif %}
                     </td>
-                    <td class="text-right">Rs. {{ item.product.price|floatformat:2 }}</td>
+                    
+                    <!-- ✅ COST PRICE (not sale price) -->
                     <td class="text-right">
-                        <span class="stock-value">Rs. {{ item.stock_value|floatformat:0 }}</span>
+                        <div class="cost-price">Rs. {{ item.avg_cost|floatformat:2 }}</div>
+                        <div class="cost-label">Cost Price</div>
                     </td>
+                    
+                    <!-- Stock Value (cost based) -->
+                    <td class="text-right">
+                        <span class="stock-value">Rs. {{ item.cost_stock_value|floatformat:0 }}</span>
+                    </td>
+                    
+                    <!-- Status -->
                     <td class="text-center">
                         {% if item.stock <= 0 %}
                         <span class="stock-status stock-zero">
@@ -573,7 +631,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7">
+                    <td colspan="8">
                         <div class="empty-state">
                             <div class="empty-icon">📦</div>
                             <h4>No Inventory Items</h4>
@@ -588,10 +646,9 @@
                 </tr>
                 {% endfor %}
             </tbody>
-            <!-- ✅ GRAND TOTAL FOOTER ADDED -->
             <tfoot>
                 <tr style="background: #f0f2f7; font-weight: 700; border-top: 2px solid #667eea;">
-                    <td colspan="5" class="text-end fw-bold" style="font-size: 0.9rem;">GRAND TOTAL:</td>
+                    <td colspan="6" class="text-end fw-bold" style="font-size: 0.9rem;">GRAND TOTAL:</td>
                     <td class="text-right text-primary fw-bold" style="font-size: 1rem;">
                         Rs. {{ total_stock_value|floatformat:2 }}
                     </td>

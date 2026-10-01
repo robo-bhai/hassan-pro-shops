@@ -3139,7 +3139,9 @@ def purchase_create(request):
         'warehouses': Warehouse.objects.all(),
         'products': Product.objects.all().order_by('name')[:50],
         'cash_balance': CashBalance.get_balance(),
-        'today': date.today(),  # ✅ TODAY CONTEXT FOR TEMPLATE
+        'today': date.today(),  
+        'vendor_groups': VendorGroup.objects.all(),
+        'locations': Location.objects.all(),
     }
     return render(request, 'purchases/create.html', context)
 
@@ -12626,22 +12628,17 @@ def vendor_create(request):
 @login_required
 def inventory_list(request):
     """
-    Inventory list with stock value — OPTIMIZED (50x faster)
-    Before: 500 queries | After: 3 queries
+    Inventory list with stock value — OPTIMIZED
+    ✅ Cost price based (not sale price)
     """
     from django.db.models import Sum, Count, Q, F, Value, DecimalField, ExpressionWrapper
     from django.db.models.functions import Coalesce
+    from decimal import Decimal
     
     # ✅ Base queryset
     items = Inventory.objects.select_related(
         'product', 'warehouse', 'product__category',
         'product__brand', 'product__unit', 'product__location'
-    ).annotate(
-        # ✅ Stock value calculated at DB level
-        cached_stock_value=ExpressionWrapper(
-            F('stock') * F('product__price'),
-            output_field=DecimalField(max_digits=20, decimal_places=2)
-        ),
     ).order_by('product__name')
     
     # ✅ Search
@@ -12667,41 +12664,56 @@ def inventory_list(request):
     elif stock_status == 'zero':
         items = items.filter(stock__lte=0)
     
-    # ✅ Aggregated totals
-    stats = items.aggregate(
-        total_items=Count('id', distinct=True),
-        total_stock_value=Coalesce(
-            Sum(
-                ExpressionWrapper(
-                    F('stock') * F('product__price'),
-                    output_field=DecimalField(max_digits=20, decimal_places=2)
-                )
-            ),
-            Value(Decimal('0.00')),
-            output_field=DecimalField(max_digits=20, decimal_places=2)
-        ),
-        low_stock_count=Count(
-            'id',
-            filter=Q(stock__lt=F('product__low_stock_threshold'), stock__gt=0)
-        ),
-        normal_stock_count=Count(
-            'id',
-            filter=Q(stock__gte=F('product__low_stock_threshold'))
-        ),
-    )
+    # ✅ Calculate avg cost from batches (FIFO weighted average)
+    total_stock_value = Decimal('0.00')
+    items_list = []
     
-    # ✅ Pagination
-    paginator = Paginator(items, 50)
-    page = request.GET.get('page', 1)
-    page_obj = paginator.get_page(page)
-    
-    # ✅ Stock percent for progress bar
-    for item in page_obj:
+    for item in items:
+        # Get all active batches for this product in this warehouse
+        batches = StockBatch.objects.filter(
+            product=item.product,
+            warehouse=item.warehouse,
+            remaining_qty__gt=0
+        )
+        
+        total_cost = Decimal('0.00')
+        total_qty = Decimal('0.00')
+        
+        for batch in batches:
+            qty = Decimal(str(batch.remaining_qty))
+            price = Decimal(str(batch.price))
+            total_cost += qty * price
+            total_qty += qty
+        
+        # ✅ Average cost per unit
+        if total_qty > 0:
+            item.avg_cost = total_cost / total_qty
+        else:
+            # Fallback: use product's original_price or 0
+            item.avg_cost = item.product.original_price or Decimal('0.00')
+        
+        # ✅ Stock value based on COST (not sale price)
+        item.cost_stock_value = Decimal(str(item.stock)) * item.avg_cost
+        
+        # ✅ Stock percent for progress bar
         threshold = item.product.low_stock_threshold
         if threshold > 0 and item.stock > 0:
             item.stock_percent = round(min((item.stock / (threshold * 3)) * 100, 100))
         else:
             item.stock_percent = 0
+        
+        total_stock_value += item.cost_stock_value
+        items_list.append(item)
+    
+    # ✅ Pagination (after processing)
+    paginator = Paginator(items_list, 50)
+    page = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page)
+    
+    # ✅ Statistics
+    low_stock_count = sum(1 for item in items_list if item.stock > 0 and item.stock < item.product.low_stock_threshold)
+    normal_stock_count = sum(1 for item in items_list if item.stock >= item.product.low_stock_threshold)
+    total_items = len(items_list)
     
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
@@ -12710,10 +12722,10 @@ def inventory_list(request):
         'warehouses': Warehouse.objects.all(),
         'selected_warehouse': warehouse_id,
         'stock_status': stock_status,
-        'total_items': stats['total_items'],
-        'total_stock_value': stats['total_stock_value'],
-        'low_stock_count': stats['low_stock_count'],
-        'normal_stock_count': stats['normal_stock_count'],
+        'total_items': total_items,
+        'total_stock_value': total_stock_value,
+        'low_stock_count': low_stock_count,
+        'normal_stock_count': normal_stock_count,
         'total_products': Product.objects.count(),
     }
     return render(request, 'inventory/list.html', context)
@@ -37615,66 +37627,62 @@ def business_ratios_dashboard(request):
     }
     return render(request, 'reports/business_ratios.html', context)
     
-# ============================================
-# ✅ PRODUCT DISCOUNT SET (Frontend)
-# ============================================
-
-@login_required
 def product_set_discount(request, pk):
     """
     Product par discount set karein (batch price se auto-calculate)
-    
+
     - Batch ki selling price = Original price
     - Discount % set karein
     - New price auto-calculate hoga
+    - ✅ Save hone ke baad products list par redirect hoga
     """
     from decimal import Decimal
-    
+
     product = get_object_or_404(Product, pk=pk)
-    
+
     # ✅ Check permission
     if not request.user.is_superuser and not request.user.is_staff:
         messages.error(request, '❌ Access denied!')
         return redirect('product_list')
-    
+
     # ✅ Batch se current price lo
     batch = StockBatch.objects.filter(
         product=product,
         remaining_qty__gt=0,
         selling_price__gt=0
     ).order_by('id').first()
-    
+
     if batch:
         batch_price = batch.selling_price
     else:
         batch_price = product.price or Decimal('0.00')
-    
+
     if request.method == 'POST':
         try:
             discount_percentage = request.POST.get('discount_percentage', '0').strip()
-            
+
             try:
                 discount_percentage = Decimal(discount_percentage)
             except:
                 discount_percentage = Decimal('0')
-            
+
             if discount_percentage < 0 or discount_percentage > 100:
                 messages.error(request, '❌ Discount 0-100 ke darmiyan honi chahiye!')
-                return redirect('product_set_discount', pk=pk)
-            
+                return redirect('product_list')  # ✅ YAHAN CHANGE
+
             # ✅ Original price = batch price
             product.original_price = batch_price
             product.discount_percentage = discount_percentage
-            
+
             # ✅ New price calculate karo
             if discount_percentage > 0:
                 new_price = batch_price * (1 - discount_percentage / 100)
                 product.price = new_price
             else:
                 product.price = batch_price
-            
+
             product.save()
-            
+
             messages.success(
                 request,
                 f'✅ Discount set!\n'
@@ -37682,13 +37690,13 @@ def product_set_discount(request, pk):
                 f'Discount: {discount_percentage}%\n'
                 f'New Price: Rs. {product.price:,.2f}'
             )
-            
-            return redirect('product_set_discount', pk=pk)
-            
+
+            return redirect('product_list')  # ✅ YAHAN CHANGE
+
         except Exception as e:
             messages.error(request, f'❌ Error: {str(e)}')
-            return redirect('product_set_discount', pk=pk)
-    
+            return redirect('product_list')  # ✅ YAHAN CHANGE
+
     # GET request
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
@@ -37696,8 +37704,6 @@ def product_set_discount(request, pk):
         'batch_price': batch_price,
     }
     return render(request, 'products/set_discount.html', context)
-
-
 # ============================================
 # ✅ BATCH SALE REPORT
 # ============================================
@@ -38208,3 +38214,96 @@ def admin_chat_stats_api(request):
             admin_unread_count__gt=0, status='active'
         ).count(),
     })
+    
+# ============================================
+# INLINE ADD APIS FOR PURCHASE FORM
+# ============================================
+
+@login_required
+def api_create_vendor(request):
+    """API: Create new vendor inline from purchase form"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            name = data.get('name', '').strip()
+            contact_number = data.get('contact_number', '').strip()
+            address = data.get('address', '').strip()
+            group_id = data.get('group_id') or None
+            
+            if not name:
+                return JsonResponse({'success': False, 'message': 'Vendor name is required!'})
+            
+            # Check duplicate
+            existing = Vendor.objects.filter(name__iexact=name).first()
+            if existing:
+                return JsonResponse({
+                    'success': True,
+                    'id': existing.id,
+                    'name': existing.name,
+                    'code': existing.vendor_code or '',
+                    'message': 'Vendor already exists, selected!'
+                })
+            
+            # Create new vendor
+            vendor = Vendor.objects.create(
+                name=name,
+                contact_number=contact_number,
+                address=address,
+                group_id=group_id
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'id': vendor.id,
+                'name': vendor.name,
+                'code': vendor.vendor_code or '',
+                'message': f'✅ Vendor "{name}" created successfully!'
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)})
+    
+    return JsonResponse({'success': False, 'message': 'Invalid request'})
+
+
+@login_required
+def api_create_warehouse(request):
+    """API: Create new warehouse inline from purchase form"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            name = data.get('name', '').strip()
+            location_id = data.get('location_id') or None
+            description = data.get('description', '').strip()
+            
+            if not name:
+                return JsonResponse({'success': False, 'message': 'Warehouse name is required!'})
+            
+            # Check duplicate
+            existing = Warehouse.objects.filter(name__iexact=name).first()
+            if existing:
+                return JsonResponse({
+                    'success': True,
+                    'id': existing.id,
+                    'name': existing.name,
+                    'message': 'Warehouse already exists, selected!'
+                })
+            
+            # Create new warehouse
+            warehouse = Warehouse.objects.create(
+                name=name,
+                location_id=location_id,
+                description=description
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'id': warehouse.id,
+                'name': warehouse.name,
+                'message': f'✅ Warehouse "{name}" created successfully!'
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)})
+    
+    return JsonResponse({'success': False, 'message': 'Invalid request'})
