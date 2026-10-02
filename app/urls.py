@@ -1115,4 +1115,8 @@ urlpatterns = [
      path('my-order/<int:order_id>/tracking/', 
      views_order_tracking.customer_order_tracking, 
      name='customer_order_tracking'),
+    path('api/create-vendor/', views_frontend.api_create_vendor, name='api_create_vendor'),
+    path('api/create-warehouse/', views_frontend.api_create_warehouse, name='api_create_warehouse'),
+    path('api/create-product/', views_frontend.api_create_product, name='api_create_product'),
+    
 ]

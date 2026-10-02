@@ -5343,32 +5343,52 @@ class SystemSetting(models.Model):
         return f"{self.setting_key}: {self.setting_value}"
 
     @classmethod
+    def get_all_settings(cls):
+        """✅ SAARI SETTINGS EK SAATH — SIRF 1 QUERY"""
+        from django.core.cache import cache
+        
+        cache_key = 'all_system_settings'
+        settings_dict = cache.get(cache_key)
+        
+        if settings_dict is None:
+            settings_qs = cls.objects.all()
+            settings_dict = {s.setting_key: s.setting_value for s in settings_qs}
+            cache.set(cache_key, settings_dict, 3600)  # 1 ghanta
+        
+        return settings_dict
+    
+    @classmethod
     def get_value(cls, key, default='true'):
-        """Get setting value by key"""
-        setting = cls.objects.filter(setting_key=key).first()
-        if setting:
-            return setting.setting_value
-        return default
+        """✅ Cache se value lein"""
+        settings = cls.get_all_settings()
+        return settings.get(key, default)
     
     @classmethod
     def get_bool(cls, key, default=True):
-        """Get setting as boolean"""
+        """✅ Cache se boolean lein"""
         value = cls.get_value(key, str(default).lower())
         return value.lower() in ['true', '1', 'yes', 'on']
     
     @classmethod
     def set_value(cls, key, value, user=None):
-        """Set setting value"""
+        """✅ Value set karein aur cache clear karein"""
+        from django.core.cache import cache
+        
         setting, created = cls.objects.get_or_create(setting_key=key)
         setting.setting_value = str(value).lower()
         if user:
             setting.updated_by = user
         setting.save()
+        
+        # ✅ Cache clear karein
+        cache.delete('all_system_settings')
+        cache.delete(f'system_setting_{key}')
+        
         return setting
     
     @classmethod
     def toggle(cls, key, user=None):
-        """Toggle boolean setting"""
+        """✅ Boolean setting toggle karein"""
         current = cls.get_bool(key)
         cls.set_value(key, not current, user)
         return not current
