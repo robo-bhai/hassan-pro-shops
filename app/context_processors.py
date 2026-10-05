@@ -1,17 +1,72 @@
-# context_processors.py
+# context_processors.py — Complete Updated File (No Client Filter)
 from decimal import Decimal
 from django.core.cache import cache
 from .models import (
-    SystemSetting, Purchase, ShareholderDepositRequest, 
-    ShareholderWithdrawalRequest, BalanceDividend, Shareholder
+    SystemSetting, Purchase, ShareholderDepositRequest,
+    ShareholderWithdrawalRequest, BalanceDividend, Shareholder,
 )
 
 
 def system_settings(request):
-    """Context processor — Optimized for speed"""
+    """
+    Context Processor — Client-based Module Visibility
+    
+    Rules:
+    1. Superuser              → Saare 27 modules enabled
+    2. Client (with plan)     → Sirf plan ke modules enabled
+    3. Client (without plan)  → Sirf Dashboard
+    4. No tenant + no super   → Fallback: saare modules enabled
+    
+    Note: Client-based module control hai, LEKIN data filtering
+    (Shareholder, Purchase, etc.) filhal single-tenant hai.
+    """
     
     # ========================================== #
-    # ✅ SAARI SETTINGS EK SAATH — SIRF 1 QUERY  #
+    # 1. USER & TENANT DETECT                   #
+    # ========================================== #
+    client = getattr(request, 'tenant', None)
+    is_superuser = request.user.is_authenticated and request.user.is_superuser
+    
+    # ========================================== #
+    # 2. ENABLED MODULES DECIDE                 #
+    # ========================================== #
+    if is_superuser:
+        # ✅ Superuser → all enabled
+        enabled_modules = None  # None = all True
+    
+    elif client and client.current_plan:
+        # ✅ Client with plan → plan ke modules
+        enabled_modules = client.current_plan.enabled_modules or {}
+    
+    elif client and not client.current_plan:
+        # ✅ Client without plan → kuch bhi enabled nahi
+        enabled_modules = {}
+    
+    else:
+        # ✅ No tenant + not superuser → fallback (saare enabled)
+        # (e.g., middleware ne tenant detect nahi kiya)
+        enabled_modules = None
+    
+    # ========================================== #
+    # 3. HELPER: Check Module                   #
+    # ========================================== #
+    def is_module_enabled(key, default=True):
+        """
+        Check karo module enabled hai ya nahi
+        key example: 'show_hr_module'
+        """
+        # Agar None hai → sab enabled
+        if enabled_modules is None:
+            return True
+        
+        # Key ko convert karo: 'show_hr_module' → 'hr'
+        module_key = key.replace('show_', '').replace('_module', '')
+        
+        # Plan mein check karo, default True agar key missing ho
+        return enabled_modules.get(module_key, default)
+    
+    # ========================================== #
+    # 4. SYSTEM SETTINGS (Global)               #
     # ========================================== #
     settings = SystemSetting.get_all_settings()
     
@@ -23,16 +78,15 @@ def system_settings(request):
         return settings.get(key, default)
     
     # ========================================== #
-    # ✅ SIDEBAR COUNTS — CACHED (5 min)        #
+    # 5. SIDEBAR COUNTS (Global - No Client Filter) #
     # ========================================== #
-    cache_key = 'sidebar_counts'
+    cache_key = 'sidebar_counts_global'
     counts = cache.get(cache_key)
     
     if counts is None:
-        # ✅ Shareholders EK BAAR fetch karein — NO DUPLICATE QUERY
+        # ✅ NO client filter — single tenant for now
         shareholders = list(Shareholder.objects.filter(status='active'))
         
-        # ✅ Eligible count + Total balance — EK LOOP MEIN
         eligible_count = 0
         total_balance = Decimal('0.00')
         
@@ -59,25 +113,42 @@ def system_settings(request):
             ).count(),
             'total_balance_dividends': BalanceDividend.objects.count(),
         }
-        cache.set(cache_key, counts, 300)  # 5 minutes
+        cache.set(cache_key, counts, 300)  # 5 min cache
     
     # ========================================== #
-    # ✅ RETURN — NO EXTRA QUERIES               #
+    # 6. RETURN                                  #
     # ========================================== #
     return {
-        # ===== MODULE SETTINGS =====
-        'SHOW_HR_MODULE': get_bool('show_hr_module', True),
-        'SHOW_PRODUCTION_MODULE': get_bool('show_production_module', True),
-        'SHOW_INSTALLMENT_MODULE': get_bool('show_installment_module', True),
-        'SHOW_REPORTS_MODULE': get_bool('show_reports_module', True),
-        'SHOW_WHATSAPP_MODULE': get_bool('show_whatsapp_module', True),
-        'SHOW_INVENTORY_MODULE': get_bool('show_inventory_module', True),
-        'SHOW_PURCHASE_MODULE': get_bool('show_purchase_module', True),
-        'SHOW_SALES_MODULE': get_bool('show_sales_module', True),
-        'SHOW_ACCOUNTS_MODULE': get_bool('show_accounts_module', True),
-        'SHOW_BACKUP_MODULE': get_bool('show_backup_module', True),
+        # ===== MODULE SETTINGS (27 modules) =====
+        'SHOW_HR_MODULE': is_module_enabled('show_hr_module'),
+        'SHOW_PRODUCTION_MODULE': is_module_enabled('show_production_module'),
+        'SHOW_INSTALLMENT_MODULE': is_module_enabled('show_installment_module'),
+        'SHOW_REPORTS_MODULE': is_module_enabled('show_reports_module'),
+        'SHOW_WHATSAPP_MODULE': is_module_enabled('show_whatsapp_module'),
+        'SHOW_INVENTORY_MODULE': is_module_enabled('show_inventory_module'),
+        'SHOW_PURCHASE_MODULE': is_module_enabled('show_purchase_module'),
+        'SHOW_SALES_MODULE': is_module_enabled('show_sales_module'),
+        'SHOW_ACCOUNTS_MODULE': is_module_enabled('show_accounts_module'),
+        'SHOW_BACKUP_MODULE': is_module_enabled('show_backup_module'),
+        'SHOW_SERVICE_MODULE': is_module_enabled('show_service_module'),
+        'SHOW_SUPPLY_CHAIN_MODULE': is_module_enabled('show_supply_chain_module'),
+        'SHOW_BUDGET_MODULE': is_module_enabled('show_budget_module'),
+        'SHOW_EXPENSES_MODULE': is_module_enabled('show_expenses_module'),
+        'SHOW_AUDIT_MODULE': is_module_enabled('show_audit_module'),
+        'SHOW_SHAREHOLDER_MODULE': is_module_enabled('show_shareholder_module'),
+        'SHOW_LOAN_MODULE': is_module_enabled('show_loan_module'),
+        'SHOW_AI_MODULE': is_module_enabled('show_ai_module'),
+        'SHOW_BI_MODULE': is_module_enabled('show_bi_module'),
+        'SHOW_DOCUMENT_MODULE': is_module_enabled('show_document_module'),
+        'SHOW_SECURITY_MODULE': is_module_enabled('show_security_module'),
+        'SHOW_TESTING_MODULE': is_module_enabled('show_testing_module'),
+        'SHOW_OPERATIONS_MODULE': is_module_enabled('show_operations_module'),
+        'SHOW_CASH_MODULE': is_module_enabled('show_cash_module'),
+        'SHOW_WAREHOUSE_MODULE': is_module_enabled('show_warehouse_module'),
+        'SHOW_RETURNS_MODULE': is_module_enabled('show_returns_module'),
+        'SHOW_PEOPLE_MODULE': is_module_enabled('show_people_module'),
         
-        # ===== BALANCE DIVIDEND =====
+        # ===== BALANCE DIVIDEND SETTINGS =====
         'ENABLE_BALANCE_DIVIDEND': get_bool('enable_balance_dividend', True),
         'DEFAULT_DIVIDEND_TYPE': get_val('default_dividend_type', 'both'),
         'DEFAULT_DIVIDEND_PERCENTAGE': get_val('default_dividend_percentage', '50'),
@@ -89,7 +160,7 @@ def system_settings(request):
         'ENABLE_SHAREHOLDER_DEDUCTION': get_bool('enable_shareholder_purchase_deduction', True),
         'DEDUCTION_TYPE': get_val('shareholder_deduction_type', 'proportional'),
         
-        # ===== COUNTS =====
+        # ===== SIDEBAR COUNTS =====
         'total_deductions': counts['total_deductions'],
         'pending_deposit_count': counts['pending_deposit_count'],
         'pending_withdrawal_count': counts['pending_withdrawal_count'],
@@ -97,13 +168,16 @@ def system_settings(request):
         'total_balance_used': counts['total_balance_used'],
         'pending_balance_dividends': counts['pending_balance_dividends'],
         'total_balance_dividends': counts['total_balance_dividends'],
+        
+        # ===== CLIENT INFO =====
+        'tenant': client,
+        'is_tenant': client is not None,
     }
 
 
 # ========================================== #
-# HELPER FUNCTIONS                           #
+# HELPER FUNCTION                            #
 # ========================================== #
-
 def get_shareholder_balance_used(shareholder):
     """Calculate total balance used by a specific shareholder"""
     total = Decimal('0.00')

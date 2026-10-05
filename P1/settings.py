@@ -93,6 +93,7 @@ CLOUDINARY_STORAGE = {
 }
 
 MIDDLEWARE = [
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -101,9 +102,11 @@ MIDDLEWARE = [
     'axes.middleware.AxesMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    
+    # Custom
+    'app.middleware.MultiTenantMiddleware',
     'app.middleware.ShareholderRestrictionMiddleware',
     'app.middleware.LiveVisitorMiddleware',
-    'app.middleware.SecurityMiddleware',
     'app.middleware.AdminActivityMiddleware',
 ]
 

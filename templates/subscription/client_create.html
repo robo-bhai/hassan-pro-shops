@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h3>➕ Create New Client</h3>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>Business Info</h5>
+                        <div class="mb-3">
+                            <label>Business Name *</label>
+                            <input type="text" name="business_name" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label>Owner Name *</label>
+                            <input type="text" name="owner_name" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label>Email *</label>
+                            <input type="email" name="email" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label>Phone *</label>
+                            <input type="text" name="phone" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label>City *</label>
+                            <input type="text" name="city" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label>Address</label>
+                            <textarea name="address" class="form-control" rows="2"></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h5>Subdomain</h5>
+                        <div class="mb-3">
+                            <label>Subdomain *</label>
+                            <div class="input-group">
+                                <input type="text" name="subdomain" id="subdomain" 
+                                       class="form-control" required placeholder="alishop">
+                                <span class="input-group-text">.uqn88store.com</span>
+                            </div>
+                            <div id="subdomain-status" class="form-text"></div>
+                        </div>
+                        
+                        <h5 class="mt-4">Subscription</h5>
+                        <div class="mb-3">
+                            <label>Plan *</label>
+                            <select name="plan" class="form-control" required>
+                                <option value="">Select Plan</option>
+                                {% for plan in plans %}
+                                <option value="{{ plan.id }}">
+                                    {{ plan.name }} - Rs. {{ plan.price|floatformat:0 }}/month
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label>Duration *</label>
+                            <select name="duration_months" class="form-control">
+                                <option value="1">1 Month</option>
+                                <option value="3">3 Months (5% off)</option>
+                                <option value="6">6 Months (10% off)</option>
+                                <option value="12" selected>12 Months (20% off)</option>
+                            </select>
+                        </div>
+                        
+                        <h5 class="mt-4">Login Credentials</h5>
+                        <div class="mb-3">
+                            <label>Username</label>
+                            <input type="text" name="username" class="form-control" 
+                                   placeholder="Same as subdomain">
+                        </div>
+                        <div class="mb-3">
+                            <label>Password</label>
+                            <input type="text" name="password" class="form-control" 
+                                   value="client123">
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+                <button type="submit" class="btn btn-success btn-lg">
+                    <i class="bi bi-check-circle"></i> Create Client
+                </button>
+                <a href="{% url 'clients_list' %}" class="btn btn-secondary btn-lg">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('subdomain').addEventListener('input', function() {
+    const subdomain = this.value.toLowerCase().trim();
+    const statusDiv = document.getElementById('subdomain-status');
+    
+    if (subdomain.length < 3) {
+        statusDiv.innerHTML = '';
+        return;
+    }
+    
+    fetch(`/api/check-subdomain/?subdomain=${subdomain}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.available) {
+                statusDiv.innerHTML = `<span class="text-success">✅ ${data.url}</span>`;
+            } else {
+                statusDiv.innerHTML = `<span class="text-danger">❌ ${data.message}</span>`;
+            }
+        });
+});
+</script>
+{% endblock %}

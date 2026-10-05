@@ -1,4 +1,4 @@
-# app/middleware.py
+# middleware.py - Complete Updated File
 
 from django.shortcuts import redirect
 from django.contrib import messages
@@ -7,161 +7,287 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class ShareholderRestrictionMiddleware:
+class MultiTenantMiddleware:
     """
-    Shareholder users ko admin pages par jaane se rokta hai
-    Shareholder sirf /shareholder/ se start hone wali URLs par ja sakta hai
-    """
+    Multi-Tenant Middleware — Subdomain + User-based detection
     
+    Priority:
+    1. Superuser → bypass (no tenant)
+    2. Regular user (client) → tenant from user mapping
+    3. Subdomain → tenant from subdomain
+    4. Custom domain → tenant from custom domain
+    """
+
     def __init__(self, get_response):
         self.get_response = get_response
-        self.shareholder_allowed_prefix = '/shareholder/'
+
+        self.skip_urls = [
+            '/admin/',
+            '/static/',
+            '/media/',
+            '/subscription/',
+            '/login/',
+            '/logout/',
+            '/register/',
+        ]
+
+        self.module_urls = {
+            'hr': '/hr/',
+            'production': '/production/',
+            'supply_chain': '/supply-chain/',
+            'installment': '/installments/',
+            'shop_portal': '/shop/',
+            'ai': '/ai/',
+            'accounts': '/accounts/',
+            'backup': '/database-backup/',
+        }
+
+    def __call__(self, request):
+        request.tenant = None
+        request.modules = {}
+        request.is_super_admin = False
+
+        host = request.get_host().split(':')[0]
+
+        # ========================================== #
+        # 1. SKIP URLs (FIRST - sabse pehle)         #
+        # ========================================== #
+        for url in self.skip_urls:
+            if request.path.startswith(url):
+                # Skip URLs ke liye bhi tenant detect karo (agar user logged in)
+                if request.user.is_authenticated and not request.user.is_superuser:
+                    client = self.get_client_from_user(request.user)
+                    if client:
+                        request.tenant = client
+                        request.modules = client.get_modules()
+                return self.get_response(request)
+
+        # ========================================== #
+        # 2. SUPER ADMIN DOMAINS                     #
+        # ========================================== #
+        if host in ['uqn88store.com', 'www.uqn88store.com', 'localhost', '127.0.0.1']:
+            
+            # ✅ Superuser → bypass (no tenant, all access)
+            if request.user.is_authenticated and request.user.is_superuser:
+                request.is_super_admin = True
+                return self.get_response(request)
+            
+            # ✅ Regular user (client) → user se tenant detect karo
+            if request.user.is_authenticated:
+                client = self.get_client_from_user(request.user)
+                
+                if client:
+                    request.tenant = client
+                    request.modules = client.get_modules()
+                    
+                    request.session['tenant_id'] = client.id
+                    request.session['tenant_name'] = client.business_name
+                    request.session['tenant_subdomain'] = client.subdomain
+                    
+                    # Check subscription expiry
+                    if client.is_expired():
+                        allowed_paths = ['/subscription/expired/', '/logout/']
+                        if request.path not in allowed_paths:
+                            return redirect('subscription_expired')
+                    
+                    # Check module access
+                    module_check = self.check_module_access(request)
+                    if module_check:
+                        return module_check
+            
+            return self.get_response(request)
+
+        # ========================================== #
+        # 3. SUBDOMAIN/CUSTOM DOMAIN BASED TENANT    #
+        # ========================================== #
+        tenant = self.get_tenant(host)
+
+        if tenant:
+            request.tenant = tenant
+            request.modules = tenant.get_modules()
+
+            request.session['tenant_id'] = tenant.id
+            request.session['tenant_name'] = tenant.business_name
+            request.session['tenant_subdomain'] = tenant.subdomain
+
+            # Check subscription expiry
+            if tenant.is_expired():
+                allowed_paths = ['/subscription/expired/', '/logout/']
+                if request.path not in allowed_paths:
+                    return redirect('subscription_expired')
+
+            # Check module access
+            module_check = self.check_module_access(request)
+            if module_check:
+                return module_check
+
+        return self.get_response(request)
+
+    # ========================================== #
+    # HELPER: Get Client from User               #
+    # ========================================== #
+    def get_client_from_user(self, user):
+        """
+        User se Client (tenant) detect karo
+        
+        Priority:
+        1. User.client_profile (OneToOne field)
+        2. Client.user (ForeignKey)
+        3. User's email se Client match
+        4. User.username == Client.subdomain match
+        """
+        from .models import Client
+        
+        try:
+            # ✅ Method 1: user.client_profile
+            if hasattr(user, 'client_profile'):
+                if user.client_profile:
+                    return user.client_profile
+            
+            # ✅ Method 2: Client.user (ForeignKey)
+            client = Client.objects.filter(user=user).first()
+            if client:
+                return client
+            
+            # ✅ Method 3: Email match
+            if user.email:
+                client = Client.objects.filter(email=user.email).first()
+                if client:
+                    return client
+            
+            # ✅ Method 4: Username == Subdomain match (fallback)
+            client = Client.objects.filter(subdomain=user.username.lower()).first()
+            if client:
+                return client
+        
+        except Exception as e:
+            logger.error(f"Client detection error for user {user.username}: {e}")
+        
+        return None
+
+    # ========================================== #
+    # HELPER: Get Tenant from Host               #
+    # ========================================== #
+    def get_tenant(self, host):
+        """Host se Tenant (Client) detect karo"""
+        from .models import Client
+
+        # ✅ Custom domain check
+        client = Client.objects.filter(
+            custom_domain=host,
+            subscription_status__in=['active', 'trial']
+        ).first()
+
+        if client:
+            return client
+
+        # ✅ Subdomain check
+        parts = host.split('.')
+        if len(parts) >= 2:
+            subdomain = parts[0].lower()
+
+            # Skip reserved subdomains
+            if subdomain in ['www', 'admin', 'api', 'app', 'mail', 'ftp']:
+                return None
+
+            try:
+                client = Client.objects.get(
+                    subdomain=subdomain,
+                    subscription_status__in=['active', 'trial']
+                )
+                return client
+            except Client.DoesNotExist:
+                return None
+
+        return None
+
+    # ========================================== #
+    # HELPER: Check Module Access                #
+    # ========================================== #
+    def check_module_access(self, request):
+        """Check karo user ko us module ka access hai ya nahi"""
+        if not request.tenant:
+            return None
+
+        for module, url_prefix in self.module_urls.items():
+            if request.path.startswith(url_prefix):
+                if not request.modules.get(module, False):
+                    messages.error(
+                        request,
+                        f'⚠️ {module.replace("_", " ").title()} module is not included in your plan!'
+                    )
+                    return redirect('dashboard')
+
+        return None
+
+
+# ========================================== #
+# SHAREHOLDER RESTRICTION MIDDLEWARE         #
+# ========================================== #
+class ShareholderRestrictionMiddleware:
+    """Restrict shareholder users to shareholder portal only"""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
 
     def __call__(self, request):
         if hasattr(request, 'user') and request.user.is_authenticated:
             is_shareholder = hasattr(request.user, 'shareholder_profile')
-            
+
             if is_shareholder:
                 path = request.path
-                
-                # Allow media and static files
+
+                # Allow static/media
                 if path.startswith('/media/') or path.startswith('/static/'):
-                    response = self.get_response(request)
-                    return response
-                
-                # Check if path starts with /shareholder/
-                is_shareholder_path = path.startswith(self.shareholder_allowed_prefix)
-                
-                if not is_shareholder_path:
-                    messages.error(request, '⚠️ Access denied! Shareholders can only access the shareholder portal.')
+                    return self.get_response(request)
+
+                # Allow shareholder portal
+                if not path.startswith('/shareholder/'):
+                    messages.error(request, '⚠️ Access denied!')
                     return redirect('shareholder_portal_dashboard')
-        
-        response = self.get_response(request)
-        return response
+
+        return self.get_response(request)
 
 
-# ============================================
-# ✅ LIVE VISITOR TRACKING MIDDLEWARE
-# ============================================
-
+# ========================================== #
+# LIVE VISITOR MIDDLEWARE                    #
+# ========================================== #
 class LiveVisitorMiddleware:
-    """
-    Track live visitors on customer portal (shop) pages
-    
-    Features:
-    - Har visitor ko 1 minute ke liye "active" mark karta hai
-    - Sirf /shop/ se start hone wali pages track karta hai
-    - 5 minute purane visitors auto-delete
-    - Error-safe: agar koi masla ho to request block nahi hoti
-    """
-    
+    """Track live visitors on shop"""
+
     def __init__(self, get_response):
         self.get_response = get_response
-    
+
     def __call__(self, request):
-        # ✅ Sirf shop pages par track karo
         if request.path.startswith('/shop/'):
             try:
                 from .models import LiveVisitor
                 LiveVisitor.track_visitor(request)
             except Exception as e:
-                logger.error(f"Live visitor tracking error: {e}")
-        
-        response = self.get_response(request)
-        return response
+                logger.error(f"Live visitor error: {e}")
+
+        return self.get_response(request)
 
 
-# ============================================
-# ✅ NEW: ADMIN ACTIVITY TRACKING MIDDLEWARE
-# ============================================
-
+# ========================================== #
+# ADMIN ACTIVITY MIDDLEWARE                  #
+# ========================================== #
 class AdminActivityMiddleware:
-    """
-    Har request pe admin ki REAL-TIME activity track karo
-    
-    Yeh LAST_LOGIN se alag hai:
-    - last_login = jab login kiya (stale ho jata hai)
-    - last_activity = abhi kaam kar raha hai (fresh)
-    
-    Isse pata chalta hai ke konsa admin ABHI LIVE hai.
-    """
-    
+    """Track admin presence/activity"""
+
     def __init__(self, get_response):
         self.get_response = get_response
-    
+
     def __call__(self, request):
-        # ✅ Response PEHLE process karo
         response = self.get_response(request)
-        
-        # ✅ Sirf authenticated staff users ke liye track karo
+
         if hasattr(request, 'user') and request.user.is_authenticated and request.user.is_staff:
             try:
-                # Static files skip karo
                 path = request.path
-                if not path.startswith('/static/') and \
-                   not path.startswith('/media/') and \
-                   not path.startswith('/favicon'):
-                    
+                if not path.startswith('/static/') and not path.startswith('/media/'):
                     from .models import AdminPresence
-                    AdminPresence.mark_activity(
-                        user=request.user,
-                        page=path
-                    )
+                    AdminPresence.mark_activity(user=request.user, page=path)
             except Exception as e:
-                logger.error(f"Admin presence tracking error: {e}")
-        
-        return response
+                logger.error(f"Admin presence error: {e}")
 
-
-# ============================================
-# SECURITY MIDDLEWARE
-# ============================================
-
-from django.http import JsonResponse
-from django.utils.timezone import now
-from django.shortcuts import redirect
-from django.contrib.auth import logout
-from datetime import timedelta
-from app.utils.security import is_ip_allowed
-from app.models import SecuritySettings, SessionLog
-
-
-class SecurityMiddleware:
-    """Security middleware for request filtering"""
-    
-    def __init__(self, get_response):
-        self.get_response = get_response
-    
-    def __call__(self, request):
-        # Skip for admin and static
-        if request.path.startswith('/admin/') or request.path.startswith('/static/'):
-            return self.get_response(request)
-        
-        # Skip for login page
-        if request.path == '/login/' or request.path == '/logout/':
-            return self.get_response(request)
-        
-        # IP Security
-        if request.user.is_authenticated:
-            ip_allowed, message = is_ip_allowed(request.META.get('REMOTE_ADDR'))
-            if not ip_allowed:
-                logout(request)
-                return JsonResponse({'error': 'Access denied', 'message': message}, status=403)
-        
-        # Session timeout
-        if request.user.is_authenticated:
-            settings = SecuritySettings.get_settings()
-            if settings.enable_auto_logout:
-                session_key = request.session.session_key
-                try:
-                    session = SessionLog.objects.get(session_key=session_key, is_active=True)
-                    if session.last_activity < now() - timedelta(minutes=settings.session_timeout):
-                        logout(request)
-                        return redirect('/login/?timeout=1')
-                    session.last_activity = now()
-                    session.save()
-                except SessionLog.DoesNotExist:
-                    pass
-        
-        response = self.get_response(request)
         return response

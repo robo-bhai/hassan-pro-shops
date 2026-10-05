@@ -1,0 +1,179 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white d-flex justify-content-between">
+                    <h3>{{ client.business_name }}</h3>
+                    <div>
+                        <a href="{% url 'client_edit' client.pk %}" class="btn btn-sm btn-light">
+                            <i class="bi bi-pencil"></i> Edit
+                        </a>
+                        <a href="{% url 'client_renew' client.pk %}" class="btn btn-sm btn-success">
+                            <i class="bi bi-arrow-repeat"></i> Renew
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Owner:</strong> {{ client.owner_name }}</p>
+                            <p><strong>Email:</strong> {{ client.email }}</p>
+                            <p><strong>Phone:</strong> {{ client.phone }}</p>
+                            <p><strong>City:</strong> {{ client.city }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Subdomain:</strong> 
+                                <a href="{{ client.get_url }}" target="_blank">
+                                    {{ client.subdomain }}.uqn88store.com
+                                </a>
+                            </p>
+                            {% if client.custom_domain %}
+                            <p><strong>Custom Domain:</strong> {{ client.custom_domain }}</p>
+                            {% endif %}
+                            <p><strong>Status:</strong> 
+                                {% if client.subscription_status == 'active' %}
+                                <span class="badge bg-success">✅ Active</span>
+                                {% elif client.subscription_status == 'trial' %}
+                                <span class="badge bg-warning">🟡 Trial</span>
+                                {% elif client.subscription_status == 'expired' %}
+                                <span class="badge bg-danger">❌ Expired</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ client.subscription_status }}</span>
+                                {% endif %}
+                            </p>
+                            <p><strong>Days Remaining:</strong> {{ days_remaining }} days</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modules -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>📦 Enabled Modules</h5>
+                </div>
+                <div class="card-body">
+                    {% for module, enabled in modules.items %}
+                        {% if enabled %}
+                        <span class="badge bg-success mb-2">{{ module|title }}</span>
+                        {% else %}
+                        <span class="badge bg-secondary mb-2">{{ module|title }} (Disabled)</span>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Payments -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>💰 Payment History</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Payment No</th>
+                                <th>Date</th>
+                                <th>Amount</th>
+                                <th>Method</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for payment in payments %}
+                            <tr>
+                                <td>{{ payment.payment_no }}</td>
+                                <td>{{ payment.payment_date|date:"d-M-Y" }}</td>
+                                <td>Rs. {{ payment.total_amount|floatformat:0 }}</td>
+                                <td>{{ payment.get_payment_method_display }}</td>
+                                <td>
+                                    {% if payment.status == 'paid' %}
+                                    <span class="badge bg-success">✅</span>
+                                    {% else %}
+                                    <span class="badge bg-warning">{{ payment.status }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" class="text-center">No payments</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <!-- Subscription Info -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>📋 Subscription</h5>
+                </div>
+                <div class="card-body">
+                    {% if client.current_plan %}
+                    <p><strong>Plan:</strong> {{ client.current_plan.name }}</p>
+                    <p><strong>Price:</strong> Rs. {{ client.current_plan.price|floatformat:0 }}/month</p>
+                    {% endif %}
+                    <p><strong>Start:</strong> {{ client.subscription_start|date:"d-M-Y" }}</p>
+                    <p><strong>End:</strong> {{ client.subscription_end|date:"d-M-Y" }}</p>
+                    <p><strong>Total Paid:</strong> Rs. {{ client.total_paid|floatformat:0 }}</p>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>⚙️ Actions</h5>
+                </div>
+                <div class="card-body">
+                    {% if client.subscription_status == 'active' %}
+                    <form method="post" action="{% url 'client_suspend' client.pk %}" class="mb-2">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-warning w-100"
+                                onclick="return confirm('Suspend this client?')">
+                            ⏸️ Suspend Client
+                        </button>
+                    </form>
+                    {% elif client.subscription_status == 'suspended' %}
+                    <form method="post" action="{% url 'client_reactivate' client.pk %}" class="mb-2">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success w-100">
+                            ▶️ Reactivate Client
+                        </button>
+                    </form>
+                    {% endif %}
+
+                    <form method="post" action="{% url 'client_delete' client.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger w-100"
+                                onclick="return confirm('DELETE this client? This cannot be undone!')">
+                            🗑️ Delete Client
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- History -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>📜 History</h5>
+                </div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                    {% for h in history %}
+                    <div class="border-bottom pb-2 mb-2">
+                        <small class="text-muted">{{ h.performed_at|date:"d-M-Y H:i" }}</small><br>
+                        <strong>{{ h.get_action_display }}</strong><br>
+                        <small>{{ h.notes }}</small>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted">No history</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-success text-white">
+            <h3>🔄 Renew Subscription - {{ client.business_name }}</h3>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info">
+                <strong>Current:</strong> {{ client.current_plan.name }}<br>
+                <strong>Expires:</strong> {{ client.subscription_end|date:"d-M-Y" }}<br>
+                <strong>Days Left:</strong> {{ days_remaining }}
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="mb-3">
+                    <label>Select Plan *</label>
+                    <select name="plan" class="form-control" required>
+                        {% for plan in plans %}
+                        <option value="{{ plan.id }}" {% if plan == client.current_plan %}selected{% endif %}>
+                            {{ plan.name }} - Rs. {{ plan.price|floatformat:0 }}/month
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label>Duration *</label>
+                    <select name="duration_months" class="form-control">
+                        <option value="1">1 Month</option>
+                        <option value="3">3 Months (5% off)</option>
+                        <option value="6">6 Months (10% off)</option>
+                        <option value="12" selected>12 Months (20% off)</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label>Payment Method *</label>
+                    <select name="payment_method" class="form-control" required>
+                        <option value="cash">💵 Cash</option>
+                        <option value="bank_transfer">🏦 Bank Transfer</option>
+                        <option value="jazzcash">📱 JazzCash</option>
+                        <option value="easypaisa">📱 EasyPaisa</option>
+                        <option value="cheque">📄 Cheque</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="btn btn-success btn-lg">
+                    <i class="bi bi-check-circle"></i> Renew Subscription
+                </button>
+                <a href="{% url 'client_detail' client.pk %}" class="btn btn-secondary btn-lg">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

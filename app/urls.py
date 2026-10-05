@@ -13,6 +13,8 @@ from django.urls import path
 from . import views
 from . import views_delivery
 from . import views_order_tracking
+from . import views_subscription
+
 
 urlpatterns = [
     # ============================================
@@ -1118,5 +1120,26 @@ urlpatterns = [
     path('api/create-vendor/', views_frontend.api_create_vendor, name='api_create_vendor'),
     path('api/create-warehouse/', views_frontend.api_create_warehouse, name='api_create_warehouse'),
     path('api/create-product/', views_frontend.api_create_product, name='api_create_product'),
+    
+    # Dashboard
+    path('subscription/', views_subscription.subscription_dashboard, name='subscription_dashboard'),
+    
+    # Plans
+    path('subscription/plans/', views_subscription.subscription_plans_list, name='subscription_plans_list'),
+    path('subscription/plans/create/', views_subscription.subscription_plan_create, name='subscription_plan_create'),
+    path('subscription/plans/<int:pk>/edit/', views_subscription.subscription_plan_edit, name='subscription_plan_edit'),
+    path('subscription/plans/<int:pk>/delete/', views_subscription.subscription_plan_delete, name='subscription_plan_delete'),
+    
+    # Clients
+    path('subscription/clients/', views_subscription.clients_list, name='clients_list'),
+    path('subscription/clients/create/', views_subscription.client_create, name='client_create'),
+    path('subscription/clients/<int:pk>/', views_subscription.client_detail, name='client_detail'),
+    path('subscription/clients/<int:pk>/edit/', views_subscription.client_edit, name='client_edit'),
+    path('subscription/clients/<int:pk>/renew/', views_subscription.client_renew, name='client_renew'),
+    path('subscription/clients/<int:pk>/suspend/', views_subscription.client_suspend, name='client_suspend'),
+    path('subscription/clients/<int:pk>/reactivate/', views_subscription.client_reactivate, name='client_reactivate'),
+    path('subscription/clients/<int:pk>/delete/', views_subscription.client_delete, name='client_delete'),
+    path('subscription/expired/', views_subscription.subscription_expired, name='subscription_expired'),
+    path('api/check-subdomain/', views_subscription.check_subdomain_availability, name='check_subdomain'),
     
 ]

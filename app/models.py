@@ -13,6 +13,28 @@ import hashlib
 
 logger = logging.getLogger(__name__)
 
+# ============================================
+# TENANT BASE MODEL (Multi-Tenant Support)
+# ============================================
+
+class TenantModel(models.Model):
+    """
+    Base model for all tenant-specific models.
+    Har client ka data alag rakhne ke liye.
+    """
+    client = models.ForeignKey(
+        'Client',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='%(app_label)s_%(class)s_set',
+        db_index=True,
+        help_text="Which client does this belong to?"
+    )
+    
+    class Meta:
+        abstract = True
+
 class CompanyInfo(models.Model):
     name = models.CharField("Company Name", max_length=255)
     tagline = models.CharField("Tagline", max_length=255, blank=True, null=True)
@@ -214,11 +236,24 @@ from django.utils.translation import gettext_lazy as _
 # Option 1: Remove.bg API key
 REMOVE_BG_API_KEY = "yM2S5Qs224P8sCLwupujTthc"
 
-
-class Product(models.Model):
-    serial_no = models.CharField(max_length=50, unique=True, null=True, blank=True, verbose_name=_("Serial Number"))
-    barcode = models.CharField(max_length=100, unique=True, null=True, blank=True, verbose_name=_("Barcode"))
-    use_custom_barcode = models.BooleanField(default=False, verbose_name=_("Use Custom/Supplier Barcode"), help_text="Check this to manually enter supplier barcode instead of auto-generating")
+class Product(TenantModel):
+    serial_no = models.CharField(
+        max_length=50, 
+        null=True, 
+        blank=True, 
+        verbose_name=_("Serial Number")
+    )
+    barcode = models.CharField(
+        max_length=100, 
+        null=True, 
+        blank=True, 
+        verbose_name=_("Barcode")
+    )
+    use_custom_barcode = models.BooleanField(
+        default=False, 
+        verbose_name=_("Use Custom/Supplier Barcode"), 
+        help_text="Check this to manually enter supplier barcode instead of auto-generating"
+    )
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
     image = models.ImageField(
@@ -229,13 +264,51 @@ class Product(models.Model):
         help_text="Product ki tasveer"
     )
     used = models.TextField(null=True, blank=True)
-    unit = models.ForeignKey(Unit, on_delete=models.SET_NULL, null=True, blank=True, related_name="products")
-    brand = models.ForeignKey(Brand, on_delete=models.SET_NULL, null=True, blank=True, related_name="products")
-    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name="products")
-    types = models.ForeignKey(Types, on_delete=models.SET_NULL, null=True, blank=True, related_name="products")
-    location = models.ForeignKey(Location, on_delete=models.SET_NULL, null=True, blank=True, related_name="products")
-    price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.0'), editable=False)
-    low_stock_threshold = models.FloatField(default=10.0, help_text="Set minimum stock level for alerts.")
+    unit = models.ForeignKey(
+        Unit, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name="products"
+    )
+    brand = models.ForeignKey(
+        Brand, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name="products"
+    )
+    category = models.ForeignKey(
+        Category, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name="products"
+    )
+    types = models.ForeignKey(
+        Types, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name="products"
+    )
+    location = models.ForeignKey(
+        Location, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name="products"
+    )
+    price = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.0'), 
+        editable=False
+    )
+    low_stock_threshold = models.FloatField(
+        default=10.0, 
+        help_text="Set minimum stock level for alerts."
+    )
     discount_percentage = models.DecimalField(
         max_digits=5, 
         decimal_places=2, 
@@ -251,20 +324,33 @@ class Product(models.Model):
         help_text="Original price before discount"
     )
     
-    # ✅ YEH FIELD ADD KARO - Product Active/Inactive Status
-    is_active = models.BooleanField(default=True, verbose_name=_("Is Active"), help_text="Uncheck to deactivate product")
+    # ✅ Product Active/Inactive Status
+    is_active = models.BooleanField(
+        default=True, 
+        verbose_name=_("Is Active"), 
+        help_text="Uncheck to deactivate product"
+    )
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
-    created_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True)
+    created_by = models.ForeignKey(
+        'auth.User', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True
+    )
     
     class Meta:
         verbose_name_plural = '1. Product Name'
+        unique_together = [
+            ['client', 'serial_no'],
+            ['client', 'barcode'],
+        ]
         indexes = [
-            models.Index(fields=['name']),
-            models.Index(fields=['barcode']),
-            models.Index(fields=['is_active']),  # ✅ Index for faster filtering
+            models.Index(fields=['client', 'name']),
+            models.Index(fields=['client', 'barcode']),
+            models.Index(fields=['client', 'is_active']),
         ]
 
     def __str__(self):
@@ -272,86 +358,139 @@ class Product(models.Model):
         status = "✓" if self.is_active else "✗"
         return f"{status} {self.name} (Barcode: {self.barcode or 'N/A'})"
     
+    # ========================================== #
+    # BACKGROUND REMOVAL API (Optional - Future) #
+    # ========================================== #
     def remove_background_via_api(self, image_bytes):
-        """Public API se background remove karne ka method"""
-        response = requests.post(
-            'https://api.remove.bg/v1.0/removebg',
-            files={'image_file': image_bytes},
-            data={'size': 'auto'},
-            headers={'X-Api-Key': REMOVE_BG_API_KEY},
-        )
-        if response.status_code == requests.codes.ok:
-            return response.content
-        return None
-
+        """
+        remove.bg API se background remove karne ka method
+        
+        ⚠️ NOTE: API credits khatam hain
+        Yeh method try/except mein wrapped hai, isliye safe hai.
+        """
+        try:
+            response = requests.post(
+                'https://api.remove.bg/v1.0/removebg',
+                files={'image_file': image_bytes},
+                data={'size': 'auto'},
+                headers={'X-Api-Key': REMOVE_BG_API_KEY},
+                timeout=10
+            )
+            if response.status_code == requests.codes.ok:
+                return response.content
+            else:
+                import logging
+                logging.getLogger(__name__).warning(
+                    f"remove.bg API error: {response.status_code} - {response.text[:100]}"
+                )
+                return None
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"remove.bg API exception: {e}")
+            return None
+    
+    # ========================================== #
+    # SAVE METHOD (Complete)                     #
+    # ========================================== #
     def save(self, *args, **kwargs):
         # ========================================== #
-        # ✅ DISCOUNT PRICE AUTO-CALCULATE            #
+        # ✅ DISCOUNT PRICE AUTO-CALCULATE           #
         # ========================================== #
         if self.discount_percentage and self.discount_percentage > 0:
-            # Agar original_price set nahi hai to current price ko original maan lo
             if not self.original_price or self.original_price <= 0:
                 self.original_price = self.price if self.price else Decimal('0.00')
             
-            # ✅ Discount ke baad wali price calculate karo
             if self.original_price and self.original_price > 0:
                 discount_amount = self.original_price * (self.discount_percentage / Decimal('100'))
                 self.price = self.original_price - discount_amount
         else:
-            # Agar discount nahi hai to original_price ko reset karo
             self.discount_percentage = Decimal('0.00')
             if self.original_price and self.original_price > 0:
                 self.price = self.original_price
         
-        # ✅ Agar use_custom_barcode True hai ya barcode already set hai to auto-generate NA karein
+        # ========================================== #
+        # ✅ AUTO BARCODE GENERATE                   #
+        # ========================================== #
         if not self.use_custom_barcode and not self.barcode:
             self.barcode = self.generate_barcode()
-            
-        # ✅ API via Background Removal & Image Compression Logic
+        
+        # ========================================== #
+        # ✅ IMAGE PROCESSING (SAFE - Termux Ready)  #
+        # ========================================== #
         if self.image and not getattr(self, '_image_processed', False):
             try:
-                # Original image content Read karein
-                self.image.open()
-                image_bytes = self.image.read()
-
-                # 1. API Call karke BG Remove karein
-                api_result = self.remove_background_via_api(image_bytes)
+                # Image pehle se processed hai?
+                image_name = self.image.name.lower()
                 
-                if api_result:
-                    img = Image.open(BytesIO(api_result))
-                else:
-                    # Agar API fail/limit reach ho to original image processing par fall back karein
+                # Sirf new image process karo (jo pehle se WebP/PNG optimized nahi hai)
+                if not image_name.endswith('.webp'):
+                    # Original image open karo
+                    self.image.open()
+                    image_bytes = self.image.read()
+                    
+                    # ✅ API SKIP (credits khatam) — Direct image process karo
+                    # Agar future mein API credits aayenge to yahan API call laga denge
+                    
+                    # Direct image open karo
                     img = Image.open(BytesIO(image_bytes))
-
-                # 2. Transparent RGBA format conversion
-                if img.mode != 'RGBA':
-                    img = img.convert('RGBA')
-
-                # 3. Resize (Max 800x800 resolution for fast loading)
-                max_size = (800, 800)
-                img.thumbnail(max_size, Image.Resampling.LANCZOS)
-
-                # 4. Compress & Save into WebP format (Ultra lightweight)
-                buffer = BytesIO()
-                img.save(buffer, format='WEBP', optimize=True, quality=80)
-                buffer.seek(0)
-
-                # 5. File extension .webp par update karein
-                base_name = os.path.splitext(os.path.basename(self.image.name))[0]
-                new_filename = f"{base_name}.webp"
-
-                # Infinite loop prevent karne ke liye flag set karein
-                self._image_processed = True
-
-                # 6. Processed file attach karein (Cloudinary Storage automatically handles this upload)
-                self.image.save(new_filename, ContentFile(buffer.getvalue()), save=False)
+                    
+                    # ✅ RGBA conversion (transparency support)
+                    if img.mode != 'RGBA':
+                        img = img.convert('RGBA')
+                    
+                    # ✅ Resize (max 800x800)
+                    max_size = (800, 800)
+                    img.thumbnail(max_size, Image.Resampling.LANCZOS)
+                    
+                    # ✅ WebP mein save karo (try), PNG fallback
+                    buffer = BytesIO()
+                    saved_as = 'webp'
+                    
+                    try:
+                        img.save(buffer, format='WEBP', optimize=True, quality=80)
+                    except Exception as webp_err:
+                        # WebP fail ho to PNG use karo
+                        import logging
+                        logging.getLogger(__name__).warning(
+                            f"WebP save failed, using PNG: {webp_err}"
+                        )
+                        buffer = BytesIO()
+                        img.save(buffer, format='PNG', optimize=True)
+                        saved_as = 'png'
+                    
+                    buffer.seek(0)
+                    
+                    # ✅ New filename banao
+                    base_name = os.path.splitext(os.path.basename(self.image.name))[0]
+                    new_filename = f"{base_name}.{saved_as}"
+                    
+                    # ✅ Recursion prevent flag
+                    self._image_processed = True
+                    
+                    # ✅ Naya image attach karo (save=False — outer save() chalega)
+                    self.image.save(new_filename, ContentFile(buffer.getvalue()), save=False)
+                    
+                    # ✅ Log successful processing
+                    import logging
+                    logging.getLogger(__name__).info(
+                        f"✅ Image processed: {new_filename} ({saved_as})"
+                    )
+            
             except Exception as e:
-                pass
-
+                # ✅ Chup chaap skip karo — product save hone do
+                import logging
+                logging.getLogger(__name__).warning(
+                    f"Image processing skipped for product '{self.name}': {e}"
+                )
+        
+        # ✅ FINAL SAVE
         super().save(*args, **kwargs)
     
+    # ========================================== #
+    # BARCODE GENERATION                         #
+    # ========================================== #
     def generate_barcode(self):
-        """Generate unique EAN-13 barcode"""
+        """Generate unique EAN-13 barcode (per client)"""
         import random
         prefix = "200"  # Company prefix (change as needed)
         while True:
@@ -359,7 +498,12 @@ class Product(models.Model):
             barcode = prefix + random_digits
             check_digit = self.calculate_ean13_check_digit(barcode)
             full_barcode = barcode + str(check_digit)
-            if not Product.objects.filter(barcode=full_barcode).exists():
+            
+            # ✅ Per-client uniqueness check
+            if not Product.objects.filter(
+                client=self.client,
+                barcode=full_barcode
+            ).exists():
                 return full_barcode
     
     def calculate_ean13_check_digit(self, barcode_12):
@@ -372,6 +516,9 @@ class Product(models.Model):
         check_digit = (10 - (total % 10)) % 10
         return check_digit
     
+    # ========================================== #
+    # HELPER METHODS                             #
+    # ========================================== #
     def activate(self):
         """Activate product"""
         self.is_active = True
@@ -381,13 +528,6 @@ class Product(models.Model):
         """Deactivate product"""
         self.is_active = False
         self.save()
-
-
-
-
-#((((((((((((((_-_+_++_+__+_+_+_))))))))))))))
-
-
 
 class Warehouse(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -610,22 +750,26 @@ class VendorGroup(models.Model):
     def __str__(self):
         return self.name
                                
-# Vendor model to store vendor details
-class Vendor(models.Model):
+class Vendor(TenantModel):
     vendor_code = models.CharField(
         max_length=50, 
-        unique=True, 
-        null=True,          # ✅ Migration ke liye temporarily null allow
-        blank=True,         # ✅ Form mein temporarily blank allow
+        null=True,
+        blank=True,
         verbose_name=_("Vendor Code"),
         help_text="Enter unique vendor code manually (e.g., VEN-001, SUP-001)"
     )
     name = models.CharField(max_length=100)
     contact_number = models.CharField(max_length=15, null=True, blank=True)
     address = models.TextField(null=True, blank=True)
-    group = models.ForeignKey('VendorGroup', on_delete=models.SET_NULL, null=True, blank=True, related_name='vendors')
+    group = models.ForeignKey(
+        'VendorGroup', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='vendors'
+    )
     
-    # ✅ NEW: Opening balance field (Previous outstanding before system)
+    # ✅ Opening balance field (Previous outstanding before system)
     opening_balance = models.DecimalField(
         max_digits=15, 
         decimal_places=2, 
@@ -636,10 +780,11 @@ class Vendor(models.Model):
 
     class Meta:
         verbose_name_plural = '3. Vendor'
+        unique_together = [['client', 'vendor_code']]
         indexes = [
-            models.Index(fields=['vendor_code']),
-            models.Index(fields=['name']),
-            models.Index(fields=['group']),
+            models.Index(fields=['client', 'vendor_code']),
+            models.Index(fields=['client', 'name']),
+            models.Index(fields=['client', 'group']),
         ]
 
     def __str__(self):
@@ -663,9 +808,11 @@ class Vendor(models.Model):
         return self.opening_balance + total_purchases - total_paid - purchase_returns
 
     def save(self, *args, **kwargs):
-        # ✅ Agar vendor_code empty hai to auto-generate karo
+        # ✅ Auto-generate code per client
         if not self.vendor_code:
-            last_vendor = Vendor.objects.exclude(
+            last_vendor = Vendor.objects.filter(
+                client=self.client
+            ).exclude(
                 vendor_code__isnull=True
             ).exclude(
                 vendor_code=''
@@ -1265,23 +1412,17 @@ class CustomerGroup(models.Model):
     def __str__(self):
         return self.name
 
-# Customer model to store customer 
-class Customer(models.Model):
+class Customer(TenantModel):
     customer_code = models.CharField(
         max_length=50, 
-        unique=True, 
-        null=True,          # ✅ Migration ke liye temporarily null allow
-        blank=True,         # ✅ Form mein temporarily blank allow
+        null=True,
+        blank=True,
         verbose_name=_("Customer Code"),
         help_text="Enter unique customer code manually (e.g., CUS-001, WALKIN)"
     )
     name = models.CharField(max_length=100)
     contact_number = models.CharField(max_length=15, null=True, blank=True)
-    
-    
-    # ✅ YEH LINE ADD KARO
     email = models.EmailField(max_length=100, blank=True, null=True, verbose_name="Email")
-   
     ref_name_1 = models.CharField(max_length=100, null=True, blank=True)
     ref_contact_number_1 = models.CharField(max_length=15, null=True, blank=True)
     ref_name_2 = models.CharField(max_length=100, null=True, blank=True)
@@ -1303,10 +1444,11 @@ class Customer(models.Model):
 
     class Meta:
         verbose_name_plural = '2. Customers'
+        unique_together = [['client', 'customer_code']]
         indexes = [
-            models.Index(fields=['customer_code']),
-            models.Index(fields=['name']),
-            models.Index(fields=['group']),
+            models.Index(fields=['client', 'customer_code']),
+            models.Index(fields=['client', 'name']),
+            models.Index(fields=['client', 'group']),
         ]
 
     def __str__(self):
@@ -1331,9 +1473,11 @@ class Customer(models.Model):
         return adjusted_balance
 
     def save(self, *args, **kwargs):
-        # ✅ Agar customer_code empty hai to auto-generate karo
+        # ✅ Auto-generate code per client
         if not self.customer_code:
-            last_customer = Customer.objects.exclude(
+            last_customer = Customer.objects.filter(
+                client=self.client
+            ).exclude(
                 customer_code__isnull=True
             ).exclude(
                 customer_code=''
@@ -4743,7 +4887,7 @@ class TargetProgress(models.Model):
 # HR & STAFF MANAGEMENT MODELS
 # ============================================
 
-class Employee(models.Model):
+class Employee(TenantModel):
     DEPARTMENT_CHOICES = [
         ('sales', 'Sales'),
         ('purchase', 'Purchase'),
@@ -4763,9 +4907,9 @@ class Employee(models.Model):
     ]
     
     # Personal Information
-    employee_id = models.CharField(max_length=20, unique=True, editable=False)
+    employee_id = models.CharField(max_length=20, editable=False)
     name = models.CharField(max_length=100)
-    email = models.EmailField(unique=True)
+    email = models.EmailField()
     phone = models.CharField(max_length=15)
     dob = models.DateField(null=True, blank=True)
     address = models.TextField(blank=True, null=True)
@@ -4790,15 +4934,24 @@ class Employee(models.Model):
     cv = models.FileField(upload_to='employee_cv/', null=True, blank=True)
     
     # System Fields
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_employees')
+    created_by = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        related_name='created_employees'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         verbose_name_plural = "HR - Employees"
+        unique_together = [
+            ['client', 'employee_id'],
+            ['client', 'email'],
+        ]
         indexes = [
-            models.Index(fields=['employee_id']),
-            models.Index(fields=['department', 'status']),
+            models.Index(fields=['client', 'employee_id']),
+            models.Index(fields=['client', 'department', 'status']),
         ]
     
     def __str__(self):
@@ -4809,8 +4962,12 @@ class Employee(models.Model):
         return self.basic_salary + self.house_allowance + self.other_allowance
     
     def save(self, *args, **kwargs):
+        # ✅ Auto-generate employee_id per client
         if not self.employee_id:
-            last_emp = Employee.objects.order_by('-id').first()
+            last_emp = Employee.objects.filter(
+                client=self.client
+            ).order_by('-id').first()
+            
             if last_emp and last_emp.employee_id:
                 try:
                     last_num = int(last_emp.employee_id.split('-')[1])
@@ -4819,7 +4976,9 @@ class Employee(models.Model):
                     new_num = '0001'
             else:
                 new_num = '0001'
+            
             self.employee_id = f'EMP-{new_num}'
+        
         super().save(*args, **kwargs)
 
 
@@ -5596,10 +5755,7 @@ class CashBalance(models.Model):
             
             return balance_obj.balance
 
-class Shareholder(models.Model):
-    """
-    Shareholder Model - Complete with Balance Management & Deduction Methods
-    """
+class Shareholder(TenantModel):
     # ========================================== #
     # BASIC INFORMATION                         #
     # ========================================== #
@@ -5618,7 +5774,6 @@ class Shareholder(models.Model):
     
     shareholder_code = models.CharField(
         max_length=20, 
-        unique=True, 
         editable=False
     )
     name = models.CharField(max_length=200)
@@ -5703,10 +5858,11 @@ class Shareholder(models.Model):
 
     class Meta:
         verbose_name_plural = "👥 Shareholders"
+        unique_together = [['client', 'shareholder_code']]
         indexes = [
-            models.Index(fields=['shareholder_code']),
-            models.Index(fields=['name']),
-            models.Index(fields=['status']),
+            models.Index(fields=['client', 'shareholder_code']),
+            models.Index(fields=['client', 'name']),
+            models.Index(fields=['client', 'status']),
         ]
 
     def __str__(self):
@@ -5717,23 +5873,19 @@ class Shareholder(models.Model):
     # ========================================== #
     
     def total_shares(self):
-        """Total shares held by this shareholder"""
         return self.shares.aggregate(total=Sum('quantity'))['total'] or 0
 
     def total_investment(self):
-        """Total investment amount"""
         return self.shares.aggregate(
             total=Sum(F('quantity') * F('purchase_price'))
         )['total'] or Decimal('0.00')
 
     def total_dividends(self):
-        """Total dividends received"""
         return self.dividend_payments.aggregate(
             total=Sum('amount')
         )['total'] or Decimal('0.00')
 
     def current_value(self, current_price=None):
-        """Current value of holdings"""
         total_shares = self.total_shares()
         if current_price:
             return total_shares * current_price
@@ -5743,7 +5895,6 @@ class Shareholder(models.Model):
         return Decimal('0.00')
 
     def ownership_percentage(self, total_shares=None):
-        """Ownership percentage"""
         if total_shares is None:
             total_shares = Share.objects.aggregate(total=Sum('quantity'))['total'] or 0
         if total_shares > 0:
@@ -5755,11 +5906,9 @@ class Shareholder(models.Model):
     # ========================================== #
     
     def get_balance(self):
-        """Get current cash balance"""
         return ShareholderCashBalance.get_balance(self)
 
     def deposit(self, amount, user=None, description=""):
-        """Deposit money into shareholder's balance"""
         return ShareholderCashBalance.deposit(
             shareholder=self,
             amount=amount,
@@ -5768,7 +5917,6 @@ class Shareholder(models.Model):
         )
 
     def withdraw(self, amount, user=None, description=""):
-        """Withdraw money from shareholder's balance"""
         return ShareholderCashBalance.withdraw(
             shareholder=self,
             amount=amount,
@@ -5781,7 +5929,6 @@ class Shareholder(models.Model):
     # ========================================== #
     
     def get_username(self):
-        """Generate username from shareholder name"""
         base = self.name.lower().replace(' ', '').replace('-', '').replace('_', '')
         username = base
         counter = 1
@@ -5790,10 +5937,7 @@ class Shareholder(models.Model):
             counter += 1
         return username
 
-    
-        
-    def create_user(self,password='password123'):
-        """Create user with name as username"""
+    def create_user(self, password='password123'):
         if self.user:
             return self.user
         
@@ -5808,289 +5952,32 @@ class Shareholder(models.Model):
         return user
 
     def get_user(self):
-        """Get existing user or create new"""
         if self.user:
             return self.user
         return self.create_user()
 
     def set_password(self, raw_password):
-        """Set password for shareholder"""
         if self.user:
             self.user.set_password(raw_password)
             self.user.save()
         return True
 
     def check_password(self, raw_password):
-        """Check password"""
         if self.user:
             return self.user.check_password(raw_password)
         return False
-
-    # ========================================== #
-    # ✅ SHAREHOLDER DEDUCTION METHODS (FIXED)  #
-    # ========================================== #
-    
-    @classmethod
-    def get_all_active_shareholders_with_balance(cls):
-        """
-        Get all active shareholders with their balances
-        ✅ FIXED: Decimal to float conversion
-        Returns: List of (shareholder, balance) tuples
-        """
-        shareholders = cls.objects.filter(status='active')
-        result = []
-        for shareholder in shareholders:
-            balance = shareholder.get_balance()
-            if balance > 0:  # Only positive balance shareholders
-                result.append({
-                    'shareholder': shareholder,
-                    'balance': float(balance)  # ✅ Convert to float
-                })
-        return result
-
-    @classmethod
-    def deduct_purchase_equally(cls, purchase_amount, purchase_obj=None, user=None):
-        """
-        ✅ Deduct purchase amount equally from all shareholders
-        Jis ka balance zyada ho ya kam, sab se barabar deduction
-        ✅ FIXED: NO main cash deduction - only shareholder balances
-        """
-        from decimal import Decimal
-        from django.db import transaction
-        import logging
-        
-        logger = logging.getLogger(__name__)
-        
-        # Get all active shareholders
-        shareholders = cls.objects.filter(status='active')
-        
-        if not shareholders.exists():
-            return False, "No active shareholders found"
-        
-        total_shareholders = shareholders.count()
-        
-        # ✅ Convert to float for calculation
-        purchase_amount_float = float(purchase_amount)
-        per_shareholder_float = purchase_amount_float / total_shareholders
-        
-        # ✅ Convert to Decimal for withdrawal
-        per_shareholder_decimal = Decimal(str(per_shareholder_float))
-        
-        # ✅ Results (all floats for JSON)
-        results = {
-            'total_shareholders': total_shareholders,
-            'per_shareholder': per_shareholder_float,
-            'total_amount': purchase_amount_float,
-            'deduction_type': 'equal',
-            'deducted_from': [],
-            'failed': [],
-            'skipped': [],
-        }
-        
-        try:
-            with transaction.atomic():
-                # ❌ REMOVED: CashBalance.update_balance() - NO main cash deduction
-                
-                # Deduct from each shareholder
-                for shareholder in shareholders:
-                    try:
-                        current_balance = shareholder.get_balance()
-                        new_balance = shareholder.withdraw(
-                            amount=per_shareholder_decimal,  # ✅ Decimal
-                            user=user,
-                            description=f"Purchase deduction (Equal) - Rs. {per_shareholder_decimal:,.2f}"
-                        )
-                        
-                        # ✅ Convert to float
-                        results['deducted_from'].append({
-                            'name': shareholder.name,
-                            'code': shareholder.shareholder_code,
-                            'balance_before': float(current_balance),
-                            'balance_after': float(new_balance),
-                            'deducted': per_shareholder_float,
-                            'percentage': (per_shareholder_float / purchase_amount_float) * 100,
-                            'shares': shareholder.total_shares()
-                        })
-                        
-                        logger.info(f"Deducted Rs. {per_shareholder_float:,.2f} from {shareholder.name}")
-                        
-                    except Exception as e:
-                        logger.error(f"Failed to deduct from {shareholder.name}: {e}")
-                        results['failed'].append({
-                            'name': shareholder.name,
-                            'error': str(e)
-                        })
-                
-                # Save in purchase
-                if purchase_obj:
-                    purchase_obj.shareholder_deduction_done = True
-                    purchase_obj.shareholder_deduction_data = results
-                    purchase_obj.shareholder_deduction_date = now()
-                    purchase_obj.shareholder_deduction_type = 'equal'
-                    purchase_obj.save()
-                
-                return True, results
-                
-        except Exception as e:
-            logger.error(f"Equal deduction failed: {e}")
-            return False, str(e)
-
-    @classmethod
-    def deduct_purchase_proportionally_by_balance(cls, purchase_amount, purchase_obj=None, user=None):
-        """
-        ✅ Deduct purchase amount proportionally by shareholder balance
-        Jis ka balance zyada, us ki deduction zyada
-        Jis ka balance kam, us ki deduction kam
-        Zero balance walo se kuch nahi kata
-        ✅ FIXED: NO main cash deduction - only shareholder balances
-        ✅ FIXED: Proper Decimal handling for withdrawal
-        """
-        from decimal import Decimal
-        from django.db import transaction
-        import logging
-        
-        logger = logging.getLogger(__name__)
-        
-        # ✅ Get active shareholders with positive balance
-        shareholders_with_balance = cls.get_all_active_shareholders_with_balance()
-        
-        if not shareholders_with_balance:
-            return False, "No shareholders with positive balance found"
-        
-        # ✅ Calculate total balance
-        total_balance = sum(item['balance'] for item in shareholders_with_balance)
-        
-        if total_balance == 0:
-            return False, "Total shareholder balance is zero"
-        
-        # ✅ Convert purchase_amount to float for calculations
-        purchase_amount_float = float(purchase_amount)
-        
-        # ✅ Results (all floats for JSON)
-        results = {
-            'total_shareholders': len(shareholders_with_balance),
-            'total_balance': total_balance,
-            'total_amount': purchase_amount_float,
-            'deduction_type': 'proportional',
-            'deducted_from': [],
-            'failed': [],
-            'skipped': [],
-        }
-        
-        # ✅ Track zero balance shareholders to skip
-        all_shareholders = cls.objects.filter(status='active')
-        for shareholder in all_shareholders:
-            balance = shareholder.get_balance()
-            if balance == 0:
-                results['skipped'].append({
-                    'name': shareholder.name,
-                    'code': shareholder.shareholder_code,
-                    'reason': 'Zero balance'
-                })
-        
-        try:
-            with transaction.atomic():
-                # ❌ REMOVED: CashBalance.update_balance() - NO main cash deduction
-                
-                # ✅ Deduct from each shareholder proportionally
-                for item in shareholders_with_balance:
-                    shareholder = item['shareholder']
-                    balance = item['balance']  # float
-                    
-                    # ✅ Calculate proportion (float / float = float)
-                    proportion = balance / total_balance
-                    
-                    # ✅ Calculate deduction amount (float * float = float)
-                    deduction_amount_float = purchase_amount_float * proportion
-                    
-                    # ✅ Convert back to Decimal for withdrawal (with rounding)
-                    deduction_decimal = Decimal(str(round(deduction_amount_float, 2)))
-                    
-                    try:
-                        current_balance = shareholder.get_balance()
-                        new_balance = shareholder.withdraw(
-                            amount=deduction_decimal,  # ✅ Decimal with rounding
-                            user=user,
-                            description=f"Purchase deduction (Proportional) - {proportion*100:.1f}% of total"
-                        )
-                        
-                        # ✅ Store as float in results
-                        results['deducted_from'].append({
-                            'name': shareholder.name,
-                            'code': shareholder.shareholder_code,
-                            'balance_before': float(current_balance),
-                            'balance_after': float(new_balance),
-                            'deducted': deduction_amount_float,
-                            'percentage': proportion * 100,
-                            'shares': shareholder.total_shares()
-                        })
-                        
-                        logger.info(f"Deducted Rs. {deduction_amount_float:,.2f} ({proportion*100:.1f}%) from {shareholder.name}")
-                        
-                    except Exception as e:
-                        logger.error(f"Failed to deduct from {shareholder.name}: {e}")
-                        results['failed'].append({
-                            'name': shareholder.name,
-                            'error': str(e)
-                        })
-                
-                # ✅ Save in purchase
-                if purchase_obj:
-                    purchase_obj.shareholder_deduction_done = True
-                    purchase_obj.shareholder_deduction_data = results
-                    purchase_obj.shareholder_deduction_date = now()
-                    purchase_obj.shareholder_deduction_type = 'proportional'
-                    purchase_obj.save()
-                
-                return True, results
-                
-        except Exception as e:
-            logger.error(f"Proportional deduction failed: {e}")
-            return False, str(e)
-
-    @classmethod
-    def process_purchase_deduction(cls, purchase, user=None):
-        """
-        ✅ Main method to process purchase deduction
-        Automatically selects the best deduction type
-        """
-        from django.utils.timezone import now
-        
-        if not purchase:
-            return False, "Purchase object required"
-        
-        if purchase.shareholder_deduction_done:
-            return False, "Deduction already processed"
-        
-        # ✅ Get deduction type from system setting
-        deduction_type = SystemSetting.get_value('shareholder_deduction_type', 'proportional')
-        
-        # ✅ Also check purchase override
-        if hasattr(purchase, 'shareholder_deduction_type') and purchase.shareholder_deduction_type != 'skip':
-            deduction_type = purchase.shareholder_deduction_type
-        
-        # ✅ Process based on type
-        if deduction_type == 'equal':
-            return cls.deduct_purchase_equally(
-                purchase_amount=purchase.total_amount(),
-                purchase_obj=purchase,
-                user=user or purchase.created_by
-            )
-        else:  # proportional (default)
-            return cls.deduct_purchase_proportionally_by_balance(
-                purchase_amount=purchase.total_amount(),
-                purchase_obj=purchase,
-                user=user or purchase.created_by
-            )
 
     # ========================================== #
     # SAVE METHOD                               #
     # ========================================== #
     
     def save(self, *args, **kwargs):
-        """Override save to auto-generate code"""
+        """Override save to auto-generate code per client"""
         if not self.shareholder_code:
-            last_shareholder = Shareholder.objects.order_by('-id').first()
+            last_shareholder = Shareholder.objects.filter(
+                client=self.client
+            ).order_by('-id').first()
+            
             if last_shareholder and last_shareholder.shareholder_code:
                 try:
                     last_num = int(last_shareholder.shareholder_code.split('-')[1])
@@ -6099,6 +5986,7 @@ class Shareholder(models.Model):
                     new_num = '0001'
             else:
                 new_num = '0001'
+            
             self.shareholder_code = f'SH-{new_num}'
         
         super().save(*args, **kwargs)
@@ -6130,12 +6018,10 @@ class Shareholder(models.Model):
 
     @property
     def has_login(self):
-        """Check if shareholder has login access"""
         return self.allow_login and self.user is not None
 
     @property
     def username(self):
-        """Get username"""
         if self.user:
             return self.user.username
         return None
@@ -21558,3 +21444,285 @@ class DeliveryFeedback(models.Model):
     
     def __str__(self):
         return f"{self.order.order_number if self.order else 'N/A'} - {self.rating}⭐"
+        
+# ==========================================
+# MULTI-TENANT + SUBSCRIPTION MODELS
+# models.py ke END mein add karein
+# ==========================================
+
+from django.contrib.auth.models import User
+from django.utils.timezone import now
+from datetime import date, timedelta
+from decimal import Decimal
+
+
+class SubscriptionPlan(models.Model):
+    """Subscription Plans - Super Admin banata hai"""
+    
+    PLAN_TYPES = [
+        ('shop', '🏪 Retail Shop Plan'),
+        ('wholesale', '📦 Wholesale Plan'),
+        ('factory', '🏭 Factory Plan'),
+        ('service', '🛠️ Service Plan'),
+        ('restaurant', '🍽️ Restaurant Plan'),
+        ('custom', '⚙️ Custom Plan'),
+    ]
+    
+    DURATION_TYPES = [
+        ('monthly', 'Monthly'),
+        ('quarterly', 'Quarterly (3 months)'),
+        ('half_yearly', 'Half Yearly (6 months)'),
+        ('yearly', 'Yearly (12 months)'),
+    ]
+    
+    name = models.CharField(max_length=100)
+    plan_type = models.CharField(max_length=20, choices=PLAN_TYPES)
+    description = models.TextField(blank=True, null=True)
+    
+    price = models.DecimalField(max_digits=15, decimal_places=2, help_text="Monthly price")
+    setup_fee = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    
+    quarterly_discount = models.DecimalField(max_digits=5, decimal_places=2, default=5)
+    half_yearly_discount = models.DecimalField(max_digits=5, decimal_places=2, default=10)
+    yearly_discount = models.DecimalField(max_digits=5, decimal_places=2, default=20)
+    
+    enabled_modules = models.JSONField(
+        default=dict,
+        help_text="Modules enabled in this plan"
+    )
+    
+    max_users = models.IntegerField(default=5)
+    max_products = models.IntegerField(default=1000)
+    max_customers = models.IntegerField(default=500)
+    max_orders_per_month = models.IntegerField(default=1000)
+    
+    has_ai_features = models.BooleanField(default=False)
+    has_whatsapp = models.BooleanField(default=True)
+    has_live_chat = models.BooleanField(default=True)
+    has_backup = models.BooleanField(default=True)
+    has_priority_support = models.BooleanField(default=False)
+    has_custom_domain = models.BooleanField(default=False)
+    
+    is_active = models.BooleanField(default=True)
+    is_featured = models.BooleanField(default=False)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name_plural = "Subscription Plans"
+        ordering = ['price']
+    
+    def __str__(self):
+        return f"{self.name} - Rs. {self.price:,.0f}/month"
+    
+    def get_price_for_duration(self, months):
+        base = self.price * months
+        if months >= 12:
+            discount = self.yearly_discount
+        elif months >= 6:
+            discount = self.half_yearly_discount
+        elif months >= 3:
+            discount = self.quarterly_discount
+        else:
+            discount = 0
+        discounted = base - (base * discount / 100)
+        return discounted + self.setup_fee
+
+
+class Client(models.Model):
+    """Business Owner - Subscription khareedta hai"""
+    
+    STATUS_CHOICES = [
+        ('trial', '🟡 Trial'),
+        ('active', '✅ Active'),
+        ('suspended', '⏸️ Suspended'),
+        ('expired', '❌ Expired'),
+        ('cancelled', '🚫 Cancelled'),
+    ]
+    
+    business_name = models.CharField(max_length=200)
+    business_type = models.CharField(max_length=20)
+    owner_name = models.CharField(max_length=200)
+    email = models.EmailField(unique=True)
+    phone = models.CharField(max_length=20)
+    address = models.TextField(blank=True, null=True)
+    city = models.CharField(max_length=100)
+    cnic = models.CharField(max_length=20, blank=True, null=True)
+    
+    subdomain = models.CharField(
+        max_length=50, 
+        unique=True,
+        help_text="e.g., alishop, xyzfactory"
+    )
+    
+    custom_domain = models.CharField(
+        max_length=200, 
+        blank=True, 
+        null=True,
+        unique=True
+    )
+    
+    current_plan = models.ForeignKey(
+        SubscriptionPlan, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        related_name='clients'
+    )
+    subscription_start = models.DateField()
+    subscription_end = models.DateField()
+    subscription_status = models.CharField(
+        max_length=20, 
+        choices=STATUS_CHOICES, 
+        default='trial'
+    )
+    
+    trial_used = models.BooleanField(default=False)
+    trial_start = models.DateField(null=True, blank=True)
+    trial_end = models.DateField(null=True, blank=True)
+    
+    total_paid = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    
+    user = models.OneToOneField(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='client_profile'
+    )
+    allow_login = models.BooleanField(default=True)
+    
+    notes = models.TextField(blank=True, null=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name_plural = "Clients"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['subdomain']),
+            models.Index(fields=['subscription_status']),
+        ]
+    
+    def __str__(self):
+        return f"{self.business_name} ({self.subdomain})"
+    
+    def get_url(self):
+        if self.custom_domain:
+            return f"https://{self.custom_domain}"
+        return f"https://{self.subdomain}.uqn88store.com"
+    
+    def days_remaining(self):
+        if self.subscription_end:
+            delta = self.subscription_end - date.today()
+            return max(0, delta.days)
+        return 0
+    
+    def is_expired(self):
+        if self.subscription_end:
+            return self.subscription_end < date.today()
+        return False
+    
+    def is_expiring_soon(self, days=7):
+        remaining = self.days_remaining()
+        return 0 < remaining <= days
+    
+    def get_modules(self):
+        if self.current_plan:
+            return self.current_plan.enabled_modules
+        return {}
+    
+    def has_module(self, module_name):
+        modules = self.get_modules()
+        return modules.get(module_name, False)
+
+
+class SubscriptionPayment(models.Model):
+    """Client Subscription Payments"""
+    
+    PAYMENT_METHODS = [
+        ('cash', '💵 Cash'),
+        ('bank_transfer', '🏦 Bank Transfer'),
+        ('jazzcash', '📱 JazzCash'),
+        ('easypaisa', '📱 EasyPaisa'),
+        ('cheque', '📄 Cheque'),
+        ('online', '🌐 Online'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('pending', '⏳ Pending'),
+        ('paid', '✅ Paid'),
+        ('failed', '❌ Failed'),
+        ('refunded', '💰 Refunded'),
+    ]
+    
+    payment_no = models.CharField(max_length=20, unique=True, editable=False)
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='payments')
+    plan = models.ForeignKey(SubscriptionPlan, on_delete=models.SET_NULL, null=True)
+    
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    discount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    total_amount = models.DecimalField(max_digits=15, decimal_places=2)
+    
+    period_start = models.DateField()
+    period_end = models.DateField()
+    
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS)
+    payment_date = models.DateTimeField(null=True, blank=True)
+    reference_no = models.CharField(max_length=100, blank=True, null=True)
+    
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    notes = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name_plural = "Subscription Payments"
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.payment_no} - {self.client.business_name}"
+    
+    def save(self, *args, **kwargs):
+        if not self.payment_no:
+            last = SubscriptionPayment.objects.order_by('-id').first()
+            if last and last.payment_no:
+                try:
+                    last_num = int(last.payment_no.split('-')[1])
+                    new_num = str(last_num + 1).zfill(4)
+                except:
+                    new_num = '0001'
+            else:
+                new_num = '0001'
+            self.payment_no = f'SUB-{new_num}'
+        super().save(*args, **kwargs)
+
+
+class SubscriptionHistory(models.Model):
+    """Subscription Changes History"""
+    
+    ACTION_TYPES = [
+        ('created', '🆕 Created'),
+        ('renewed', '🔄 Renewed'),
+        ('upgraded', '⬆️ Upgraded'),
+        ('downgraded', '⬇️ Downgraded'),
+        ('suspended', '⏸️ Suspended'),
+        ('reactivated', '▶️ Reactivated'),
+        ('expired', '⏰ Expired'),
+        ('cancelled', '❌ Cancelled'),
+    ]
+    
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='history')
+    action = models.CharField(max_length=20, choices=ACTION_TYPES)
+    old_plan = models.ForeignKey(SubscriptionPlan, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    new_plan = models.ForeignKey(SubscriptionPlan, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    notes = models.TextField(blank=True, null=True)
+    performed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    performed_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name_plural = "Subscription History"
+        ordering = ['-performed_at']
+    
+    def __str__(self):
+        return f"{self.client.business_name} - {self.get_action_display()}"

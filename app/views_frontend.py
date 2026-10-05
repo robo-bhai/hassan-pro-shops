@@ -126,6 +126,27 @@ from .certificate_utils import generate_share_certificate_pdf, generate_bulk_cer
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 
+# ============================================
+# TENANT-AWARE QUERYSET HELPER
+# ============================================
+
+def get_tenant_queryset(request, model):
+    """
+    Get queryset filtered by current tenant (client).
+    
+    - Super Admin → all data
+    - Client user → only their own data
+    - No client + no superuser → empty
+    """
+    if request.user.is_superuser:
+        return model.objects.all()
+    
+    client = getattr(request, 'tenant', None)
+    if client:
+        return model.objects.filter(client=client)
+    
+    return model.objects.none()
+
 @login_required
 def profile_view(request):
     return render(request, 'profile.html', {
@@ -586,16 +607,13 @@ def shareholder_dashboard(request):
     return render(request, 'shareholders/dashboard.html', context)
 
 
-# ✅ NEW CODE
 @login_required
 def shareholder_list(request):
-    shareholders = Shareholder.objects.select_related(
-        'user',
-        'created_by'
+    # ✅ TENANT FILTER
+    shareholders = get_tenant_queryset(request, Shareholder).select_related(
+        'user', 'created_by'
     ).prefetch_related(
-        'shares',
-        'dividend_payments',
-        'cash_transactions'
+        'shares', 'dividend_payments', 'cash_transactions'
     ).all()
     
     search = request.GET.get('search', '')
@@ -1206,18 +1224,15 @@ def shareholder_portal_download_certificate(request, pk):
 def shareholder_create(request):
     """Create new shareholder with cash balance and login access"""
     
-    # Check permission
     if not request.user.is_superuser and not request.user.is_staff:
         messages.error(request, 'Access denied! Only administrators can create shareholders.')
-        return redirect('dashboard')  # ✅ Yeh return hona chahiye
+        return redirect('dashboard')
     
     if request.method == 'POST':
         try:
             with transaction.atomic():
-                # ============================================
-                # BASIC INFORMATION
-                # ============================================
                 shareholder = Shareholder(
+                    client=request.tenant,  # ✅ CLIENT ASSIGN
                     name=request.POST.get('name'),
                     shareholder_type=request.POST.get('shareholder_type', 'individual'),
                     email=request.POST.get('email', ''),
@@ -1240,97 +1255,51 @@ def shareholder_create(request):
                 )
                 shareholder.save()
                 
-                # ============================================
-                # CREATE CASH BALANCE
-                # ============================================
+                # Create cash balance
                 ShareholderCashBalance.objects.create(
                     shareholder=shareholder,
                     balance=Decimal('0.00')
                 )
                 
-                # ============================================
-                # LOGIN ACCESS - EXACT USERNAME
-                # ============================================
+                # Login access
                 login_password = None
                 username = None
                 
                 if shareholder.allow_login:
                     username = shareholder.name.lower().replace(' ', '').replace('-', '').replace('_', '')
-                    
-                    # ✅ Form se password lo
                     password = request.POST.get('password', '123456')
                     
-                    # ✅ Check existing user
                     existing_user = User.objects.filter(username__iexact=username).first()
                     
                     if existing_user:
                         shareholder.user = existing_user
                         shareholder.save()
-                        
-                        if not existing_user.is_active:
-                            existing_user.is_active = True
-                            existing_user.save()
-                        
-                        # ✅ Form wala password set karo
                         existing_user.set_password(password)
                         existing_user.save()
                         login_password = password
-                        
-                        messages.info(
-                            request, 
-                            f'🔐 Password updated for existing user "{username}"!'
-                        )
                     else:
                         user = User.objects.create_user(
                             username=username,
                             email=shareholder.email or '',
                             password=password
                         )
-                        
                         user.is_active = True
                         user.save()
-                        
                         shareholder.user = user
                         shareholder.save()
                         login_password = password
-                        
-                        messages.info(
-                            request, 
-                            f'🔐 New user created! Username: {username}'
-                        )
                 
-                # ============================================
-                # INITIAL DEPOSIT
-                # ============================================
+                # Initial deposit
                 initial_deposit = Decimal(request.POST.get('initial_deposit', 0))
                 if initial_deposit > 0:
-                    main_balance = CashBalance.get_balance()
-                    if main_balance < initial_deposit:
-                        messages.warning(
-                            request, 
-                            f'⚠️ Insufficient main cash for initial deposit! Available: Rs. {main_balance:,.2f}'
-                        )
-                    else:
-                        ShareholderCashBalance.deposit(
-                            shareholder=shareholder,
-                            amount=initial_deposit,
-                            user=request.user,
-                            description=f"Initial deposit for new shareholder"
-                        )
-                        CashBalance.update_balance(
-                            amount=initial_deposit,
-                            transaction_type='withdraw',
-                            user=request.user,
-                            description=f"Initial deposit for new shareholder {shareholder.name}"
-                        )
-                        messages.info(
-                            request, 
-                            f'💰 Rs. {initial_deposit:,.2f} deposited to {shareholder.name}\'s balance!'
-                        )
+                    ShareholderCashBalance.deposit(
+                        shareholder=shareholder,
+                        amount=initial_deposit,
+                        user=request.user,
+                        description=f"Initial deposit"
+                    )
                 
-                # ============================================
-                # INITIAL SHARES
-                # ============================================
+                # Initial shares
                 initial_shares = int(request.POST.get('initial_shares', 0))
                 purchase_price = Decimal(request.POST.get('purchase_price', 0))
                 paid_from_shareholder_balance = request.POST.get('paid_from_shareholder_balance') == 'on'
@@ -1345,47 +1314,25 @@ def shareholder_create(request):
                         paid_from_shareholder_balance=paid_from_shareholder_balance
                     )
                     share.save()
-                    
-                    if paid_from_shareholder_balance:
-                        messages.info(
-                            request, 
-                            f'💰 Rs. {initial_shares * purchase_price:,.2f} deducted from {shareholder.name}\'s cash balance for shares!'
-                        )
-                    else:
-                        messages.info(
-                            request, 
-                            f'💰 Rs. {initial_shares * purchase_price:,.2f} added to main cash balance for shares!'
-                        )
                 
-                # ============================================
-                # SUCCESS MESSAGE
-                # ============================================
-                success_msg = f'✅ Shareholder "{shareholder.name}" created successfully!'
+                success_msg = f'✅ Shareholder "{shareholder.name}" created!'
                 if username and login_password:
                     success_msg += f' Login: {username} | Password: {login_password}'
-                elif username:
-                    success_msg += f' (Linked to existing user: {username})'
                 
                 messages.success(request, success_msg)
                 return redirect('shareholder_detail', pk=shareholder.pk)
             
-        except ValidationError as e:
-            messages.error(request, str(e))
-            return redirect('shareholder_create')
         except Exception as e:
             messages.error(request, f'❌ Error: {str(e)}')
             return redirect('shareholder_create')
     
-    # ============================================
-    # ✅ IMPORTANT: GET REQUEST - YEH RETURN HONA CHAHIYE
-    # ============================================
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'shareholder_types': Shareholder.SHAREHOLDER_TYPES,
         'status_choices': Shareholder.STATUS_CHOICES,
         'main_balance': CashBalance.get_balance(),
     }
-    return render(request, 'shareholders/create.html', context)  # ✅ YEH HONA CHAHIYE
+    return render(request, 'shareholders/create.html', context)
 
 from django.http import JsonResponse
 from django.contrib.auth.models import User
@@ -3164,19 +3111,50 @@ from .models import SystemSetting
 
 @login_required
 def module_settings(request):
-    """Module settings page - Admin can toggle modules"""
     if not request.user.is_superuser:
         messages.error(request, 'Access denied! Only superuser can change module settings.')
         return redirect('dashboard')
     
-    if request.method == 'POST':
-        # Update settings from POST data
-        for key, value in request.POST.items():
-            if key.startswith('setting_'):
-                setting_key = key.replace('setting_', '')
-                SystemSetting.set_value(setting_key, value == 'on', request.user)
+    # ✅ SAARE 27 MODULES
+    MODULES = [
+        # ===== EXISTING 10 =====
+        ('show_hr_module', '👥 HR Management'),
+        ('show_production_module', '🏭 Production'),
+        ('show_installment_module', '📅 Installments'),
+        ('show_reports_module', '📊 Reports'),
+        ('show_whatsapp_module', '📱 WhatsApp'),
+        ('show_inventory_module', '📦 Inventory'),
+        ('show_purchase_module', '📥 Purchase'),
+        ('show_sales_module', '🛒 Sales'),
+        ('show_accounts_module', '📊 Accounts'),
+        ('show_backup_module', '💾 Database Backup'),
         
-        # Handle Balance Dividend Settings
+        # ===== ✅ NAYE 17 =====
+        ('show_service_module', '🛠️ Services'),
+        ('show_supply_chain_module', '🏭 Supply Chain'),
+        ('show_budget_module', '📊 Budget'),
+        ('show_expenses_module', '💰 Expenses'),
+        ('show_audit_module', '🔍 Audit'),
+        ('show_shareholder_module', '👥 Shareholders'),
+        ('show_loan_module', '🏦 Loan Management'),
+        ('show_ai_module', '🤖 AI Modules'),
+        ('show_bi_module', '📊 Business Intelligence'),
+        ('show_document_module', '📋 Document Management'),
+        ('show_security_module', '🔒 Security'),
+        ('show_testing_module', '🧪 Testing'),
+        ('show_operations_module', '🏢 Business Operations'),
+        ('show_cash_module', '💰 Main Cash'),
+        ('show_warehouse_module', '🏭 Warehouse'),
+        ('show_returns_module', '🔄 Returns'),
+        ('show_people_module', '👥 People'),
+    ]
+    
+    if request.method == 'POST':
+        for key, label in MODULES:
+            value = request.POST.get(key) == 'on'
+            SystemSetting.set_value(key, value, user=request.user)
+        
+        # Balance Dividend settings
         enable_balance_dividend = request.POST.get('setting_enable_balance_dividend') == 'on'
         SystemSetting.set_value('enable_balance_dividend', enable_balance_dividend, request.user)
         
@@ -3199,11 +3177,8 @@ def module_settings(request):
         return redirect('module_settings')
     
     # GET request - show form
-    # ========================================== #
-    # MODULE SETTINGS                           #
-    # ========================================== #
-    module_settings = [
-        {'key': 'show_hr_module', 'name': '👥 HR Management', 'description': 'Employees, Attendance, Payroll, Leaves, Salary Slips', 'icon': 'bi-people'},
+    module_settings_list = [
+        {'key': 'show_hr_module', 'name': '👥 HR Management', 'description': 'Employees, Attendance, Payroll, Leaves', 'icon': 'bi-people'},
         {'key': 'show_production_module', 'name': '🏭 Production', 'description': 'Production Orders, BOM, Operations', 'icon': 'bi-gear'},
         {'key': 'show_installment_module', 'name': '📅 Installments', 'description': 'Installment Plans, EMI Payments', 'icon': 'bi-calendar'},
         {'key': 'show_reports_module', 'name': '📊 Reports', 'description': 'All Reports (34+ Reports)', 'icon': 'bi-graph-up'},
@@ -3211,16 +3186,33 @@ def module_settings(request):
         {'key': 'show_inventory_module', 'name': '📦 Inventory', 'description': 'Stock, Batches, Warehouse Transfers', 'icon': 'bi-box'},
         {'key': 'show_purchase_module', 'name': '📥 Purchase', 'description': 'Purchases, Purchase Orders, GRN, Returns', 'icon': 'bi-cart-plus'},
         {'key': 'show_sales_module', 'name': '🛒 Sales', 'description': 'Sales, Sale Orders, Challans, Returns', 'icon': 'bi-cart-check'},
-        {'key': 'show_accounts_module', 'name': '💰 Accounts', 'description': 'Expenses, Savings, Debts', 'icon': 'bi-calculator'},
+        {'key': 'show_accounts_module', 'name': '📊 Accounts', 'description': 'Chart of Accounts, Journal, Ledger', 'icon': 'bi-calculator'},
         {'key': 'show_backup_module', 'name': '💾 Database Backup', 'description': 'Backup, Restore, Cloud Sync', 'icon': 'bi-hdd-stack'},
+        
+        # ✅ NAYE MODULES
+        {'key': 'show_service_module', 'name': '🛠️ Services', 'description': 'Service Management, Appointments', 'icon': 'bi-tools'},
+        {'key': 'show_supply_chain_module', 'name': '🏭 Supply Chain', 'description': 'Suppliers, Forecast, Deliveries', 'icon': 'bi-truck'},
+        {'key': 'show_budget_module', 'name': '📊 Budget', 'description': 'Budgets, Departments, Projects', 'icon': 'bi-wallet2'},
+        {'key': 'show_expenses_module', 'name': '💰 Expenses', 'description': 'Expenses, Categories, Claims', 'icon': 'bi-receipt'},
+        {'key': 'show_audit_module', 'name': '🔍 Audit', 'description': 'Audit Plans, Findings, Controls', 'icon': 'bi-search'},
+        {'key': 'show_shareholder_module', 'name': '👥 Shareholders', 'description': 'Shareholders, Dividends, Meetings', 'icon': 'bi-people-fill'},
+        {'key': 'show_loan_module', 'name': '🏦 Loan Management', 'description': 'Loans, Returns, Loans Given', 'icon': 'bi-bank'},
+        {'key': 'show_ai_module', 'name': '🤖 AI Modules', 'description': 'AI Board, Cash AI, Shareholder AI', 'icon': 'bi-robot'},
+        {'key': 'show_bi_module', 'name': '📊 Business Intelligence', 'description': 'BI Dashboards, KPIs, Forecasts', 'icon': 'bi-bar-chart'},
+        {'key': 'show_document_module', 'name': '📋 Document Management', 'description': 'Documents, Folders, Sharing', 'icon': 'bi-folder'},
+        {'key': 'show_security_module', 'name': '🔒 Security', 'description': '2FA, IP Lists, Logs, API Keys', 'icon': 'bi-shield-lock'},
+        {'key': 'show_testing_module', 'name': '🧪 Testing', 'description': 'Test Projects, Cases, Bugs', 'icon': 'bi-bug'},
+        {'key': 'show_operations_module', 'name': '🏢 Business Operations', 'description': 'Operations, Tasks, KPIs, Checklists', 'icon': 'bi-building'},
+        {'key': 'show_cash_module', 'name': '💰 Main Cash', 'description': 'Cash Dashboard, Transactions, Report', 'icon': 'bi-cash-stack'},
+        {'key': 'show_warehouse_module', 'name': '🏭 Warehouse', 'description': 'All Warehouses, Add Warehouse', 'icon': 'bi-building'},
+        {'key': 'show_returns_module', 'name': '🔄 Returns', 'description': 'Purchase Returns, Sale Returns', 'icon': 'bi-arrow-repeat'},
+        {'key': 'show_people_module', 'name': '👥 People', 'description': 'Customers, Vendors', 'icon': 'bi-person-lines-fill'},
     ]
     
-    for setting in module_settings:
+    for setting in module_settings_list:
         setting['value'] = SystemSetting.get_bool(setting['key'], True)
     
-    # ========================================== #
-    # SHAREHOLDER DEDUCTION SETTINGS             #
-    # ========================================== #
+    # Shareholder deduction settings
     is_enabled = SystemSetting.get_bool('enable_shareholder_purchase_deduction', True)
     deduction_type = SystemSetting.get_value('shareholder_deduction_type', 'proportional')
     
@@ -3230,9 +3222,7 @@ def module_settings(request):
         total_balance += ShareholderCashBalance.get_balance(sh)
     pending_purchases = Purchase.objects.filter(shareholder_deduction_done=False).count()
     
-    # ========================================== #
-    # BALANCE DIVIDEND SETTINGS                  #
-    # ========================================== #
+    # Balance Dividend settings
     enable_balance_dividend = SystemSetting.get_bool('enable_balance_dividend', True)
     default_dividend_type = SystemSetting.get_value('default_dividend_type', 'both')
     default_dividend_percentage = SystemSetting.get_value('default_dividend_percentage', '50')
@@ -3240,7 +3230,6 @@ def module_settings(request):
     min_holding_months = SystemSetting.get_value('min_holding_months', '0')
     auto_process_days = SystemSetting.get_value('auto_process_days', '7')
     
-    # Eligible shareholders count
     eligible_count = 0
     total_balance_used = Decimal('0.00')
     for shareholder in Shareholder.objects.filter(status='active'):
@@ -3253,7 +3242,7 @@ def module_settings(request):
     
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
-        'module_settings': module_settings,
+        'module_settings': module_settings_list,
         'is_enabled': is_enabled,
         'deduction_type': deduction_type,
         'total_shareholders': total_shareholders,
@@ -6237,20 +6226,17 @@ from .models import Employee, Attendance, LeaveRequest, Payroll, EmployeeSalaryH
 @login_required
 def employee_list(request):
     """List all employees with filters"""
-    # Check permission (only admin, owner, hr can view)
     if not request.user.is_superuser and not request.user.groups.filter(name__in=['Owner', 'HR Manager']).exists():
-        messages.error(request, 'Access denied! Only authorized users can view employees.')
+        messages.error(request, 'Access denied!')
         return redirect('dashboard')
 
-    employees = Employee.objects.select_related(
+    # ✅ TENANT FILTER
+    employees = get_tenant_queryset(request, Employee).select_related(
         'created_by'
     ).prefetch_related(
-        'attendances',
-        'leave_requests',
-        'payrolls'
+        'attendances', 'leave_requests', 'payrolls'
     ).all()
     
-    # Filters
     search = request.GET.get('search', '')
     department = request.GET.get('department', '')
     status = request.GET.get('status', '')
@@ -6270,13 +6256,11 @@ def employee_list(request):
     if joining_date:
         employees = employees.filter(joining_date__gte=joining_date)
     
-    # Statistics
     total_employees = employees.count()
     active_employees = employees.filter(status='active').count()
     on_leave = employees.filter(status='on_leave').count()
     total_salary_monthly = sum(emp.total_salary() for emp in employees)
     
-    # Pagination
     paginator = Paginator(employees, 25)
     page = request.GET.get('page', 1)
     page_obj = paginator.get_page(page)
@@ -6300,44 +6284,40 @@ def employee_list(request):
 def employee_create(request):
     """Create new employee"""
     if not request.user.is_superuser and not request.user.groups.filter(name__in=['Owner', 'HR Manager']).exists():
-        messages.error(request, 'Access denied! Only authorized users can create employees.')
+        messages.error(request, 'Access denied!')
         return redirect('dashboard')
     
     if request.method == 'POST':
         try:
-            # Basic Info
             name = request.POST.get('name')
             email = request.POST.get('email')
             phone = request.POST.get('phone')
             dob = request.POST.get('dob') or None
             address = request.POST.get('address', '')
-            
-            # Employment Info
             department = request.POST.get('department')
             designation = request.POST.get('designation', '')
             joining_date = request.POST.get('joining_date')
             status = request.POST.get('status', 'active')
-            
-            # Salary Info
             basic_salary = Decimal(request.POST.get('basic_salary', 0))
             house_allowance = Decimal(request.POST.get('house_allowance', 0))
             other_allowance = Decimal(request.POST.get('other_allowance', 0))
-            
-            # Bank Info
             bank_name = request.POST.get('bank_name', '')
             account_number = request.POST.get('account_number', '')
             
-            # Validation
             if not name or not email or not phone:
                 messages.error(request, 'Name, Email and Phone are required!')
                 return redirect('employee_create')
             
-            if Employee.objects.filter(email=email).exists():
+            # ✅ Duplicate email check within same client
+            if Employee.objects.filter(
+                client=request.tenant,
+                email=email
+            ).exists():
                 messages.error(request, 'Employee with this email already exists!')
                 return redirect('employee_create')
             
-            # Create employee
             employee = Employee.objects.create(
+                client=request.tenant,  # ✅ CLIENT ASSIGN
                 name=name,
                 email=email,
                 phone=phone,
@@ -6355,7 +6335,7 @@ def employee_create(request):
                 created_by=request.user
             )
             
-            messages.success(request, f'✅ Employee "{employee.name}" created successfully! ID: {employee.employee_id}')
+            messages.success(request, f'✅ Employee "{employee.name}" created! ID: {employee.employee_id}')
             return redirect('employee_detail', pk=employee.pk)
             
         except Exception as e:
@@ -11142,12 +11122,14 @@ def unlock_month(request, pk):
     
 @login_required
 def vendor_update(request, pk):
-    """Update vendor with opening balance"""
-    vendor = get_object_or_404(Vendor, pk=pk)
+    # ✅ TENANT FILTER
+    vendor = get_object_or_404(
+        get_tenant_queryset(request, Vendor),
+        pk=pk
+    )
     
     if request.method == 'POST':
         try:
-            # Get form data
             name = request.POST.get('name', '').strip()
             vendor_code = request.POST.get('vendor_code', '').strip()
             contact_number = request.POST.get('contact_number', '')
@@ -11155,19 +11137,19 @@ def vendor_update(request, pk):
             group_id = request.POST.get('group') or None
             opening_balance = request.POST.get('opening_balance', 0)
             
-            # Validation
             if not name:
                 messages.error(request, '❌ Vendor name is required!')
                 return redirect('vendor_update', pk=pk)
             
-            # Check for duplicate vendor code (excluding self)
             if vendor_code:
-                existing = Vendor.objects.filter(vendor_code=vendor_code).exclude(pk=pk).first()
+                existing = Vendor.objects.filter(
+                    client=request.tenant,
+                    vendor_code=vendor_code
+                ).exclude(pk=pk).first()
                 if existing:
                     messages.error(request, f'❌ Vendor code "{vendor_code}" already exists!')
                     return redirect('vendor_update', pk=pk)
             
-            # ✅ Update vendor with opening balance
             vendor.name = name
             vendor.vendor_code = vendor_code if vendor_code else None
             vendor.contact_number = contact_number
@@ -11176,22 +11158,13 @@ def vendor_update(request, pk):
             vendor.opening_balance = Decimal(opening_balance) if opening_balance else Decimal('0.00')
             vendor.save()
             
-            messages.success(
-                request, 
-                f'✅ Vendor "{vendor.name}" updated successfully!\n'
-                f'📋 Code: {vendor.vendor_code}\n'
-                f'💰 Opening Balance: Rs. {vendor.opening_balance:,.2f}'
-            )
+            messages.success(request, f'✅ Vendor "{vendor.name}" updated successfully!')
             return redirect('vendor_list')
             
-        except ValidationError as e:
-            messages.error(request, f'❌ Validation Error: {str(e)}')
-            return redirect('vendor_update', pk=pk)
         except Exception as e:
             messages.error(request, f'❌ Error: {str(e)}')
             return redirect('vendor_update', pk=pk)
     
-    # GET request - show form with existing data
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'vendor': vendor,
@@ -11776,7 +11749,11 @@ def update_batch_selling_price(request):
     
 @login_required
 def product_update(request, pk):
-    product = get_object_or_404(Product, pk=pk)
+    # ✅ TENANT FILTER
+    product = get_object_or_404(
+        get_tenant_queryset(request, Product),
+        pk=pk
+    )
     
     if request.method == 'POST':
         try:
@@ -11797,11 +11774,9 @@ def product_update(request, pk):
                 product.barcode = new_barcode
                 product.use_custom_barcode = True
             
-            # ✅ Image upload
             if request.FILES.get('image'):
                 product.image = request.FILES['image']
             
-            # ✅ Image remove
             if request.POST.get('remove_image') == 'on':
                 product.image = None
             
@@ -12094,15 +12069,8 @@ def sale_detail(request, pk):
 
 @login_required
 def customer_list(request):
-    """
-    Customer list with outstanding — OPTIMIZED
-    ✅ FIX: 300+ queries → 2 queries
-    """
-    from django.db.models import Sum, Count, Q, F, Value, DecimalField
-    from django.db.models.functions import Coalesce
-    
-    # ✅ Single query — sab calculated
-    customers = Customer.objects.select_related('group').annotate(
+    # ✅ TENANT FILTER
+    customers = get_tenant_queryset(request, Customer).select_related('group').annotate(
         total_sales=Coalesce(
             Sum('sale__saleitem__total_amt', output_field=DecimalField(max_digits=20, decimal_places=2)),
             Value(Decimal('0.00'))
@@ -12148,31 +12116,20 @@ def customer_list(request):
 
 @login_required
 def customer_create(request):
-    """Create new customer with email validation"""
-    
     if request.method == 'POST':
         try:
-            # ========================================== #
-            # STEP 1: Form Data Lo                       #
-            # ========================================== #
             name = request.POST.get('name', '').strip()
             customer_code = request.POST.get('customer_code', '').strip()
             contact_number = request.POST.get('contact_number', '').strip()
-            email = request.POST.get('email', '').strip()  # ✅ NEW
+            email = request.POST.get('email', '').strip()
             address = request.POST.get('address', '').strip()
             profit_margin = Decimal(request.POST.get('profit_margin', 0) or 0)
             group_id = request.POST.get('group') or None
             
-            # ========================================== #
-            # STEP 2: Validation                         #
-            # ========================================== #
-            
-            # ✅ Name required
             if not name:
                 messages.error(request, '❌ Customer name zaroori hai!')
                 return redirect('customer_create')
             
-            # ✅ Email validation (agar diya ho)
             if email:
                 from django.core.validators import validate_email
                 from django.core.exceptions import ValidationError
@@ -12180,65 +12137,44 @@ def customer_create(request):
                 try:
                     validate_email(email)
                 except ValidationError:
-                    messages.error(request, '❌ Sahi email address daalein (e.g., name@gmail.com)')
+                    messages.error(request, '❌ Sahi email address daalein!')
                     return redirect('customer_create')
                 
-                # ✅ Duplicate email check
-                if Customer.objects.filter(email=email).exists():
-                    existing = Customer.objects.filter(email=email).first()
-                    messages.error(
-                        request, 
-                        f'⚠️ Yeh email "{email}" pehle se "{existing.name}" ke saath registered hai!'
-                    )
+                # ✅ Duplicate email check within same client
+                if Customer.objects.filter(
+                    client=request.tenant,
+                    email=email
+                ).exists():
+                    messages.error(request, f'⚠️ Yeh email pehle se registered hai!')
                     return redirect('customer_create')
             
-            # ✅ Duplicate customer code check
-            if customer_code and Customer.objects.filter(customer_code=customer_code).exists():
-                messages.error(request, f'⚠️ Customer code "{customer_code}" pehle se mojood hai!')
-                return redirect('customer_create')
+            if customer_code:
+                if Customer.objects.filter(
+                    client=request.tenant,
+                    customer_code=customer_code
+                ).exists():
+                    messages.error(request, f'⚠️ Customer code pehle se mojood hai!')
+                    return redirect('customer_create')
             
-            # ✅ Duplicate contact number check
-            if contact_number and Customer.objects.filter(contact_number=contact_number).exists():
-                existing = Customer.objects.filter(contact_number=contact_number).first()
-                messages.warning(
-                    request, 
-                    f'⚠️ Yeh number "{contact_number}" pehle se "{existing.name}" ke saath registered hai. '
-                    f'Phir bhi customer create ho raha hai.'
-                )
-            
-            # ========================================== #
-            # STEP 3: Customer Create Karein             #
-            # ========================================== #
             customer = Customer(
+                client=request.tenant,  # ✅ CLIENT ASSIGN
                 name=name,
-                customer_code=customer_code if customer_code else None,  # Auto-generate hoga
+                customer_code=customer_code if customer_code else None,
                 contact_number=contact_number,
-                email=email if email else None,  # ✅ NEW: Email save karein
+                email=email if email else None,
                 address=address,
                 profit_margin=profit_margin,
                 group_id=group_id,
             )
             customer.save()
             
-            # ========================================== #
-            # STEP 4: Success Message                    #
-            # ========================================== #
-            success_msg = f'✅ Customer "{customer.name}" created! (Code: {customer.customer_code})'
-            if email:
-                success_msg += f' | Email: {email}'
-            
-            messages.success(request, success_msg)
+            messages.success(request, f'✅ Customer "{customer.name}" created!')
             return redirect('customer_list')
             
         except Exception as e:
-            import logging
-            logging.getLogger(__name__).error(f"Customer create error: {e}")
             messages.error(request, f'❌ Error: {str(e)}')
             return redirect('customer_create')
     
-    # ========================================== #
-    # GET REQUEST — Show Form                    #
-    # ========================================== #
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'groups': CustomerGroup.objects.all(),
@@ -12248,33 +12184,26 @@ def customer_create(request):
 
 @login_required
 def customer_update(request, pk):
-    """Update customer with email validation"""
-    
-    customer = get_object_or_404(Customer, pk=pk)
+    # ✅ TENANT FILTER
+    customer = get_object_or_404(
+        get_tenant_queryset(request, Customer),
+        pk=pk
+    )
     
     if request.method == 'POST':
         try:
-            # ========================================== #
-            # STEP 1: Form Data Lo                       #
-            # ========================================== #
             customer_code = request.POST.get('customer_code', '').strip()
             name = request.POST.get('name', '').strip()
             contact_number = request.POST.get('contact_number', '').strip()
-            email = request.POST.get('email', '').strip()  # ✅ NEW
+            email = request.POST.get('email', '').strip()
             address = request.POST.get('address', '').strip()
             profit_margin = Decimal(request.POST.get('profit_margin', 0) or 0)
             group_id = request.POST.get('group') or None
             
-            # ========================================== #
-            # STEP 2: Validation                         #
-            # ========================================== #
-            
-            # ✅ Name required
             if not name:
                 messages.error(request, '❌ Customer name zaroori hai!')
                 return redirect('customer_update', pk=pk)
             
-            # ✅ Email validation (agar diya ho)
             if email:
                 from django.core.validators import validate_email
                 from django.core.exceptions import ValidationError
@@ -12282,61 +12211,40 @@ def customer_update(request, pk):
                 try:
                     validate_email(email)
                 except ValidationError:
-                    messages.error(request, '❌ Sahi email address daalein (e.g., name@gmail.com)')
+                    messages.error(request, '❌ Sahi email address daalein!')
                     return redirect('customer_update', pk=pk)
                 
-                # ✅ Duplicate email check (khud ke ilawa)
-                duplicate_email = Customer.objects.filter(email=email).exclude(pk=pk).first()
-                if duplicate_email:
-                    messages.error(
-                        request, 
-                        f'⚠️ Yeh email "{email}" pehle se "{duplicate_email.name}" ke saath registered hai!'
-                    )
+                if Customer.objects.filter(
+                    client=request.tenant,
+                    email=email
+                ).exclude(pk=pk).exists():
+                    messages.error(request, f'⚠️ Yeh email pehle se registered hai!')
                     return redirect('customer_update', pk=pk)
             
-            # ✅ Duplicate customer code check (khud ke ilawa)
             if customer_code:
-                duplicate_code = Customer.objects.filter(
+                if Customer.objects.filter(
+                    client=request.tenant,
                     customer_code=customer_code
-                ).exclude(pk=pk).first()
-                if duplicate_code:
-                    messages.error(
-                        request, 
-                        f'⚠️ Customer code "{customer_code}" pehle se "{duplicate_code.name}" ke saath registered hai!'
-                    )
+                ).exclude(pk=pk).exists():
+                    messages.error(request, f'⚠️ Customer code pehle se mojood hai!')
                     return redirect('customer_update', pk=pk)
             
-            # ========================================== #
-            # STEP 3: Customer Update Karein             #
-            # ========================================== #
             customer.name = name
             customer.customer_code = customer_code if customer_code else customer.customer_code
             customer.contact_number = contact_number
-            customer.email = email if email else None  # ✅ NEW: Email update
+            customer.email = email if email else None
             customer.address = address
             customer.profit_margin = profit_margin
             customer.group_id = group_id
             customer.save()
             
-            # ========================================== #
-            # STEP 4: Success Message                    #
-            # ========================================== #
-            success_msg = f'✅ Customer "{customer.name}" updated successfully!'
-            if email:
-                success_msg += f' | Email: {email}'
-            
-            messages.success(request, success_msg)
+            messages.success(request, f'✅ Customer "{customer.name}" updated!')
             return redirect('customer_list')
             
         except Exception as e:
-            import logging
-            logging.getLogger(__name__).error(f"Customer update error: {e}")
             messages.error(request, f'❌ Error: {str(e)}')
             return redirect('customer_update', pk=pk)
     
-    # ========================================== #
-    # GET REQUEST — Show Form                    #
-    # ========================================== #
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'customer': customer,
@@ -12460,14 +12368,8 @@ def customer_ledger(request, pk):
 
 @login_required
 def vendor_list(request):
-    """
-    Vendor list with outstanding — OPTIMIZED
-    ✅ FIX: 600+ queries → 2 queries
-    """
-    from django.db.models import Sum, Count, Q, F, Value, DecimalField
-    from django.db.models.functions import Coalesce
-    
-    vendors = Vendor.objects.select_related('group').annotate(
+    # ✅ TENANT FILTER
+    vendors = get_tenant_queryset(request, Vendor).select_related('group').annotate(
         total_purchases=Coalesce(
             Sum('purchase__purchaseitem__total_amt', output_field=DecimalField(max_digits=20, decimal_places=2)),
             Value(Decimal('0.00'))
@@ -12509,7 +12411,6 @@ def vendor_list(request):
 
 @login_required
 def vendor_create(request):
-    """Create new vendor - Frontend view"""
     if request.method == 'POST':
         try:
             name = request.POST.get('name', '').strip()
@@ -12517,31 +12418,31 @@ def vendor_create(request):
             contact_number = request.POST.get('contact_number', '')
             address = request.POST.get('address', '')
             group_id = request.POST.get('group') or None
-            
-            # ✅ FIX: opening_balance save karo (YEH LINE ADD KARO)
             opening_balance = Decimal(request.POST.get('opening_balance', 0))
             
             if not name:
                 messages.error(request, 'Vendor name is required!')
                 return redirect('vendor_create')
             
-            # Check for duplicate vendor code
-            if vendor_code and Vendor.objects.filter(vendor_code=vendor_code).exists():
+            if vendor_code and Vendor.objects.filter(
+                client=request.tenant,
+                vendor_code=vendor_code
+            ).exists():
                 messages.error(request, f'Vendor code "{vendor_code}" already exists!')
                 return redirect('vendor_create')
             
-            # ✅ FIX: opening_balance field add karo (YEH LINE ADD KARO)
             vendor = Vendor(
+                client=request.tenant,  # ✅ CLIENT ASSIGN
                 name=name,
                 vendor_code=vendor_code if vendor_code else None,
                 contact_number=contact_number,
                 address=address,
                 group_id=group_id,
-                opening_balance=opening_balance  # ✅ YEH LINE ADD KARO
+                opening_balance=opening_balance
             )
             vendor.save()
             
-            messages.success(request, f'✅ Vendor "{vendor.name}" created! Code: {vendor.vendor_code} | Opening Balance: Rs. {vendor.opening_balance:,.2f}')
+            messages.success(request, f'✅ Vendor "{vendor.name}" created! Code: {vendor.vendor_code}')
             return redirect('vendor_list')
             
         except Exception as e:
@@ -14057,7 +13958,41 @@ def sale_order_convert_invoice(request, pk):
 def product_create(request):
     if request.method == 'POST':
         try:
+            # ========================================== #
+            # ✅ CLIENT FALLBACK LOGIC                   #
+            # ========================================== #
+            client = request.tenant
+            
+            if not client and request.user.is_authenticated:
+                # Fallback 1: User se client
+                client = Client.objects.filter(user=request.user).first()
+                
+                # Fallback 2: Email se
+                if not client and request.user.email:
+                    client = Client.objects.filter(email=request.user.email).first()
+                
+                # Fallback 3: Subdomain == username
+                if not client:
+                    client = Client.objects.filter(
+                        subdomain=request.user.username.lower()
+                    ).first()
+            
+            # ✅ Client validation
+            if not client:
+                messages.error(request, '❌ No client associated with your account!')
+                return redirect('product_create')
+            
+            # ✅ DEBUG prints (terminal mein dikhenge)
+            print(f"\n=== PRODUCT CREATE DEBUG ===")
+            print(f"User: {request.user.username}")
+            print(f"request.tenant: {request.tenant}")
+            print(f"Final Client: {client.business_name} (ID: {client.id})")
+            
+            # ========================================== #
+            # CREATE PRODUCT                             #
+            # ========================================== #
             product = Product(
+                client=client,  # ✅ Ab client set hai
                 serial_no=request.POST.get('serial_no', '') or None,
                 name=request.POST.get('name'),
                 description=request.POST.get('description', ''),
@@ -14075,15 +14010,22 @@ def product_create(request):
             if request.POST.get('barcode', '').strip():
                 product.use_custom_barcode = True
             
-            # ✅ Image upload
             if request.FILES.get('image'):
                 product.image = request.FILES['image']
             
             product.save()
+            
+            print(f"✅ Product SAVED! ID: {product.id}, Name: {product.name}")
+            print(f"=== END DEBUG ===\n")
+            
             messages.success(request, f'✅ Product "{product.name}" created successfully!')
             return redirect('product_list')
-            
+        
         except Exception as e:
+            import traceback
+            print(f"\n❌ PRODUCT CREATE ERROR:")
+            traceback.print_exc()
+            print(f"=== END ERROR ===\n")
             messages.error(request, f'❌ Error: {str(e)}')
             return redirect('product_create')
     
@@ -25306,7 +25248,10 @@ def product_import(request):
         
 @login_required
 def product_list(request):
-    products = Product.objects.select_related('unit', 'category', 'brand', 'location', 'types').order_by('serial_no')
+    # ✅ TENANT FILTER
+    products = get_tenant_queryset(request, Product).select_related(
+        'unit', 'category', 'brand', 'location', 'types'
+    ).order_by('serial_no')
     
     search = request.GET.get('search', '')
     if search:
@@ -25333,13 +25278,21 @@ def product_list(request):
     page = request.GET.get('page', 1)
     page_obj = paginator.get_page(page)
     
-    # ✅ NEW: Quick Stats
-    active_count = Product.objects.filter(is_active=True).count()
+    # Quick Stats
+    active_count = get_tenant_queryset(request, Product).filter(is_active=True).count()
     
     # Total stock and value
     total_stock = 0
     total_value = Decimal('0.00')
     inventory_items = Inventory.objects.select_related('product')
+    
+    if not request.user.is_superuser:
+        client = getattr(request, 'tenant', None)
+        if client:
+            inventory_items = inventory_items.filter(product__client=client)
+        else:
+            inventory_items = inventory_items.none()
+    
     for inv in inventory_items:
         total_stock += inv.stock
         total_value += inv.stock_value()
@@ -25354,9 +25307,9 @@ def product_list(request):
         'selected_category': category_id,
         'selected_brand': brand_id,
         'selected_location': location_id,
-        'active_count': active_count,  # ✅ NEW
-        'total_stock': total_stock,    # ✅ NEW
-        'total_value': total_value,    # ✅ NEW
+        'active_count': active_count,
+        'total_stock': total_stock,
+        'total_value': total_value,
     }
     return render(request, 'products/list.html', context)
     
