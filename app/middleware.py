@@ -65,7 +65,7 @@ class MultiTenantMiddleware:
         # ========================================== #
         # 2. SUPER ADMIN DOMAINS                     #
         # ========================================== #
-        if host in ['uqn88store.com', 'www.uqn88store.com', 'localhost', '127.0.0.1']:
+        if host in ['staff.uqn88.store', 'localhost', '127.0.0.1']:
             
             # ✅ Superuser → bypass (no tenant, all access)
             if request.user.is_authenticated and request.user.is_superuser:
