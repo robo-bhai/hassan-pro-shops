@@ -5,13 +5,19 @@ import sys
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# ============================================
+# ✅ .env FILE LOAD (SABSE PEHLE - TOP PAR)
+# ============================================
+from dotenv import load_dotenv
+load_dotenv(BASE_DIR / '.env')
+
 # --- DATABASE DRIVER SETUP ---
 import pymysql
 pymysql.install_as_MySQLdb()
 
 # --- KEYS & GENERAL CONFIGURATION ---
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
-SALT_KEY = os.environ.get('DJANGO_SALT_KEY')
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-fallback-key-change-me')
+SALT_KEY = os.environ.get('DJANGO_SALT_KEY', 'fallback-salt-key-change-me')
 DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
 # --- ALLOWED HOSTS ---
@@ -19,7 +25,7 @@ env_allowed = os.environ.get('ALLOWED_HOSTS', '')
 if env_allowed:
     ALLOWED_HOSTS = [h.strip() for h in env_allowed.split(',') if h.strip()]
 else:
-    ALLOWED_HOSTS = []
+    ALLOWED_HOSTS = ['*'] if DEBUG else []
 
 # Automatic Local IP Resolution
 try:
@@ -42,21 +48,14 @@ if env_csrf:
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-
-import os
-
-
+# --- EMAIL CONFIGURATION ---
 EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp-relay.brevo.com')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() in ('true', '1', 't')
-
-
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'info@uqn88.store')
-
-
 
 # --- SESSION CONFIGURATION ---
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
@@ -85,7 +84,7 @@ INSTALLED_APPS = [
     'ceo_module',
 ]
 
-# --- CLOUDINARY CONFIGURATION (FROM ENVIRONMENT/GIT SECRETS) ---
+# --- CLOUDINARY CONFIGURATION ---
 CLOUDINARY_STORAGE = {
     'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
     'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
@@ -102,7 +101,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     
-    # Custom
+    # Custom Middleware
     'app.middleware.MultiTenantMiddleware',
     'app.middleware.ShareholderRestrictionMiddleware',
     'app.middleware.LiveVisitorMiddleware',
@@ -138,19 +137,18 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'P1.wsgi.application'
 
-# --- MYSQL DATABASE CONFIGURATION ---
+# ==========================================
+# ✅ DATABASE CONFIGURATION (MySQL/MariaDB)
+# ==========================================
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.environ.get('DB_NAME'),
-        'USER': os.environ.get('DB_USER'),
-        'PASSWORD': os.environ.get('DB_PASS'),
-        'HOST': os.environ.get('DB_HOST'),
+        'NAME': os.environ.get('DB_NAME', 'uqn88_db'),
+        'USER': os.environ.get('DB_USER', 'admin'),
+        'PASSWORD': os.environ.get('DB_PASS', '123456'),
+        'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
         'PORT': os.environ.get('DB_PORT', '3306'),
         'OPTIONS': {
-            'ssl': {
-                'ssl-mode': 'REQUIRED',
-            },
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
             'charset': 'utf8mb4',
         },
@@ -159,9 +157,6 @@ DATABASES = {
 }
 
 # --- DB BACKUP CONFIGURATION ---
-# Backward compatibility for django-cloudinary-storage / collectstatic
-STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
-
 DBBACKUP_STORAGE = 'django.core.files.storage.FileSystemStorage'
 DBBACKUP_STORAGE_OPTIONS = {
     'location': BASE_DIR / 'dbbackup',
@@ -201,48 +196,30 @@ USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
-import os
-
 # ============================================
 # STATIC FILES & MEDIA
 # ============================================
-
-import os
-from pathlib import Path
-
-# Static Files Setup
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Media Files Setup
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Directory Auto-Creation (Safe Side)
 os.makedirs(STATIC_ROOT, exist_ok=True)
 os.makedirs(MEDIA_ROOT, exist_ok=True)
 
 # ============================================
-# ✅ DYNAMIC STORAGE SETTINGS (Termux / CI / Prod)
+# ✅ DYNAMIC STORAGE (Termux vs Cloudinary)
 # ============================================
-
-# Environment variable check karein (Default: False)
 IS_TERMUX = os.getenv('RUNNING_IN_TERMUX', 'false').lower() == 'true'
 
 if IS_TERMUX:
-    # Android / Termux ke liye custom storage
     DEFAULT_FILE_STORAGE_BACKEND = "app.custom_storage.TermuxFileSystemStorage"
+    print("🏠 [STORAGE] Termux Local Storage Active")
 else:
-    # Standard Server / Cloud Storage ke liye Cloudinary
     DEFAULT_FILE_STORAGE_BACKEND = "cloudinary_storage.storage.MediaCloudinaryStorage"
-
-
-#((((--++(++++)))))
-
-
-# Backward compatibility & fix for missing files crash during collectstatic
-STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
+    print("☁️ [STORAGE] Cloudinary Active")
 
 STORAGES = {
     "default": {
@@ -253,12 +230,17 @@ STORAGES = {
     },
 }
 
-
-
-
-##()++(+:&&&:&-)
-
-
+# ============================================
+# ✅ TERMUX FILE LOCKING FIX
+# ============================================
+try:
+    import django.core.files.locks as locks_module
+    locks_module.lock = lambda f, flags: True
+    locks_module.unlock = lambda f: True
+    locks_module.is_locked = lambda f: False
+    print("✅ [TERMUX FIX] File locking disabled")
+except Exception as e:
+    print(f"⚠️ [TERMUX FIX] Failed: {e}")
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -270,14 +252,8 @@ LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {message}',
-            'style': '{',
-        },
-        'simple': {
-            'format': '{levelname} {asctime} {message}',
-            'style': '{',
-        },
+        'verbose': {'format': '{levelname} {asctime} {module} {message}', 'style': '{'},
+        'simple': {'format': '{levelname} {asctime} {message}', 'style': '{'},
     },
     'handlers': {
         'backup_file': {
@@ -314,11 +290,9 @@ LOGGING = {
 # ============================================ #
 # ✅ DJANGO ADMIN - FILE UPLOAD & FIELD LIMITS #
 # ============================================ #
-DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000  # Default: 1000
-DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB (Default: 2.5 MB)
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000
+DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB
-
-
 
 LOGS_DIR = BASE_DIR / 'logs'
 os.makedirs(LOGS_DIR, exist_ok=True)
@@ -326,14 +300,6 @@ os.makedirs(LOGS_DIR, exist_ok=True)
 RCLONE_ENABLED = True
 RCLONE_REMOTE_NAME = 'gdrive'
 RCLONE_REMOTE_DIR = 'TermuxBackups'
-
-__all__ = [
-    'BACKUP_DIR',
-    'BACKUP_PROGRESS_FILE',
-    'RCLONE_ENABLED',
-    'RCLONE_REMOTE_NAME',
-    'RCLONE_REMOTE_DIR',
-]
 
 PWA_APP_NAME = 'Business Management System'
 PWA_APP_SHORT_NAME = 'BMS App'
@@ -346,16 +312,8 @@ PWA_APP_ORIENTATION = 'any'
 PWA_APP_START_URL = '/'
 PWA_APP_STATUS_BAR_COLOR = 'default'
 PWA_APP_ICONS = [
-    {
-        'src': '/static/ceo/images/icon-192.png',
-        'sizes': '192x192',
-        'type': 'image/png'
-    },
-    {
-        'src': '/static/ceo/images/icon-512.png',
-        'sizes': '512x512',
-        'type': 'image/png'
-    }
+    {'src': '/static/ceo/images/icon-192.png', 'sizes': '192x192', 'type': 'image/png'},
+    {'src': '/static/ceo/images/icon-512.png', 'sizes': '512x512', 'type': 'image/png'}
 ]
 PWA_APP_DIR = 'ltr'
 PWA_APP_LANG = 'en-US'
