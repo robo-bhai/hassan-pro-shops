@@ -209,6 +209,9 @@ MEDIA_ROOT = BASE_DIR / 'media'
 os.makedirs(STATIC_ROOT, exist_ok=True)
 os.makedirs(MEDIA_ROOT, exist_ok=True)
 
+# Legacy attribute added to satisfy django-cloudinary-storage checks under Django 5+
+STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+
 # ============================================
 # ✅ DYNAMIC STORAGE (Termux vs Cloudinary)
 # ============================================
