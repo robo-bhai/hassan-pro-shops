@@ -17,6 +17,7 @@ from django.db import transaction
 from django.core.cache import cache
 from decimal import Decimal
 import logging
+from .security_utils import safe_error
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +117,7 @@ def delivery_settings_view(request):
         
         except Exception as e:
             logger.error(f"Delivery settings save error: {e}")
-            messages.error(request, f'❌ Error: {str(e)}')
+            messages.error(request, f'❌ Error: {safe_error(e)}')
             return redirect('delivery_settings_view')
     
     # ========================================== #
@@ -203,7 +204,7 @@ def delivery_settings_toggle(request):
             })
     except Exception as e:
         logger.error(f"Toggle error: {e}")
-        return JsonResponse({'success': False, 'message': str(e)})
+        return JsonResponse({'success': False, 'message': safe_error(e)})
 
 
 @login_required
@@ -252,6 +253,6 @@ def delivery_settings_reset(request):
         messages.success(request, '✅ Delivery settings reset to default!')
     except Exception as e:
         logger.error(f"Reset error: {e}")
-        messages.error(request, f'❌ Error: {str(e)}')
+        messages.error(request, f'❌ Error: {safe_error(e)}')
     
     return redirect('delivery_settings_view')

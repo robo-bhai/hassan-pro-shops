@@ -26,6 +26,7 @@ from .models import (
     DeliveryInfo, OrderTracking, DeliveryFeedback,
     SaleOrder, CustomerOrder, CompanyInfo,
 )
+from .security_utils import safe_error, blocked, register_failure, clear_failures, phones_match
 
 logger = logging.getLogger(__name__)
 
@@ -223,7 +224,7 @@ def order_set_delivery_type(request, order_id):
         
     except Exception as e:
         logger.error(f"Set delivery type error: {e}")
-        return JsonResponse({'success': False, 'message': str(e)})
+        return JsonResponse({'success': False, 'message': safe_error(e)})
 
 
 # ============================================
@@ -301,7 +302,7 @@ def order_assign_rider(request, order_id):
         
     except Exception as e:
         logger.error(f"Assign rider error: {e}")
-        return JsonResponse({'success': False, 'message': str(e)})
+        return JsonResponse({'success': False, 'message': safe_error(e)})
 
 
 # ============================================
@@ -418,7 +419,7 @@ def order_update_status(request, order_id):
         
     except Exception as e:
         logger.error(f"Update status error: {e}")
-        return JsonResponse({'success': False, 'message': str(e)})
+        return JsonResponse({'success': False, 'message': safe_error(e)})
 
 
 # ============================================
@@ -458,7 +459,7 @@ def order_tracking_timeline(request, order_id):
         return JsonResponse({'success': True, 'timeline': timeline})
         
     except Exception as e:
-        return JsonResponse({'success': False, 'message': str(e)})
+        return JsonResponse({'success': False, 'message': safe_error(e)})
 
 
 # ============================================
@@ -466,61 +467,62 @@ def order_tracking_timeline(request, order_id):
 # ============================================
 
 def track_order_public(request):
-    """Public tracking page — koi bhi order track kar sakta hai"""
-    
+    """Public tracking page.
+
+    The customer must enter the order number AND the phone number used on the order.
+    Failed attempts are rate-limited and "order not found" looks the same as "wrong phone",
+    so nobody can find out which order numbers exist or read other people's orders.
+    """
     order = None
     delivery_info = None
     tracking_history = []
     error = None
-    search_order_no = ''
+    search_order_no = request.GET.get('order_no', '').strip().upper()[:50]
     search_phone = ''
-    
+    NOT_FOUND = '❌ Order nahi mila ya phone number match nahi kar raha'
+
     if request.method == 'POST':
-        search_order_no = request.POST.get('order_no', '').strip().upper()
-        search_phone = request.POST.get('phone', '').strip()
-        
-        if not search_order_no:
-            error = '❌ Order number zaroori hai'
+        search_order_no = request.POST.get('order_no', '').strip().upper()[:50]
+        search_phone = request.POST.get('phone', '').strip()[:20]
+
+        if not search_order_no or not search_phone:
+            error = '❌ Order number aur phone number dono zaroori hain'
+        elif (blocked(request, 'track_ip', limit=15)
+              or blocked(request, 'track_order', limit=5, extra=search_order_no, per_ip=False)):
+            error = '⚠️ Bohot zyada koshishein. Thori der baad dobara try karein.'
         else:
             try:
-                # Try SaleOrder
-                order = SaleOrder.objects.filter(
+                candidate = SaleOrder.objects.filter(
                     order_no__iexact=search_order_no
                 ).select_related('customer').first()
-                
-                # Try CustomerOrder if not found
-                if not order:
+
+                if not candidate:
                     customer_order = CustomerOrder.objects.filter(
                         order_number__iexact=search_order_no
                     ).select_related('customer').first()
                     if customer_order and customer_order.sale:
-                        order = customer_order.sale
-                
-                if not order:
-                    error = f'❌ Order "{search_order_no}" nahi mila'
-                else:
-                    # Verify phone (optional)
-                    if search_phone:
-                        clean_input = search_phone.replace(' ', '').replace('-', '').replace('+', '')
-                        clean_db = (order.customer.contact_number or '').replace(' ', '').replace('-', '').replace('+', '')
-                        
-                        if clean_input[-10:] != clean_db[-10:]:
-                            error = '❌ Phone number match nahi kar raha'
-                            order = None
-                
-                if order:
+                        candidate = customer_order.sale
+
+                if (candidate and candidate.customer
+                        and phones_match(search_phone, candidate.customer.contact_number)):
+                    order = candidate
+                    clear_failures(request, 'track_order', extra=search_order_no, per_ip=False)
                     tracking_history = order.tracking_history.all().order_by('timestamp')
                     try:
                         delivery_info = order.delivery_info
                     except DeliveryInfo.DoesNotExist:
                         delivery_info = None
-                        
+                else:
+                    register_failure(request, 'track_ip')
+                    register_failure(request, 'track_order', extra=search_order_no, per_ip=False)
+                    error = NOT_FOUND
+
             except Exception as e:
                 logger.error(f"Track order error: {e}")
-                error = f'❌ Error: {str(e)}'
-    
+                error = '❌ ' + safe_error(e)
+
     company = CompanyInfo.objects.first()
-    
+
     context = {
         'company_name': company.name if company else 'Shop',
         'company': company,

@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>📊 Subscription Dashboard</h2>
+    
+    <!-- Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h6>Total Clients</h6>
+                    <h2>{{ total_clients }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h6>Active</h6>
+                    <h2>{{ active_clients }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h6>Monthly Revenue</h6>
+                    <h2>Rs. {{ monthly_revenue|floatformat:0 }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h6>Total Revenue</h6>
+                    <h2>Rs. {{ total_revenue|floatformat:0 }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Expiring Soon -->
+    {% if expiring_soon %}
+    <div class="card mb-4 border-warning">
+        <div class="card-header bg-warning">
+            <h5>⚠️ Expiring Soon (7 days)</h5>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Business</th>
+                        <th>Plan</th>
+                        <th>Expires</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for client in expiring_soon %}
+                    <tr>
+                        <td>{{ client.business_name }}</td>
+                        <td>{{ client.current_plan.name }}</td>
+                        <td>{{ client.subscription_end|date:"d-M-Y" }} ({{ client.days_remaining }} days)</td>
+                        <td>
+                            <a href="{% url 'client_renew' client.pk %}" class="btn btn-sm btn-success">Renew</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Activity -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>💰 Recent Payments</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        {% for payment in recent_payments %}
+                        <tr>
+                            <td>{{ payment.client.business_name }}</td>
+                            <td>Rs. {{ payment.total_amount|floatformat:0 }}</td>
+                            <td>{{ payment.payment_date|date:"d-M-Y" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td>No payments</td></tr>
+                        {% endfor %}
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>🆕 Recent Clients</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        {% for client in recent_clients %}
+                        <tr>
+                            <td>{{ client.business_name }}</td>
+                            <td>{{ client.subdomain }}</td>
+                            <td>
+                                <a href="{% url 'client_detail' client.pk %}" class="btn btn-sm btn-info">View</a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td>No clients</td></tr>
+                        {% endfor %}
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

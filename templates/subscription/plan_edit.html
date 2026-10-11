@@ -1,0 +1,272 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-warning text-dark">
+            <h3>✏️ Edit Subscription Plan - {{ plan.name }}</h3>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>Basic Info</h5>
+                        <div class="mb-3">
+                            <label>Plan Name *</label>
+                            <input type="text" name="name" class="form-control" 
+                                   value="{{ plan.name }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label>Plan Type *</label>
+                            <select name="plan_type" class="form-control" required>
+                                {% for value, label in plan_types %}
+                                <option value="{{ value }}" {% if plan.plan_type == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label>Description</label>
+                            <textarea name="description" class="form-control" rows="3">{{ plan.description|default:'' }}</textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h5>Pricing</h5>
+                        <div class="mb-3">
+                            <label>Monthly Price (Rs.) *</label>
+                            <input type="number" name="price" class="form-control" 
+                                   value="{{ plan.price }}" required step="0.01">
+                        </div>
+                        <div class="mb-3">
+                            <label>Setup Fee (Rs.)</label>
+                            <input type="number" name="setup_fee" class="form-control" 
+                                   value="{{ plan.setup_fee }}" step="0.01">
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+                <h5>📦 Modules</h5>
+                <p class="text-muted small">Client ke subdomain pe yeh modules dikhenge</p>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input type="checkbox" name="module_hr" class="form-check-input"
+                                   {% if plan.enabled_modules.hr %}checked{% endif %}>
+                            <label class="form-check-label">👥 HR Management</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="module_production" class="form-check-input"
+                                   {% if plan.enabled_modules.production %}checked{% endif %}>
+                            <label class="form-check-label">🏭 Production</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="module_installment" class="form-check-input"
+                                   {% if plan.enabled_modules.installment %}checked{% endif %}>
+                            <label class="form-check-label">📅 Installments</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="module_reports" class="form-check-input"
+                                   {% if plan.enabled_modules.reports %}checked{% endif %}>
+                            <label class="form-check-label">📊 Reports</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="module_whatsapp" class="form-check-input"
+                                   {% if plan.enabled_modules.whatsapp %}checked{% endif %}>
+                            <label class="form-check-label">📱 WhatsApp</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="module_inventory" class="form-check-input"
+                                   {% if plan.enabled_modules.inventory %}checked{% endif %}>
+                            <label class="form-check-label">📦 Inventory</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="module_purchase" class="form-check-input"
+                                   {% if plan.enabled_modules.purchase %}checked{% endif %}>
+                            <label class="form-check-label">📥 Purchase</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="module_sales" class="form-check-input"
+                                   {% if plan.enabled_modules.sales %}checked{% endif %}>
+                            <label class="form-check-label">🛒 Sales</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="module_accounts" class="form-check-input"
+                                   {% if plan.enabled_modules.accounts %}checked{% endif %}>
+                            <label class="form-check-label">📊 Accounts</label>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input type="checkbox" name="module_backup" class="form-check-input"
+                                   {% if plan.enabled_modules.backup %}checked{% endif %}>
+                            <label class="form-check-label">💾 Database Backup</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="module_service" class="form-check-input"
+                                   {% if plan.enabled_modules.service %}checked{% endif %}>
+                            <label class="form-check-label">🛠️ Services</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="module_supply_chain" class="form-check-input"
+                                   {% if plan.enabled_modules.supply_chain %}checked{% endif %}>
+                            <label class="form-check-label">🏭 Supply Chain</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="module_budget" class="form-check-input"
+                                   {% if plan.enabled_modules.budget %}checked{% endif %}>
+                            <label class="form-check-label">📊 Budget</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="module_expenses" class="form-check-input"
+                                   {% if plan.enabled_modules.expenses %}checked{% endif %}>
+                            <label class="form-check-label">💰 Expenses</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="module_audit" class="form-check-input"
+                                   {% if plan.enabled_modules.audit %}checked{% endif %}>
+                            <label class="form-check-label">🔍 Audit</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="module_shareholder" class="form-check-input"
+                                   {% if plan.enabled_modules.shareholder %}checked{% endif %}>
+                            <label class="form-check-label">👥 Shareholders</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="module_loan" class="form-check-input"
+                                   {% if plan.enabled_modules.loan %}checked{% endif %}>
+                            <label class="form-check-label">🏦 Loan Management</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="module_ai" class="form-check-input"
+                                   {% if plan.enabled_modules.ai %}checked{% endif %}>
+                            <label class="form-check-label">🤖 AI Modules</label>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input type="checkbox" name="module_bi" class="form-check-input"
+                                   {% if plan.enabled_modules.bi %}checked{% endif %}>
+                            <label class="form-check-label">📊 Business Intelligence</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="module_document" class="form-check-input"
+                                   {% if plan.enabled_modules.document %}checked{% endif %}>
+                            <label class="form-check-label">📋 Document Management</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="module_security" class="form-check-input"
+                                   {% if plan.enabled_modules.security %}checked{% endif %}>
+                            <label class="form-check-label">🔒 Security</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="module_testing" class="form-check-input"
+                                   {% if plan.enabled_modules.testing %}checked{% endif %}>
+                            <label class="form-check-label">🧪 Testing</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="module_operations" class="form-check-input"
+                                   {% if plan.enabled_modules.operations %}checked{% endif %}>
+                            <label class="form-check-label">🏢 Business Operations</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="module_cash" class="form-check-input"
+                                   {% if plan.enabled_modules.cash %}checked{% endif %}>
+                            <label class="form-check-label">💰 Main Cash</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="module_warehouse" class="form-check-input"
+                                   {% if plan.enabled_modules.warehouse %}checked{% endif %}>
+                            <label class="form-check-label">🏭 Warehouse</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="module_returns" class="form-check-input"
+                                   {% if plan.enabled_modules.returns %}checked{% endif %}>
+                            <label class="form-check-label">🔄 Returns</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="module_people" class="form-check-input"
+                                   {% if plan.enabled_modules.people %}checked{% endif %}>
+                            <label class="form-check-label">👥 People</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+                <h5>Limits</h5>
+                <div class="row">
+                    <div class="col-md-3">
+                        <label>Max Users</label>
+                        <input type="number" name="max_users" class="form-control" value="{{ plan.max_users }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label>Max Products</label>
+                        <input type="number" name="max_products" class="form-control" value="{{ plan.max_products }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label>Max Customers</label>
+                        <input type="number" name="max_customers" class="form-control" value="{{ plan.max_customers }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label>Max Orders/Month</label>
+                        <input type="number" name="max_orders_per_month" class="form-control" value="{{ plan.max_orders_per_month }}">
+                    </div>
+                </div>
+                
+                <hr>
+                <h5>Features</h5>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input type="checkbox" name="has_ai_features" class="form-check-input"
+                                   {% if plan.has_ai_features %}checked{% endif %}>
+                            <label>AI Features</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="has_whatsapp" class="form-check-input"
+                                   {% if plan.has_whatsapp %}checked{% endif %}>
+                            <label>WhatsApp</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input type="checkbox" name="has_live_chat" class="form-check-input"
+                                   {% if plan.has_live_chat %}checked{% endif %}>
+                            <label>Live Chat</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="has_backup" class="form-check-input"
+                                   {% if plan.has_backup %}checked{% endif %}>
+                            <label>Backup</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input type="checkbox" name="has_priority_support" class="form-check-input"
+                                   {% if plan.has_priority_support %}checked{% endif %}>
+                            <label>Priority Support</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="has_custom_domain" class="form-check-input"
+                                   {% if plan.has_custom_domain %}checked{% endif %}>
+                            <label>Custom Domain</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+                <button type="submit" class="btn btn-success btn-lg">
+                    <i class="bi bi-check-circle"></i> Save Changes
+                </button>
+                <a href="{% url 'subscription_plans_list' %}" class="btn btn-secondary btn-lg">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

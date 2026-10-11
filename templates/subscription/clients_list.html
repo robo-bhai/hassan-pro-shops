@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>👥 Clients</h2>
+        <a href="{% url 'client_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> New Client
+        </a>
+    </div>
+
+    <!-- Stats -->
+    <div class="row mb-4">
+        <div class="col-md-2">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <h6>Total</h6>
+                    <h3>{{ total_clients }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h6>Active</h6>
+                    <h3>{{ active_clients }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card bg-warning text-dark">
+                <div class="card-body text-center">
+                    <h6>Trial</h6>
+                    <h3>{{ trial_clients }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card bg-danger text-white">
+                <div class="card-body text-center">
+                    <h6>Expired</h6>
+                    <h3>{{ expired_clients }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <h6>Monthly Revenue</h6>
+                    <h3>Rs. {{ monthly_revenue|floatformat:0 }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-5">
+                    <input type="text" name="search" class="form-control" 
+                           placeholder="Search..." value="{{ search }}">
+                </div>
+                <div class="col-md-3">
+                    <select name="status" class="form-control">
+                        <option value="">All Status</option>
+                        <option value="active" {% if selected_status == 'active' %}selected{% endif %}>Active</option>
+                        <option value="trial" {% if selected_status == 'trial' %}selected{% endif %}>Trial</option>
+                        <option value="expired" {% if selected_status == 'expired' %}selected{% endif %}>Expired</option>
+                        <option value="suspended" {% if selected_status == 'suspended' %}selected{% endif %}>Suspended</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search"></i> Search
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Clients Table -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Business</th>
+                            <th>Subdomain</th>
+                            <th>Owner</th>
+                            <th>Plan</th>
+                            <th>Status</th>
+                            <th>Days Left</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for client in clients %}
+                        <tr>
+                            <td>
+                                <strong>{{ client.business_name }}</strong><br>
+                                <small class="text-muted">{{ client.city }}</small>
+                            </td>
+                            <td>
+                                <a href="{{ client.get_url }}" target="_blank">
+                                    {{ client.subdomain }}.uqn88store.com
+                                </a>
+                            </td>
+                            <td>
+                                {{ client.owner_name }}<br>
+                                <small>{{ client.phone }}</small>
+                            </td>
+                            <td>
+                                {% if client.current_plan %}
+                                {{ client.current_plan.name }}<br>
+                                <small>Rs. {{ client.current_plan.price|floatformat:0 }}/m</small>
+                                {% else %}-{% endif %}
+                            </td>
+                            <td>
+                                {% if client.subscription_status == 'active' %}
+                                <span class="badge bg-success">✅ Active</span>
+                                {% elif client.subscription_status == 'trial' %}
+                                <span class="badge bg-warning">🟡 Trial</span>
+                                {% elif client.subscription_status == 'expired' %}
+                                <span class="badge bg-danger">❌ Expired</span>
+                                {% elif client.subscription_status == 'suspended' %}
+                                <span class="badge bg-secondary">⏸️ Suspended</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if client.days_remaining > 0 %}
+                                {{ client.days_remaining }} days
+                                {% else %}
+                                <span class="text-danger">Expired</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'client_detail' client.pk %}" class="btn btn-sm btn-info">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{% url 'client_renew' client.pk %}" class="btn btn-sm btn-success">
+                                    <i class="bi bi-arrow-repeat"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center">
+                                No clients yet. <a href="{% url 'client_create' %}">Create first</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

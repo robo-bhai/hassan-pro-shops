@@ -1,0 +1,108 @@
+<!-- File: templates/subscription/client_edit.html -->
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-warning text-dark">
+            <h3>✏️ Edit Client - {{ client.business_name }}</h3>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>Business Info</h5>
+                        <div class="mb-3">
+                            <label>Business Name *</label>
+                            <input type="text" name="business_name" class="form-control" 
+                                   value="{{ client.business_name }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label>Owner Name *</label>
+                            <input type="text" name="owner_name" class="form-control" 
+                                   value="{{ client.owner_name }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label>Email *</label>
+                            <input type="email" name="email" class="form-control" 
+                                   value="{{ client.email }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label>Phone *</label>
+                            <input type="text" name="phone" class="form-control" 
+                                   value="{{ client.phone }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label>City *</label>
+                            <input type="text" name="city" class="form-control" 
+                                   value="{{ client.city }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label>Address</label>
+                            <textarea name="address" class="form-control" rows="2">{{ client.address|default:'' }}</textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h5>Subscription Settings</h5>
+                        
+                        <div class="mb-3">
+                            <label>Subdomain</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" 
+                                       value="{{ client.subdomain }}" disabled>
+                                <span class="input-group-text">.uqn88store.com</span>
+                            </div>
+                            <small class="text-muted">Subdomain cannot be changed</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label>Custom Domain</label>
+                            <input type="text" name="custom_domain" class="form-control" 
+                                   value="{{ client.custom_domain|default:'' }}" 
+                                   placeholder="e.g., shop.example.com">
+                            <small class="text-muted">Optional - leave empty if not using</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label>Subscription Status *</label>
+                            <select name="subscription_status" class="form-control" required>
+                                {% for value, label in status_choices %}
+                                <option value="{{ value }}" {% if client.subscription_status == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label>Current Plan</label>
+                            <input type="text" class="form-control" 
+                                   value="{{ client.current_plan.name|default:'No Plan' }}" disabled>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label>Subscription Period</label>
+                            <input type="text" class="form-control" 
+                                   value="{{ client.subscription_start|date:'d-M-Y' }} to {{ client.subscription_end|date:'d-M-Y' }}" disabled>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label>Notes</label>
+                            <textarea name="notes" class="form-control" rows="3">{{ client.notes|default:'' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+                <button type="submit" class="btn btn-success btn-lg">
+                    <i class="bi bi-check-circle"></i> Save Changes
+                </button>
+                <a href="{% url 'client_detail' client.pk %}" class="btn btn-secondary btn-lg">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

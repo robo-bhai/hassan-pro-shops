@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>📋 Subscription Plans</h2>
+        <a href="{% url 'subscription_plan_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> New Plan
+        </a>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5>Total Plans</h5>
+                    <h2>{{ total_plans }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5>Active Plans</h5>
+                    <h2>{{ active_plans }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        {% for plan in plans %}
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 {% if plan.is_featured %}border-warning{% endif %}">
+                {% if plan.is_featured %}
+                <div class="card-header bg-warning text-dark">⭐ FEATURED</div>
+                {% endif %}
+                <div class="card-body">
+                    <h4>{{ plan.name }}</h4>
+                    <p class="text-muted">{{ plan.get_plan_type_display }}</p>
+                    
+                    <h2 class="text-primary">
+                        Rs. {{ plan.price|floatformat:0 }}
+                        <small class="text-muted">/month</small>
+                    </h2>
+                    
+                    {% if plan.setup_fee > 0 %}
+                    <p class="text-muted">+ Rs. {{ plan.setup_fee|floatformat:0 }} setup</p>
+                    {% endif %}
+                    
+                    <hr>
+                    <h6>Modules:</h6>
+                    <div class="mb-3">
+                        {% for module, enabled in plan.enabled_modules.items %}
+                            {% if enabled %}
+                            <span class="badge bg-success mb-1">{{ module|title }}</span>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    
+                    <h6>Limits:</h6>
+                    <ul class="small">
+                        <li>Users: {{ plan.max_users }}</li>
+                        <li>Products: {{ plan.max_products }}</li>
+                        <li>Customers: {{ plan.max_customers }}</li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <a href="{% url 'subscription_plan_edit' plan.pk %}" class="btn btn-sm btn-warning">
+                        <i class="bi bi-pencil"></i> Edit
+                    </a>
+                    <a href="{% url 'subscription_plan_delete' plan.pk %}" class="btn btn-sm btn-danger">
+                        <i class="bi bi-trash"></i> Delete
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                No plans yet. <a href="{% url 'subscription_plan_create' %}">Create first</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

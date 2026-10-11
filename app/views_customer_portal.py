@@ -53,6 +53,7 @@ from .models import (
 )
 
 from .decorators import customer_login_required
+from .security_utils import safe_error
 
 logger = logging.getLogger(__name__)
 
@@ -1221,7 +1222,7 @@ def set_delivery_type(request):
         })
     except Exception as e:
         logger.error(f"Set delivery type error: {e}")
-        return JsonResponse({'success': False, 'message': str(e)})
+        return JsonResponse({'success': False, 'message': safe_error(e)})
 
 
 # ============================================
@@ -1629,38 +1630,16 @@ def get_otp_remaining_api(request):
 # ============================================
 
 def track_order(request):
-    order_no = request.GET.get('order_no', '').strip()[:50]
-    bill_no = request.GET.get('bill_no', '').strip()[:50]
-    
-    sale_order = None
-    sale = None
-    
+    """This page used to show order details to anyone who typed an order or bill number.
+    It now sends the visitor to the tracking page that also asks for the phone number."""
+    from django.shortcuts import redirect
+    from django.urls import reverse
+    from urllib.parse import urlencode
+    order_no = request.GET.get('order_no', '').strip()[:50] or request.GET.get('bill_no', '').strip()[:50]
+    url = reverse('track_order_public')
     if order_no:
-        sale_order = SaleOrder.objects.filter(order_no__iexact=order_no).first()
-        if sale_order and sale_order.converted_to_sale:
-            sale = sale_order.converted_to_sale
-    elif bill_no:
-        sale = Sale.objects.filter(bill_no__iexact=bill_no).first()
-    
-    company = CompanyInfo.objects.first()
-    cart = request.session.get('cart', {})
-    cart_count = sum(item['quantity'] for item in cart.values())
-    
-    context = {
-        'company_name': company.name if company else 'Shop',
-        'company': company,
-        'order_no': order_no,
-        'bill_no': bill_no,
-        'sale_order': sale_order,
-        'sale': sale,
-        'cart_count': cart_count,
-    }
-    return render(request, 'customer_portal/track_order.html', context)
-
-
-# ============================================
-# 12. MY ORDERS
-# ============================================
+        url += '?' + urlencode({'order_no': order_no})
+    return redirect(url)
 
 @customer_login_required
 def my_orders(request):
@@ -1815,7 +1794,7 @@ def cancel_order_customer(request, order_id):
         })
     except Exception as e:
         logger.error(f"Cancel order error: {e}")
-        return JsonResponse({'success': False, 'message': str(e)})
+        return JsonResponse({'success': False, 'message': safe_error(e)})
 
 
 # ============================================
@@ -1940,7 +1919,7 @@ def update_delivery_address(request):
     except Exception as e:
         import logging
         logging.getLogger(__name__).error(f"Update address error: {e}")
-        return JsonResponse({'success': False, 'message': str(e)})
+        return JsonResponse({'success': False, 'message': safe_error(e)})
 
 
 # ============================================
@@ -2270,7 +2249,7 @@ def chat_send_message(request):
         
     except Exception as e:
         logger.error(f"Chat send error: {e}")
-        return JsonResponse({'success': False, 'message': str(e)})
+        return JsonResponse({'success': False, 'message': safe_error(e)})
 
 
 def chat_get_messages(request):
@@ -2336,7 +2315,7 @@ def chat_get_messages(request):
         
     except Exception as e:
         logger.error(f"Chat get error: {e}")
-        return JsonResponse({'success': False, 'message': str(e), 'messages': []})
+        return JsonResponse({'success': False, 'message': safe_error(e), 'messages': []})
 
 
 @require_POST
@@ -2384,7 +2363,7 @@ def chat_new(request):
         
     except Exception as e:
         logger.error(f"New chat error: {e}")
-        return JsonResponse({'success': False, 'message': str(e)})
+        return JsonResponse({'success': False, 'message': safe_error(e)})
 
 
 @require_POST
@@ -2401,7 +2380,7 @@ def chat_typing(request):
         return JsonResponse({'success': True})
         
     except Exception as e:
-        return JsonResponse({'success': False, 'message': str(e)})
+        return JsonResponse({'success': False, 'message': safe_error(e)})
 
 
 def chat_unread_count(request):
@@ -2434,7 +2413,7 @@ def chat_close(request):
             'message': 'Chat band kar diya gaya.'
         })
     except Exception as e:
-        return JsonResponse({'success': False, 'message': str(e)})
+        return JsonResponse({'success': False, 'message': safe_error(e)})
         
 # ============================================
 # PUBLIC ORDER TRACKING
@@ -2492,7 +2471,7 @@ def track_order_public(request):
                         delivery_info = None
                         
             except Exception as e:
-                error = f'❌ Error: {str(e)}'
+                error = f'❌ Error: {safe_error(e)}'
     
     company = CompanyInfo.objects.first()
     

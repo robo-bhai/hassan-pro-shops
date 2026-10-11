@@ -34,6 +34,7 @@ from .models import (
 )
 
 from .decorators import customer_login_required
+from .security_utils import safe_error
 
 logger = logging.getLogger(__name__)
 
@@ -219,7 +220,7 @@ def auto_place_order(request, customer):
         logger.error(f"Auto place order error: {e}")
         import traceback
         traceback.print_exc()
-        return None, str(e)
+        return None, safe_error(e)
 
 
 # ============================================
@@ -599,7 +600,7 @@ def send_order_otp(request):
         
     except Exception as e:
         logger.error(f"Send OTP error: {e}")
-        return JsonResponse({'success': False, 'message': str(e)})
+        return JsonResponse({'success': False, 'message': safe_error(e)})
 
 
 # ============================================
@@ -726,7 +727,7 @@ def verify_order_otp(request):
         
     except Exception as e:
         logger.error(f"Verify OTP error: {e}")
-        return JsonResponse({'success': False, 'message': str(e)})
+        return JsonResponse({'success': False, 'message': safe_error(e)})
 
 
 # ============================================
@@ -752,7 +753,7 @@ def save_payment_method(request):
         
         return JsonResponse({'success': True})
     except Exception as e:
-        return JsonResponse({'success': False, 'message': str(e)})
+        return JsonResponse({'success': False, 'message': safe_error(e)})
 
 
 # ============================================
@@ -851,7 +852,7 @@ def verify_otp_later(request):
                 
         except Exception as e:
             logger.error(f"Verify OTP later error: {e}")
-            messages.error(request, f'❌ Error: {str(e)}')
+            messages.error(request, f'❌ Error: {safe_error(e)}')
             return redirect('verify_otp_later')
     
     company = CompanyInfo.objects.first()
@@ -910,4 +911,4 @@ def place_order_direct(request):
     
     except Exception as e:
         logger.error(f"Place order direct error: {e}")
-        return JsonResponse({'success': False, 'message': str(e)})
+        return JsonResponse({'success': False, 'message': safe_error(e)})
