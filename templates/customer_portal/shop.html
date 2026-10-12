@@ -13,6 +13,28 @@
         width: 100%;
     }
     
+    /* ========== HERO LOGO ========== */
+    .hero-logo-wrap {
+        width: 84px;
+        height: 84px;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.95);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 10px;
+        margin-bottom: 16px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+        border: 2px solid rgba(255, 255, 255, 0.6);
+    }
+    .hero-logo { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+    @media (max-width: 768px) {
+        .hero-logo-wrap { width: 68px; height: 68px; border-radius: 16px; padding: 8px; margin-bottom: 12px; }
+    }
+    @media (max-width: 480px) {
+        .hero-logo-wrap { width: 58px; height: 58px; border-radius: 14px; padding: 7px; }
+    }
+
     /* ========== HERO BANNER ========== */
     .hero-banner {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
@@ -764,6 +786,36 @@
         .product-action-buttons .btn i { font-size: 0.6rem; }
         .btn-text { display: none; }
     }
+
+    /* ========== ALIGNMENT & POLISH ========== */
+    .products-grid { align-items: stretch; }          /* equal-height cards in each row */
+    .products-grid .product-card { height: 100%; }
+    .products-grid .product-info { display: flex; flex-direction: column; flex: 1; }
+    .products-grid .product-price-wrapper { margin-top: auto; padding-top: 4px; }   /* price + buttons always sit at the bottom */
+    .products-grid .product-action-container,
+    .products-grid .product-info > .btn { margin-top: 2px !important; }
+
+    .product-image .product-placeholder { min-height: 100%; }
+    .product-image img { background: #fff; }
+    .price-unavailable { font-size: 0.72rem; font-weight: 700; color: #94a3b8; font-style: italic; }
+
+    /* Same vertical rhythm between every block above the grid */
+    .hero-banner, .live-visitors-banner, .trust-badges-section, .typo-correction-banner, .shop-top-bar { margin-bottom: 10px; }
+    .shop-top-bar { min-height: 46px; }
+    .trust-badge-item span { text-align: center; }
+    .live-visitors-banner { justify-content: center; text-align: center; }
+
+    /* Keep the hero stats line the full width of the content block */
+    .hero-stats { width: 100%; }
+    .hero-stat { align-items: flex-start; }
+
+    @media (max-width: 480px) {
+        .product-image { height: 110px; }
+        .products-grid .product-name { font-size: 0.74rem; min-height: 2.5em; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .hero-shape, .hero-floating-icon, .live-dot, .strip-badge.badge-cart { animation: none !important; }
+    }
 </style>
 
 <div class="shop-container">
@@ -775,6 +827,11 @@
         <div class="hero-shape hero-shape-3"></div>
         
         <div class="hero-content">
+            {% if company_logo %}
+            <div class="hero-logo-wrap">
+                <img src="{{ company_logo }}" alt="{{ company_name }} logo" class="hero-logo" loading="eager">
+            </div>
+            {% endif %}
             <div class="hero-badge">
                 <i class="bi bi-star-fill"></i>
                 <span>Premium Store</span>
@@ -883,7 +940,7 @@
             {% endif %}
             
             {% if selected_category %}
-            <a href="?{% if search %}search={{ search }}&{% endif %}{% if selected_brand %}brand={{ selected_brand }}&{% endif %}{% if selected_sort %}sort={{ selected_sort }}{% endif %}" 
+            <a href="?{% if search %}search={{ search|urlencode }}&{% endif %}{% if selected_brand %}brand={{ selected_brand }}&{% endif %}{% if selected_sort %}sort={{ selected_sort }}{% endif %}" 
                class="filter-chip">
                 <span class="chip-icon">📂</span>
                 <span>Category: <span class="chip-value">{{ selected_category_name|default:"Selected" }}</span></span>
@@ -892,7 +949,7 @@
             {% endif %}
             
             {% if selected_brand %}
-            <a href="?{% if search %}search={{ search }}&{% endif %}{% if selected_category %}category={{ selected_category }}&{% endif %}{% if selected_sort %}sort={{ selected_sort }}{% endif %}" 
+            <a href="?{% if search %}search={{ search|urlencode }}&{% endif %}{% if selected_category %}category={{ selected_category }}&{% endif %}{% if selected_sort %}sort={{ selected_sort }}{% endif %}" 
                class="filter-chip">
                 <span class="chip-icon">🏆</span>
                 <span>Brand: <span class="chip-value">{{ selected_brand_name|default:"Selected" }}</span></span>
@@ -901,7 +958,7 @@
             {% endif %}
             
             {% if selected_sort and selected_sort != 'newest' %}
-            <a href="?{% if search %}search={{ search }}&{% endif %}{% if selected_category %}category={{ selected_category }}&{% endif %}{% if selected_brand %}brand={{ selected_brand }}{% endif %}" 
+            <a href="?{% if search %}search={{ search|urlencode }}&{% endif %}{% if selected_category %}category={{ selected_category }}&{% endif %}{% if selected_brand %}brand={{ selected_brand }}{% endif %}" 
                class="filter-chip">
                 <span class="chip-icon">📊</span>
                 <span>Sort: <span class="chip-value">
@@ -944,7 +1001,9 @@
             <div class="product-image">
                 <a href="{% url 'shop_product_detail' product.id %}">
                     {% if product.image %}
-                    <img src="{{ product.image.url }}" alt="{{ product.name }}">
+                    <img src="{{ product.image.url }}" alt="{{ product.name }}" loading="lazy"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                    <div class="product-placeholder" style="display:none;"><i class="bi bi-box"></i></div>
                     {% else %}
                     <div class="product-placeholder"><i class="bi bi-box"></i></div>
                     {% endif %}
@@ -1003,10 +1062,14 @@
                 </div>
                 
                 <div class="product-price-wrapper">
+                    {% if product.price and product.price > 0 %}
                     <div class="product-price">
                         <span class="currency">Rs.</span>
                         {{ product.price|floatformat:2 }}
                     </div>
+                    {% else %}
+                    <div class="price-unavailable">Price not set</div>
+                    {% endif %}
                     {% if product.has_discount and product.original_price and product.original_price > product.price %}
                     <div class="original-price-strike">
                         Rs. {{ product.original_price|floatformat:2 }}
@@ -1062,11 +1125,11 @@
     </div>
     
     {% if page_obj.has_other_pages %}
-    <nav class="mt-3">
-        <ul class="pagination justify-content-center">
+    <nav class="mt-3" aria-label="Products pagination">
+        <ul class="pagination justify-content-center flex-wrap">
             {% if page_obj.has_previous %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if selected_brand %}&brand={{ selected_brand }}{% endif %}{% if selected_sort %}&sort={{ selected_sort }}{% endif %}">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search|urlencode }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if selected_brand %}&brand={{ selected_brand }}{% endif %}{% if selected_sort %}&sort={{ selected_sort }}{% endif %}">
                     <i class="bi bi-chevron-left"></i>
                 </a>
             </li>
@@ -1077,7 +1140,7 @@
                 <li class="page-item active"><span class="page-link">{{ num }}</span></li>
                 {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ num }}{% if search %}&search={{ search }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if selected_brand %}&brand={{ selected_brand }}{% endif %}{% if selected_sort %}&sort={{ selected_sort }}{% endif %}">
+                    <a class="page-link" href="?page={{ num }}{% if search %}&search={{ search|urlencode }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if selected_brand %}&brand={{ selected_brand }}{% endif %}{% if selected_sort %}&sort={{ selected_sort }}{% endif %}">
                         {{ num }}
                     </a>
                 </li>
@@ -1086,7 +1149,7 @@
             
             {% if page_obj.has_next %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if selected_brand %}&brand={{ selected_brand }}{% endif %}{% if selected_sort %}&sort={{ selected_sort }}{% endif %}">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search|urlencode }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if selected_brand %}&brand={{ selected_brand }}{% endif %}{% if selected_sort %}&sort={{ selected_sort }}{% endif %}">
                     <i class="bi bi-chevron-right"></i>
                 </a>
             </li>
@@ -1122,7 +1185,9 @@
             <a href="{% url 'shop_product_detail' product.id %}" class="recently-viewed-card">
                 <div class="recently-viewed-image">
                     {% if product.image %}
-                    <img src="{{ product.image.url }}" alt="{{ product.name }}">
+                    <img src="{{ product.image.url }}" alt="{{ product.name }}" loading="lazy"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='block';">
+                    <i class="bi bi-box" style="display:none;"></i>
                     {% else %}
                     <i class="bi bi-box"></i>
                     {% endif %}

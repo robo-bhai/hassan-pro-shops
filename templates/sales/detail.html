@@ -92,6 +92,14 @@
         margin: 2px 0;
     }
     
+    .company-info .brand-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .company-info .brand-row .logo-text { margin-bottom: 0; }
+    .invoice-logo {
+        height: 56px; max-width: 150px; object-fit: contain;
+        background: #fff; border-radius: 10px; padding: 4px; flex-shrink: 0;
+        -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+    
     .invoice-badge { position: relative; z-index: 1; text-align: right; flex-shrink: 0; }
     
     .invoice-badge .invoice-label {
@@ -525,6 +533,7 @@
         .invoice-card { border-radius: 0; }
         .invoice-header { padding: 20px 15px; flex-direction: column; text-align: center; }
         .company-info .logo-text { font-size: 1.3rem; }
+        .company-info .brand-row { justify-content: center; }
         .company-info .company-details { font-size: 0.75rem; }
         .invoice-badge { text-align: center; width: 100%; }
         .invoice-badge .invoice-number { font-size: 1.5rem; }
@@ -545,6 +554,9 @@
         .invoice-footer .terms { flex-direction: column; gap: 5px; }
     }
     
+    /* Print: A4, chhote margin */
+    @page { size: A4; margin: 8mm; }
+    
     @media print {
         body { background: white !important; }
         .sidebar, .topbar, .action-bar, .no-print { display: none !important; }
@@ -555,6 +567,17 @@
         .invoice-header { background: #1a1d2e !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .items-table thead th { background: #1a1d2e !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .party-section, .summary-section { grid-template-columns: 1fr 1fr; }
+
+        /* ---- Extra blank page rokne ke liye ---- */
+        html, body { height: auto !important; min-height: 0 !important; }
+        .main-wrapper, .content-area, .main-content, main { min-height: 0 !important; height: auto !important; }
+        .modal, .modal-backdrop, .toast-container, #loadingOverlay { display: none !important; }
+        .invoice-container { margin: 0 !important; padding: 0 !important; }
+        .invoice-header { padding: 15px 20px !important; }
+        .invoice-body { padding: 15px 20px !important; }
+        .invoice-footer { padding: 10px 20px !important; }
+        .watermark { display: none !important; }
+        .items-table tr, .summary-section { page-break-inside: avoid; break-inside: avoid; }
     }
 </style>
 {% endblock %}
@@ -566,7 +589,10 @@
         
         <div class="invoice-header">
             <div class="company-info">
-                <div class="logo-text">🏢 {{ company_name|default:'ERP SYSTEM' }}</div>
+                <div class="brand-row">
+                    {% if company_logo %}<img src="{{ company_logo }}" alt="{{ company_name|default:'Logo' }}" class="invoice-logo">{% endif %}
+                    <div class="logo-text">{% if not company_logo %}🏢 {% endif %}{{ company_name|default:'ERP SYSTEM' }}</div>
+                </div>
                 <div class="company-details">
                     {% if company %}
                     <span>📍 {{ company.address|default:'Company Address' }}</span>

@@ -1,48 +1,60 @@
+{% comment %}
+    Usage: {% include 'includes/pagination.html' %}  (needs `page_obj`; keeps all other GET filters)
+{% endcomment %}
 {% if page_obj and page_obj.paginator.num_pages > 1 %}
-<nav class="mt-3">
-    <ul class="pagination justify-content-center">
-        {% if page_obj.has_previous %}
-        <li class="page-item">
-            <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
-                <i class="bi bi-chevron-double-left"></i>
-            </a>
+{% with total=page_obj.paginator.num_pages cur=page_obj.number %}
+<nav class="mt-3" aria-label="Pagination">
+    <ul class="pagination pagination-sm justify-content-center flex-wrap mb-2">
+
+        <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+            {% if page_obj.has_previous %}
+            <a class="page-link" aria-label="First page" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key|urlencode }}={{ value|urlencode }}{% endif %}{% endfor %}"><i class="bi bi-chevron-double-left"></i></a>
+            {% else %}<span class="page-link" aria-hidden="true"><i class="bi bi-chevron-double-left"></i></span>{% endif %}
         </li>
-        <li class="page-item">
-            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
-                <i class="bi bi-chevron-left"></i>
-            </a>
+        <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+            {% if page_obj.has_previous %}
+            <a class="page-link" aria-label="Previous page" rel="prev" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key|urlencode }}={{ value|urlencode }}{% endif %}{% endfor %}"><i class="bi bi-chevron-left"></i></a>
+            {% else %}<span class="page-link" aria-hidden="true"><i class="bi bi-chevron-left"></i></span>{% endif %}
         </li>
+
+        {# Always show first page, then an ellipsis if the window starts later #}
+        {% if cur > 4 %}
+        <li class="page-item"><a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key|urlencode }}={{ value|urlencode }}{% endif %}{% endfor %}">1</a></li>
+        <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
         {% endif %}
-        
+
         {% for num in page_obj.paginator.page_range %}
-            {% if num >= page_obj.number|add:'-2' and num <= page_obj.number|add:'2' %}
-                {% if page_obj.number == num %}
-                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+            {% if num >= cur|add:'-2' and num <= cur|add:'2' %}
+                {% if cur == num %}
+                <li class="page-item active" aria-current="page"><span class="page-link">{{ num }}</span></li>
                 {% else %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
-                        {{ num }}
-                    </a>
-                </li>
+                <li class="page-item"><a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key|urlencode }}={{ value|urlencode }}{% endif %}{% endfor %}">{{ num }}</a></li>
                 {% endif %}
             {% endif %}
         {% endfor %}
-        
-        {% if page_obj.has_next %}
-        <li class="page-item">
-            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
-                <i class="bi bi-chevron-right"></i>
-            </a>
-        </li>
-        <li class="page-item">
-            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
-                <i class="bi bi-chevron-double-right"></i>
-            </a>
-        </li>
+
+        {# Ellipsis + last page when the window ends earlier #}
+        {% if cur < total|add:'-3' %}
+        <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+        <li class="page-item"><a class="page-link" href="?page={{ total }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key|urlencode }}={{ value|urlencode }}{% endif %}{% endfor %}">{{ total }}</a></li>
         {% endif %}
+
+        <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+            {% if page_obj.has_next %}
+            <a class="page-link" aria-label="Next page" rel="next" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key|urlencode }}={{ value|urlencode }}{% endif %}{% endfor %}"><i class="bi bi-chevron-right"></i></a>
+            {% else %}<span class="page-link" aria-hidden="true"><i class="bi bi-chevron-right"></i></span>{% endif %}
+        </li>
+        <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+            {% if page_obj.has_next %}
+            <a class="page-link" aria-label="Last page" href="?page={{ total }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key|urlencode }}={{ value|urlencode }}{% endif %}{% endfor %}"><i class="bi bi-chevron-double-right"></i></a>
+            {% else %}<span class="page-link" aria-hidden="true"><i class="bi bi-chevron-double-right"></i></span>{% endif %}
+        </li>
     </ul>
-    <p class="text-center text-muted small">
-        Showing {{ page_obj.start_index }} - {{ page_obj.end_index }} of {{ page_obj.paginator.count }} items
+    <p class="text-center text-muted small mb-0">
+        Showing <strong>{{ page_obj.start_index }}</strong>&ndash;<strong>{{ page_obj.end_index }}</strong>
+        of <strong>{{ page_obj.paginator.count }}</strong> items
+        <span class="d-none d-sm-inline">&middot; Page {{ cur }} of {{ total }}</span>
     </p>
 </nav>
+{% endwith %}
 {% endif %}

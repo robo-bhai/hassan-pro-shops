@@ -1,84 +1,76 @@
-<nav class="topbar">
+<nav class="topbar" aria-label="Top navigation">
     <div class="d-flex align-items-center gap-3">
-        <button class="btn btn-light d-lg-none" onclick="toggleSidebar()">
-            <i class="bi bi-list"></i>
+        <button type="button" class="btn btn-light d-lg-none" onclick="toggleSidebar()" aria-label="Toggle menu">
+            <i class="bi bi-list" aria-hidden="true"></i>
         </button>
         <span class="page-title">{% block page_title %}Dashboard{% endblock %}</span>
     </div>
-    <div class="user-menu" style="display: flex; align-items: center; gap: 15px;">
-        
-        <!-- 🔔 NOTIFICATION BELL -->
-        <div style="position: relative;">
-            <div class="notification-bell" onclick="toggleNotifications()">
-                <i class="bi bi-bell-fill" style="font-size: 1.5rem; color: #6c757d;"></i>
-                <span id="notificationBadge" class="notification-badge" style="display: none;">0</span>
-            </div>
-            
-            <div id="notificationDropdown" class="notification-dropdown">
+
+    <div class="user-menu d-flex align-items-center gap-3">
+
+        <!-- Notification bell -->
+        <div class="position-relative">
+            <button type="button" class="notification-bell btn btn-link p-0 border-0 position-relative"
+                    id="notificationBell" aria-label="Notifications" aria-haspopup="true" aria-expanded="false"
+                    aria-controls="notificationDropdown">
+                <i class="bi bi-bell-fill text-secondary" style="font-size:1.4rem;" aria-hidden="true"></i>
+                <span id="notificationBadge" class="notification-badge" style="display:none;" aria-live="polite">0</span>
+            </button>
+
+            <div id="notificationDropdown" class="notification-dropdown" role="dialog" aria-label="Notifications">
                 <div class="notification-header">
-                    <span><i class="bi bi-bell-fill"></i> Notifications</span>
-                    <a href="#" class="mark-all-read" onclick="markAllRead(); return false;">Mark all as read</a>
+                    <span><i class="bi bi-bell-fill" aria-hidden="true"></i> Notifications</span>
+                    <a href="#" class="mark-all-read" id="markAllReadLink">Mark all as read</a>
                 </div>
-                
-                <!-- Category Filters -->
-                <div class="notification-categories">
-                    <button class="category-btn active" data-category="all" onclick="filterNotifications('all')">
-                        <i class="bi bi-bell"></i> All
-                    </button>
-                    <button class="category-btn" data-category="sales" onclick="filterNotifications('sales')">
-                        <i class="bi bi-cart"></i> Sales
-                    </button>
-                    <button class="category-btn" data-category="payments" onclick="filterNotifications('payments')">
-                        <i class="bi bi-currency-rupee"></i> Payments
-                    </button>
-                    <button class="category-btn" data-category="installments" onclick="filterNotifications('installments')">
-                        <i class="bi bi-calendar"></i> Installments
-                    </button>
-                    <button class="category-btn" data-category="stock" onclick="filterNotifications('stock')">
-                        <i class="bi bi-box"></i> Stock
-                    </button>
-                    <button class="category-btn" data-category="system" onclick="filterNotifications('system')">
-                        <i class="bi bi-gear"></i> System
-                    </button>
+
+                <div class="notification-categories" role="tablist" aria-label="Notification categories">
+                    <button type="button" class="category-btn active" data-category="all"><i class="bi bi-bell" aria-hidden="true"></i> All</button>
+                    <button type="button" class="category-btn" data-category="sales"><i class="bi bi-cart" aria-hidden="true"></i> Sales</button>
+                    <button type="button" class="category-btn" data-category="payments"><i class="bi bi-currency-rupee" aria-hidden="true"></i> Payments</button>
+                    <button type="button" class="category-btn" data-category="installments"><i class="bi bi-calendar" aria-hidden="true"></i> Installments</button>
+                    <button type="button" class="category-btn" data-category="stock"><i class="bi bi-box" aria-hidden="true"></i> Stock</button>
+                    <button type="button" class="category-btn" data-category="system"><i class="bi bi-gear" aria-hidden="true"></i> System</button>
                 </div>
-                
-                <div id="notificationList" style="max-height: 350px; overflow-y: auto;">
-                    <div class="text-center p-3">
-                        <div class="spinner-border spinner-border-sm text-primary"></div>
+
+                <div id="notificationList" class="notification-scroll">
+                    <div class="text-center p-3 text-muted">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
                         Loading...
                     </div>
                 </div>
                 <div class="notification-footer">
-                    <a href="/notifications/" style="color: #667eea; text-decoration: none; font-size: 12px;">
-                        View all notifications
-                    </a>
+                    <a href="/notifications/" class="notification-view-all">View all notifications</a>
                 </div>
             </div>
         </div>
-        
-        <!-- Dashboard Button -->
-        <a href="{% url 'dashboard' %}" class="btn-icon" title="Dashboard">
-            <i class="bi bi-speedometer2" style="font-size: 1.3rem; color: #6c757d;"></i>
+
+        <!-- Dashboard shortcut -->
+        <a href="{% url 'dashboard' %}" class="btn-icon" title="Dashboard" aria-label="Dashboard">
+            <i class="bi bi-speedometer2 text-secondary" style="font-size:1.3rem;" aria-hidden="true"></i>
         </a>
-        
-        <!-- User Dropdown -->
+
+        <!-- User dropdown -->
         <div class="dropdown">
-            <button class="btn btn-light dropdown-toggle d-flex align-items-center gap-2" data-bs-toggle="dropdown">
-                <i class="bi bi-person-circle"></i>
-                {{ request.user.username|title }}
+            <button class="btn btn-light dropdown-toggle d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-person-circle" aria-hidden="true"></i>
+                <span class="d-none d-sm-inline">{{ request.user.get_full_name|default:request.user.username|title }}</span>
             </button>
-            <ul class="dropdown-menu dropdown-menu-end">
+            <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                <li class="dropdown-header">
+                    Signed in as<br><strong>{{ request.user.username }}</strong>
+                </li>
+                <li><hr class="dropdown-divider"></li>
                 <li>
                     <a class="dropdown-item" href="{% url 'admin:password_change' %}">
-                        <i class="bi bi-key"></i> Change Password
+                        <i class="bi bi-key" aria-hidden="true"></i> Change Password
                     </a>
                 </li>
                 <li><hr class="dropdown-divider"></li>
                 <li>
-                    <form method="POST" action="{% url 'admin:logout' %}" style="margin:0; padding:0;">
+                    <form method="POST" action="{% url 'admin:logout' %}" class="m-0 p-0">
                         {% csrf_token %}
-                        <button type="submit" class="dropdown-item" style="border:none; background:none; width:100%; text-align:left; cursor:pointer;">
-                            <i class="bi bi-box-arrow-right"></i> Logout
+                        <button type="submit" class="dropdown-item text-danger">
+                            <i class="bi bi-box-arrow-right" aria-hidden="true"></i> Logout
                         </button>
                     </form>
                 </li>
@@ -138,168 +130,169 @@
             font-size: 9px;
         }
     }
+
+    .notification-bell { background: none; line-height: 1; cursor: pointer; }
+    .notification-scroll { max-height: 350px; overflow-y: auto; }
+    .notification-view-all { color: #667eea; text-decoration: none; font-size: 12px; }
+    .notification-view-all:hover { text-decoration: underline; }
+    .notification-item { cursor: pointer; }
+    .category-btn:focus-visible, .notification-bell:focus-visible { outline: 2px solid #667eea; outline-offset: 2px; }
 </style>
 
 <script>
-let currentCategory = 'all';
-let lastNotificationCount = 0;
-let lastNotificationIds = new Set();
+(function () {
+    'use strict';
 
-function filterNotifications(category) {
-    currentCategory = category;
-    
-    // Update active button
-    document.querySelectorAll('.category-btn').forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.getAttribute('data-category') === category) {
-            btn.classList.add('active');
-        }
-    });
-    
-    // Load filtered notifications
-    loadNotifications();
-}
-
-function loadNotifications() {
-    fetch(`/api/notifications/?category=${currentCategory}`)
-        .then(response => response.json())
-        .then(data => {
-            renderNotifications(data.notifications);
-            updateBadge(data.unread_count);
-            if (data.notifications) {
-                lastNotificationIds = new Set(data.notifications.map(n => n.id));
-            }
-        })
-        .catch(error => console.error('Error:', error));
-}
-
-function renderNotifications(notifications) {
-    const container = document.getElementById('notificationList');
-    if (!container) return;
-    
-    if (!notifications || notifications.length === 0) {
-        container.innerHTML = `<div class="no-notifications"><i class="bi bi-bell-slash"></i><p>No notifications in this category</p></div>`;
-        return;
-    }
-    
-    container.innerHTML = notifications.map(notif => `
-        <div class="notification-item ${notif.is_read ? '' : 'unread'}" onclick="handleNotificationClick(${notif.id}, '${notif.link}')">
-            <div class="notification-icon ${notif.notification_type}">
-                ${getIconForType(notif.notification_type)}
-            </div>
-            <div class="notification-content">
-                <div class="notification-title">${escapeHtml(notif.title)}</div>
-                <div class="notification-message">${escapeHtml(notif.message.substring(0, 100))}${notif.message.length > 100 ? '...' : ''}</div>
-                <div class="notification-time">${notif.time_ago}</div>
-            </div>
-        </div>
-    `).join('');
-}
-
-function getIconForType(type) {
-    const icons = {
-        'info': 'ℹ️', 'success': '✅', 'warning': '⚠️', 'danger': '❌',
-        'sale': '🛒', 'installment': '📅', 'stock': '📦', 'payment': '💰'
+    var POLL_MS = 60000;                  // refresh unread count every 60s
+    var currentCategory = 'all';
+    var els = {
+        bell: document.getElementById('notificationBell'),
+        dropdown: document.getElementById('notificationDropdown'),
+        badge: document.getElementById('notificationBadge'),
+        list: document.getElementById('notificationList')
     };
-    return icons[type] || '🔔';
-}
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function updateBadge(count) {
-    const badge = document.getElementById('notificationBadge');
-    if (badge) {
-        if (count > 0) {
-            badge.style.display = 'flex';
-            badge.textContent = count > 99 ? '99+' : count;
-        } else {
-            badge.style.display = 'none';
-        }
+    function getCookie(name) {
+        var match = document.cookie.split(';').map(function (c) { return c.trim(); })
+            .find(function (c) { return c.indexOf(name + '=') === 0; });
+        return match ? decodeURIComponent(match.substring(name.length + 1)) : null;
     }
-}
 
-function toggleNotifications() {
-    const dropdown = document.getElementById('notificationDropdown');
-    if (dropdown) {
-        const isVisible = dropdown.classList.contains('show');
-        if (!isVisible) {
-            dropdown.classList.add('show');
-            loadNotifications();
-        } else {
-            dropdown.classList.remove('show');
-        }
+    function escapeHtml(text) {
+        var div = document.createElement('div');
+        div.textContent = text == null ? '' : String(text);
+        return div.innerHTML;
     }
-}
 
-function closeNotificationDropdown() {
-    const dropdown = document.getElementById('notificationDropdown');
-    if (dropdown) dropdown.classList.remove('show');
-}
+    // Only allow same-site relative links (blocks javascript: / external redirects)
+    function safeLink(link) {
+        if (!link || link === 'None' || link === 'null') return '';
+        return (link.charAt(0) === '/' && link.charAt(1) !== '/') ? link : '';
+    }
 
-function markAllRead() {
-    fetch('/api/notifications/mark-all-read/', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json'
+    function api(url, method) {
+        return fetch(url, {
+            method: method || 'GET',
+            credentials: 'same-origin',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') || '', 'Content-Type': 'application/json' }
+        }).then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        });
+    }
+
+    var ICONS = {
+        info: '\u2139\uFE0F', success: '\u2705', warning: '\u26A0\uFE0F', danger: '\u274C',
+        sale: '\uD83D\uDED2', installment: '\uD83D\uDCC5', stock: '\uD83D\uDCE6', payment: '\uD83D\uDCB0'
+    };
+
+    function updateBadge(count) {
+        if (!els.badge) return;
+        count = Number(count) || 0;
+        els.badge.style.display = count > 0 ? 'flex' : 'none';
+        els.badge.textContent = count > 99 ? '99+' : count;
+    }
+
+    function renderNotifications(items) {
+        if (!els.list) return;
+        if (!items || !items.length) {
+            els.list.innerHTML = '<div class="no-notifications"><i class="bi bi-bell-slash"></i><p>No notifications in this category</p></div>';
+            return;
         }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            loadNotifications();
-        }
+        els.list.innerHTML = items.map(function (n) {
+            var msg = String(n.message || '');
+            var type = escapeHtml(n.notification_type);
+            return '<div class="notification-item ' + (n.is_read ? '' : 'unread') + '" role="button" tabindex="0"' +
+                ' data-id="' + escapeHtml(n.id) + '" data-link="' + escapeHtml(safeLink(n.link)) + '">' +
+                '<div class="notification-icon ' + type + '">' + (ICONS[n.notification_type] || '\uD83D\uDD14') + '</div>' +
+                '<div class="notification-content">' +
+                '<div class="notification-title">' + escapeHtml(n.title) + '</div>' +
+                '<div class="notification-message">' + escapeHtml(msg.substring(0, 100)) + (msg.length > 100 ? '...' : '') + '</div>' +
+                '<div class="notification-time">' + escapeHtml(n.time_ago) + '</div>' +
+                '</div></div>';
+        }).join('');
+    }
+
+    function loadNotifications() {
+        api('/api/notifications/?category=' + encodeURIComponent(currentCategory))
+            .then(function (data) {
+                renderNotifications(data.notifications);
+                updateBadge(data.unread_count);
+            })
+            .catch(function () {
+                if (els.list) els.list.innerHTML = '<div class="text-center p-3 text-danger small">Could not load notifications.</div>';
+            });
+    }
+
+    function loadUnreadCount() {
+        api('/api/notifications/unread-count/')
+            .then(function (d) { updateBadge(d.unread_count); })
+            .catch(function () { /* silent: badge keeps last value */ });
+    }
+
+    function openDropdown() {
+        els.dropdown.classList.add('show');
+        els.bell.setAttribute('aria-expanded', 'true');
+        loadNotifications();
+    }
+    function closeDropdown() {
+        els.dropdown.classList.remove('show');
+        els.bell.setAttribute('aria-expanded', 'false');
+    }
+
+    function filterNotifications(category) {
+        currentCategory = category;
+        document.querySelectorAll('.category-btn').forEach(function (btn) {
+            btn.classList.toggle('active', btn.getAttribute('data-category') === category);
+        });
+        loadNotifications();
+    }
+
+    function markAllRead() {
+        api('/api/notifications/mark-all-read/', 'POST')
+            .then(function (d) { if (d.success) loadNotifications(); })
+            .catch(function () {});
+    }
+
+    function openNotification(item) {
+        var id = item.getAttribute('data-id');
+        var link = item.getAttribute('data-link');
+        api('/api/notifications/' + encodeURIComponent(id) + '/mark-read/', 'POST').catch(function () {});
+        closeDropdown();
+        if (link) window.location.href = link;
+        else loadUnreadCount();
+    }
+
+    // Kept global: other templates may call these
+    window.toggleNotifications = function () { els.dropdown.classList.contains('show') ? closeDropdown() : openDropdown(); };
+    window.closeNotificationDropdown = closeDropdown;
+    window.filterNotifications = filterNotifications;
+    window.markAllRead = markAllRead;
+    window.getCookie = window.getCookie || getCookie;
+
+    if (!els.bell || !els.dropdown) return;
+
+    els.bell.addEventListener('click', window.toggleNotifications);
+    document.getElementById('markAllReadLink').addEventListener('click', function (e) { e.preventDefault(); markAllRead(); });
+    document.querySelectorAll('.category-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () { filterNotifications(btn.getAttribute('data-category')); });
     });
-}
-
-function handleNotificationClick(id, link) {
-    fetch(`/api/notifications/${id}/mark-read/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json'
-        }
+    els.list.addEventListener('click', function (e) {
+        var item = e.target.closest('.notification-item');
+        if (item) openNotification(item);
     });
-    closeNotificationDropdown();
-    if (link && link !== 'None' && link !== 'null' && link !== '') {
-        window.location.href = link;
-    }
-}
+    els.list.addEventListener('keydown', function (e) {
+        var item = e.target.closest('.notification-item');
+        if (item && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openNotification(item); }
+    });
+    document.addEventListener('click', function (e) {
+        if (!els.bell.contains(e.target) && !els.dropdown.contains(e.target)) closeDropdown();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && els.dropdown.classList.contains('show')) { closeDropdown(); els.bell.focus(); }
+    });
 
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-}
-
-// Load initial unread count
-fetch('/api/notifications/unread-count/')
-    .then(response => response.json())
-    .then(data => {
-        lastNotificationCount = data.unread_count || 0;
-        updateBadge(lastNotificationCount);
-    })
-    .catch(error => console.error('Error:', error));
-
-// Click outside to close
-document.addEventListener('click', function(event) {
-    const dropdown = document.getElementById('notificationDropdown');
-    const bell = document.querySelector('.notification-bell');
-    if (dropdown && bell && !bell.contains(event.target) && !dropdown.contains(event.target)) {
-        dropdown.classList.remove('show');
-    }
-});
+    loadUnreadCount();
+    setInterval(function () { if (!document.hidden) loadUnreadCount(); }, POLL_MS);
+})();
 </script>

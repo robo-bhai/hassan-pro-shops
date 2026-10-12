@@ -687,9 +687,39 @@ def get_total_profit():
 # ============================================
 # SETTINGS
 # ============================================
+def _apply_company_logo(request, company):
+    """POST se aaya logo check karke company par lagata hai. Save caller karega.
+    Galat file par ValueError uthata hai. Kuch badla ho to True lautata hai."""
+    if request.POST.get('remove_logo') and company.logo:
+        company.logo.delete(save=False)
+        return True
+    logo = request.FILES.get('logo')
+    if not logo:
+        return False
+    if logo.size > 2 * 1024 * 1024:
+        raise ValueError('Logo 2MB se chota hona chahiye.')
+    from PIL import Image
+    try:
+        img = Image.open(logo)
+        img.verify()
+        fmt = (img.format or '').upper()
+    except Exception:
+        raise ValueError('Sahi image file (PNG/JPG/WEBP) upload karein.')
+    if fmt not in ('PNG', 'JPEG', 'WEBP'):
+        raise ValueError('Sirf PNG, JPG ya WEBP logo allowed hai.')
+    logo.seek(0)
+    company.logo = logo
+    return True
+
+
 @login_required
 def company_settings(request):
     """Company settings with deposit payment details"""
+    
+    # Sirf superuser, Owner ya CEO (bank/JazzCash/EasyPaisa ke numbers badalne ka khatra)
+    if not request.user.is_superuser and not request.user.groups.filter(name__in=['Owner', 'CEO']).exists():
+        messages.error(request, 'Access denied! Only Owner or CEO can change company settings.')
+        return redirect('dashboard')
     
     company = CompanyInfo.objects.first()
     
@@ -713,6 +743,7 @@ def company_settings(request):
                 company.bank_account_number = request.POST.get('bank_account_number', '').strip()
                 company.deposit_instructions = request.POST.get('deposit_instructions', '').strip()
                 
+                _apply_company_logo(request, company)
                 company.save()
             else:
                 # Create new company
@@ -731,6 +762,8 @@ def company_settings(request):
                     bank_account_number=request.POST.get('bank_account_number', '').strip(),
                     deposit_instructions=request.POST.get('deposit_instructions', '').strip(),
                 )
+                if _apply_company_logo(request, company):
+                    company.save()
             
             messages.success(request, '✅ Settings updated successfully!')
             return redirect('company_settings')

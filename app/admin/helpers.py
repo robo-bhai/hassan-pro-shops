@@ -117,6 +117,25 @@ def generate_invoice_pdf(sale_obj):
     # HEADER SECTION
     # ============================================
     
+    # Company Logo (storage se bytes parh kar lagate hain, URL ya path par depend nahi)
+    try:
+        if company and company.logo:
+            from reportlab.lib.utils import ImageReader
+            company.logo.open('rb')
+            try:
+                logo_bytes = company.logo.read()
+            finally:
+                company.logo.close()
+            iw, ih = ImageReader(io.BytesIO(logo_bytes)).getSize()
+            scale = min((2.2 * inch) / iw, (0.8 * inch) / ih)
+            logo_img = Image(io.BytesIO(logo_bytes), width=iw * scale, height=ih * scale, mask='auto')
+            logo_img.hAlign = 'CENTER'
+            story.append(logo_img)
+            story.append(Spacer(1, 0.05 * inch))
+    except Exception as e:
+        # Logo na lage to bhi invoice ban jaye
+        logging.getLogger(__name__).warning("Invoice logo skipped: %s", e)
+    
     story.append(Paragraph(company_name, title_style))
     story.append(Paragraph(company_tagline, subtitle_style))
     story.append(Paragraph(f"{company_address} | Phone: {company_phone}", subtitle_style))

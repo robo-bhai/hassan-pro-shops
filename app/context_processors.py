@@ -1,6 +1,22 @@
 # context_processors.py
 from django.core.cache import cache
-from .models import SystemSetting, Purchase, ShareholderDepositRequest, ShareholderWithdrawalRequest, BalanceDividend, Shareholder
+from .models import SystemSetting, Purchase, ShareholderDepositRequest, ShareholderWithdrawalRequest, BalanceDividend, Shareholder, CompanyInfo
+
+
+def _company_branding():
+    """Company ka naam aur logo (sidebar wagera ke liye)."""
+    company = CompanyInfo.objects.only("name", "logo").first()
+    logo_url = None
+    if company and company.logo:
+        try:
+            logo_url = company.logo.url
+        except ValueError:
+            logo_url = None
+    return {
+        "company_logo": logo_url,
+        "company_name": company.name if company else "ERP System",
+    }
+
 
 def system_settings(request):
     """Context processor to make system settings available in all templates"""
@@ -41,6 +57,9 @@ def system_settings(request):
         cache.set(cache_key, counts, 300)  # 5 minutes
     
     return {
+        # ===== COMPANY BRANDING (logo/name) =====
+        **_company_branding(),
+
         # ========================================== #
         # MODULE SETTINGS                            #
         # ========================================== #

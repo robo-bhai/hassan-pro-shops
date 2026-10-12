@@ -1,10 +1,31 @@
+{% comment %}
+    Django message level -> Bootstrap alert colour.
+    NOTE: Django's "error" tag is NOT a Bootstrap class (it is "danger"), so the old
+    `alert-{{ message.tags }}` rendered unstyled error alerts. This maps every level.
+{% endcomment %}
 {% if messages %}
-<div class="px-3 pt-3">
+<div class="px-3 pt-3 app-messages" aria-live="polite" aria-atomic="false">
     {% for message in messages %}
-    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show shadow-sm" role="alert">
-        {{ message }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    {% with level=message.level_tag %}
+    <div class="alert alert-{% if level == 'error' %}danger{% elif level == 'debug' %}secondary{% elif level %}{{ level }}{% else %}info{% endif %} alert-dismissible fade show shadow-sm d-flex align-items-start gap-2 border-0 border-start border-4"
+         role="{% if level == 'error' or level == 'warning' %}alert{% else %}status{% endif %}">
+        <i class="bi {% if level == 'success' %}bi-check-circle-fill{% elif level == 'error' %}bi-x-octagon-fill{% elif level == 'warning' %}bi-exclamation-triangle-fill{% else %}bi-info-circle-fill{% endif %} flex-shrink-0 mt-1" aria-hidden="true"></i>
+        <div class="flex-grow-1">{{ message }}</div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
+    {% endwith %}
     {% endfor %}
 </div>
+<script>
+    // Auto-dismiss non-critical messages after 6s (errors/warnings stay until closed)
+    (function () {
+        document.querySelectorAll('.app-messages .alert-success, .app-messages .alert-info').forEach(function (el) {
+            setTimeout(function () {
+                if (window.bootstrap && document.body.contains(el)) {
+                    bootstrap.Alert.getOrCreateInstance(el).close();
+                }
+            }, 6000);
+        });
+    })();
+</script>
 {% endif %}

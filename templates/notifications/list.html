@@ -2,77 +2,78 @@
 {% load static %}
 {% load humanize %}
 
-{% block title %}All Notifications{% endblock %}
+{% block title %}Notifications{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <div class="row">
-        <!-- Sidebar Categories -->
-        <div class="col-md-3 mb-4">
+{# current_category is used in JS and URLs; fall back to "all" when the view doesn't send it #}
+{% with cat_now=current_category|default:'all' %}
+<div class="container-fluid py-4" id="notificationsPage" data-category="{{ cat_now }}">
+
+    <!-- Page header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+        <div>
+            <h4 class="fw-bold mb-1"><i class="bi bi-bell-fill text-primary" aria-hidden="true"></i> Notifications</h4>
+            <p class="text-muted small mb-0">
+                {% if page_obj %}{{ page_obj.paginator.count }} notification{{ page_obj.paginator.count|pluralize }}{% else %}Nothing to show{% endif %}
+            </p>
+        </div>
+        <div class="dropdown">
+            <button class="btn btn-outline-primary rounded-pill dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-lightning-charge" aria-hidden="true"></i> Actions
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                <li><button type="button" class="dropdown-item" data-action="mark-all-read"><i class="bi bi-check2-all" aria-hidden="true"></i> Mark all as read</button></li>
+                {% if cat_now != 'all' %}
+                <li><button type="button" class="dropdown-item" data-action="mark-category-read"><i class="bi bi-check-circle" aria-hidden="true"></i> Mark this category as read</button></li>
+                {% endif %}
+                <li><hr class="dropdown-divider"></li>
+                <li><button type="button" class="dropdown-item text-danger" data-action="delete-all"><i class="bi bi-trash3" aria-hidden="true"></i> Delete {% if cat_now == 'all' %}all{% else %}this category{% endif %}</button></li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Category filters -->
+        <div class="col-lg-3">
             <div class="card border-0 shadow-sm rounded-4">
-                <div class="card-header bg-white border-0 pt-4">
-                    <h5 class="fw-bold mb-0">
-                        <i class="bi bi-filters"></i> Filters
-                    </h5>
+                <div class="card-header bg-white border-0 pt-4 pb-2">
+                    <h6 class="fw-bold text-uppercase text-muted small mb-0"><i class="bi bi-funnel" aria-hidden="true"></i> Filter by category</h6>
                 </div>
                 <div class="card-body p-0">
-                    <div class="list-group list-group-flush">
+                    <nav class="list-group list-group-flush rounded-bottom-4" aria-label="Notification categories">
                         {% for cat in categories %}
-                        <a href="?category={{ cat.id }}" 
-                           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center {% if current_category == cat.id %}active{% endif %}"
-                           style="border-left: 3px solid {% if current_category == cat.id %}#667eea{% else %}transparent{% endif %};">
-                            <div class="d-flex align-items-center gap-2">
-                                <i class="bi {{ cat.icon }}"></i>
-                                <span>{{ cat.name }}</span>
-                            </div>
-                            <span class="badge {% if current_category == cat.id %}bg-light text-dark{% else %}bg-secondary bg-opacity-25{% endif %} rounded-pill">
-                                {{ cat.count }}
-                            </span>
+                        <a href="?category={{ cat.id|urlencode }}"
+                           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center category-link {% if cat_now == cat.id %}active{% endif %}"
+                           {% if cat_now == cat.id %}aria-current="page"{% endif %}>
+                            <span class="d-flex align-items-center gap-2"><i class="bi {{ cat.icon }}" aria-hidden="true"></i> {{ cat.name }}</span>
+                            <span class="badge rounded-pill bg-secondary bg-opacity-25 text-body">{{ cat.count }}</span>
                         </a>
                         {% endfor %}
-                    </div>
-                </div>
-                <div class="card-footer bg-white border-0 pb-4">
-                    <button onclick="deleteAllNotifications()" class="btn btn-outline-danger w-100 rounded-pill">
-                        <i class="bi bi-trash3"></i> Delete All
-                    </button>
+                    </nav>
                 </div>
             </div>
         </div>
-        
-        <!-- Notifications List -->
-        <div class="col-md-9">
-            <div class="card border-0 shadow-sm rounded-4">
-                <div class="card-header bg-white border-0 pt-4">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="fw-bold mb-0">
-                            <i class="bi bi-bell-fill"></i> 
-                            {% if current_category == 'all' %}All Notifications
-                            {% elif current_category == 'sales' %}Sales Notifications
-                            {% elif current_category == 'payments' %}Payment Notifications
-                            {% elif current_category == 'installments' %}Installment Notifications
-                            {% elif current_category == 'stock' %}Stock Alerts
-                            {% else %}System Notifications{% endif %}
-                        </h5>
-                        <div class="dropdown">
-                            <button class="btn btn-sm btn-outline-primary rounded-pill dropdown-toggle" data-bs-toggle="dropdown">
-                                <i class="bi bi-gear"></i> Actions
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li><a class="dropdown-item" href="#" onclick="markAllReadPage()"><i class="bi bi-check2-all"></i> Mark all as read</a></li>
-                                <li><a class="dropdown-item" href="#" onclick="markCategoryRead()"><i class="bi bi-check-circle"></i> Mark this category as read</a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item text-danger" href="#" onclick="deleteAllNotifications()"><i class="bi bi-trash3"></i> Delete all</a></li>
-                            </ul>
-                        </div>
-                    </div>
+
+        <!-- Notifications -->
+        <div class="col-lg-9">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-white border-0 pt-4 pb-3">
+                    <h5 class="fw-bold mb-0">
+                        {% if cat_now == 'all' %}All Notifications
+                        {% elif cat_now == 'sales' %}Sales Notifications
+                        {% elif cat_now == 'payments' %}Payment Notifications
+                        {% elif cat_now == 'installments' %}Installment Notifications
+                        {% elif cat_now == 'stock' %}Stock Alerts
+                        {% else %}System Notifications{% endif %}
+                    </h5>
                 </div>
-                <div class="card-body p-0">
+
+                <div class="card-body p-0" id="notificationItems">
                     {% if page_obj %}
                         {% for notification in page_obj %}
-                        <div class="notification-page-item p-3 border-bottom {% if not notification.is_read %}bg-light{% endif %}" id="notif-{{ notification.id }}">
+                        <article class="notification-page-item p-3 border-top {% if not notification.is_read %}is-unread{% endif %}" id="notif-{{ notification.id }}" data-id="{{ notification.id }}">
                             <div class="d-flex align-items-start gap-3">
-                                <div class="notification-icon-page {{ notification.notification_type }}">
+                                <div class="notification-icon-page {{ notification.notification_type }}" aria-hidden="true">
                                     {% if notification.notification_type == 'success' %}✅
                                     {% elif notification.notification_type == 'warning' %}⚠️
                                     {% elif notification.notification_type == 'danger' %}❌
@@ -82,76 +83,75 @@
                                     {% elif notification.notification_type == 'payment' %}💰
                                     {% else %}ℹ️{% endif %}
                                 </div>
-                                <div class="flex-grow-1">
-                                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
-                                        <h6 class="mb-1 fw-semibold">{{ notification.title }}</h6>
-                                        <small class="text-muted">{{ notification.created_at|timesince }} ago</small>
+
+                                <div class="flex-grow-1 min-w-0">
+                                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-1">
+                                        <h6 class="mb-1 fw-semibold">
+                                            {{ notification.title }}
+                                            {% if not notification.is_read %}<span class="badge bg-primary rounded-pill ms-1 align-middle new-badge">New</span>{% endif %}
+                                        </h6>
+                                        <time class="text-muted small" datetime="{{ notification.created_at|date:'c' }}" title="{{ notification.created_at|date:'d M Y, h:i A' }}">
+                                            {{ notification.created_at|naturaltime }}
+                                        </time>
                                     </div>
                                     <p class="mb-2 text-muted small">{{ notification.message }}</p>
-                                    <div class="d-flex gap-2">
-                                        {% if not notification.is_read %}
-                                        <span class="badge bg-primary rounded-pill px-2 py-1 small">New</span>
-                                        {% endif %}
-                                        <span class="badge bg-secondary bg-opacity-10 text-secondary rounded-pill px-2 py-1 small">
-                                            {{ notification.get_category_display }}
-                                        </span>
-                                        {% if notification.link %}
-                                        <a href="{{ notification.link }}" class="text-primary small text-decoration-none">
-                                            View Details →
-                                        </a>
+                                    <div class="d-flex flex-wrap align-items-center gap-2">
+                                        <span class="badge bg-secondary bg-opacity-10 text-secondary rounded-pill">{{ notification.get_category_display }}</span>
+                                        {% if notification.link and notification.link|slice:":1" == "/" and notification.link|slice:":2" != "//" %}
+                                        <a href="{{ notification.link }}" class="small text-decoration-none view-link" data-id="{{ notification.id }}">View details <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
                                         {% endif %}
                                     </div>
                                 </div>
-                                <button onclick="deleteNotificationPage({{ notification.id }})" class="btn btn-sm btn-outline-danger rounded-pill">
-                                    <i class="bi bi-trash3"></i>
-                                </button>
+
+                                <div class="btn-group btn-group-sm flex-shrink-0">
+                                    {% if not notification.is_read %}
+                                    <button type="button" class="btn btn-outline-secondary" data-action="mark-read" data-id="{{ notification.id }}" title="Mark as read" aria-label="Mark as read"><i class="bi bi-check2" aria-hidden="true"></i></button>
+                                    {% endif %}
+                                    <button type="button" class="btn btn-outline-danger" data-action="delete" data-id="{{ notification.id }}" title="Delete" aria-label="Delete notification"><i class="bi bi-trash3" aria-hidden="true"></i></button>
+                                </div>
                             </div>
-                        </div>
+                        </article>
                         {% endfor %}
-                        
-                        <!-- Pagination -->
+
                         {% if page_obj.has_other_pages %}
+                        {% with cur=page_obj.number total=page_obj.paginator.num_pages %}
                         <div class="p-3 border-top">
-                            <nav>
-                                <ul class="pagination justify-content-center mb-0">
-                                    {% if page_obj.has_previous %}
-                                    <li class="page-item">
-                                        <a class="page-link rounded-3 mx-1" href="?page=1&category={{ current_category }}">
-                                            <i class="bi bi-chevron-double-left"></i>
-                                        </a>
+                            <nav aria-label="Notifications pagination">
+                                <ul class="pagination pagination-sm justify-content-center flex-wrap mb-2">
+                                    <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                                        <a class="page-link" aria-label="First page" href="?page=1&category={{ cat_now|urlencode }}"><i class="bi bi-chevron-double-left"></i></a>
                                     </li>
-                                    <li class="page-item">
-                                        <a class="page-link rounded-3 mx-1" href="?page={{ page_obj.previous_page_number }}&category={{ current_category }}">
-                                            <i class="bi bi-chevron-left"></i>
-                                        </a>
+                                    <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                                        <a class="page-link" aria-label="Previous page" href="{% if page_obj.has_previous %}?page={{ page_obj.previous_page_number }}&category={{ cat_now|urlencode }}{% else %}#{% endif %}"><i class="bi bi-chevron-left"></i></a>
                                     </li>
-                                    {% endif %}
-                                    
-                                    <li class="page-item active">
-                                        <span class="page-link rounded-3 mx-1 bg-primary border-primary">{{ page_obj.number }}</span>
+                                    {% for num in page_obj.paginator.page_range %}
+                                        {% if num == 1 or num == total or num >= cur|add:'-2' and num <= cur|add:'2' %}
+                                            <li class="page-item {% if num == cur %}active{% endif %}" {% if num == cur %}aria-current="page"{% endif %}>
+                                                <a class="page-link" href="?page={{ num }}&category={{ cat_now|urlencode }}">{{ num }}</a>
+                                            </li>
+                                        {% elif num == cur|add:'-3' or num == cur|add:'3' %}
+                                            <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+                                        {% endif %}
+                                    {% endfor %}
+                                    <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                                        <a class="page-link" aria-label="Next page" href="{% if page_obj.has_next %}?page={{ page_obj.next_page_number }}&category={{ cat_now|urlencode }}{% else %}#{% endif %}"><i class="bi bi-chevron-right"></i></a>
                                     </li>
-                                    
-                                    {% if page_obj.has_next %}
-                                    <li class="page-item">
-                                        <a class="page-link rounded-3 mx-1" href="?page={{ page_obj.next_page_number }}&category={{ current_category }}">
-                                            <i class="bi bi-chevron-right"></i>
-                                        </a>
+                                    <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                                        <a class="page-link" aria-label="Last page" href="?page={{ total }}&category={{ cat_now|urlencode }}"><i class="bi bi-chevron-double-right"></i></a>
                                     </li>
-                                    <li class="page-item">
-                                        <a class="page-link rounded-3 mx-1" href="?page={{ page_obj.paginator.num_pages }}&category={{ current_category }}">
-                                            <i class="bi bi-chevron-double-right"></i>
-                                        </a>
-                                    </li>
-                                    {% endif %}
                                 </ul>
+                                <p class="text-center text-muted small mb-0">
+                                    Showing {{ page_obj.start_index }}&ndash;{{ page_obj.end_index }} of {{ page_obj.paginator.count }}
+                                </p>
                             </nav>
                         </div>
+                        {% endwith %}
                         {% endif %}
                     {% else %}
-                        <div class="text-center py-5">
-                            <i class="bi bi-bell-slash display-1 text-muted"></i>
-                            <h5 class="mt-3 text-muted">No Notifications</h5>
-                            <p class="text-muted small">You're all caught up!</p>
+                        <div class="text-center py-5 border-top">
+                            <i class="bi bi-bell-slash display-1 text-muted opacity-50" aria-hidden="true"></i>
+                            <h5 class="mt-3 text-muted">No notifications</h5>
+                            <p class="text-muted small mb-0">You're all caught up!</p>
                         </div>
                     {% endif %}
                 </div>
@@ -160,132 +160,155 @@
     </div>
 </div>
 
+<!-- Confirm modal (replaces browser confirm()) -->
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-body text-center p-4">
+                <div class="fs-1 text-danger mb-2" aria-hidden="true"><i class="bi bi-exclamation-triangle"></i></div>
+                <h6 class="fw-bold" id="confirmModalTitle">Are you sure?</h6>
+                <p class="text-muted small mb-4" id="confirmModalText"></p>
+                <div class="d-flex gap-2 justify-content-center">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger rounded-pill px-4" id="confirmModalOk">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:1100;">
+    <div id="pageToast" class="toast align-items-center border-0" role="status" aria-live="polite" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body" id="pageToastBody"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
 <style>
     .notification-icon-page {
-        width: 45px;
-        height: 45px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 22px;
-        flex-shrink: 0;
+        width: 45px; height: 45px; border-radius: 12px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center; font-size: 22px;
     }
-    .notification-icon-page.success { background: #e8f5e9; }
-    .notification-icon-page.warning { background: #fff3e0; }
-    .notification-icon-page.danger { background: #ffebee; }
-    .notification-icon-page.sale { background: #e8f5e9; }
-    .notification-icon-page.installment { background: #fff3e0; }
-    .notification-icon-page.stock { background: #ffebee; }
-    .notification-icon-page.payment { background: #e3f2fd; }
-    .notification-icon-page.info { background: #e3f2fd; }
-    
-    .list-group-item.active {
+    .notification-icon-page.success, .notification-icon-page.sale { background: #e8f5e9; }
+    .notification-icon-page.warning, .notification-icon-page.installment { background: #fff3e0; }
+    .notification-icon-page.danger, .notification-icon-page.stock { background: #ffebee; }
+    .notification-icon-page.payment, .notification-icon-page.info { background: #e3f2fd; }
+
+    .category-link { border-left: 3px solid transparent; }
+    .category-link.active {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-color: #667eea;
-        color: white;
+        border-left-color: #667eea; color: #fff;
     }
-    
-    .list-group-item.active .badge {
-        background: rgba(255,255,255,0.2) !important;
-        color: white !important;
-    }
-    
-    .notification-page-item {
-        transition: all 0.2s ease;
-    }
-    
-    .notification-page-item:hover {
-        background: #f8f9fc;
-    }
+    .category-link.active .badge { background: rgba(255,255,255,.25) !important; color: #fff !important; }
+
+    .notification-page-item { transition: background .2s ease, opacity .25s ease; border-left: 3px solid transparent; }
+    .notification-page-item.is-unread { background: #f4f6ff; border-left-color: #667eea; }
+    .notification-page-item:hover { background: #f8f9fc; }
+    .notification-page-item.removing { opacity: 0; }
+    .min-w-0 { min-width: 0; }
+    .notification-page-item p { overflow-wrap: anywhere; }
 </style>
 
 <script>
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
+(function () {
+    'use strict';
+    var page = document.getElementById('notificationsPage');
+    var category = page.dataset.category;
+
+    function getCookie(name) {
+        var m = document.cookie.split(';').map(function (c) { return c.trim(); })
+            .find(function (c) { return c.indexOf(name + '=') === 0; });
+        return m ? decodeURIComponent(m.substring(name.length + 1)) : null;
     }
-    return cookieValue;
-}
 
-function markAllReadPage() {
-    fetch('/api/notifications/mark-all-read/', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        }
-    });
-}
-
-function markCategoryRead() {
-    const category = '{{ current_category }}';
-    fetch('/api/notifications/mark-category-read/', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({category: category})
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        }
-    });
-}
-
-function deleteNotificationPage(id) {
-    if (confirm('Delete this notification?')) {
-        fetch(`/notifications/${id}/delete/`, {
+    function post(url, body) {
+        return fetch(url, {
             method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                document.getElementById(`notif-${id}`).remove();
-            }
+            credentials: 'same-origin',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') || '', 'Content-Type': 'application/json' },
+            body: body ? JSON.stringify(body) : undefined
+        }).then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        }).then(function (d) {
+            if (!d.success) throw new Error('failed');
+            return d;
         });
     }
-}
 
-function deleteAllNotifications() {
-    if (confirm('Delete all notifications? This action cannot be undone!')) {
-        const category = '{{ current_category }}';
-        fetch('/notifications/delete-all/', {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({category: category})
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            }
+    var toastEl = document.getElementById('pageToast');
+    function toast(msg, type) {
+        toastEl.className = 'toast align-items-center border-0 text-bg-' + (type || 'success');
+        document.getElementById('pageToastBody').textContent = msg;
+        bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 3000 }).show();
+    }
+    function fail() { toast('Something went wrong. Please try again.', 'danger'); }
+
+    // Bootstrap modal used as a confirm dialog
+    var modalEl = document.getElementById('confirmModal');
+    var okBtn = document.getElementById('confirmModalOk');
+    var pendingConfirm = null;
+    function confirmDialog(text, onOk) {
+        document.getElementById('confirmModalText').textContent = text;
+        pendingConfirm = onOk;
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
+    okBtn.addEventListener('click', function () {
+        var fn = pendingConfirm; pendingConfirm = null;
+        bootstrap.Modal.getInstance(modalEl).hide();
+        if (fn) fn();
+    });
+
+    function reloadSoon(msg) { toast(msg); setTimeout(function () { location.reload(); }, 600); }
+
+    function markRead(id) {
+        return post('/api/notifications/' + encodeURIComponent(id) + '/mark-read/').then(function () {
+            var row = document.getElementById('notif-' + id);
+            if (!row) return;
+            row.classList.remove('is-unread');
+            var nb = row.querySelector('.new-badge'); if (nb) nb.remove();
+            var btn = row.querySelector('[data-action="mark-read"]'); if (btn) btn.remove();
         });
     }
-}
+
+    function deleteOne(id) {
+        post('/notifications/' + encodeURIComponent(id) + '/delete/').then(function () {
+            var row = document.getElementById('notif-' + id);
+            if (!row) return;
+            row.classList.add('removing');
+            setTimeout(function () {
+                row.remove();
+                if (!document.querySelector('.notification-page-item')) location.reload();
+                else toast('Notification deleted');
+            }, 250);
+        }).catch(fail);
+    }
+
+    page.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        var action = btn.dataset.action, id = btn.dataset.id;
+        if (action === 'mark-read') markRead(id).catch(fail);
+        else if (action === 'delete') confirmDialog('This notification will be deleted.', function () { deleteOne(id); });
+        else if (action === 'mark-all-read') post('/api/notifications/mark-all-read/').then(function () { reloadSoon('All marked as read'); }).catch(fail);
+        else if (action === 'mark-category-read') post('/api/notifications/mark-category-read/', { category: category }).then(function () { reloadSoon('Category marked as read'); }).catch(fail);
+        else if (action === 'delete-all') {
+            var what = category === 'all' ? 'all notifications' : 'all notifications in this category';
+            confirmDialog('Delete ' + what + '? This cannot be undone.', function () {
+                post('/notifications/delete-all/', { category: category }).then(function () { reloadSoon('Deleted'); }).catch(fail);
+            });
+        }
+    });
+
+    // Opening "View details" also marks the notification as read (fire-and-forget)
+    page.addEventListener('click', function (e) {
+        var link = e.target.closest('.view-link');
+        if (link) post('/api/notifications/' + encodeURIComponent(link.dataset.id) + '/mark-read/').catch(function () {});
+    });
+})();
 </script>
+{% endwith %}
 {% endblock %}
