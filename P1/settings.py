@@ -94,6 +94,7 @@ CLOUDINARY_STORAGE = {
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -101,9 +102,10 @@ MIDDLEWARE = [
     'axes.middleware.AxesMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    # Custom Middleware
     'app.middleware.ShareholderRestrictionMiddleware',
     'app.middleware.LiveVisitorMiddleware',
-    'app.middleware.SecurityMiddleware',
     'app.middleware.AdminActivityMiddleware',
 ]
 
@@ -208,10 +210,10 @@ import os
 import os
 from pathlib import Path
 
-# Static Files Setup
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+WHITENOISE_USE_FINDERS = True
 
 # Media Files Setup
 MEDIA_URL = '/media/'
