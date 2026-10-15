@@ -1,139 +1,53 @@
 {% extends 'base.html' %}
 {% load static %}
-
-{% block title %}Suite Detail{% endblock %}
+{% block title %}{{ suite.name }}{% endblock %}
+{% block extra_css %}{% include 'testing/_qa_ui.html' %}{% endblock %}
 
 {% block content %}
-<div class="container-fluid px-4 py-3">
-    
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2><i class="bi bi-folder text-primary"></i> {{ suite.name }}</h2>
-            <p class="text-muted">{{ suite.project.name }} - {{ suite.description|default:"No description" }}</p>
-        </div>
-        <div>
-            <a href="{% url 'test_case_create' suite.id %}" class="btn btn-primary">
-                <i class="bi bi-plus-circle"></i> New Test Case
-            </a>
-            <a href="{% url 'test_project_list' %}" class="btn btn-secondary">
-                <i class="bi bi-arrow-left"></i> Back
-            </a>
-        </div>
+<div class="qa-wrap">
+  <div class="qa-head">
+    <div>
+      <h1><span class="qa-ico"><i class="bi bi-folder2-open"></i></span> {{ suite.name }}</h1>
+      <p>{{ suite.project.name }}{% if suite.description %} · {{ suite.description }}{% endif %}</p>
     </div>
-    
-    <!-- Stats -->
-    <div class="row g-3 mb-4">
-        <div class="col-md-3">
-            <div class="card bg-primary text-white">
-                <div class="card-body">
-                    <h6>Total Cases</h6>
-                    <h3>{{ suite.cases.count }}</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card bg-success text-white">
-                <div class="card-body">
-                    <h6>Passed</h6>
-                    <h3>{{ suite.cases.filter.status.passed.count }}</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card bg-danger text-white">
-                <div class="card-body">
-                    <h6>Failed</h6>
-                    <h3>{{ suite.cases.filter.status.failed.count }}</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card bg-warning text-dark">
-                <div class="card-body">
-                    <h6>Pass Rate</h6>
-                    <h3>0%</h3>
-                </div>
-            </div>
-        </div>
+    <div class="qa-actions">
+      <a href="{% url 'test_case_create' suite.id %}" class="qa-btn primary"><i class="bi bi-plus-lg"></i> New Test Case</a>
+      <a href="{% url 'test_project_list' %}" class="qa-btn"><i class="bi bi-arrow-left"></i> Projects</a>
     </div>
-    
-    <!-- Test Cases -->
-    <div class="card shadow-sm border-0">
-        <div class="card-header bg-white">
-            <h6 class="mb-0"><i class="bi bi-list-check text-primary"></i> Test Cases</h6>
-        </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Title</th>
-                            <th>Type</th>
-                            <th>Priority</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for case in suite.cases.all %}
-                        <tr>
-                            <td>
-                                <span class="fw-bold">{{ case.title }}</span>
-                                <br>
-                                <small class="text-muted">{{ case.description|truncatechars:50 }}</small>
-                            </td>
-                            <td>
-                                <span class="badge bg-secondary">{{ case.get_test_type_display }}</span>
-                            </td>
-                            <td>
-                                <span class="badge 
-                                    {% if case.priority == 'critical' %}bg-danger
-                                    {% elif case.priority == 'high' %}bg-warning
-                                    {% elif case.priority == 'medium' %}bg-info
-                                    {% else %}bg-secondary{% endif %}">
-                                    {{ case.get_priority_display }}
-                                </span>
-                            </td>
-                            <td>
-                                <span class="badge 
-                                    {% if case.status == 'passed' %}bg-success
-                                    {% elif case.status == 'failed' %}bg-danger
-                                    {% elif case.status == 'blocked' %}bg-warning
-                                    {% elif case.status == 'in_progress' %}bg-info
-                                    {% else %}bg-secondary{% endif %}">
-                                    {{ case.get_status_display }}
-                                </span>
-                            </td>
-                            <td>
-                                <div class="btn-group btn-group-sm">
-                                    <a href="{% url 'test_case_execute' case.id %}" class="btn btn-outline-success">
-                                        <i class="bi bi-play-circle"></i>
-                                    </a>
-                                    <a href="#" class="btn btn-outline-info">
-                                        <i class="bi bi-eye"></i>
-                                    </a>
-                                    <a href="#" class="btn btn-outline-warning">
-                                        <i class="bi bi-pencil"></i>
-                                    </a>
-                                </div>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="5" class="text-center py-4 text-muted">
-                                <i class="bi bi-inbox fs-2 d-block"></i>
-                                <p>No test cases in this suite</p>
-                                <a href="{% url 'test_case_create' suite.id %}" class="btn btn-primary btn-sm">
-                                    <i class="bi bi-plus-circle"></i> Create Test Case
-                                </a>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+  </div>
+
+  {% include 'testing/_qa_nav.html' with active='projects' %}
+
+  <div class="qa-kpis">
+    <div class="qa-kpi" style="--c:#3b5bdb"><div class="v">{{ stats.total }}</div><div class="l">Total cases</div></div>
+    <div class="qa-kpi" style="--c:#2f9e44"><div class="v">{{ stats.passed }}</div><div class="l">Passed</div></div>
+    <div class="qa-kpi" style="--c:#e03131"><div class="v">{{ stats.failed }}</div><div class="l">Failed</div></div>
+    <div class="qa-kpi" style="--c:#7048e8">
+      <div class="v">{{ stats.pass_rate }}%</div><div class="l">Pass rate</div>
+      <div class="qa-bar mt-2"><span style="width:{{ stats.pass_rate }}%;background:#2f9e44"></span></div>
     </div>
-    
+  </div>
+
+  <div class="qa-card">
+    <div class="qa-card-h"><h6><i class="bi bi-list-check"></i> Test cases</h6></div>
+    <div class="table-responsive">
+      <table class="qa-table">
+        <thead><tr><th>Test case</th><th>Type</th><th>Priority</th><th>Status</th><th style="width:90px"></th></tr></thead>
+        <tbody>
+        {% for case in cases %}
+          <tr>
+            <td><span class="qa-title">{{ case.title }}</span><span class="qa-sub">{{ case.description|truncatechars:70 }}</span></td>
+            <td><span class="qa-tag">{{ case.type_label }}</span></td>
+            <td><span class="qa-pill qa-{{ case.priority }}">{{ case.priority_label }}</span></td>
+            <td><span class="qa-pill qa-{{ case.status }}">{{ case.status_label }}</span></td>
+            <td><a href="{% url 'test_case_execute' case.id %}" class="qa-btn sm primary"><i class="bi bi-play-fill"></i> Run</a></td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5"><div class="qa-empty"><i class="bi bi-inbox"></i>No test cases in this suite yet.</div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
 {% endblock %}

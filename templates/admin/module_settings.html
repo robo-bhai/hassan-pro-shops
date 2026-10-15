@@ -30,29 +30,114 @@
                     <form method="POST" action="{% url 'module_settings' %}">
                         {% csrf_token %}
                         
-                        <!-- Module Settings -->
-                        <div class="row">
-                            {% for setting in module_settings %}
-                            <div class="col-md-6 mb-3">
-                                <div class="card">
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <h6 class="mb-1">{{ setting.name }}</h6>
-                                                <small class="text-muted">{{ setting.description }}</small>
-                                            </div>
-                                            <div class="form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" 
-                                                       name="setting_{{ setting.key }}"
-                                                       id="setting_{{ setting.key }}"
-                                                       {% if setting.value %}checked{% endif %}>
-                                            </div>
-                                        </div>
-                                    </div>
+                        <!-- Business Mode -->
+                        <div class="card mb-4 border border-primary">
+                            <div class="card-body">
+                                <label class="form-label fw-bold" for="businessMode">Business Mode</label>
+                                <select name="business_mode" id="businessMode" class="form-select">
+                                    <option value="both"    {% if BUSINESS_MODE == 'both' %}selected{% endif %}>Both (Shop + Factory)</option>
+                                    <option value="shop"    {% if BUSINESS_MODE == 'shop' %}selected{% endif %}>Shop only (Production hidden)</option>
+                                    <option value="factory" {% if BUSINESS_MODE == 'factory' %}selected{% endif %}>Factory only (Installments hidden)</option>
+                                </select>
+                                <small class="text-muted">Mode badalne ke baad Save karein. Neeche har module ke liye Shop aur Factory ke switch khud chuno: Shop mode me Shop wale, Factory mode me Factory wale, aur Both mode me jis module ka koi bhi switch on ho wo dikhega. Sirf wohi module hidden hote hain jin ka switch off hai.</small>
+                            </div>
+                        </div>
+                        
+                        <!-- Module Settings: Shop / Factory (saare modules) -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-white">
+                                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                    <h6 class="mb-0"><i class="bi bi-toggles me-1"></i> Saare modules: Shop aur Factory ke liye chuno
+                                        <span class="badge bg-light text-dark border ms-1">{{ module_settings|length }} modules</span></h6>
+                                    <span class="badge bg-primary">Abhi mode: {{ BUSINESS_MODE|title }}</span>
+                                </div>
+                                <div class="mt-2">
+                                    <input type="search" id="moduleFilter" class="form-control form-control-sm" placeholder="Module dhundo (jaise loans, hr, reports)">
                                 </div>
                             </div>
-                            {% endfor %}
+                            <div class="table-responsive">
+                                <table class="table align-middle mb-0" id="moduleTable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Module</th>
+                                            <th class="text-center" style="width:84px">
+                                                Shop<br>
+                                                <input type="checkbox" class="form-check-input" data-col="shop" title="Shop: sab on/off">
+                                            </th>
+                                            <th class="text-center" style="width:84px">
+                                                Factory<br>
+                                                <input type="checkbox" class="form-check-input" data-col="factory" title="Factory: sab on/off">
+                                            </th>
+                                            <th class="text-center d-none d-md-table-cell" style="width:100px">Abhi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                    {% for group in module_groups %}
+                                        <tr class="table-secondary module-group"><td colspan="4" class="small fw-bold text-uppercase">{{ group.name }}</td></tr>
+                                        {% for setting in group.items %}
+                                        <tr class="module-row" data-name="{{ setting.name|lower }} {{ setting.id }} {{ setting.description|lower }}">
+                                            <td>
+                                                <div class="fw-semibold"><i class="bi {{ setting.icon }} me-1 text-primary"></i>{{ setting.name }}</div>
+                                                <small class="text-muted">{{ setting.description }}</small>
+                                            </td>
+                                            <td class="text-center">
+                                                <div class="form-check form-switch d-inline-block m-0">
+                                                    <input class="form-check-input" type="checkbox" data-unit="shop"
+                                                           name="mode_shop_{{ setting.id }}" id="mode_shop_{{ setting.id }}"
+                                                           {% if setting.shop %}checked{% endif %}>
+                                                </div>
+                                            </td>
+                                            <td class="text-center">
+                                                <div class="form-check form-switch d-inline-block m-0">
+                                                    <input class="form-check-input" type="checkbox" data-unit="factory"
+                                                           name="mode_factory_{{ setting.id }}" id="mode_factory_{{ setting.id }}"
+                                                           {% if setting.factory %}checked{% endif %}>
+                                                </div>
+                                            </td>
+                                            <td class="text-center d-none d-md-table-cell">
+                                                {% if setting.visible %}<span class="badge bg-success">Chalu</span>{% else %}<span class="badge bg-secondary">Band</span>{% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="card-footer bg-white small text-muted">
+                                Ye hamesha chalte hain (switch nahi): Login, Dashboard, Users, Settings, Security, Notifications aur Online Shop.
+                                Band module ka URL seedha kholne par bhi "Module band hai" page aata hai.
+                            </div>
                         </div>
+                        <script>
+                        (function () {
+                            var table = document.getElementById('moduleTable');
+                            // Column select-all (Shop / Factory)
+                            table.querySelectorAll('input[data-col]').forEach(function (master) {
+                                var unit = master.getAttribute('data-col');
+                                var boxes = table.querySelectorAll('input[data-unit="' + unit + '"]');
+                                function sync() { master.checked = Array.prototype.every.call(boxes, function (b) { return b.checked; }); }
+                                master.addEventListener('change', function () {
+                                    boxes.forEach(function (b) { b.checked = master.checked; });
+                                });
+                                boxes.forEach(function (b) { b.addEventListener('change', sync); });
+                                sync();
+                            });
+                            // Search filter
+                            document.getElementById('moduleFilter').addEventListener('input', function () {
+                                var q = this.value.trim().toLowerCase();
+                                table.querySelectorAll('tr.module-row').forEach(function (r) {
+                                    r.style.display = (!q || r.getAttribute('data-name').indexOf(q) !== -1) ? '' : 'none';
+                                });
+                                table.querySelectorAll('tr.module-group').forEach(function (g) {
+                                    var n = g.nextElementSibling, any = false;
+                                    while (n && !n.classList.contains('module-group')) {
+                                        if (n.style.display !== 'none') any = true; n = n.nextElementSibling;
+                                    }
+                                    g.style.display = any ? '' : 'none';
+                                });
+                            });
+                        })();
+                        </script>
 
                         <!-- ========================================== -->
                         <!-- SHAREHOLDER DEDUCTION SETTINGS            -->

@@ -1,0 +1,61 @@
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Range Report</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+<div class="container py-3">
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">📊 Range Report</h4>
+    <a href="/" class="btn btn-sm btn-outline-secondary">⬅ Back</a>
+  </div>
+
+  <form method="get" class="card card-body mb-3">
+    <div class="row g-2">
+      <div class="col-6 col-md-4">
+        <label class="form-label small mb-1">From</label>
+        <input type="date" name="start_date" class="form-control"
+               value="{% firstof start_date request.GET.start_date %}">
+      </div>
+      <div class="col-6 col-md-4">
+        <label class="form-label small mb-1">To</label>
+        <input type="date" name="end_date" class="form-control"
+               value="{% firstof end_date request.GET.end_date %}">
+      </div>
+      <div class="col-12 col-md-4 d-flex align-items-end">
+        <button type="submit" class="btn btn-primary w-100">Show Report</button>
+      </div>
+    </div>
+  </form>
+
+  {% if total_sales or total_expenses or total_profit %}
+  <div class="row g-2 mb-3">
+    {% if total_sales %}<div class="col-4"><div class="card card-body text-center"><small>Sales</small><strong>{{ total_sales|floatformat:0|intcomma }}</strong></div></div>{% endif %}
+    {% if total_expenses %}<div class="col-4"><div class="card card-body text-center"><small>Expenses</small><strong>{{ total_expenses|floatformat:0|intcomma }}</strong></div></div>{% endif %}
+    {% if total_profit %}<div class="col-4"><div class="card card-body text-center"><small>Profit</small><strong>{{ total_profit|floatformat:0|intcomma }}</strong></div></div>{% endif %}
+  </div>
+  {% endif %}
+
+  {% if rows or data or records or report_data %}
+  <div class="card card-body table-responsive">
+    <table class="table table-sm table-striped mb-0">
+      <tbody>
+        {% for r in rows %}<tr><td>{{ r }}</td></tr>{% endfor %}
+        {% for r in data %}<tr><td>{{ r }}</td></tr>{% endfor %}
+        {% for r in records %}<tr><td>{{ r }}</td></tr>{% endfor %}
+        {% for r in report_data %}<tr><td>{{ r }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="alert alert-info">Date range chun kar report dekhein.</div>
+  {% endif %}
+
+</div>
+</body>
+</html>

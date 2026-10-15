@@ -1,0 +1,38 @@
+{# Ek setting field. Catalog (settings_catalog.py) ke mutabiq banta hai. #}
+{% if f.type == 'bool' %}
+<div class="col-md-6 col-xl-4">
+    <div class="sc-switch-box{% if f.error %} is-invalid{% endif %}">
+        <div class="form-check form-switch m-0">
+            <input class="form-check-input" type="checkbox" role="switch" name="{{ f.name }}" id="f_{{ f.name }}"{% if f.value %} checked{% endif %}>
+            <label class="form-check-label fw-semibold" for="f_{{ f.name }}">{{ f.label }}</label>
+        </div>
+        {% if f.help %}<div class="form-text mt-1">{{ f.help }}</div>{% endif %}
+    </div>
+</div>
+{% else %}
+<div class="{% if f.wide %}col-12{% else %}col-md-6{% endif %}">
+    <label class="form-label fw-semibold" for="f_{{ f.name }}">{{ f.label }}{% if f.required %} <span class="text-danger">*</span>{% endif %}</label>
+    {% if f.type == 'select' %}
+        <select class="form-select{% if f.error %} is-invalid{% endif %}" name="{{ f.name }}" id="f_{{ f.name }}">
+            {% for o in f.options %}<option value="{{ o.value }}"{% if o.selected %} selected{% endif %}>{{ o.label }}</option>{% endfor %}
+        </select>
+    {% elif f.type == 'textarea' %}
+        <textarea class="form-control{% if f.error %} is-invalid{% endif %}" name="{{ f.name }}" id="f_{{ f.name }}" rows="3"{% if f.required %} required{% endif %}>{{ f.value }}</textarea>
+    {% else %}
+        {% if f.prefix or f.suffix %}<div class="input-group">{% endif %}
+        {% if f.prefix %}<span class="input-group-text">{{ f.prefix }}</span>{% endif %}
+        <input class="form-control{% if f.error %} is-invalid{% endif %}" id="f_{{ f.name }}" name="{{ f.name }}"
+               type="{% if f.type == 'int' or f.type == 'decimal' %}number{% else %}{{ f.type }}{% endif %}"
+               value="{{ f.value }}"
+               {% if f.type == 'int' or f.type == 'decimal' %}step="{{ f.step }}" inputmode="decimal"{% endif %}
+               {% if f.min is not None %}min="{{ f.min }}"{% endif %}
+               {% if f.max is not None %}max="{{ f.max }}"{% endif %}
+               {% if f.max_len %}maxlength="{{ f.max_len }}"{% endif %}
+               {% if f.required %}required{% endif %}>
+        {% if f.suffix %}<span class="input-group-text">{{ f.suffix }}</span>{% endif %}
+        {% if f.prefix or f.suffix %}</div>{% endif %}
+    {% endif %}
+    {% if f.error %}<div class="invalid-feedback d-block">{{ f.error }}</div>{% endif %}
+    {% if f.help %}<div class="form-text">{{ f.help }}</div>{% endif %}
+</div>
+{% endif %}

@@ -2,323 +2,502 @@
 {% load static %}
 {% load humanize %}
 
-{% block title %}Testing Dashboard{% endblock %}
+{% block title %}Testing dashboard{% endblock %}
 
 {% block extra_css %}
+{% include 'testing/_qa_ui.html' %}
 <style>
     .test-header {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-        border-radius: 16px;
-        padding: 30px;
-        color: white;
-        position: relative;
-        overflow: hidden;
+        background: #14213d;
+        border-radius: 10px;
+        padding: 22px 26px;
+        color: #fff;
     }
-    .test-header::before {
-        content: '🧪';
-        position: absolute;
-        font-size: 150px;
-        right: -30px;
-        bottom: -60px;
-        opacity: 0.1;
+    .test-header h2 { font-size: 1.35rem; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 4px; }
+    .test-header h2 i { opacity: .7; margin-right: 10px; }
+    .test-header .header-sub { margin: 0; font-size: .875rem; color: rgba(255,255,255,.72); }
+
+    /* header: wraps cleanly on phones */
+    .test-header .header-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; }
+    .test-header .header-actions { display: flex; flex-wrap: wrap; gap: 8px; position: relative; z-index: 1; }
+
+    /* auto test panel */
+    .auto-panel { border: 1px solid #e5e8ee; border-radius: 10px; }
+    .auto-panel .progress { height: 10px; border-radius: 10px; }
+    .auto-panel .card-header { border-bottom: 1px solid #eef0f3; padding: 14px 18px; }
+    .auto-step { display: flex; align-items: center; gap: 10px; padding: 12px 4px; border-bottom: 1px solid #f1f3f5; font-size: 0.9rem; }
+    .auto-step .step-icon { width: 22px; text-align: center; flex-shrink: 0; }
+    .auto-step .step-main { flex: 1; min-width: 0; }
+    .auto-step .step-suite { display: block; font-size: 0.74rem; font-weight: 500; color: #8a94a6; }
+    .auto-step .step-title { display: block; font-weight: 600; color: #1f2937; }
+    .auto-step .step-actual { margin-left: auto; color: #6c757d; font-size: 0.78rem; text-align: right; flex-shrink: 0; }
+    .auto-group { border-bottom: 1px solid #f1f3f5; }
+    .auto-group:last-child { border-bottom: none; }
+    .auto-group > summary { list-style: none; cursor: pointer; }
+    .auto-group > summary::-webkit-details-marker { display: none; }
+    .auto-group > summary .auto-step { border-bottom: none; }
+    .auto-group > summary .chev { transition: transform .2s; color: #9aa3b2; margin-left: 6px; }
+    .auto-group[open] > summary .chev { transform: rotate(90deg); }
+    .auto-group .count-pill { background: #fdecee; color: #c0293b; font-weight: 700; border-radius: 20px; padding: 2px 10px; font-size: 0.74rem; white-space: nowrap; }
+    .auto-group .count-pill.warn { background: #fff6dd; color: #946200; }
+    .auto-details { padding: 0 0 12px 32px; display: grid; gap: 8px; }
+    .auto-detail { border: 1px solid #eef0f3; border-left: 4px solid #dc3545; border-radius: 8px; padding: 10px 12px; background: #fff; }
+    .auto-detail.is-warn { border-left-color: #f0ad00; background: #fffdf5; }
+    .auto-detail .ad-top { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 4px; }
+    .auto-detail .ad-sev { font-size: 0.76rem; font-weight: 600; color: #c0293b; }
+    .auto-detail.is-warn .ad-sev { color: #946200; }
+    .auto-detail .ad-code, .auto-detail .ad-type { font-size: 0.68rem; background: #f1f3f7; color: #44506a; border-radius: 4px; padding: 1px 6px; font-weight: 600; }
+    .auto-detail .ad-item { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.82rem; font-weight: 700; color: #1f2937; word-break: break-all; }
+    .auto-detail .ad-msg { font-size: 0.8rem; color: #4b5563; margin-top: 2px; word-break: break-word; }
+    .auto-detail .ad-loc { display: inline-block; margin-top: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.74rem; background: #eef4ff; color: #2b4fa3; border-radius: 4px; padding: 2px 8px; }
+
+    /* live-update indicator */
+    .live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #2f9e44; margin-left: 8px; vertical-align: middle; animation: livePulse 2s ease-in-out infinite; }
+    @keyframes livePulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+    .live-flash { animation: liveFlash .8s ease-out; }
+    @keyframes liveFlash { from { background-color: #fff7d6; } to { background-color: transparent; } }
+
+    /* slowest pages */
+    .slow-card { border: 1px solid #e5e8ee; border-radius: 10px; padding: 12px 14px 6px; margin: 4px 0 14px; background: #fafbfc; }
+    .slow-head { font-size: .85rem; font-weight: 600; color: #344054; margin-bottom: 4px; }
+    .slow-head i { color: #8a94a6; margin-right: 6px; }
+    .slow-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; column-gap: 10px; row-gap: 5px; align-items: center; padding: 9px 0; border-top: 1px solid #eef0f4; }
+    .slow-rank { grid-row: 1 / 3; align-self: start; width: 20px; height: 20px; border-radius: 50%; background: #eef0f4; color: #5b6475; font-size: .72rem; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+    .slow-url { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .8rem; color: #1f2937; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .slow-url:hover { text-decoration: underline; }
+    .slow-time { font-size: .85rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .slow-time.good { color: #2f9e44; } .slow-time.mid { color: #c77700; } .slow-time.bad { color: #c0293b; }
+    .slow-bar { grid-column: 2 / 4; height: 4px; background: #e9ecf1; border-radius: 2px; overflow: hidden; }
+    .slow-bar i { display: block; height: 100%; border-radius: 2px; }
+    .slow-bar i.good { background: #2f9e44; } .slow-bar i.mid { background: #e8890c; } .slow-bar i.bad { background: #c0293b; }
+
+    /* ---------- responsive ---------- */
+    .auto-detail .ad-loc { max-width: 100%; word-break: break-all; }
+    .qa-list .qa-title { overflow-wrap: anywhere; }
+
+    @media (max-width: 767.98px) {
+        .qa-kpis { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px; }
+        .qa-kpis > :last-child:nth-child(odd) { grid-column: 1 / -1; }
     }
-    .stat-card-test {
-        border: none;
-        border-radius: 12px;
-        padding: 20px;
-        transition: all 0.3s ease;
-        height: 100%;
+    @media (max-width: 575.98px) {
+        .test-header { padding: 18px 16px; }
+        .test-header h2 { font-size: 1.2rem; }
+        .test-header .header-actions { width: 100%; }
+        .test-header .header-actions .btn { flex: 1 1 calc(50% - 8px); min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+        .test-header .header-actions #runAutoBtn { flex-basis: 100%; }
+
+        .auto-panel .card-header { padding: 12px 14px; }
+        .auto-panel .card-body { padding: 14px; }
+        .auto-panel .card-header .btn { min-height: 36px; }
+        .auto-step { flex-wrap: wrap; row-gap: 4px; }
+        .auto-step .step-actual { flex-basis: 100%; margin-left: 0; padding-left: 32px; text-align: left; }
+        .auto-details { padding-left: 0; }
+        .auto-detail .ad-item { font-size: 0.78rem; }
     }
-    .stat-card-test:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+
+    /* accessibility */
+    .test-header .btn:focus-visible, .auto-panel .btn:focus-visible, .auto-group > summary:focus-visible {
+        outline: 2px solid #3b5bdb; outline-offset: 2px;
     }
-    .stat-card-test .stat-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 22px;
-        margin-bottom: 10px;
+    @media (prefers-reduced-motion: reduce) {
+        .auto-group > summary .chev { transition: none; }
+        .auto-panel .progress-bar, .live-dot, .live-flash { animation: none; }
     }
-    .stat-card-test .stat-value {
-        font-size: 24px;
-        font-weight: 700;
-    }
-    .stat-card-test .stat-label {
-        font-size: 12px;
-        color: #6c757d;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    .status-badge {
-        padding: 2px 12px;
-        border-radius: 20px;
-        font-size: 11px;
-        font-weight: 600;
-    }
-    .status-badge.passed { background: #d4edda; color: #155724; }
-    .status-badge.failed { background: #f8d7da; color: #721c24; }
-    .status-badge.blocked { background: #fff3cd; color: #856404; }
-    .status-badge.in_progress { background: #cce5ff; color: #004085; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid px-4 py-3">
+<div class="container-fluid px-2 px-md-4 py-3">
     
     <!-- ========================================== -->
     <!-- HEADER                                     -->
     <!-- ========================================== -->
     <div class="test-header mb-4">
-        <div class="d-flex justify-content-between align-items-center">
+        <div class="header-row">
             <div>
-                <h2><i class="bi bi-bug text-primary me-2"></i> Testing Dashboard</h2>
-                <p style="opacity:0.8;">Quality assurance and test management</p>
+                <h2><i class="bi bi-clipboard-check"></i>Testing dashboard</h2>
+                <p class="header-sub">Test results, bugs and quality trends</p>
             </div>
-            <div>
-                <a href="{% url 'test_project_create' %}" class="btn btn-light btn-sm">
-                    <i class="bi bi-plus-circle"></i> New Project
+            <div class="header-actions">
+                <button type="button" id="runAutoBtn" class="btn btn-light btn-sm">
+                    <i class="bi bi-play-circle-fill"></i> Run auto tests
+                </button>
+                <a href="{% url 'test_project_create' %}" class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-plus-circle"></i> New project
                 </a>
                 <a href="{% url 'bug_create' %}" class="btn btn-outline-light btn-sm">
-                    <i class="bi bi-bug"></i> Report Bug
+                    <i class="bi bi-bug"></i> Report bug
                 </a>
             </div>
         </div>
     </div>
     
+    {% include 'testing/_qa_nav.html' with active='dashboard' %}
+
     <!-- ========================================== -->
-    <!-- STATS CARDS                               -->
+    <!-- AUTO TEST PANEL (hidden until a run exists) -->
     <!-- ========================================== -->
-    <div class="row g-3 mb-4">
-        <div class="col-xl-3 col-md-6">
-            <div class="stat-card-test" style="background: linear-gradient(135deg, #e3f2fd, #bbdefb);">
-                <div class="stat-icon" style="background: rgba(25,118,210,0.15); color: #1976d2;">
-                    <i class="bi bi-folder"></i>
-                </div>
-                <div class="stat-value" style="color: #1976d2;">{{ total_projects }}</div>
-                <div class="stat-label">Test Projects</div>
+    <div id="autoPanel" class="card shadow-sm auto-panel mb-4" style="display:none;">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h6 class="mb-0 fw-semibold"><i class="bi bi-clipboard-data text-secondary me-1"></i> Automated test run</h6>
+            <div class="d-flex align-items-center gap-2">
+                <button type="button" id="autoCopy" class="btn btn-outline-secondary btn-sm" style="display:none;">
+                    <i class="bi bi-clipboard"></i> Copy report
+                </button>
+                <button type="button" id="autoStop" class="btn btn-danger btn-sm" style="display:none;">
+                    <i class="bi bi-stop-circle-fill"></i> Stop
+                </button>
+                <span id="autoBadge" class="badge bg-secondary">Idle</span>
             </div>
         </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="stat-card-test" style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9);">
-                <div class="stat-icon" style="background: rgba(46,125,50,0.15); color: #2e7d32;">
-                    <i class="bi bi-check-circle"></i>
+        <div class="card-body">
+            <div id="autoRunning" style="display:none;">
+                <div class="d-flex justify-content-between small mb-1">
+                    <span id="autoCurrent">Starting…</span>
+                    <span id="autoCount" class="text-muted"></span>
                 </div>
-                <div class="stat-value" style="color: #2e7d32;">{{ passed }}</div>
-                <div class="stat-label">Passed Tests</div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="stat-card-test" style="background: linear-gradient(135deg, #fce4ec, #f8bbd0);">
-                <div class="stat-icon" style="background: rgba(198,40,40,0.15); color: #c62828;">
-                    <i class="bi bi-x-circle"></i>
+                <div class="progress mb-3">
+                    <div id="autoBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success" style="width:5%;"></div>
                 </div>
-                <div class="stat-value" style="color: #c62828;">{{ failed }}</div>
-                <div class="stat-label">Failed Tests</div>
             </div>
-        </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="stat-card-test" style="background: linear-gradient(135deg, #fff3e0, #ffe0b2);">
-                <div class="stat-icon" style="background: rgba(245,124,0,0.15); color: #f57c00;">
-                    <i class="bi bi-bug"></i>
-                </div>
-                <div class="stat-value" style="color: #f57c00;">{{ total_bugs }}</div>
-                <div class="stat-label">Total Bugs</div>
-            </div>
+            <div id="autoSummary" class="mb-2" style="display:none;"></div>
+            <div id="autoSlow"></div>
+            <div id="autoSteps"></div>
+            <div id="autoError" class="alert alert-danger small mb-0 mt-2" style="display:none; white-space:pre-wrap;"></div>
+            <div class="small text-muted mt-2" id="autoMeta"></div>
         </div>
     </div>
-    
+
     <!-- ========================================== -->
-    <!-- TEST STATUS BREAKDOWN                     -->
+    <!-- KPI STRIP                                  -->
     <!-- ========================================== -->
-    <div class="row g-3 mb-4">
-        <div class="col-md-6">
-            <div class="card shadow-sm border-0">
-                <div class="card-header bg-white">
-                    <h6 class="mb-0"><i class="bi bi-pie-chart text-primary"></i> Test Status</h6>
-                </div>
-                <div class="card-body">
-                    <div class="row g-2">
-                        <div class="col-6">
-                            <div class="d-flex justify-content-between">
-                                <span>✅ Passed</span>
-                                <span class="badge bg-success">{{ passed }}</span>
-                            </div>
-                            <div class="progress" style="height:6px;">
-                                <div class="progress-bar bg-success" style="width: {% widthratio passed total_tests 100 %}%;"></div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="d-flex justify-content-between">
-                                <span>❌ Failed</span>
-                                <span class="badge bg-danger">{{ failed }}</span>
-                            </div>
-                            <div class="progress" style="height:6px;">
-                                <div class="progress-bar bg-danger" style="width: {% widthratio failed total_tests 100 %}%;"></div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="d-flex justify-content-between">
-                                <span>🚫 Blocked</span>
-                                <span class="badge bg-warning">{{ blocked }}</span>
-                            </div>
-                            <div class="progress" style="height:6px;">
-                                <div class="progress-bar bg-warning" style="width: {% widthratio blocked total_tests 100 %}%;"></div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="d-flex justify-content-between">
-                                <span>⚙️ In Progress</span>
-                                <span class="badge bg-info">{{ in_progress }}</span>
-                            </div>
-                            <div class="progress" style="height:6px;">
-                                <div class="progress-bar bg-info" style="width: {% widthratio in_progress total_tests 100 %}%;"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-6">
-            <div class="card shadow-sm border-0">
-                <div class="card-header bg-white">
-                    <h6 class="mb-0"><i class="bi bi-bug text-danger"></i> Bug Severity</h6>
-                </div>
-                <div class="card-body">
-                    <div class="row g-2">
-                        <div class="col-6">
-                            <div class="d-flex justify-content-between">
-                                <span>🔴 Critical</span>
-                                <span class="badge bg-danger">{{ critical_bugs }}</span>
-                            </div>
-                            <div class="progress" style="height:6px;">
-                                <div class="progress-bar bg-danger" style="width: {% widthratio critical_bugs total_bugs 100 %}%;"></div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="d-flex justify-content-between">
-                                <span>🟠 Major</span>
-                                <span class="badge bg-warning">{{ major_bugs }}</span>
-                            </div>
-                            <div class="progress" style="height:6px;">
-                                <div class="progress-bar bg-warning" style="width: {% widthratio major_bugs total_bugs 100 %}%;"></div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="d-flex justify-content-between">
-                                <span>🟡 Minor</span>
-                                <span class="badge bg-info">{{ minor_bugs }}</span>
-                            </div>
-                            <div class="progress" style="height:6px;">
-                                <div class="progress-bar bg-info" style="width: {% widthratio minor_bugs total_bugs 100 %}%;"></div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="d-flex justify-content-between">
-                                <span>🟢 Trivial</span>
-                                <span class="badge bg-secondary">{{ trivial_bugs }}</span>
-                            </div>
-                            <div class="progress" style="height:6px;">
-                                <div class="progress-bar bg-secondary" style="width: {% widthratio trivial_bugs total_bugs 100 %}%;"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mt-2">
-                        <span class="badge bg-danger">{{ open_bugs }} Open Bugs</span>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <div class="qa-kpis" data-live="kpis">
+      <div class="qa-kpi" style="--c:#2f9e44"><div class="v">{{ pass_rate }}%</div><div class="l">Pass rate</div>
+        <div class="s">{{ passed }} of {{ executed }} executed</div></div>
+      <div class="qa-kpi" style="--c:#3b5bdb"><div class="v">{{ total_tests }}</div><div class="l">Test cases</div>
+        <div class="s">{{ total_suites }} suites · {{ total_projects }} projects</div></div>
+      <a href="{% url 'bug_list' %}" class="qa-kpi" style="--c:#e03131"><div class="v">{{ open_bugs }}</div><div class="l">Open bugs</div>
+        <div class="s">{{ total_bugs }} total</div></a>
+      <a href="{% url 'bug_list' %}?severity=critical" class="qa-kpi" style="--c:#c2255c"><div class="v">{{ critical_bugs }}</div><div class="l">Critical bugs</div>
+        <div class="s">need attention first</div></a>
+      <div class="qa-kpi" style="--c:#7048e8"><div class="v">{{ resolved_bugs }}</div><div class="l">Resolved bugs</div>
+        <div class="s">{{ resolve_rate }}% of all bugs</div></div>
     </div>
-    
+
     <!-- ========================================== -->
-    <!-- RECENT BUGS & EXECUTIONS                  -->
+    <!-- CHARTS                                     -->
+    <!-- ========================================== -->
+    <div class="row g-3 mb-3">
+      <div class="col-lg-4 col-md-6">
+        <div class="qa-card h-100">
+          <div class="qa-card-h"><h6><i class="bi bi-pie-chart text-primary"></i> Test status</h6></div>
+          <div class="qa-card-b d-flex align-items-center gap-3 flex-wrap">
+            <div class="qa-donut" style="background:{{ test_donut }}"><div class="c"><b>{{ pass_rate }}%</b><small>passed</small></div></div>
+            <ul class="qa-legend">
+              {% for g in test_groups %}<li><i style="background:{{ g.color }}"></i>{{ g.label }}<b>{{ g.n }}</b></li>{% endfor %}
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4 col-md-6">
+        <div class="qa-card h-100">
+          <div class="qa-card-h"><h6><i class="bi bi-bug text-danger"></i> Bugs by status</h6><span class="live-dot" title="Updates automatically"></span></div>
+          <div class="qa-card-b d-flex align-items-center gap-3 flex-wrap" data-live="bugs-status">
+            <div class="qa-donut" style="background:{{ bug_donut }}"><div class="c"><b>{{ total_bugs }}</b><small>bugs</small></div></div>
+            <ul class="qa-legend">
+              {% for g in bug_groups %}<li><i style="background:{{ g.color }}"></i>{{ g.label }}<b>{{ g.n }}</b></li>{% endfor %}
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="qa-card h-100">
+          <div class="qa-card-h"><h6><i class="bi bi-activity text-primary"></i> Bugs reported · last 7 days</h6></div>
+          <div class="qa-card-b">
+            <div class="qa-trend">
+              {% for d in bug_trend %}<div><em>{{ d.n }}</em><div class="bw"><span style="height:{{ d.h }}%"></span></div>{{ d.label }}</div>{% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa-card mb-3">
+      <div class="qa-card-h"><h6><i class="bi bi-exclamation-triangle text-warning"></i> Bug severity</h6></div>
+      <div class="qa-card-b">
+        <div class="row g-3">
+          {% for g in severity_groups %}
+          <div class="col-6 col-md-3">
+            <div class="d-flex justify-content-between small"><span class="fw-semibold">{{ g.label }}</span><b>{{ g.n }}</b></div>
+            <div class="qa-bar mt-1"><span style="width:{{ g.pct }}%;background:{{ g.color }}"></span></div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- RECENT ACTIVITY                            -->
     <!-- ========================================== -->
     <div class="row g-3">
-        <div class="col-md-6">
-            <div class="card shadow-sm border-0">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0"><i class="bi bi-bug text-danger"></i> Recent Bugs</h6>
-                    <a href="{% url 'bug_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
-                </div>
-                <div class="card-body p-0">
-                    <ul class="list-unstyled mb-0">
-                        {% for bug in recent_bugs %}
-                        <li class="border-bottom px-3 py-2 d-flex justify-content-between align-items-center">
-                            <div>
-                                <span class="badge 
-                                    {% if bug.severity == 'critical' %}bg-danger
-                                    {% elif bug.severity == 'major' %}bg-warning
-                                    {% elif bug.severity == 'minor' %}bg-info
-                                    {% else %}bg-secondary{% endif %}">
-                                    {{ bug.get_severity_display }}
-                                </span>
-                                <span class="fw-bold">{{ bug.title|truncatechars:30 }}</span>
-                                <br>
-                                <small class="text-muted">{{ bug.reported_at|date:"d-m-Y H:i" }}</small>
-                            </div>
-                            <div>
-                                <span class="badge 
-                                    {% if bug.status == 'closed' %}bg-success
-                                    {% elif bug.status == 'fixed' %}bg-primary
-                                    {% elif bug.status == 'in_progress' %}bg-warning
-                                    {% else %}bg-secondary{% endif %}">
-                                    {{ bug.get_status_display }}
-                                </span>
-                            </div>
-                        </li>
-                        {% empty %}
-                        <li class="text-center py-4 text-muted">
-                            <i class="bi bi-check-circle fs-2 d-block text-success"></i>
-                            <p>No bugs reported! 🎉</p>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                </div>
-            </div>
+      <div class="col-lg-6">
+        <div class="qa-card">
+          <div class="qa-card-h"><h6><i class="bi bi-bug text-danger"></i> Recent bugs</h6>
+            <a href="{% url 'bug_list' %}" class="qa-btn sm">View all</a></div>
+          <ul class="qa-list">
+            {% for bug in recent_bugs %}
+            <li>
+              <div style="min-width:0">
+                <span class="qa-title">{{ bug.title|truncatechars:42 }}</span>
+                <span class="qa-sub">{{ bug.reported_at|date:"d M, H:i" }} · <span class="qa-pill qa-{{ bug.severity }}">{{ bug.sev_label }}</span></span>
+              </div>
+              <span class="qa-pill qa-{{ bug.status }}">{{ bug.status_label }}</span>
+            </li>
+            {% empty %}
+            <li><div class="qa-empty w-100"><i class="bi bi-check2-circle"></i>No bugs reported.</div></li>
+            {% endfor %}
+          </ul>
         </div>
-        
-        <div class="col-md-6">
-            <div class="card shadow-sm border-0">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0"><i class="bi bi-clock-history text-primary"></i> Recent Executions</h6>
-                    <a href="{% url 'test_case_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
-                </div>
-                <div class="card-body p-0">
-                    <ul class="list-unstyled mb-0">
-                        {% for exec in recent_executions %}
-                        <li class="border-bottom px-3 py-2 d-flex justify-content-between align-items-center">
-                            <div>
-                                <span class="badge 
-                                    {% if exec.status == 'passed' %}bg-success
-                                    {% elif exec.status == 'failed' %}bg-danger
-                                    {% elif exec.status == 'blocked' %}bg-warning
-                                    {% else %}bg-secondary{% endif %}">
-                                    {{ exec.get_status_display }}
-                                </span>
-                                <span class="fw-bold">{{ exec.test_case.title|truncatechars:30 }}</span>
-                                <br>
-                                <small class="text-muted">{{ exec.started_at|date:"d-m-Y H:i" }}</small>
-                            </div>
-                            <div>
-                                <span class="badge bg-secondary">{{ exec.executed_by.username|default:"System" }}</span>
-                            </div>
-                        </li>
-                        {% empty %}
-                        <li class="text-center py-4 text-muted">
-                            <i class="bi bi-inbox fs-2 d-block"></i>
-                            <p>No test executions yet</p>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                </div>
-            </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="qa-card">
+          <div class="qa-card-h"><h6><i class="bi bi-clock-history text-primary"></i> Recent executions</h6>
+            <a href="{% url 'test_case_list' %}" class="qa-btn sm">View all</a></div>
+          <ul class="qa-list">
+            {% for exec in recent_executions %}
+            <li>
+              <div style="min-width:0">
+                <span class="qa-title">{{ exec.test_case.title|truncatechars:42 }}</span>
+                <span class="qa-sub">{{ exec.started_at|date:"d M, H:i" }} · {{ exec.executed_by.username|default:"System" }}</span>
+              </div>
+              <span class="qa-pill qa-{{ exec.status }}">{{ exec.status_label }}</span>
+            </li>
+            {% empty %}
+            <li><div class="qa-empty w-100"><i class="bi bi-inbox"></i>No test executions yet.</div></li>
+            {% endfor %}
+          </ul>
         </div>
+      </div>
     </div>
-    
 </div>
+<div style="display:none;">{% csrf_token %}</div>
+
+<script>
+(function () {
+    var STATUS_URL = "{% url 'test_auto_status' %}";
+    var RUN_URL = "{% url 'test_run_auto' %}";
+    var BUG_URL = "{% url 'bug_list' %}";
+    var STOP_URL = "{% url 'test_auto_stop' %}";
+    var stopClicks = 0;
+    var btn = document.getElementById('runAutoBtn');
+    var panel = document.getElementById('autoPanel');
+    var timer = null, wasRunning = false;
+
+    function cookie(name) {
+        var inp = document.querySelector('input[name=csrfmiddlewaretoken]');
+        if (inp && inp.value) return inp.value;
+        var m = document.cookie.split(';').map(function (c) { return c.trim(); })
+            .find(function (c) { return c.indexOf(name + '=') === 0; });
+        return m ? decodeURIComponent(m.substring(name.length + 1)) : '';
+    }
+    function esc(t) { var d = document.createElement('div'); d.textContent = t == null ? '' : t; return d.innerHTML; }
+    function ago(ts) {
+        if (!ts) return '';
+        var s = Math.max(0, Math.round(Date.now() / 1000 - ts));
+        if (s < 60) return s + ' sec ago';
+        if (s < 3600) return Math.round(s / 60) + ' min ago';
+        return Math.round(s / 3600) + ' hr ago';
+    }
+
+    var lastResults = [], lastStepsKey = '';
+
+    function parseDetail(d) {
+        var msg = d.message || '', code = '', type = '', loc = '';
+        var l = msg.match(/\s\[([^\]\s]+:\d+)\]\s*$/);
+        if (l) { loc = l[1]; msg = msg.slice(0, l.index); }
+        var h = msg.match(/^HTTP\s(\d{3})\s*-?\s*/);
+        if (h) { code = h[1]; msg = msg.slice(h[0].length); }
+        msg = msg.replace(/^Crashed:\s*/, '');
+        var t = msg.match(/^([A-Za-z_][\w.]*):\s*/);
+        if (t && /(Error|Exception|DoesNotExist)$/.test(t[1])) { type = t[1]; msg = msg.slice(t[0].length); }
+        return { code: code, type: type, msg: msg, loc: loc };
+    }
+
+    function renderDetail(d) {
+        var warn = d.severity === 'warning', p = parseDetail(d);
+        return '<div class="auto-detail ' + (warn ? 'is-warn' : 'is-err') + '">' +
+            '<div class="ad-top"><span class="ad-sev">' + (warn ? 'Warning' : 'Error') + '</span>' +
+            (p.code ? '<span class="ad-code">HTTP ' + esc(p.code) + '</span>' : '') +
+            (p.type ? '<span class="ad-type">' + esc(p.type) + '</span>' : '') + '</div>' +
+            '<div class="ad-item">' + esc(d.item) + '</div>' +
+            (p.msg ? '<div class="ad-msg">' + esc(p.msg) + '</div>' : '') +
+            (p.loc ? '<div class="ad-loc"><i class="bi bi-file-earmark-code"></i> ' + esc(p.loc) + '</div>' : '') +
+            '</div>';
+    }
+
+    function renderStep(r) {
+        var ok = r.status === 'passed';
+        var dets = r.details || [];
+        var errs = dets.filter(function (d) { return d.severity !== 'warning'; }).length;
+        var warns = dets.length - errs;
+        var head = '<div class="auto-step"><span class="step-icon">' + (ok ? '<i class="bi bi-check-circle-fill text-success"></i>' : '<i class="bi bi-x-circle-fill text-danger"></i>') + '</span>' +
+            '<span class="step-main"><span class="step-suite">' + esc(r.suite) + '</span>' +
+            '<span class="step-title">' + esc(r.title) + '</span></span>' +
+            '<span class="step-actual">' + (dets.length
+                ? '<span class="count-pill ' + (errs ? '' : 'warn') + '">' + (errs ? errs + ' error' + (errs > 1 ? 's' : '') : warns + ' warning' + (warns > 1 ? 's' : '')) + '</span><i class="bi bi-chevron-right chev"></i>'
+                : esc(r.actual)) + '</span></div>';
+        if (!dets.length) return '<div class="auto-group">' + head + '</div>';
+        return '<details class="auto-group"><summary>' + head + '</summary>' +
+            '<div class="auto-details">' + dets.map(renderDetail).join('') + '</div></details>';
+    }
+
+    function buildReport() {
+        var lines = ['Automated test report', ''];
+        lastResults.forEach(function (r) {
+            lines.push((r.status === 'passed' ? '[PASS] ' : '[FAIL] ') + r.suite + ' / ' + r.title + ' - ' + r.actual);
+            (r.details || []).forEach(function (d) {
+                lines.push('   - ' + (d.severity === 'warning' ? 'WARN ' : 'ERROR ') + d.item + ' :: ' + d.message);
+            });
+        });
+        return lines.join('\n');
+    }
+
+    document.getElementById('autoCopy').addEventListener('click', function () {
+        var b = this, text = buildReport();
+        function done() { var o = b.innerHTML; b.innerHTML = '<i class="bi bi-check2"></i> Copied'; setTimeout(function () { b.innerHTML = o; }, 1500); }
+        if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+        else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done(); }
+    });
+
+    function renderSlow(results) {
+        var box = document.getElementById('autoSlow'), row = null;
+        (results || []).forEach(function (r) { if (r.slowest && r.slowest.length) row = r; });
+        if (!row) { box.innerHTML = ''; return; }
+        var limit = row.slow_limit || 3;
+        var max = Math.max.apply(null, row.slowest.map(function (x) { return x.seconds; })) || 1;
+        box.innerHTML = '<div class="slow-card"><div class="slow-head"><i class="bi bi-speedometer2"></i>Slowest pages</div>' +
+            row.slowest.map(function (x, i) {
+                var cls = x.seconds >= limit ? 'bad' : (x.seconds >= limit / 3 ? 'mid' : 'good');
+                var w = Math.max(6, Math.round(x.seconds / max * 100));
+                return '<div class="slow-row"><span class="slow-rank">' + (i + 1) + '</span>' +
+                    '<a class="slow-url" href="' + esc(x.url).replace(/"/g, '&quot;') + '" target="_blank" rel="noopener">' + esc(x.url) + '</a>' +
+                    '<span class="slow-time ' + cls + '">' + x.seconds.toFixed(1) + ' s</span>' +
+                    '<span class="slow-bar"><i class="' + cls + '" style="width:' + w + '%"></i></span></div>';
+            }).join('') + '</div>';
+    }
+
+    function render(st) {
+        var state = st.state || 'idle';
+        if (state === 'idle' || state === 'denied') { panel.style.display = 'none'; return; }
+        panel.style.display = '';
+        var running = state === 'running';
+        var badge = document.getElementById('autoBadge');
+        badge.className = 'badge ' + (running ? 'bg-primary' : state === 'done' ? (st.summary && st.summary.failed ? 'bg-danger' : 'bg-success') : state === 'stopped' ? 'bg-secondary' : 'bg-danger');
+        badge.textContent = running ? (st.cancel ? 'Stopping…' : 'Running') : state === 'done' ? (st.summary && st.summary.failed ? 'Problems found' : 'All passed') : state === 'stopped' ? 'Stopped' : 'Error';
+        var stopBtn = document.getElementById('autoStop');
+        stopBtn.style.display = running ? '' : 'none';
+        if (!running) { stopClicks = 0; stopBtn.disabled = false; }
+        else { stopBtn.innerHTML = (st.cancel || stopClicks > 0) ? '<i class="bi bi-x-octagon-fill"></i> Force stop' : '<i class="bi bi-stop-circle-fill"></i> Stop'; }
+
+        document.getElementById('autoRunning').style.display = running ? '' : 'none';
+        if (running) {
+            var pct = st.total ? Math.max(5, Math.round(st.step / st.total * 100)) : 5;
+            document.getElementById('autoBar').style.width = pct + '%';
+            document.getElementById('autoCurrent').textContent = st.current || 'Working…';
+            document.getElementById('autoCount').textContent = (st.step || 0) + ' / ' + (st.total || '?') + ' checks' + (st.elapsed ? ' \u00b7 ' + st.elapsed + 's' : '');
+        }
+
+        var sum = document.getElementById('autoSummary');
+        if (state === 'done' && st.summary) {
+            sum.style.display = '';
+            sum.innerHTML = '<span class="badge bg-success me-1">' + st.summary.passed + ' passed</span>' +
+                '<span class="badge bg-danger me-1">' + st.summary.failed + ' failed</span>' +
+                '<span class="badge bg-warning text-dark me-1">' + st.summary.warnings + ' warnings</span>' +
+                '<span class="badge bg-dark">' + st.summary.new_bugs + (st.summary.new_bugs === 1 ? ' new bug this run' : ' new bugs this run') + '</span>' +
+                (st.summary.auto_closed ? '<span class="badge bg-info text-dark ms-1">' + st.summary.auto_closed + ' old bug(s) auto-fixed</span>' : '') +
+                '<div class="small text-muted mt-2">Bugs from earlier runs stay open until they are fixed or closed. ' +
+                '<a href="' + BUG_URL + '">View all open bugs</a></div>';
+        } else { sum.style.display = 'none'; }
+        renderSlow(st.results);
+
+        var stepsKey = state + '|' + JSON.stringify(st.results || []);
+        if (stepsKey !== lastStepsKey) {          // re-draw only when data changed, so opened sections stay open
+            lastStepsKey = stepsKey;
+            lastResults = st.results || [];
+            document.getElementById('autoSteps').innerHTML = lastResults.map(renderStep).join('');
+        }
+        document.getElementById('autoCopy').style.display = (state === 'done' && lastResults.length) ? '' : 'none';
+
+        var err = document.getElementById('autoError');
+        if (state === 'error') { err.style.display = ''; err.textContent = st.error || 'The automated test run failed.'; }
+        else { err.style.display = 'none'; }
+
+        document.getElementById('autoMeta').textContent = st.finished ? 'Last run finished ' + ago(st.finished) + (st.started_by ? ' \u00b7 by ' + st.started_by : '') : '';
+        btn.disabled = running;
+        btn.innerHTML = running ? '<span class="spinner-border spinner-border-sm"></span> Running…' : '<i class="bi bi-play-circle-fill"></i> Run auto tests';
+
+        if (wasRunning && !running) {          // just finished -> refresh the counters below
+            setTimeout(function () { location.reload(); }, 2500);
+        }
+        wasRunning = running;
+    }
+
+    function poll() {
+        fetch(STATUS_URL, { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (st) {
+                render(st);
+                clearTimeout(timer);
+                timer = setTimeout(poll, st.state === 'running' ? 1500 : 15000);
+            })
+            .catch(function () { clearTimeout(timer); timer = setTimeout(poll, 5000); });
+    }
+
+    // ---- live refresh: re-reads this page and swaps only the bug counters, no full reload ----
+    var LIVE_KEYS = ['bugs-status', 'kpis'];
+    function refreshLive() {
+        if (document.hidden) return;
+        fetch(window.location.href, { credentials: 'same-origin', cache: 'no-store' })
+            .then(function (r) { return r.ok ? r.text() : Promise.reject(); })
+            .then(function (html) {
+                var doc = new DOMParser().parseFromString(html, 'text/html');
+                LIVE_KEYS.forEach(function (k) {
+                    var cur = document.querySelector('[data-live="' + k + '"]');
+                    var nxt = doc.querySelector('[data-live="' + k + '"]');
+                    if (cur && nxt && cur.innerHTML !== nxt.innerHTML) {
+                        cur.innerHTML = nxt.innerHTML;
+                        cur.classList.remove('live-flash'); void cur.offsetWidth; cur.classList.add('live-flash');
+                    }
+                });
+            })
+            .catch(function () {});
+    }
+    setInterval(refreshLive, 10000);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshLive(); });
+
+    btn.addEventListener('click', function () {
+        btn.disabled = true;
+        var body = new FormData();
+        fetch(RUN_URL, {
+            method: 'POST', credentials: 'same-origin', body: body,
+            headers: { 'X-CSRFToken': cookie('csrftoken'), 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function (r) { return r.json(); })
+          .then(function () { wasRunning = true; poll(); })
+          .catch(function () { btn.disabled = false; alert('Could not start the automated tests. Please try again.'); });
+    });
+
+    document.getElementById('autoStop').addEventListener('click', function () {
+        var force = stopClicks > 0;          // first click = polite stop, second click = force reset
+        stopClicks++;
+        var body = new URLSearchParams();
+        if (force) body.append('force', '1');
+        fetch(STOP_URL, {
+            method: 'POST', credentials: 'same-origin', body: body,
+            headers: { 'X-CSRFToken': cookie('csrftoken'), 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function () { clearTimeout(timer); poll(); });
+    });
+
+    poll();
+})();
+</script>
 {% endblock %}

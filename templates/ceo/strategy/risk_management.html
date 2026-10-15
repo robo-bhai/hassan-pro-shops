@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Risk Management{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <h4>Risk Management</h4>
+  <div class="row mb-3">
+    <div class="col-6"><div class="card p-2"><small>Total potential loss</small><strong>{{ total_risk_value }}</strong></div></div>
+    <div class="col-6"><div class="card p-2"><small>Total mitigation cost</small><strong>{{ total_mitigation_cost }}</strong></div></div>
+  </div>
+  <div class="table-responsive mb-4">
+    <table class="table table-striped">
+      <thead><tr><th>Title</th><th>Category</th><th>Likelihood</th><th>Impact</th><th>Potential loss</th><th>Mitigation cost</th><th>Deadline</th></tr></thead>
+      <tbody>
+      {% for r in risks %}
+        <tr><td>{{ r.title }}</td><td>{{ r.category }}</td><td>{{ r.likelihood }}</td><td>{{ r.impact }}</td><td>{{ r.potential_financial_loss }}</td><td>{{ r.mitigation_cost }}</td><td>{{ r.mitigation_deadline }}</td></tr>
+      {% empty %}
+        <tr><td colspan="7" class="text-center text-muted">No risks recorded.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <h5>Add risk</h5>
+  <form method="post" class="row g-3">
+    {% csrf_token %}
+    <div class="col-md-6"><label class="form-label">Title</label><input name="title" class="form-control" required></div>
+    <div class="col-md-6"><label class="form-label">Category</label>
+      <select name="category" class="form-select">{% for v, l in categories %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>
+    <div class="col-12"><label class="form-label">Description</label><textarea name="description" class="form-control" rows="2"></textarea></div>
+    <div class="col-6 col-md-3"><label class="form-label">Likelihood</label><input type="number" name="likelihood" min="1" max="5" value="3" class="form-control" required></div>
+    <div class="col-6 col-md-3"><label class="form-label">Impact</label><input type="number" name="impact" min="1" max="5" value="3" class="form-control" required></div>
+    <div class="col-6 col-md-3"><label class="form-label">Potential loss</label><input type="number" step="0.01" name="potential_financial_loss" value="0" class="form-control"></div>
+    <div class="col-6 col-md-3"><label class="form-label">Mitigation cost</label><input type="number" step="0.01" name="mitigation_cost" value="0" class="form-control"></div>
+    <div class="col-12"><label class="form-label">Mitigation strategy</label><textarea name="mitigation_strategy" class="form-control" rows="2"></textarea></div>
+    <div class="col-6"><label class="form-label">Mitigation deadline</label><input type="date" name="mitigation_deadline" class="form-control" required></div>
+    <div class="col-6"><label class="form-label">Next review</label><input type="date" name="next_review" class="form-control" required></div>
+    <div class="col-12"><button class="btn btn-primary">Save risk</button></div>
+  </form>
+</div>
+{% endblock %}

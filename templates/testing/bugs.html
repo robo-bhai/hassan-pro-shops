@@ -1,151 +1,204 @@
 {% extends 'base.html' %}
 {% load static %}
-{% load humanize %}
 
 {% block title %}Bugs{% endblock %}
 
+{% block extra_css %}{% include 'testing/_qa_ui.html' %}{% endblock %}
+
 {% block content %}
-<div class="container-fluid px-4 py-3">
-    
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2><i class="bi bi-bug text-danger"></i> Bugs</h2>
-            <p class="text-muted">Track and manage bugs</p>
-        </div>
-        <div>
-            <a href="{% url 'bug_create' %}" class="btn btn-danger">
-                <i class="bi bi-plus-circle"></i> Report Bug
-            </a>
-            <a href="{% url 'test_dashboard' %}" class="btn btn-secondary">
-                <i class="bi bi-arrow-left"></i> Back
-            </a>
-        </div>
+<div class="qa-wrap">
+
+  <div class="qa-head">
+    <div>
+      <h1><span class="qa-ico"><i class="bi bi-bug"></i></span> Bug Tracker</h1>
+      <p>{{ total_count }} bug{{ total_count|pluralize }}{% if status or severity or search %} matching your filters{% endif %}</p>
     </div>
-    
+    <div class="qa-actions">
+      <a href="{% url 'bug_create' %}" class="qa-btn danger"><i class="bi bi-plus-lg"></i> Report Bug</a>
+    </div>
+  </div>
+
+  {% include 'testing/_qa_nav.html' with active='bugs' %}
+
+  <!-- KPI strip: tap to filter -->
+  <div class="qa-kpis">
+    <a href="?status=new" class="qa-kpi {% if status == 'new' %}active{% endif %}" style="--c:#e03131">
+      <div class="v">{{ kpi.new }}</div><div class="l">New</div></a>
+    <a href="?status=in_progress" class="qa-kpi {% if status == 'in_progress' %}active{% endif %}" style="--c:#1c7ed6">
+      <div class="v">{{ kpi.in_progress }}</div><div class="l">In Progress</div></a>
+    <a href="?status=reopened" class="qa-kpi {% if status == 'reopened' %}active{% endif %}" style="--c:#f08c00">
+      <div class="v">{{ kpi.reopened }}</div><div class="l">Reopened</div></a>
+    <a href="?status=fixed" class="qa-kpi {% if status == 'fixed' %}active{% endif %}" style="--c:#7048e8">
+      <div class="v">{{ kpi.fixed }}</div><div class="l">Fixed</div></a>
+    <a href="?status=closed" class="qa-kpi {% if status == 'closed' %}active{% endif %}" style="--c:#2f9e44">
+      <div class="v">{{ kpi.closed }}</div><div class="l">Closed</div></a>
+    <a href="?severity=critical" class="qa-kpi {% if severity == 'critical' %}active{% endif %}" style="--c:#c2255c">
+      <div class="v">{{ kpi.critical }}</div><div class="l">Critical</div></a>
+  </div>
+
+  <div class="qa-card">
     <!-- Filters -->
-    <div class="card shadow-sm border-0 mb-4">
-        <div class="card-body">
-            <form method="GET" class="row g-3">
-                <div class="col-md-3">
-                    <input type="text" name="search" class="form-control" placeholder="Search bugs..." value="{{ search }}">
-                </div>
-                <div class="col-md-3">
-                    <select name="status" class="form-select">
-                        <option value="">All Status</option>
-                        {% for key, value in status_choices %}
-                        <option value="{{ key }}" {% if key == status %}selected{% endif %}>{{ value }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <select name="severity" class="form-select">
-                        <option value="">All Severity</option>
-                        {% for key, value in severity_choices %}
-                        <option value="{{ key }}" {% if key == severity %}selected{% endif %}>{{ value }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <button type="submit" class="btn btn-primary w-100">Filter</button>
-                </div>
-            </form>
-        </div>
+    <form method="GET" class="qa-filter">
+      <input type="text" name="search" class="form-control" placeholder="Search title, module or #id" value="{{ search }}">
+      <select name="status" class="form-select">
+        <option value="">All statuses</option>
+        {% for key, value in status_choices %}<option value="{{ key }}" {% if key == status %}selected{% endif %}>{{ value }}</option>{% endfor %}
+      </select>
+      <select name="severity" class="form-select">
+        <option value="">All severities</option>
+        {% for key, value in severity_choices %}<option value="{{ key }}" {% if key == severity %}selected{% endif %}>{{ value }}</option>{% endfor %}
+      </select>
+      <div class="d-flex gap-2">
+        <button type="submit" class="qa-btn primary flex-fill"><i class="bi bi-funnel"></i> Filter</button>
+        {% if status or severity or search %}<a href="{% url 'bug_list' %}" class="qa-btn" title="Clear filters"><i class="bi bi-x-lg"></i></a>{% endif %}
+      </div>
+    </form>
+
+    <div class="table-responsive">
+      <table class="qa-table">
+        <thead>
+          <tr>
+            <th style="width:60px">ID</th>
+            <th>Bug</th>
+            <th>Severity</th>
+            <th>Status</th>
+            <th class="d-none d-lg-table-cell">Module</th>
+            <th class="d-none d-lg-table-cell">Reporter</th>
+            <th class="d-none d-lg-table-cell">Assignee</th>
+            <th style="width:50px"></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for bug in page_obj %}
+          <tr class="qa-row"
+              data-action="{% url 'bug_update_status' bug.id %}"
+              data-id="{{ bug.id }}" data-title="{{ bug.title }}"
+              data-description="{{ bug.description }}" data-steps="{{ bug.steps_to_reproduce }}"
+              data-actual="{{ bug.actual_result }}" data-expected="{{ bug.expected_result }}"
+              data-severity="{{ bug.severity }}" data-sev-label="{{ bug.sev_label }}"
+              data-status="{{ bug.status }}" data-status-label="{{ bug.status_label }}"
+              data-module="{{ bug.module|default:'' }}" data-case="{{ bug.test_case.title|default:'' }}"
+              data-reporter="{{ bug.reported_by.username|default:'System' }}" data-assignee="{{ bug.assigned_to.username|default:'' }}"
+              data-env="{{ bug.browser|default:'' }}{% if bug.os %} · {{ bug.os }}{% endif %}{% if bug.device %} · {{ bug.device }}{% endif %}"
+              data-reported="{{ bug.reported_at|date:'d M Y, H:i' }}"
+              data-fixed="{{ bug.fixed_at|date:'d M Y, H:i' }}" data-verified="{{ bug.verified_at|date:'d M Y, H:i' }}" data-closed="{{ bug.closed_at|date:'d M Y, H:i' }}"
+              data-shot="{% if bug.screenshot %}{{ bug.screenshot.url }}{% endif %}" data-file="{% if bug.attachment %}{{ bug.attachment.url }}{% endif %}">
+            <td class="qa-id">#{{ bug.id }}</td>
+            <td>
+              <span class="qa-title">{{ bug.title|truncatechars:70 }}</span>
+              <span class="qa-sub">{{ bug.reported_at|date:"d M Y" }}{% if bug.test_case %} · {{ bug.test_case.title|truncatechars:30 }}{% endif %}</span>
+            </td>
+            <td><span class="qa-pill qa-{{ bug.severity }}">{{ bug.sev_label }}</span></td>
+            <td><span class="qa-pill qa-{{ bug.status }}">{{ bug.status_label }}</span></td>
+            <td class="d-none d-lg-table-cell">{% if bug.module %}<span class="qa-tag">{{ bug.module }}</span>{% else %}<span class="text-muted">-</span>{% endif %}</td>
+            <td class="d-none d-lg-table-cell">{{ bug.reported_by.username|default:"System" }}</td>
+            <td class="d-none d-lg-table-cell">{{ bug.assigned_to.username|default:"-" }}</td>
+            <td><button type="button" class="qa-btn sm" title="Open"><i class="bi bi-chevron-right"></i></button></td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="8"><div class="qa-empty"><i class="bi bi-check2-circle"></i>No bugs found.</div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
     </div>
-    
-    <!-- Bugs Table -->
-    <div class="card shadow-sm border-0">
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>ID</th>
-                            <th>Title</th>
-                            <th>Severity</th>
-                            <th>Module</th>
-                            <th>Status</th>
-                            <th>Reported By</th>
-                            <th>Assigned To</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for bug in page_obj %}
-                        <tr>
-                            <td><strong>#{{ bug.id }}</strong></td>
-                            <td>
-                                <span class="fw-bold">{{ bug.title|truncatechars:30 }}</span>
-                                <br>
-                                <small class="text-muted">{{ bug.description|truncatechars:40 }}</small>
-                            </td>
-                            <td>
-                                <span class="badge 
-                                    {% if bug.severity == 'critical' %}bg-danger
-                                    {% elif bug.severity == 'major' %}bg-warning
-                                    {% elif bug.severity == 'minor' %}bg-info
-                                    {% else %}bg-secondary{% endif %}">
-                                    {{ bug.get_severity_display }}
-                                </span>
-                            </td>
-                            <td>{{ bug.module|default:"-" }}</td>
-                            <td>
-                                <span class="badge 
-                                    {% if bug.status == 'closed' %}bg-success
-                                    {% elif bug.status == 'fixed' %}bg-primary
-                                    {% elif bug.status == 'in_progress' %}bg-warning
-                                    {% elif bug.status == 'new' %}bg-danger
-                                    {% else %}bg-secondary{% endif %}">
-                                    {{ bug.get_status_display }}
-                                </span>
-                            </td>
-                            <td>{{ bug.reported_by.username|default:"System" }}</td>
-                            <td>{{ bug.assigned_to.username|default:"-" }}</td>
-                            <td>
-                                <div class="btn-group btn-group-sm">
-                                    <a href="{% url 'bug_update_status' bug.id %}" class="btn btn-outline-primary" 
-                                       onclick="return confirm('Update status?')">
-                                        <i class="bi bi-arrow-right"></i>
-                                    </a>
-                                    <a href="#" class="btn btn-outline-info">
-                                        <i class="bi bi-eye"></i>
-                                    </a>
-                                </div>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="8" class="text-center py-4 text-muted">
-                                <i class="bi bi-check-circle fs-2 d-block text-success"></i>
-                                <p>No bugs reported! 🎉</p>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        <div class="card-footer bg-white">
-            <nav aria-label="Page navigation">
-                <ul class="pagination justify-content-center mb-0">
-                    {% if page_obj.has_previous %}
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}&search={{ search }}&status={{ status }}&severity={{ severity }}">Previous</a>
-                    </li>
-                    {% endif %}
-                    {% for num in page_obj.paginator.page_range %}
-                    <li class="page-item {% if page_obj.number == num %}active{% endif %}">
-                        <a class="page-link" href="?page={{ num }}&search={{ search }}&status={{ status }}&severity={{ severity }}">{{ num }}</a>
-                    </li>
-                    {% endfor %}
-                    {% if page_obj.has_next %}
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.next_page_number }}&search={{ search }}&status={{ status }}&severity={{ severity }}">Next</a>
-                    </li>
-                    {% endif %}
-                </ul>
-            </nav>
-        </div>
+
+    <div class="qa-pager">
+      <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+      <span class="d-flex gap-2">
+        {% if page_obj.has_previous %}<a class="qa-btn sm" href="?{{ query_string }}&page={{ page_obj.previous_page_number }}"><i class="bi bi-arrow-left"></i> Prev</a>{% endif %}
+        {% if page_obj.has_next %}<a class="qa-btn sm" href="?{{ query_string }}&page={{ page_obj.next_page_number }}">Next <i class="bi bi-arrow-right"></i></a>{% endif %}
+      </span>
     </div>
-    
+  </div>
 </div>
+
+<!-- Bug detail sheet -->
+<div class="qa-ov" id="bugOv" aria-hidden="true">
+  <div class="qa-modal" role="dialog" aria-modal="true">
+    <div class="qa-modal-h">
+      <div>
+        <div class="d-flex flex-wrap gap-2 mb-1"><span class="qa-tag" id="bId"></span><span class="qa-pill" id="bSev"></span><span class="qa-pill" id="bStatus"></span></div>
+        <h5 id="bTitle"></h5>
+      </div>
+      <button type="button" class="qa-x" id="bClose" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="qa-modal-b">
+      <div class="qa-meta">
+        <div><small>Module</small><span id="bModule">-</span></div>
+        <div><small>Reporter</small><span id="bReporter">-</span></div>
+        <div><small>Assignee</small><span id="bAssignee">-</span></div>
+        <div><small>Environment</small><span id="bEnv">-</span></div>
+        <div id="bCaseWrap"><small>Test case</small><span id="bCase">-</span></div>
+      </div>
+      <div class="qa-sec"><h6>Description</h6><div class="t qa-code" id="bDesc"></div></div>
+      <div class="qa-sec" id="bStepsWrap"><h6>Steps to reproduce</h6><div class="t" id="bSteps"></div></div>
+      <div class="row g-3">
+        <div class="col-md-6 qa-sec" id="bActualWrap"><h6>Actual result</h6><div class="t" id="bActual"></div></div>
+        <div class="col-md-6 qa-sec" id="bExpectedWrap"><h6>Expected result</h6><div class="t" id="bExpected"></div></div>
+      </div>
+      <div class="qa-sec" id="bFilesWrap"><h6>Attachments</h6>
+        <a href="#" target="_blank" id="bShot" class="qa-btn sm"><i class="bi bi-image"></i> Screenshot</a>
+        <a href="#" target="_blank" id="bFile" class="qa-btn sm"><i class="bi bi-paperclip"></i> File</a>
+      </div>
+      <div class="qa-sec"><h6>Timeline</h6><ul class="qa-tl" id="bTl"></ul></div>
+    </div>
+    <form method="post" class="qa-modal-f" id="bForm">
+      {% csrf_token %}
+      <select name="status" id="bSelect" aria-label="Change status">
+        {% for key, value in status_choices %}<option value="{{ key }}">{{ value }}</option>{% endfor %}
+      </select>
+      <button type="submit" class="qa-btn primary"><i class="bi bi-check2"></i> Update status</button>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  var ov = document.getElementById('bugOv');
+  function $(id) { return document.getElementById(id); }
+  function setText(id, v, fallback) { $(id).textContent = v || fallback || ''; }
+  function toggle(id, v) { $(id).style.display = v ? '' : 'none'; }
+
+  function openBug(tr) {
+    var d = tr.dataset;
+    setText('bId', 'BUG-' + d.id);
+    $('bSev').className = 'qa-pill qa-' + d.severity;   setText('bSev', d.sevLabel);
+    $('bStatus').className = 'qa-pill qa-' + d.status;  setText('bStatus', d.statusLabel);
+    setText('bTitle', d.title);
+    setText('bModule', d.module, '-');  setText('bReporter', d.reporter, '-');
+    setText('bAssignee', d.assignee, 'Unassigned');  setText('bEnv', d.env.replace(/^ · /, ''), '-');
+    setText('bCase', d.case, '-');  toggle('bCaseWrap', d.case);
+    setText('bDesc', d.description);
+    setText('bSteps', d.steps);       toggle('bStepsWrap', d.steps);
+    setText('bActual', d.actual);     toggle('bActualWrap', d.actual);
+    setText('bExpected', d.expected); toggle('bExpectedWrap', d.expected);
+    $('bShot').href = d.shot || '#'; toggle('bShot', d.shot);
+    $('bFile').href = d.file || '#'; toggle('bFile', d.file);
+    toggle('bFilesWrap', d.shot || d.file);
+
+    var tl = $('bTl'); tl.innerHTML = '';
+    [['Reported by ' + d.reporter, d.reported], ['Fixed', d.fixed], ['Verified', d.verified], ['Closed', d.closed]]
+      .forEach(function (e) {
+        if (!e[1]) return;
+        var li = document.createElement('li');
+        li.textContent = e[0];
+        var s = document.createElement('small'); s.textContent = e[1]; li.appendChild(s);
+        tl.appendChild(li);
+      });
+
+    $('bForm').action = d.action;
+    $('bSelect').value = d.status;
+    ov.classList.add('open'); ov.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeBug() { ov.classList.remove('open'); ov.setAttribute('aria-hidden', 'true'); document.body.style.overflow = ''; }
+
+  document.querySelectorAll('tr.qa-row').forEach(function (tr) {
+    tr.addEventListener('click', function (e) { if (!e.target.closest('a')) openBug(tr); });
+  });
+  $('bClose').addEventListener('click', closeBug);
+  ov.addEventListener('click', function (e) { if (e.target === ov) closeBug(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeBug(); });
+})();
+</script>
 {% endblock %}

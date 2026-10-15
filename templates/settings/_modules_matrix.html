@@ -1,0 +1,74 @@
+{# Har module ka Shop / Factory switch (MODULE_CATALOG se). #}
+<div class="sc-group mt-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+        <h6 class="sc-group-title mb-0"><i class="bi bi-toggles me-1"></i> Modules <span class="badge bg-secondary ms-1">{{ module_count }}</span></h6>
+        <span class="badge bg-primary">Abhi mode: {{ BUSINESS_MODE|title }}</span>
+    </div>
+    <input type="search" id="moduleFilter" class="form-control form-control-sm mb-2" placeholder="Module dhundo (jaise loans, hr, reports)">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0" id="moduleTable">
+            <thead>
+                <tr>
+                    <th>Module</th>
+                    <th class="text-center" style="width:84px">Shop<br><input type="checkbox" class="form-check-input" data-col="shop" title="Shop: sab on/off"></th>
+                    <th class="text-center" style="width:84px">Factory<br><input type="checkbox" class="form-check-input" data-col="factory" title="Factory: sab on/off"></th>
+                    <th class="text-center d-none d-md-table-cell" style="width:100px">Abhi</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for group in module_groups %}
+                <tr class="module-group"><td colspan="4" class="small fw-bold text-uppercase">{{ group.name }}</td></tr>
+                {% for m in group.items %}
+                <tr class="module-row" data-name="{{ m.name|lower }} {{ m.id }} {{ m.description|lower }}">
+                    <td>
+                        <div class="fw-semibold"><i class="bi {{ m.icon }} me-1 text-primary"></i>{{ m.name }}</div>
+                        <small class="text-muted">{{ m.description }}</small>
+                    </td>
+                    <td class="text-center"><div class="form-check form-switch d-inline-block m-0">
+                        <input class="form-check-input" type="checkbox" data-unit="shop" name="mode_shop_{{ m.id }}" id="mode_shop_{{ m.id }}"{% if m.shop %} checked{% endif %}>
+                    </div></td>
+                    <td class="text-center"><div class="form-check form-switch d-inline-block m-0">
+                        <input class="form-check-input" type="checkbox" data-unit="factory" name="mode_factory_{{ m.id }}" id="mode_factory_{{ m.id }}"{% if m.factory %} checked{% endif %}>
+                    </div></td>
+                    <td class="text-center d-none d-md-table-cell">
+                        {% if m.visible %}<span class="badge bg-success">Chalu</span>{% else %}<span class="badge bg-secondary">Band</span>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="form-text mt-2">
+        Ye hamesha chalte hain (switch nahi): Login, Dashboard, Users, Settings, Security, Notifications aur Online Shop.
+        Band module ka URL seedha kholne par bhi "Module band hai" page aata hai.
+    </div>
+</div>
+<script>
+(function () {
+    var table = document.getElementById('moduleTable');
+    if (!table) return;
+    table.querySelectorAll('input[data-col]').forEach(function (master) {
+        var unit = master.getAttribute('data-col');
+        var boxes = table.querySelectorAll('input[data-unit="' + unit + '"]');
+        function sync() { master.checked = Array.prototype.every.call(boxes, function (b) { return b.checked; }); }
+        master.addEventListener('change', function () { boxes.forEach(function (b) { b.checked = master.checked; }); });
+        boxes.forEach(function (b) { b.addEventListener('change', sync); });
+        sync();
+    });
+    document.getElementById('moduleFilter').addEventListener('input', function () {
+        var q = this.value.trim().toLowerCase();
+        table.querySelectorAll('tr.module-row').forEach(function (r) {
+            r.style.display = (!q || r.getAttribute('data-name').indexOf(q) !== -1) ? '' : 'none';
+        });
+        table.querySelectorAll('tr.module-group').forEach(function (g) {
+            var n = g.nextElementSibling, any = false;
+            while (n && !n.classList.contains('module-group')) {
+                if (n.style.display !== 'none') any = true;
+                n = n.nextElementSibling;
+            }
+            g.style.display = any ? '' : 'none';
+        });
+    });
+})();
+</script>
