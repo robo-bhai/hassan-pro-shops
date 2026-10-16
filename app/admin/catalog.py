@@ -606,7 +606,7 @@ class MonthlyClosingAdmin(admin.ModelAdmin):
     def generate_pnl(self, request, queryset):
         for closing in queryset:
             income = closing.total_sale_profit()
-            expenses = (Expense.objects.filter(date__month=closing.month.month).aggregate(Sum('amount'))['amount__sum'] or 0)
+            expenses = (Expense.objects.filter(expense_date__month=closing.month.month).aggregate(Sum('amount'))['amount__sum'] or 0)
             profit = income - expenses
             context = {'income': income, 'expenses': expenses, 'profit': profit, 'month': closing.month}
             html = render_to_string('admin/pnl_report.html', context)

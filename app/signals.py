@@ -2,14 +2,16 @@
 # APP SIGNALS - COMPLETE                      #
 # ========================================== #
 
-from django.db.models.signals import post_save, pre_save, post_delete
+from django.db.models.signals import post_save, pre_save, post_delete, pre_delete
 from django.dispatch import receiver
 from django.db import transaction
 from django.utils.timezone import now
 from django.contrib.auth.models import User
+from django.contrib.admin.models import LogEntry
 from datetime import date, timedelta
 from decimal import Decimal
 from django.db.models import Sum, F, DecimalField
+from django.db import connection
 import threading
 import logging
 import time
@@ -30,6 +32,73 @@ from .models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# ========================================== #
+# USER DELETE CLEANUP SIGNAL (NEW)           #
+# ========================================== #
+
+@receiver(pre_delete, sender=User)
+def cleanup_user_references(sender, instance, **kwargs):
+    """
+    User delete hone se PEHLE saare references cleanup karo.
+    
+    Yeh IntegrityError se bachata hai:
+    - django_admin_log
+    - app_adminpresence
+    - app_subscriptionhistory
+    - app_subscriptionpayment
+    - app_subscriptionplan
+    
+    Yeh signal automatically chalta hai jab bhi koi User delete hota hai.
+    """
+    user_id = instance.id
+    username = instance.username
+    
+    logger.info(f"🧹 Cleaning up references for user: {username} (ID: {user_id})")
+    
+    try:
+        # ========================================== #
+        # 1. Django Admin Log clear karo             #
+        # ========================================== #
+        log_count, _ = LogEntry.objects.filter(user_id=user_id).delete()
+        if log_count > 0:
+            logger.info(f"   ✅ Cleared {log_count} admin log entries")
+        
+        # ========================================== #
+        # 2. Orphan tables cleanup (SQLite)          #
+        # ========================================== #
+        with connection.cursor() as cursor:
+            # Foreign keys temporarily OFF
+            cursor.execute("PRAGMA foreign_keys = OFF;")
+            
+            # Saare orphan tables jo User ko reference karte hain
+            orphan_tables = [
+                'app_subscriptionhistory',
+                'app_subscriptionpayment',
+                'app_subscriptionplan',
+                'app_adminpresence',
+            ]
+            
+            for table in orphan_tables:
+                # Try each possible column name
+                for column in ['performed_by_id', 'created_by_id', 'user_id', 'shared_with_id', 'approver_id']:
+                    try:
+                        cursor.execute(f"DELETE FROM {table} WHERE {column} = {user_id}")
+                        if cursor.rowcount > 0:
+                            logger.info(f"   ✅ Cleared {cursor.rowcount} rows from {table}.{column}")
+                    except Exception:
+                        pass  # Column exist nahi karta, ignore
+            
+            # Foreign keys ON wapas
+            cursor.execute("PRAGMA foreign_keys = ON;")
+        
+        logger.info(f"✅ User cleanup complete: {username}")
+        
+    except Exception as e:
+        logger.error(f"❌ User cleanup error for {username}: {e}")
+        # Signal fail hone par bhi user delete na rukey
+        # (Sirf log karo, exception raise na karo)
 
 
 # ========================================== #

@@ -11,15 +11,83 @@ from app.models import (
 )
 from django.contrib.auth.models import User  # ✅ ADD THIS
 
+import re
+from django.db.models.functions import TruncDate
+from django.urls import reverse
+from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
+
+
+# ----------------------------------------------------------------------------
+# UI helpers (labels without emoji, chart data)
+# ----------------------------------------------------------------------------
+def _label(display):
+    """'🔴 Critical' -> 'Critical' (drops the leading emoji for a cleaner UI)."""
+    return re.sub(r'^[^\w]+', '', str(display)).strip()
+
+
+def _clean_choices(choices):
+    return [(k, _label(v)) for k, v in choices]
+
+
+def _pct(part, whole):
+    return round(part * 100 / whole) if whole else 0
+
+
+def _donut(segments):
+    """[(value, '#hex'), ...] -> CSS conic-gradient string (grey ring when empty)."""
+    total = sum(v for v, _ in segments)
+    if not total:
+        return 'conic-gradient(#e9ecef 0 100%)'
+    parts, start = [], 0.0
+    for value, color in segments:
+        if not value:
+            continue
+        end = start + value * 100.0 / total
+        parts.append('%s %.2f%% %.2f%%' % (color, start, end))
+        start = end
+    return 'conic-gradient(' + ', '.join(parts) + ')'
+
+
+def _count_by(qs, field):
+    """{value: count} for one field (ignores the model's default ordering)."""
+    return dict(qs.order_by().values_list(field).annotate(n=Count('id')))
+
+
+def _decorate_bug(b):
+    b.sev_label = _label(b.get_severity_display())
+    b.status_label = _label(b.get_status_display())
+    return b
+
+
+def _decorate_case(c):
+    c.type_label = _label(c.get_test_type_display())
+    c.priority_label = _label(c.get_priority_display())
+    c.status_label = _label(c.get_status_display())
+    return c
+
+
+def _query_string(request):
+    qs = request.GET.copy()
+    qs.pop('page', None)
+    return qs.urlencode()
+
+
+def _deny(request):
+    messages.error(request, 'Access denied!')
+    return redirect('dashboard')
+
+
 @login_required
 def test_plan_list(request):
     """List test plans"""
     if not request.user.is_superuser:
-        messages.error(request, 'Access denied!')
-        return redirect('dashboard')
-    
-    plans = TestPlan.objects.select_related('project', 'created_by').all()
-    
+        return _deny(request)
+
+    plans = list(TestPlan.objects.select_related('project', 'created_by').order_by('-created_at', '-id'))
+    for p in plans:
+        p.status_label = _label(p.get_status_display())
+
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'test_plans': plans,
@@ -82,65 +150,128 @@ def test_plan_detail(request, pk):
 def test_dashboard(request):
     """Testing dashboard"""
     if not request.user.is_superuser:
-        messages.error(request, 'Access denied!')
-        return redirect('dashboard')
-    
-    # Stats
-    total_projects = TestProject.objects.count()
-    total_suites = TestSuite.objects.count()
-    total_tests = TestCase.objects.count()
-    total_bugs = Bug.objects.count()
-    
-    # Test status breakdown
-    passed = TestCase.objects.filter(status='passed').count()
-    failed = TestCase.objects.filter(status='failed').count()
-    blocked = TestCase.objects.filter(status='blocked').count()
-    in_progress = TestCase.objects.filter(status='in_progress').count()
-    
-    # Bug breakdown
-    critical_bugs = Bug.objects.filter(severity='critical').count()
-    major_bugs = Bug.objects.filter(severity='major').count()
-    open_bugs = Bug.objects.filter(status__in=['new', 'assigned', 'in_progress']).count()
-    
-    # Recent bugs
-    recent_bugs = Bug.objects.order_by('-reported_at')[:10]
-    
-    # Recent executions
-    recent_executions = TestExecution.objects.order_by('-started_at')[:10]
-    
+        return _deny(request)
+
+    tc = _count_by(TestCase.objects, 'status')
+    bs = _count_by(Bug.objects, 'status')
+    bsev = _count_by(Bug.objects, 'severity')
+
+    total_tests = sum(tc.values())
+    passed, failed = tc.get('passed', 0), tc.get('failed', 0)
+    blocked, in_progress = tc.get('blocked', 0), tc.get('in_progress', 0)
+    other = max(total_tests - passed - failed - blocked - in_progress, 0)
+    executed = passed + failed + blocked
+    pass_rate = _pct(passed, executed)
+
+    total_bugs = sum(bs.values())
+    b_open = bs.get('new', 0) + bs.get('assigned', 0) + bs.get('reopened', 0)
+    b_prog = bs.get('in_progress', 0)
+    b_resolved = bs.get('fixed', 0) + bs.get('verified', 0)
+    b_closed = bs.get('closed', 0) + bs.get('duplicate', 0) + bs.get('won_fix', 0)
+    open_bugs = b_open + b_prog
+    resolved_bugs = b_resolved + b_closed
+
+    test_groups = [
+        {'label': 'Passed', 'n': passed, 'color': '#2f9e44'},
+        {'label': 'Failed', 'n': failed, 'color': '#e03131'},
+        {'label': 'Blocked', 'n': blocked, 'color': '#f08c00'},
+        {'label': 'In progress', 'n': in_progress, 'color': '#1c7ed6'},
+        {'label': 'Not run', 'n': other, 'color': '#ced4da'},
+    ]
+    bug_groups = [
+        {'label': 'Open', 'n': b_open, 'color': '#e03131'},
+        {'label': 'In progress', 'n': b_prog, 'color': '#1c7ed6'},
+        {'label': 'Fixed / verified', 'n': b_resolved, 'color': '#7048e8'},
+        {'label': 'Closed', 'n': b_closed, 'color': '#2f9e44'},
+    ]
+    severity_groups = [
+        {'label': 'Critical', 'n': bsev.get('critical', 0), 'color': '#c2255c'},
+        {'label': 'Major', 'n': bsev.get('major', 0), 'color': '#f08c00'},
+        {'label': 'Minor', 'n': bsev.get('minor', 0), 'color': '#1c7ed6'},
+        {'label': 'Trivial', 'n': bsev.get('trivial', 0), 'color': '#868e96'},
+    ]
+    for g in severity_groups:
+        g['pct'] = _pct(g['n'], total_bugs)
+
+    # bugs reported per day, last 7 days
+    today = datetime.now().date()
+    start = today - timedelta(days=6)
+    rows = (Bug.objects.filter(reported_at__date__gte=start)
+            .annotate(d=TruncDate('reported_at')).order_by().values('d').annotate(n=Count('id')))
+    by_day = {r['d']: r['n'] for r in rows}
+    peak = max(by_day.values(), default=0)
+    bug_trend = []
+    for i in range(7):
+        d = start + timedelta(days=i)
+        n = by_day.get(d, 0)
+        bug_trend.append({'label': d.strftime('%a'), 'n': n,
+                          'h': max(6, round(n * 100 / peak)) if peak else 6})
+
+    recent_bugs = [_decorate_bug(b) for b in Bug.objects.select_related('reported_by').order_by('-reported_at')[:8]]
+    recent_executions = list(TestExecution.objects.select_related('test_case', 'executed_by').order_by('-started_at')[:8])
+    for e in recent_executions:
+        e.status_label = _label(e.get_status_display())
+
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
-        'total_projects': total_projects,
-        'total_suites': total_suites,
-        'total_tests': total_tests,
-        'total_bugs': total_bugs,
-        'passed': passed,
-        'failed': failed,
-        'blocked': blocked,
-        'in_progress': in_progress,
-        'critical_bugs': critical_bugs,
-        'major_bugs': major_bugs,
-        'open_bugs': open_bugs,
-        'recent_bugs': recent_bugs,
-        'recent_executions': recent_executions,
+        'total_projects': TestProject.objects.count(),
+        'total_suites': TestSuite.objects.count(),
+        'total_tests': total_tests, 'total_bugs': total_bugs,
+        'passed': passed, 'failed': failed, 'blocked': blocked, 'in_progress': in_progress,
+        'executed': executed, 'pass_rate': pass_rate,
+        'critical_bugs': bsev.get('critical', 0), 'major_bugs': bsev.get('major', 0),
+        'minor_bugs': bsev.get('minor', 0), 'trivial_bugs': bsev.get('trivial', 0),
+        'open_bugs': open_bugs, 'resolved_bugs': resolved_bugs, 'resolve_rate': _pct(resolved_bugs, total_bugs),
+        'test_groups': test_groups, 'bug_groups': bug_groups, 'severity_groups': severity_groups,
+        'test_donut': _donut([(g['n'], g['color']) for g in test_groups]),
+        'bug_donut': _donut([(g['n'], g['color']) for g in bug_groups]),
+        'bug_trend': bug_trend,
+        'recent_bugs': recent_bugs, 'recent_executions': recent_executions,
     }
     return render(request, 'testing/dashboard.html', context)
 
 
 @login_required
 def test_project_list(request):
-    """List test projects"""
+    """List test projects (with per-project pass rate)"""
     if not request.user.is_superuser:
-        messages.error(request, 'Access denied!')
-        return redirect('dashboard')
-    
-    projects = TestProject.objects.all()
-    
+        return _deny(request)
+
+    projects = list(TestProject.objects.annotate(
+        suite_count=Count('suites', distinct=True),
+        case_count=Count('suites__cases', distinct=True),
+        passed_count=Count('suites__cases', filter=Q(suites__cases__status='passed'), distinct=True),
+        failed_count=Count('suites__cases', filter=Q(suites__cases__status='failed'), distinct=True),
+    ).order_by('-created_at', '-id'))
+    for p in projects:
+        p.pass_rate = _pct(p.passed_count, p.case_count)
+        p.fail_rate = _pct(p.failed_count, p.case_count)
+        p.suite_list = list(p.suites.all().order_by('name')[:5])
+
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'projects': projects,
     }
     return render(request, 'testing/projects.html', context)
+
+
+@login_required
+def test_suite_detail(request, pk):
+    """Suite overview with its test cases"""
+    if not request.user.is_superuser:
+        return _deny(request)
+
+    suite = get_object_or_404(TestSuite.objects.select_related('project'), pk=pk)
+    cases = [_decorate_case(c) for c in suite.cases.order_by('-created_at', '-id')]
+    total = len(cases)
+    passed = sum(1 for c in cases if c.status == 'passed')
+    failed = sum(1 for c in cases if c.status == 'failed')
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'suite': suite, 'cases': cases,
+        'stats': {'total': total, 'passed': passed, 'failed': failed, 'pass_rate': _pct(passed, total)},
+    }
+    return render(request, 'testing/suite_detail.html', context)
 
 
 @login_required
@@ -201,26 +332,50 @@ def test_suite_create(request, project_id):
 
 @login_required
 def test_case_list(request, suite_id=None):
-    """List test cases"""
+    """List test cases (filters + KPI strip)"""
     if not request.user.is_superuser:
-        messages.error(request, 'Access denied!')
-        return redirect('dashboard')
-    
+        return _deny(request)
+
     if suite_id:
-        suite = get_object_or_404(TestSuite, pk=suite_id)
-        cases = suite.cases.all()
+        suite = get_object_or_404(TestSuite.objects.select_related('project'), pk=suite_id)
+        base = suite.cases.all()
     else:
-        cases = TestCase.objects.all()
         suite = None
-    
+        base = TestCase.objects.all()
+
+    sc = _count_by(base, 'status')
+    total = sum(sc.values())
+    kpi = {'total': total, 'passed': sc.get('passed', 0), 'failed': sc.get('failed', 0),
+           'blocked': sc.get('blocked', 0)}
+    kpi['pass_rate'] = _pct(kpi['passed'], total)
+
+    cases = base.select_related('suite', 'suite__project', 'executed_by').order_by('-created_at', '-id')
+    search = request.GET.get('search', '').strip()
+    status = request.GET.get('status', '')
+    priority = request.GET.get('priority', '')
+    test_type = request.GET.get('type', '')
+    if search:
+        cases = cases.filter(Q(title__icontains=search) | Q(description__icontains=search))
+    if status:
+        cases = cases.filter(status=status)
+    if priority:
+        cases = cases.filter(priority=priority)
+    if test_type:
+        cases = cases.filter(test_type=test_type)
+
     paginator = Paginator(cases, 25)
-    page = request.GET.get('page', 1)
-    page_obj = paginator.get_page(page)
-    
+    page_obj = paginator.get_page(request.GET.get('page', 1))
+    for c in page_obj:
+        _decorate_case(c)
+
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
-        'page_obj': page_obj,
-        'suite': suite,
+        'page_obj': page_obj, 'suite': suite, 'kpi': kpi, 'total_count': paginator.count,
+        'search': search, 'status': status, 'priority': priority, 'test_type': test_type,
+        'status_choices': _clean_choices(TestCase.STATUS_CHOICES),
+        'priority_choices': _clean_choices(TestCase.PRIORITY_CHOICES),
+        'type_choices': _clean_choices(TestCase.TYPE_CHOICES),
+        'query_string': _query_string(request),
     }
     return render(request, 'testing/cases.html', context)
 
@@ -287,14 +442,14 @@ def test_case_execute(request, pk):
         # Update test case status
         test_case.status = status
         test_case.executed_by = request.user
-        test_case.executed_at = datetime.now()
+        test_case.executed_at = timezone.now()
         test_case.actual_result = request.POST.get('actual_result', '')
         test_case.save()
         
         # If failed, create bug
         if status == 'failed':
-            messages.warning(request, '⚠️ Test failed! Please report bug.')
-            return redirect('bug_create')
+            messages.warning(request, '⚠️ Test failed! Please report the bug.')
+            return redirect('%s?test_case=%s' % (reverse('bug_create'), test_case.pk))
         
         messages.success(request, f'✅ Test case executed with status: {status}')
         return redirect('test_case_list')
@@ -309,41 +464,42 @@ def test_case_execute(request, pk):
 
 @login_required
 def bug_list(request):
-    """List bugs"""
+    """List bugs (KPI strip, filters, detail sheet)"""
     if not request.user.is_superuser:
-        messages.error(request, 'Access denied!')
-        return redirect('dashboard')
-    
-    bugs = Bug.objects.select_related('test_case', 'assigned_to', 'reported_by').all()
-    
+        return _deny(request)
+
+    bs = _count_by(Bug.objects, 'status')
+    sev = _count_by(Bug.objects, 'severity')
+    kpi = {k: bs.get(k, 0) for k in ('new', 'in_progress', 'reopened', 'fixed', 'closed')}
+    kpi['critical'] = sev.get('critical', 0)
+
+    bugs = Bug.objects.select_related('test_case', 'assigned_to', 'reported_by').order_by('-reported_at', '-id')
+
     status = request.GET.get('status', '')
     if status:
         bugs = bugs.filter(status=status)
-    
     severity = request.GET.get('severity', '')
     if severity:
         bugs = bugs.filter(severity=severity)
-    
-    search = request.GET.get('search', '')
+    search = request.GET.get('search', '').strip()
     if search:
-        bugs = bugs.filter(
-            Q(title__icontains=search) |
-            Q(description__icontains=search) |
-            Q(module__icontains=search)
-        )
-    
+        q = Q(title__icontains=search) | Q(description__icontains=search) | Q(module__icontains=search)
+        if search.lstrip('#').isdigit():
+            q |= Q(pk=int(search.lstrip('#')))
+        bugs = bugs.filter(q)
+
     paginator = Paginator(bugs, 25)
-    page = request.GET.get('page', 1)
-    page_obj = paginator.get_page(page)
-    
+    page_obj = paginator.get_page(request.GET.get('page', 1))
+    for b in page_obj:
+        _decorate_bug(b)
+
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
-        'page_obj': page_obj,
-        'status': status,
-        'severity': severity,
-        'search': search,
-        'status_choices': Bug.STATUS_CHOICES,
-        'severity_choices': Bug.SEVERITY_CHOICES,
+        'page_obj': page_obj, 'total_count': paginator.count, 'kpi': kpi,
+        'status': status, 'severity': severity, 'search': search,
+        'status_choices': _clean_choices(Bug.STATUS_CHOICES),
+        'severity_choices': _clean_choices(Bug.SEVERITY_CHOICES),
+        'query_string': _query_string(request),
     }
     return render(request, 'testing/bugs.html', context)
 
@@ -389,37 +545,45 @@ def bug_create(request):
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'severity_choices': Bug.SEVERITY_CHOICES,
-        'test_cases': TestCase.objects.all(),
-        'users': User.objects.filter(is_active=True),
+        'test_cases': TestCase.objects.order_by('title'),
+        'users': User.objects.filter(is_active=True).order_by('username'),
+        'selected_case': request.GET.get('test_case', ''),
     }
     return render(request, 'testing/bug_create.html', context)
 
 
 @login_required
 def bug_update_status(request, pk):
-    """Update bug status"""
+    """Update bug status (POST only; returns to the page the user came from)"""
     if not request.user.is_superuser:
-        messages.error(request, 'Access denied!')
-        return redirect('dashboard')
-    
+        return _deny(request)
+
     bug = get_object_or_404(Bug, pk=pk)
-    
-    if request.method == 'POST':
-        status = request.POST.get('status')
-        bug.status = status
-        
-        if status == 'fixed':
-            bug.fixed_at = datetime.now()
-        elif status == 'verified':
-            bug.verified_at = datetime.now()
-        elif status == 'closed':
-            bug.closed_at = datetime.now()
-        
-        bug.save()
-        messages.success(request, f'✅ Bug status updated to: {bug.get_status_display()}')
-        return redirect('bug_list')
-    
-    return redirect('bug_list')
+    back = request.META.get('HTTP_REFERER')
+    if not back or not url_has_allowed_host_and_scheme(back, allowed_hosts={request.get_host()}):
+        back = reverse('bug_list')
+
+    if request.method != 'POST':
+        return redirect(back)
+
+    status = request.POST.get('status')
+    if status not in dict(Bug.STATUS_CHOICES):
+        messages.error(request, 'Invalid status.')
+        return redirect(back)
+
+    bug.status = status
+    now = timezone.now()
+    if status == 'fixed':
+        bug.fixed_at = now
+    elif status == 'verified':
+        bug.verified_at = now
+    elif status == 'closed':
+        bug.closed_at = now
+    elif status == 'reopened':
+        bug.closed_at = None
+    bug.save()
+    messages.success(request, 'Bug #%s is now "%s".' % (bug.pk, _label(bug.get_status_display())))
+    return redirect(back)
 
 
 @login_required
@@ -493,3 +657,56 @@ def test_report_view(request, pk):
         'report': report,
     }
     return render(request, 'testing/report_view.html', context)
+
+
+@login_required
+def test_run_auto(request):
+    """Start the automatic system tester in the background (dashboard button)."""
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+
+    if not request.user.is_superuser:
+        if is_ajax:
+            return JsonResponse({'ok': False, 'message': 'Access denied'}, status=403)
+        messages.error(request, 'Access denied!')
+        return redirect('dashboard')
+
+    if request.method != 'POST':
+        return redirect('test_dashboard')
+
+    from app import auto_tester
+    started = auto_tester.start_background(
+        request.user, request.get_host(),
+        include_pages=request.POST.get('pages', '1') != '0',
+    )
+    if is_ajax:
+        return JsonResponse({'ok': True, 'started': started,
+                             'message': 'Started' if started else 'A test is already running'})
+    if started:
+        messages.info(request, '⏳ Auto test started. Progress is shown on this page.')
+    else:
+        messages.warning(request, 'An auto test is already running.')
+    return redirect('test_dashboard')
+
+
+@login_required
+def test_auto_status(request):
+    """Progress of the background auto test (polled by the dashboard)."""
+    if not request.user.is_superuser:
+        return JsonResponse({'state': 'denied'}, status=403)
+    from app import auto_tester
+    return JsonResponse(auto_tester.get_status())
+
+
+@login_required
+def test_auto_stop(request):
+    """Stop the running auto test (POST). Add ?force=1 to clear a stuck state."""
+    if not request.user.is_superuser:
+        return JsonResponse({'ok': False, 'message': 'Access denied'}, status=403)
+    if request.method != 'POST':
+        return redirect('test_dashboard')
+    from app import auto_tester
+    if request.POST.get('force') == '1':
+        auto_tester.force_reset()
+    else:
+        auto_tester.request_stop()
+    return JsonResponse({'ok': True})

@@ -1,4 +1,5 @@
 # context_processors.py
+from decimal import Decimal
 from django.core.cache import cache
 from .models import SystemSetting, Purchase, ShareholderDepositRequest, ShareholderWithdrawalRequest, BalanceDividend, Shareholder, CompanyInfo
 
@@ -15,11 +16,51 @@ def _company_branding():
     return {
         "company_logo": logo_url,
         "company_name": company.name if company else "ERP System",
+        "company_tagline": company.tagline if company and company.tagline else "",
     }
+
+
+# ----------------------------------------------------------------------------
+# MODULE VISIBILITY (per business unit)
+# Har module ke liye 2 switch hain: Shop aur Factory.
+#   mode = shop    -> sirf Shop wale switch dekhe jate hain
+#   mode = factory -> sirf Factory wale switch dekhe jate hain
+#   mode = both    -> module tab dikhta hai jab Shop YA Factory me on ho
+# Jab tak aap switch off na karein, koi module hidden nahi hota (koi fixed rule nahi).
+# ----------------------------------------------------------------------------
+from .module_catalog import MODULE_CATALOG
+
+MODULES = [m['key'] for m in MODULE_CATALOG]
+
+# Save se pehle ke defaults (catalog me likhe): sab modules on. Sirf wohi hide hote hain jinka switch off ho.
+_BUILTIN_DEFAULTS = {m['key']: {'shop': m['shop'], 'factory': m['factory']} for m in MODULE_CATALOG}
+
+
+def unit_enabled(module, unit):
+    """Kya 'module' is unit ('shop' ya 'factory') ke liye on hai?"""
+    master = SystemSetting.get_bool('show_%s_module' % module, True)   # purana global switch
+    default = _BUILTIN_DEFAULTS.get(module, {}).get(unit, True) and master
+    return SystemSetting.get_bool('mode_%s_%s' % (unit, module), default)
+
+
+def module_visibility():
+    """{module: True/False, '_mode': mode} - 60 second cache, save par foran clear hota hai."""
+    data = cache.get('module_visibility')
+    if data is None:
+        mode = SystemSetting.get_value('business_mode', 'both')
+        if mode not in ('shop', 'factory', 'both'):
+            mode = 'both'
+        data = {'_mode': mode}
+        for m in MODULES:
+            shop, fac = unit_enabled(m, 'shop'), unit_enabled(m, 'factory')
+            data[m] = shop if mode == 'shop' else fac if mode == 'factory' else (shop or fac)
+        cache.set('module_visibility', data, 60)
+    return data
 
 
 def system_settings(request):
     """Context processor to make system settings available in all templates"""
+    vis = module_visibility()
     
     # Cache counts for 5 minutes to improve performance
     cache_key = 'sidebar_counts'
@@ -63,17 +104,11 @@ def system_settings(request):
         # ========================================== #
         # MODULE SETTINGS                            #
         # ========================================== #
-        'SHOW_HR_MODULE': SystemSetting.get_bool('show_hr_module', True),
-        'SHOW_PRODUCTION_MODULE': SystemSetting.get_bool('show_production_module', True),
-        'SHOW_INSTALLMENT_MODULE': SystemSetting.get_bool('show_installment_module', True),
-        'SHOW_REPORTS_MODULE': SystemSetting.get_bool('show_reports_module', True),
-        'SHOW_WHATSAPP_MODULE': SystemSetting.get_bool('show_whatsapp_module', True),
-        'SHOW_INVENTORY_MODULE': SystemSetting.get_bool('show_inventory_module', True),
-        'SHOW_PURCHASE_MODULE': SystemSetting.get_bool('show_purchase_module', True),
-        'SHOW_SALES_MODULE': SystemSetting.get_bool('show_sales_module', True),
-        'SHOW_ACCOUNTS_MODULE': SystemSetting.get_bool('show_accounts_module', True),
-        'SHOW_BACKUP_MODULE': SystemSetting.get_bool('show_backup_module', True),
-        
+        'BUSINESS_MODE': vis['_mode'],
+        # templates me: {% if MODULE_VISIBLE.loans %} ya {% if SHOW_LOANS_MODULE %}
+        'MODULE_VISIBLE': {k: v for k, v in vis.items() if k != '_mode'},
+        **{'SHOW_%s_MODULE' % k.upper(): v for k, v in vis.items() if k != '_mode'},
+
         # ========================================== #
         # BALANCE DIVIDEND SETTINGS                  #
         # ========================================== #

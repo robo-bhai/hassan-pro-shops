@@ -3,6 +3,8 @@
 from django.shortcuts import redirect
 from django.contrib import messages
 import logging
+from django.core.cache import cache
+from django.db import OperationalError
 
 logger = logging.getLogger(__name__)
 
@@ -41,75 +43,69 @@ class ShareholderRestrictionMiddleware:
 
 
 # ============================================
-# ✅ LIVE VISITOR TRACKING MIDDLEWARE
+# ✅ THROTTLED TRACKING (database lock se bachao)
 # ============================================
+
+TRACK_INTERVAL = 30  # seconds
+
+# Ye URLs sirf polling hain, inko activity na samjho
+SKIP_PREFIXES = (
+    '/static/', '/media/', '/favicon',
+    '/testing/run-auto/status/',
+    '/api/notifications/',
+    '/api/announce-alerts/',
+)
+
+
+def _should_write(key, seconds=TRACK_INTERVAL):
+    """Har key ke liye `seconds` mein sirf EK baar True deta hai."""
+    try:
+        return cache.add(key, 1, seconds)
+    except Exception:
+        return False  # cache kharab ho to DB par bojh mat daalo
+
 
 class LiveVisitorMiddleware:
-    """
-    Track live visitors on customer portal (shop) pages
-    
-    Features:
-    - Har visitor ko 1 minute ke liye "active" mark karta hai
-    - Sirf /shop/ se start hone wali pages track karta hai
-    - 5 minute purane visitors auto-delete
-    - Error-safe: agar koi masla ho to request block nahi hoti
-    """
-    
+    """Shop visitors track karta hai, har visitor ke liye 30s mein ek baar."""
+
     def __init__(self, get_response):
         self.get_response = get_response
-    
+
     def __call__(self, request):
-        # ✅ Sirf shop pages par track karo
-        if request.path.startswith('/shop/'):
-            try:
-                from .models import LiveVisitor
-                LiveVisitor.track_visitor(request)
-            except Exception as e:
-                logger.error(f"Live visitor tracking error: {e}")
-        
-        response = self.get_response(request)
-        return response
+        if request.path.startswith('/shop/') and request.method == 'GET':
+            who = request.session.session_key or request.META.get('REMOTE_ADDR', 'anon')
+            if _should_write(f'live_visitor:{who}'):
+                try:
+                    from .models import LiveVisitor
+                    LiveVisitor.track_visitor(request)
+                except OperationalError:
+                    logger.warning("Live visitor tracking skipped (DB busy)")
+                except Exception as e:
+                    logger.error(f"Live visitor tracking error: {e}")
+        return self.get_response(request)
 
-
-# ============================================
-# ✅ NEW: ADMIN ACTIVITY TRACKING MIDDLEWARE
-# ============================================
 
 class AdminActivityMiddleware:
-    """
-    Har request pe admin ki REAL-TIME activity track karo
-    
-    Yeh LAST_LOGIN se alag hai:
-    - last_login = jab login kiya (stale ho jata hai)
-    - last_activity = abhi kaam kar raha hai (fresh)
-    
-    Isse pata chalta hai ke konsa admin ABHI LIVE hai.
-    """
-    
+    """Admin ki live activity, har admin ke liye 30s mein ek baar likhta hai."""
+
     def __init__(self, get_response):
         self.get_response = get_response
-    
+
     def __call__(self, request):
-        # ✅ Response PEHLE process karo
         response = self.get_response(request)
-        
-        # ✅ Sirf authenticated staff users ke liye track karo
-        if hasattr(request, 'user') and request.user.is_authenticated and request.user.is_staff:
+
+        user = getattr(request, 'user', None)
+        if (user and user.is_authenticated and user.is_staff
+                and not request.path.startswith(SKIP_PREFIXES)
+                and _should_write(f'admin_presence:{user.pk}')):
             try:
-                # Static files skip karo
-                path = request.path
-                if not path.startswith('/static/') and \
-                   not path.startswith('/media/') and \
-                   not path.startswith('/favicon'):
-                    
-                    from .models import AdminPresence
-                    AdminPresence.mark_activity(
-                        user=request.user,
-                        page=path
-                    )
+                from .models import AdminPresence
+                AdminPresence.mark_activity(user=user, page=request.path)
+            except OperationalError:
+                logger.warning("Admin presence skipped (DB busy)")
             except Exception as e:
                 logger.error(f"Admin presence tracking error: {e}")
-        
+
         return response
 
 

@@ -375,8 +375,8 @@ def profit_loss_report(request):
     
     # ✅ Expenses (1 query)
     expenses_agg = Expense.objects.filter(
-        date__date__gte=from_date_obj,
-        date__date__lte=to_date_obj
+        expense_date__gte=from_date_obj,
+        expense_date__lte=to_date_obj
     ).aggregate(
         total=Coalesce(
             Sum('amount'),
@@ -388,9 +388,9 @@ def profit_loss_report(request):
     
     # ✅ Salary expense (1 query)
     salary_expense = Expense.objects.filter(
-        date__date__gte=from_date_obj,
-        date__date__lte=to_date_obj,
-        category='salary'
+        expense_date__gte=from_date_obj,
+        expense_date__lte=to_date_obj,
+        category__name__iexact='salary'
     ).aggregate(
         total=Coalesce(
             Sum('amount'),
@@ -457,7 +457,7 @@ def cash_flow_report(request):
     cash_out = Purchase.objects.filter(pur_date__date__gte=from_date_obj, pur_date__date__lte=to_date_obj).aggregate(
         total=Sum('paid'))['total'] or Decimal('0.0')
     
-    total_expenses = Expense.objects.filter(date__date__gte=from_date_obj, date__date__lte=to_date_obj).aggregate(
+    total_expenses = Expense.objects.filter(expense_date__gte=from_date_obj, expense_date__lte=to_date_obj).aggregate(
         total=Sum('amount'))['total'] or Decimal('0.0')
     
     total_sales_received = cash_in
@@ -1308,7 +1308,7 @@ def daily_summary_report(request):
     total_sales = sum(s.total_amount() for s in sales)
     total_profit = sum(s.total_profit() for s in sales)
     total_purchases = sum(p.total_amount() for p in purchases)
-    total_expenses = Expense.objects.filter(date__date=report_date).aggregate(total=Sum('amount'))['total'] or 0
+    total_expenses = Expense.objects.filter(expense_date=report_date).aggregate(total=Sum('amount'))['total'] or 0
     
     net_income = total_sales - total_purchases - total_expenses
     
@@ -1385,7 +1385,7 @@ def monthly_summary_report(request):
     total_sales = sum(s.total_amount() for s in sales)
     total_profit = sum(s.total_profit() for s in sales)
     total_purchases = sum(p.total_amount() for p in purchases)
-    total_expenses = Expense.objects.filter(date__date__gte=start_date, date__date__lte=end_date).aggregate(total=Sum('amount'))['total'] or 0
+    total_expenses = Expense.objects.filter(expense_date__gte=start_date, expense_date__lte=end_date).aggregate(total=Sum('amount'))['total'] or 0
     
     closing = MonthlyClosing.objects.filter(month=start_date).first()
     
@@ -1892,7 +1892,7 @@ def profit_loss(request):
     
     closing = MonthlyClosing.objects.filter(month=month_date).first()
     
-    expenses = Expense.objects.filter(date__year=month_date.year, date__month=month_date.month).aggregate(
+    expenses = Expense.objects.filter(expense_date__year=month_date.year, expense_date__month=month_date.month).aggregate(
         total=Sum('amount'))['total'] or 0
     
     context = {

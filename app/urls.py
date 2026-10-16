@@ -13,6 +13,7 @@ from django.urls import path
 from . import views
 from . import views_delivery
 from . import views_order_tracking
+from app.views_frontend.settings_center import settings_center
 
 urlpatterns = [
     # ============================================
@@ -1115,4 +1116,11 @@ urlpatterns = [
      path('my-order/<int:order_id>/tracking/', 
      views_order_tracking.customer_order_tracking, 
      name='customer_order_tracking'),
+     path('testing/run-auto/', views_testing.test_run_auto, name='test_run_auto'),
+     path('testing/run-auto/status/', views_testing.test_auto_status, name='test_auto_status'),   
+     path('testing/suites/<int:pk>/', views_testing.test_suite_detail, name='test_suite_detail'),
+     path('testing/run-auto/stop/', views_testing.test_auto_stop, name='test_auto_stop'),
+     path('settings/center/', settings_center, name='settings_center'),
+     path('settings/<str:tab>/', settings_center, name='settings_center_tab'),
+
 ]

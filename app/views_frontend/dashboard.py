@@ -47,6 +47,10 @@ def profile_view(request):
     })
 
 
+from ..module_catalog import MODULE_CATALOG, MODULE_GROUPS
+_MODULE_KEYS = tuple(m['key'] for m in MODULE_CATALOG)
+
+
 @login_required
 def module_settings(request):
     """Module settings page - Admin can toggle modules"""
@@ -61,9 +65,32 @@ def module_settings(request):
                 setting_key = key.replace('setting_', '')
                 SystemSetting.set_value(setting_key, value == 'on', request.user)
         
+        # Har module ke liye Shop / Factory switch (unchecked = off bhi save hota hai)
+        for m in _MODULE_KEYS:
+            shop_on = request.POST.get('mode_shop_%s' % m) == 'on'
+            factory_on = request.POST.get('mode_factory_%s' % m) == 'on'
+            SystemSetting.set_value('mode_shop_%s' % m, shop_on, request.user)
+            SystemSetting.set_value('mode_factory_%s' % m, factory_on, request.user)
+            # purana global switch union ke sath sync rakho (purane code ke liye)
+            SystemSetting.set_value('show_%s_module' % m, shop_on or factory_on, request.user)
+
+        # Shareholder deduction: unchecked = off, aur type bhi save ho
+        SystemSetting.set_value('enable_shareholder_purchase_deduction',
+                                request.POST.get('setting_enable_shareholder_purchase_deduction') == 'on',
+                                request.user)
+        deduction_type = request.POST.get('deduction_type')
+        if deduction_type in ('proportional', 'equal'):
+            SystemSetting.set_value('shareholder_deduction_type', deduction_type, request.user)
+
         # Handle Balance Dividend Settings
         enable_balance_dividend = request.POST.get('setting_enable_balance_dividend') == 'on'
         SystemSetting.set_value('enable_balance_dividend', enable_balance_dividend, request.user)
+        
+        # Business mode: shop / factory / both
+        business_mode = request.POST.get('business_mode', 'both')
+        if business_mode not in ('shop', 'factory', 'both'):
+            business_mode = 'both'
+        SystemSetting.set_value('business_mode', business_mode, request.user)
         
         default_dividend_type = request.POST.get('default_dividend_type', 'both')
         SystemSetting.set_value('default_dividend_type', default_dividend_type, request.user)
@@ -80,6 +107,7 @@ def module_settings(request):
         auto_process_days = request.POST.get('auto_process_days', '7')
         SystemSetting.set_value('auto_process_days', auto_process_days, request.user)
         
+        cache.delete('module_visibility')   # sidebar foran naye settings dikhaye
         messages.success(request, '✅ Module settings updated successfully!')
         return redirect('module_settings')
     
@@ -87,21 +115,22 @@ def module_settings(request):
     # ========================================== #
     # MODULE SETTINGS                           #
     # ========================================== #
-    module_settings = [
-        {'key': 'show_hr_module', 'name': '👥 HR Management', 'description': 'Employees, Attendance, Payroll, Leaves, Salary Slips', 'icon': 'bi-people'},
-        {'key': 'show_production_module', 'name': '🏭 Production', 'description': 'Production Orders, BOM, Operations', 'icon': 'bi-gear'},
-        {'key': 'show_installment_module', 'name': '📅 Installments', 'description': 'Installment Plans, EMI Payments', 'icon': 'bi-calendar'},
-        {'key': 'show_reports_module', 'name': '📊 Reports', 'description': 'All Reports (34+ Reports)', 'icon': 'bi-graph-up'},
-        {'key': 'show_whatsapp_module', 'name': '📱 WhatsApp', 'description': 'Messages, Reminders, Bulk Messaging', 'icon': 'bi-whatsapp'},
-        {'key': 'show_inventory_module', 'name': '📦 Inventory', 'description': 'Stock, Batches, Warehouse Transfers', 'icon': 'bi-box'},
-        {'key': 'show_purchase_module', 'name': '📥 Purchase', 'description': 'Purchases, Purchase Orders, GRN, Returns', 'icon': 'bi-cart-plus'},
-        {'key': 'show_sales_module', 'name': '🛒 Sales', 'description': 'Sales, Sale Orders, Challans, Returns', 'icon': 'bi-cart-check'},
-        {'key': 'show_accounts_module', 'name': '💰 Accounts', 'description': 'Expenses, Savings, Debts', 'icon': 'bi-calculator'},
-        {'key': 'show_backup_module', 'name': '💾 Database Backup', 'description': 'Backup, Restore, Cloud Sync', 'icon': 'bi-hdd-stack'},
+    from ..context_processors import unit_enabled, module_visibility
+    visible = module_visibility()
+    module_settings = []
+    for m in MODULE_CATALOG:
+        module_settings.append({
+            'id': m['key'], 'key': 'show_%s_module' % m['key'],
+            'name': m['label'], 'icon': m['icon'], 'description': m['description'], 'group': m['group'],
+            'shop': unit_enabled(m['key'], 'shop'),
+            'factory': unit_enabled(m['key'], 'factory'),
+            'visible': visible.get(m['key'], True),     # abhi chalu hai?
+        })
+    module_groups = [
+        {'name': g, 'items': [x for x in module_settings if x['group'] == g]}
+        for g in MODULE_GROUPS
     ]
-    
-    for setting in module_settings:
-        setting['value'] = SystemSetting.get_bool(setting['key'], True)
+    module_groups = [g for g in module_groups if g['items']]
     
     # ========================================== #
     # SHAREHOLDER DEDUCTION SETTINGS             #
@@ -139,6 +168,7 @@ def module_settings(request):
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'module_settings': module_settings,
+        'module_groups': module_groups,
         'is_enabled': is_enabled,
         'deduction_type': deduction_type,
         'total_shareholders': total_shareholders,
@@ -165,6 +195,7 @@ def toggle_setting(request, setting_key):
     
     if request.method == 'POST':
         new_value = SystemSetting.toggle(setting_key, request.user)
+        cache.delete('module_visibility')
         return JsonResponse({
             'success': True,
             'setting_key': setting_key,

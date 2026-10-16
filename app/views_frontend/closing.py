@@ -50,7 +50,7 @@ def daily_closing_index(request):
     cash_sales = today_sales.aggregate(total=Sum('paid'))['total'] or 0
     
     # Get today's expenses from Expense model
-    today_expenses = Expense.objects.filter(date__date=today)
+    today_expenses = Expense.objects.filter(expense_date=today)
     expenses_total = today_expenses.aggregate(total=Sum('amount'))['total'] or 0
     
     context = {
@@ -98,7 +98,7 @@ def daily_closing_create(request):
         closing.cash_sales = today_sales.aggregate(total=Sum('paid'))['total'] or 0
         
         # Calculate total expenses from Expense model
-        total_expenses = Expense.objects.filter(date__date=today).aggregate(total=Sum('amount'))['total'] or 0
+        total_expenses = Expense.objects.filter(expense_date=today).aggregate(total=Sum('amount'))['total'] or 0
         closing.total_expenses = total_expenses
         
         closing.save()
@@ -246,7 +246,7 @@ def daily_closing_data(request):
     cash_sales = sales.aggregate(total=Sum('paid'))['total'] or 0
     total_sales = sum(s.total_amount() for s in sales)
     
-    expenses = Expense.objects.filter(date__date=today)
+    expenses = Expense.objects.filter(expense_date=today)
     expense_list = [{'description': exp.description, 'amount': float(exp.amount)} for exp in expenses]
     
     return JsonResponse({
