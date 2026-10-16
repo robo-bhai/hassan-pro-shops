@@ -1,0 +1,755 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    :root {
+        --bg: #f0f2f5;
+        --card-bg: #ffffff;
+        --text: #1a1a2e;
+        --text-light: #4a4a5a;
+        --text-dark: #0d0d1a;
+        --primary: #667eea;
+        --success: #28a745;
+        --warning: #ffc107;
+        --danger: #dc3545;
+        --info: #17a2b8;
+        --dark: #1a1a2e;
+        --border: #e0e0e0;
+        --shadow: 0 4px 20px rgba(0,0,0,0.06);
+        --shadow-hover: 0 10px 40px rgba(0,0,0,0.12);
+        --radius: 16px;
+        --radius-sm: 10px;
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+        background: var(--bg);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        color: var(--text);
+    }
+    
+    .health-dashboard {
+        max-width: 1500px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    /* ========== TOP BAR ========== */
+    .topbar {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        border-radius: var(--radius);
+        padding: 25px 30px;
+        margin-bottom: 25px;
+        color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 20px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .topbar::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 300px;
+        height: 300px;
+        background: radial-gradient(circle, rgba(102,126,234,0.3) 0%, transparent 70%);
+        border-radius: 50%;
+    }
+    
+    .topbar-left h1 {
+        font-size: 28px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .live-dot {
+        width: 12px;
+        height: 12px;
+        background: #00ff88;
+        border-radius: 50%;
+        animation: livePulse 2s infinite;
+        box-shadow: 0 0 15px rgba(0,255,136,0.6);
+    }
+    
+    @keyframes livePulse {
+        0%, 100% { box-shadow: 0 0 5px rgba(0,255,136,0.4); }
+        50% { box-shadow: 0 0 25px rgba(0,255,136,0.8); }
+    }
+    
+    .topbar-subtitle {
+        font-size: 13px;
+        opacity: 0.9;
+        margin-top: 5px;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .topbar-actions {
+        display: flex;
+        gap: 10px;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .btn {
+        padding: 10px 20px;
+        border-radius: 25px;
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: var(--transition);
+    }
+    
+    .btn-glass {
+        background: rgba(255,255,255,0.15);
+        color: white;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.2);
+    }
+    
+    .btn-glass:hover {
+        background: rgba(255,255,255,0.25);
+        transform: translateY(-2px);
+    }
+    
+    /* ========== METRIC CARDS ROW ========== */
+    .metrics-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 18px;
+        margin-bottom: 25px;
+    }
+    
+    .metric-card {
+        background: var(--card-bg);
+        border-radius: var(--radius);
+        padding: 22px;
+        box-shadow: var(--shadow);
+        transition: var(--transition);
+        position: relative;
+        overflow: hidden;
+        cursor: pointer;
+        color: var(--text);
+    }
+    
+    .metric-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-hover);
+    }
+    
+    .metric-card .icon-circle {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        margin-bottom: 15px;
+    }
+    
+    .metric-card .metric-value {
+        font-size: 38px;
+        font-weight: 800;
+        line-height: 1;
+        margin-bottom: 5px;
+    }
+    
+    .metric-card .metric-label {
+        font-size: 13px;
+        color: var(--text-light);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 600;
+    }
+    
+    .metric-card .metric-sub {
+        font-size: 12px;
+        color: #666;
+        margin-top: 4px;
+        font-weight: 500;
+    }
+    
+    /* Color Variants */
+    .metric-cpu .icon-circle { background: #eef2ff; color: #667eea; }
+    .metric-cpu .metric-value { color: #667eea; }
+    
+    .metric-ram .icon-circle { background: #e0f7fa; color: #00bcd4; }
+    .metric-ram .metric-value { color: #00bcd4; }
+    
+    .metric-disk .icon-circle { background: #fff8e1; color: #ff9800; }
+    .metric-disk .metric-value { color: #ff9800; }
+    
+    .metric-db .icon-circle { background: #e8f5e9; color: #4caf50; }
+    .metric-db .metric-value { color: #4caf50; }
+    
+    /* ========== PROGRESS BAR MODERN ========== */
+    .progress-modern {
+        margin: 12px 0;
+    }
+    
+    .progress-modern .progress-info {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: var(--text-light);
+        font-weight: 500;
+        margin-bottom: 6px;
+    }
+    
+    .progress-modern .progress-track {
+        background: #e9ecef;
+        height: 8px;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    
+    .progress-modern .progress-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 1.2s ease;
+        background: linear-gradient(90deg, var(--primary), #764ba2);
+        position: relative;
+    }
+    
+    .progress-modern .progress-fill::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+        animation: shimmer 2.5s infinite;
+    }
+    
+    @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(200%); }
+    }
+    
+    /* ========== SECTION CARDS ========== */
+    .section-card {
+        background: var(--card-bg);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        margin-bottom: 25px;
+        overflow: hidden;
+        color: var(--text);
+    }
+    
+    .section-header {
+        padding: 18px 25px;
+        border-bottom: 1px solid var(--border);
+        font-weight: 700;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: #fafafa;
+        color: var(--text-dark);
+    }
+    
+    .section-body {
+        padding: 20px 25px;
+    }
+    
+    /* ========== RECORDS GRID ========== */
+    .records-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 15px;
+    }
+    
+    .record-item {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: var(--radius-sm);
+        padding: 20px 15px;
+        text-align: center;
+        transition: var(--transition);
+        cursor: pointer;
+        color: var(--text);
+    }
+    
+    .record-item:hover {
+        transform: scale(1.03);
+        background: white;
+        box-shadow: var(--shadow);
+    }
+    
+    .record-item .count {
+        font-size: 34px;
+        font-weight: 800;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    .record-item .name {
+        font-size: 12px;
+        color: var(--text-light);
+        margin-top: 5px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+    }
+    
+    /* ========== ACTIVITY CARDS ========== */
+    .activity-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+    }
+    
+    .activity-card {
+        background: white;
+        border-radius: var(--radius-sm);
+        padding: 20px;
+        text-align: center;
+        border: 2px solid transparent;
+        transition: var(--transition);
+        cursor: pointer;
+        color: var(--text);
+    }
+    
+    .activity-card:hover {
+        border-color: #667eea;
+        box-shadow: var(--shadow);
+    }
+    
+    .activity-card .act-icon {
+        font-size: 35px;
+        margin-bottom: 8px;
+    }
+    
+    .activity-card .act-value {
+        font-size: 36px;
+        font-weight: 800;
+    }
+    
+    .activity-card .act-label {
+        font-size: 13px;
+        color: var(--text-light);
+        margin-top: 4px;
+        font-weight: 600;
+    }
+    
+    .act-sales .act-value { color: #2196f3; }
+    .act-purchase .act-value { color: #ff9800; }
+    .act-order .act-value { color: #4caf50; }
+    .act-challan .act-value { color: #e91e63; }
+    
+    /* ========== TWO COLUMN LAYOUT ========== */
+    .two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 25px;
+        margin-bottom: 25px;
+    }
+    
+    @media (max-width: 900px) {
+        .two-col { grid-template-columns: 1fr; }
+    }
+    
+    /* ========== STATUS LIST ========== */
+    .status-list .status-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 0;
+        border-bottom: 1px solid #eee;
+        color: #000000;
+        font-weight: 600;
+        font-size: 14px;
+    }
+    
+    .status-list .status-item:last-child {
+        border-bottom: none;
+    }
+    
+    .status-list .status-item strong {
+        color: #000000;
+        font-weight: 700;
+        font-size: 14px;
+    }
+    
+    .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
+    }
+    
+    .status-dot.green { background: #28a745; box-shadow: 0 0 8px rgba(40,167,69,0.5); }
+    .status-dot.yellow { background: #ffc107; box-shadow: 0 0 8px rgba(255,193,7,0.5); }
+    .status-dot.red { background: #dc3545; box-shadow: 0 0 8px rgba(220,53,69,0.5); }
+    
+    /* ========== LOG TABLE ========== */
+    .log-wrapper {
+        max-height: 350px;
+        overflow-y: auto;
+    }
+    
+    .log-wrapper::-webkit-scrollbar {
+        width: 5px;
+    }
+    
+    .log-wrapper::-webkit-scrollbar-thumb {
+        background: #ddd;
+        border-radius: 10px;
+    }
+    
+    .log-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .log-table th {
+        background: #f8f9fa;
+        padding: 12px 16px;
+        text-align: left;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #555;
+        font-weight: 700;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+    
+    .log-table td {
+        padding: 11px 16px;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 13px;
+        color: #1a1a2e;
+        font-weight: 500;
+    }
+    
+    .log-table tbody tr {
+        transition: background 0.2s;
+    }
+    
+    .log-table tbody tr:hover {
+        background: #f8f9ff;
+    }
+    
+    .badge-action {
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 700;
+    }
+    
+    .badge-add { background: #d4edda; color: #155724; }
+    .badge-edit { background: #fff3cd; color: #856404; }
+    .badge-delete { background: #f8d7da; color: #721c24; }
+    
+    /* ========== FOOTER ========== */
+    .dashboard-footer {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        flex-wrap: wrap;
+        margin-top: 20px;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        padding: 14px 28px;
+        border-radius: 30px;
+        font-weight: 700;
+        box-shadow: 0 6px 20px rgba(102,126,234,0.4);
+    }
+    
+    .btn-primary:hover {
+        box-shadow: 0 10px 30px rgba(102,126,234,0.6);
+        transform: translateY(-3px);
+    }
+    
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+        padding: 14px 28px;
+        border-radius: 30px;
+        font-weight: 700;
+    }
+    
+    /* ========== RESPONSIVE ========== */
+    @media (max-width: 768px) {
+        .health-dashboard { padding: 10px; }
+        .topbar { padding: 20px; }
+        .topbar-left h1 { font-size: 22px; }
+        .metric-card .metric-value { font-size: 28px; }
+        .record-item .count { font-size: 26px; }
+        .activity-card .act-value { font-size: 28px; }
+        .records-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="health-dashboard">
+    
+    <!-- ========== TOP BAR ========== -->
+    <div class="topbar">
+        <div class="topbar-left">
+            <h1>
+                <span class="live-dot"></span>
+                🩺 System Health Center
+            </h1>
+            <div class="topbar-subtitle">📅 {% now "l, d F Y" %} • 🕐 {% now "H:i:s" %} • Real-time Monitoring</div>
+        </div>
+        <div class="topbar-actions">
+            <button onclick="location.reload()" class="btn btn-glass">🔄 Refresh</button>
+            <a href="{% url 'admin:index' %}" class="btn btn-glass">🏠 Home</a>
+        </div>
+    </div>
+    
+    <!-- ========== METRIC CARDS ========== -->
+    <div class="metrics-row">
+        <div class="metric-card metric-cpu">
+            <div class="icon-circle">💻</div>
+            <div class="metric-value">{{ cpu_percent }}%</div>
+            <div class="metric-label">CPU Usage</div>
+            <div class="metric-sub">{{ cpu_count }} Cores Active</div>
+            <div class="progress-modern">
+                <div class="progress-track">
+                    <div class="progress-fill" style="width: {{ cpu_percent }}%; background: linear-gradient(90deg, #667eea, #764ba2);"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="metric-card metric-ram">
+            <div class="icon-circle">🧠</div>
+            <div class="metric-value">{{ ram_percent }}%</div>
+            <div class="metric-label">Memory (RAM)</div>
+            <div class="metric-sub">{{ ram_used_gb }} GB / {{ ram_total_gb }} GB</div>
+            <div class="progress-modern">
+                <div class="progress-track">
+                    <div class="progress-fill" style="width: {{ ram_percent }}%; background: linear-gradient(90deg, #00bcd4, #0097a7);"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="metric-card metric-disk">
+            <div class="icon-circle">💾</div>
+            <div class="metric-value">{{ disk_percent }}%</div>
+            <div class="metric-label">Disk Space</div>
+            <div class="metric-sub">{{ disk_used_gb }} GB / {{ disk_total_gb }} GB</div>
+            <div class="progress-modern">
+                <div class="progress-track">
+                    <div class="progress-fill" style="width: {{ disk_percent }}%; background: linear-gradient(90deg, #ff9800, #f57c00);"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="metric-card metric-db">
+            <div class="icon-circle">🗄️</div>
+            <div class="metric-value">{{ db_size_mb }}<small style="font-size:18px; color:#4caf50;"> MB</small></div>
+            <div class="metric-label">Database</div>
+            <div class="metric-sub">{{ total_records }} Total Records</div>
+            <div style="display:flex; gap:15px; margin-top:10px; font-size:12px; color:#555; font-weight:500;">
+                <span>🐍 {{ python_version }}</span>
+                <span>🎯 Django {{ django_version }}</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========== RECORD COUNTS ========== -->
+    <div class="section-card">
+        <div class="section-header">📊 Database Records Overview</div>
+        <div class="section-body">
+            <div class="records-grid">
+                {% for name, count in model_counts.items %}
+                <div class="record-item">
+                    <div class="count">{{ count }}</div>
+                    <div class="name">{{ name }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========== 24H ACTIVITY ========== -->
+    <div class="section-card">
+        <div class="section-header">🕐 Last 24 Hours Activity</div>
+        <div class="section-body">
+            <div class="activity-row">
+                <div class="activity-card act-sales">
+                    <div class="act-icon">🛒</div>
+                    <div class="act-value">{{ recent_sales }}</div>
+                    <div class="act-label">New Sales</div>
+                </div>
+                <div class="activity-card act-purchase">
+                    <div class="act-icon">📦</div>
+                    <div class="act-value">{{ recent_purchases }}</div>
+                    <div class="act-label">New Purchases</div>
+                </div>
+                <div class="activity-card act-order">
+                    <div class="act-icon">📋</div>
+                    <div class="act-value">{{ recent_orders }}</div>
+                    <div class="act-label">New Orders</div>
+                </div>
+                <div class="activity-card act-challan">
+                    <div class="act-icon">🚚</div>
+                    <div class="act-value">{{ recent_challans }}</div>
+                    <div class="act-label">Challans Created</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========== TWO COLUMN: STATUS + SERVER INFO ========== -->
+    <div class="two-col">
+        <div class="section-card">
+            <div class="section-header">✅ System Status</div>
+            <div class="section-body">
+                <div class="status-list">
+                    <div class="status-item">
+                        <span><span class="status-dot {% if license_valid %}green{% else %}red{% endif %}"></span> License Status</span>
+                        <strong>{% if license_valid %}Active ✅{% else %}Expired ❌{% endif %}</strong>
+                    </div>
+                    <div class="status-item">
+                        <span><span class="status-dot green"></span> Database Connection</span>
+                        <strong>Connected ✅</strong>
+                    </div>
+                    <div class="status-item">
+                        <span><span class="status-dot {% if cpu_percent < 80 %}green{% elif cpu_percent < 90 %}yellow{% else %}red{% endif %}"></span> CPU Health</span>
+                        <strong>{% if cpu_percent < 80 %}Normal{% elif cpu_percent < 90 %}Warning{% else %}Critical{% endif %}</strong>
+                    </div>
+                    <div class="status-item">
+                        <span><span class="status-dot {% if ram_percent < 80 %}green{% elif ram_percent < 90 %}yellow{% else %}red{% endif %}"></span> RAM Health</span>
+                        <strong>{% if ram_percent < 80 %}Normal{% elif ram_percent < 90 %}Warning{% else %}Critical{% endif %}</strong>
+                    </div>
+                    <div class="status-item">
+                        <span><span class="status-dot {% if disk_percent < 80 %}green{% elif disk_percent < 90 %}yellow{% else %}red{% endif %}"></span> Disk Health</span>
+                        <strong>{% if disk_percent < 80 %}Normal{% elif disk_percent < 90 %}Warning{% else %}Critical{% endif %}</strong>
+                    </div>
+                    <div class="status-item">
+                        <span>💾 Last Backup</span>
+                        <strong style="font-size:12px;">{{ last_backup|default:"⚠️ None"|truncatechars:25 }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section-card">
+            <div class="section-header">🖥️ Server Information</div>
+            <div class="section-body">
+                <div class="status-list">
+                    <div class="status-item">
+                        <span>🐍 Python Version</span>
+                        <strong>{{ python_version }}</strong>
+                    </div>
+                    <div class="status-item">
+                        <span>🎯 Django Version</span>
+                        <strong>{{ django_version }}</strong>
+                    </div>
+                    <div class="status-item">
+                        <span>🗄️ Database Engine</span>
+                        <strong>SQLite3</strong>
+                    </div>
+                    <div class="status-item">
+                        <span>💻 CPU Cores</span>
+                        <strong>{{ cpu_count }}</strong>
+                    </div>
+                    <div class="status-item">
+                        <span>📊 Total Records</span>
+                        <strong>{{ total_records }}</strong>
+                    </div>
+                    <div class="status-item">
+                        <span>📱 Platform</span>
+                        <strong>Android / Termux</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========== RECENT ACTIVITY LOG ========== -->
+    <div class="section-card">
+        <div class="section-header">📋 Recent Activity Log</div>
+        <div class="log-wrapper">
+            <table class="log-table">
+                <thead>
+                    <tr>
+                        <th>⏰ Time</th>
+                        <th>👤 User</th>
+                        <th>⚡ Action</th>
+                        <th>📝 Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in recent_logs %}
+                    <tr>
+                        <td style="white-space:nowrap;color:#666;font-size:11px;">{{ log.action_time|date:"d M, H:i:s" }}</td>
+                        <td><strong>{{ log.user|default:"System" }}</strong></td>
+                        <td>
+                            {% if log.action_flag == 1 %}
+                                <span class="badge-action badge-add">➕ Added</span>
+                            {% elif log.action_flag == 2 %}
+                                <span class="badge-action badge-edit">✏️ Edited</span>
+                            {% elif log.action_flag == 3 %}
+                                <span class="badge-action badge-delete">🗑️ Deleted</span>
+                            {% endif %}
+                        </td>
+                        <td style="font-size:12px; color:#1a1a2e;">{{ log.object_repr|truncatechars:60|default:"-" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" style="text-align:center;padding:40px;color:#888;font-weight:500;">
+                            📭 No recent activity recorded
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- ========== FOOTER ACTIONS ========== -->
+    <div class="dashboard-footer">
+        <a href="{% url 'admin:database-backup' %}" class="btn btn-primary">
+            💾 Create Database Backup
+        </a>
+        <a href="{% url 'admin:index' %}" class="btn btn-secondary">
+            ⬅ Back to Admin Dashboard
+        </a>
+    </div>
+    
+</div>
+
+<!-- Auto Refresh Script -->
+<script>
+    let refreshTimer;
+    function resetTimer() {
+        clearTimeout(refreshTimer);
+        refreshTimer = setTimeout(() => location.reload(), 120000);
+    }
+    document.addEventListener('click', resetTimer);
+    document.addEventListener('keypress', resetTimer);
+    resetTimer();
+</script>
+{% endblock %}

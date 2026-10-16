@@ -1,0 +1,188 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Add Purchase{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h3>Add New Purchase</h3>
+        </div>
+        <div class="card-body">
+            <form method="POST" id="purchaseForm">
+                {% csrf_token %}
+                
+                <!-- Purchase Details -->
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label for="bill_no" class="form-label">Bill Number</label>
+                        <input type="text" class="form-control" id="bill_no" name="bill_no" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="vendor" class="form-label">Vendor</label>
+                        <select class="form-control" id="vendor" name="vendor" required>
+                            <option value="">Select Vendor</option>
+                            {% for vendor in vendors %}
+                            <option value="{{ vendor.id }}">{{ vendor.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="warehouse" class="form-label">Warehouse</label>
+                        <select class="form-control" id="warehouse" name="warehouse" required>
+                            <option value="">Select Warehouse</option>
+                            {% for warehouse in warehouses %}
+                            <option value="{{ warehouse.id }}">{{ warehouse.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label for="paid" class="form-label">Paid Amount</label>
+                        <input type="number" step="0.01" class="form-control" id="paid" name="paid" value="0">
+                    </div>
+                </div>
+                
+                <hr>
+                <h4>Purchase Items</h4>
+                
+                <!-- Items Table -->
+                <table class="table table-bordered" id="itemsTable">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Quantity</th>
+                            <th>Price</th>
+                            <th>Total</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="itemsBody">
+                        <tr>
+                            <td>
+                                <select name="product" class="form-control product-select" required>
+                                    <option value="">Select Product</option>
+                                    {% for product in products %}
+                                    <option value="{{ product.id }}" data-price="{{ product.price }}">
+                                        {{ product.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td>
+                                <input type="number" name="qty" class="form-control qty" step="0.01" required>
+                            </td>
+                            <td>
+                                <input type="number" name="price" class="form-control price" step="0.01" required>
+                            </td>
+                            <td>
+                                <span class="item-total">0.00</span>
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-danger btn-sm remove-row">Remove</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3" class="text-end"><strong>Grand Total:</strong></td>
+                            <td colspan="2"><strong id="grandTotal">0.00</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+                
+                <button type="button" class="btn btn-secondary" id="addRowBtn">Add More Items</button>
+                <hr>
+                
+                <div class="text-end">
+                    <button type="submit" class="btn btn-primary">Save Purchase</button>
+                    <a href="/" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function calculateRowTotal(row) {
+        let qty = parseFloat(row.querySelector('.qty').value) || 0;
+        let price = parseFloat(row.querySelector('.price').value) || 0;
+        let total = qty * price;
+        row.querySelector('.item-total').innerText = total.toFixed(2);
+        calculateGrandTotal();
+        return total;
+    }
+    
+    function calculateGrandTotal() {
+        let total = 0;
+        document.querySelectorAll('.item-total').forEach(function(elem) {
+            total += parseFloat(elem.innerText) || 0;
+        });
+        document.getElementById('grandTotal').innerText = total.toFixed(2);
+    }
+    
+    function setupProductSelect(select) {
+        select.addEventListener('change', function() {
+            let row = this.closest('tr');
+            let priceInput = row.querySelector('.price');
+            let selectedOption = this.options[this.selectedIndex];
+            let productPrice = selectedOption.getAttribute('data-price');
+            if (productPrice) {
+                priceInput.value = productPrice;
+                calculateRowTotal(row);
+            }
+        });
+    }
+    
+    document.getElementById('addRowBtn').addEventListener('click', function() {
+        let tbody = document.getElementById('itemsBody');
+        let newRow = tbody.children[0].cloneNode(true);
+        newRow.querySelectorAll('input, select').forEach(function(input) {
+            if (input.type === 'number') {
+                input.value = '';
+            } else if (input.tagName === 'SELECT') {
+                input.selectedIndex = 0;
+            }
+        });
+        newRow.querySelector('.item-total').innerText = '0.00';
+        tbody.appendChild(newRow);
+        
+        let productSelect = newRow.querySelector('.product-select');
+        let qtyInput = newRow.querySelector('.qty');
+        let priceInput = newRow.querySelector('.price');
+        
+        setupProductSelect(productSelect);
+        qtyInput.addEventListener('input', function() { calculateRowTotal(newRow); });
+        priceInput.addEventListener('input', function() { calculateRowTotal(newRow); });
+        
+        newRow.querySelector('.remove-row').addEventListener('click', function() {
+            if (tbody.children.length > 1) {
+                newRow.remove();
+                calculateGrandTotal();
+            } else {
+                alert("At least one item is required!");
+            }
+        });
+    });
+    
+    document.querySelectorAll('.product-select').forEach(setupProductSelect);
+    document.querySelectorAll('.qty, .price').forEach(function(input) {
+        input.addEventListener('input', function() {
+            calculateRowTotal(this.closest('tr'));
+        });
+    });
+    
+    document.querySelector('.remove-row').addEventListener('click', function() {
+        let tbody = document.getElementById('itemsBody');
+        if (tbody.children.length > 1) {
+            this.closest('tr').remove();
+            calculateGrandTotal();
+        } else {
+            alert("At least one item is required!");
+        }
+    });
+</script>
+{% endblock %}

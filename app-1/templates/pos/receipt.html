@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Receipt</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            width: 80mm;
+            margin: 0 auto;
+            padding: 10px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .header h2 {
+            margin: 0;
+            font-size: 16px;
+        }
+        .header p {
+            margin: 2px 0;
+        }
+        .divider {
+            border-top: 1px dashed #000;
+            margin: 10px 0;
+        }
+        .item-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 3px 0;
+        }
+        .item-name {
+            max-width: 150px;
+        }
+        .totals {
+            margin-top: 10px;
+        }
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .barcode {
+            text-align: center;
+            margin: 10px 0;
+            font-family: 'Libre Barcode 39', 'Courier New', monospace;
+            font-size: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>{{ company.name|default:"YOUR STORE" }}</h2>
+        <p>{{ company.address|default:"Address" }}</p>
+        <p>Tel: {{ company.contact_number|default:"Phone" }}</p>
+    </div>
+    
+    <div class="divider"></div>
+    
+    <div style="display: flex; justify-content: space-between;">
+        <span>Bill: {{ sale.bill_no }}</span>
+        <span>{{ sale.sale_date|date:"d/m/Y H:i" }}</span>
+    </div>
+    <div>Customer: {{ sale.customer.name }}</div>
+    
+    <div class="divider"></div>
+    
+    {% for item in items %}
+    <div class="item-row">
+        <span class="item-name">{{ item.product.name|truncatechars:20 }}</span>
+        <span>{{ item.qty }} x {{ item.price|floatformat:0 }}</span>
+        <span>₹{{ item.total_amt|floatformat:0 }}</span>
+    </div>
+    {% endfor %}
+    
+    <div class="divider"></div>
+    
+    <div class="totals">
+        <div class="item-row">
+            <span>Subtotal:</span>
+            <span>₹{{ sale.total_without_discount|floatformat:0 }}</span>
+        </div>
+        <div class="item-row">
+            <span>Discount:</span>
+            <span>₹{{ sale.discount_value|floatformat:0 }}</span>
+        </div>
+        <div class="total-row">
+            <span>TOTAL:</span>
+            <span>₹{{ sale.total_amount|floatformat:0 }}</span>
+        </div>
+        <div class="item-row">
+            <span>Paid:</span>
+            <span>₹{{ sale.paid|floatformat:0 }}</span>
+        </div>
+        <div class="item-row">
+            <span>Change:</span>
+            <span>₹{{ sale.paid|add:sale.total_amount|floatformat:0 }}</span>
+        </div>
+    </div>
+    
+    <div class="divider"></div>
+    
+    <div class="footer">
+        <p>Thank you for shopping!</p>
+        <p>Visit again</p>
+        <div class="barcode">*{{ sale.bill_no }}*</div>
+        <p style="font-size: 10px;">{{ date|date:"d/m/Y H:i:s" }}</p>
+    </div>
+    
+    <script>
+        window.onload = function() {
+            window.print();
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+{% load custom_filters %}
+{% load humanize %} <!-- Load humanize for intcomma filter -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sale Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            color: #333;
+        }
+        h1 {
+            font-size: 20px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        p {
+            text-align: center;
+            font-size: 12px;
+            margin-bottom: 20px;
+            color: #555;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        th, td {
+            padding: 8px;
+            border: 1px solid #ccc;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tfoot tr {
+            font-weight: bold;
+            background-color: #f4f4f4;
+        }
+        .no-data {
+            text-align: center;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+    <h1>Sale Report</h1>
+    <p>Date: {{ date|date:"d-m-Y " }}</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Sale Date</th>
+                <th>Customer</th>
+                <th>Customer Group</th>
+                <th>Bill No</th>
+                <th>Sale Total </th>
+                <th>Discount </th>
+                <th>Discounted Total </th>
+                <th>Paid </th>
+                <th>Outstanding</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for sale in sales %}
+            <tr>
+                <td>{{ sale.sale_date|date:"d-m-Y" }}</td>
+                <td>{{ sale.customer.name }}</td>
+               <td>{{ sale.customer.group.name }}</td>
+                <td>{{ sale.bill_no }}</td>
+                <td>{{ sale.total_without_discount|floatformat:2|intcomma }}</td>
+                <td>{{ sale.discount_value|floatformat:2|intcomma }}</td>
+                <td>{{ sale.total_amount|floatformat:2|intcomma }}</td>
+                <td>{{ sale.paid|floatformat:2|intcomma }}</td>
+                <td>{{ sale.outstanding_balance|floatformat:2|intcomma }}</td>      
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="no-data">No sales found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="4">Total</td>
+                <td>{{ sales|sum_attribute:"total_without_discount"|floatformat:2|intcomma }}</td>
+                <td>{{ sales|sum_attribute:"discount_value"|floatformat:2|intcomma }}</td>
+                <td>{{ sales|sum_attribute:"total_amount"|floatformat:2|intcomma }}</td>
+                <td>{{ sales|sum_attribute:"paid"|floatformat:2|intcomma }}</td>
+                <td>{{ sales|sum_attribute:"outstanding_balance"|floatformat:2|intcomma }}</td>
+            </tr>
+        </tfoot>
+    </table>
+</body>
+</html>

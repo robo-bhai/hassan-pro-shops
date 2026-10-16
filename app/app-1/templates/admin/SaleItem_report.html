@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+{% load custom_filters %}
+{% load humanize %} <!-- Load humanize for intcomma filter -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sale Items Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            color: #333;
+        }
+        h1 {
+            font-size: 20px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        p {
+            text-align: center;
+            font-size: 12px;
+            margin-bottom: 20px;
+            color: #555;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        th, td {
+            padding: 8px;
+            border: 1px solid #ccc;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tfoot tr {
+            font-weight: bold;
+            background-color: #f4f4f4;
+        }
+        .no-data {
+            text-align: center;
+            color: #777;
+        }
+        .summary-table {
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Sale Items Report</h1>
+    <p>Date: {{ date|date:"d-m-Y" }}</p>
+<h2>Summary by Customer</h2>
+<table class="summary-table">
+    <thead>
+        <tr>
+            <th>Customer Name</th>
+            <th>Customer Group</th>
+            <th>Total Qty</th>
+            <th>Total Amount (PKR)</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for customer, items in SaleItems|dict_groupby:"sale.customer.name" %}
+        <tr>
+            <td>{{ customer }}</td>
+            <td>{{ items.0.sale.customer.group.name }}</td>
+            <td>{{ items|sum_attribute:"qty"|floatformat:2|intcomma }}</td>
+            <td>{{ items|sum_attribute:"total_amt"|floatformat:2|intcomma }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+   
+        <tr>
+            <td colspan="2"><strong>Total</strong></td>
+            <td>
+                {{ SaleItems|sum_attribute:"qty"|floatformat:2|intcomma }}
+            </td>
+            <td>
+                {{ SaleItems|sum_attribute:"total_amt"|floatformat:2|intcomma }}
+            </td>
+        </tr>
+        <tr> <!-- Empty row for visual separation -->
+                <td colspan="9">&nbsp;</td>
+        </tr>
+
+
+</table>
+    <table>
+        <thead>
+            <tr>
+                <th>Sale Date</th>
+                <th>Bill No</th>
+                <th>Customer Name</th>
+                <th>Customer Group</th>
+                <th>Product</th>
+                <th>Category</th>
+                <th>Qty</th>
+                <th>Price (PKR)</th>
+                <th>Total Amount (PKR)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for SaleItem in SaleItems %}
+            <tr>
+                <td>{{ SaleItem.sale.sale_date|date:"d-m-Y" }}</td>
+                <td>{{ SaleItem.sale.bill_no }}</td>
+                <td>{{ SaleItem.sale.customer.name }}</td>
+                <td>{{ SaleItem.sale.customer.group.name }}</td>
+                <td>{{ SaleItem.product.name }}</td>
+                <td>{{ SaleItem.product.category.name }}</td>
+                <td>{{ SaleItem.qty|floatformat:2|intcomma }}</td>
+                <td>{{ SaleItem.price|floatformat:2|intcomma }}</td>
+                <td>{{ SaleItem.total_amt|floatformat:2|intcomma }}</td>      
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="9" class="no-data">No Sales Items found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="6">Total</td>
+                <td>{{ SaleItems|sum_attribute:"qty"|floatformat:2|intcomma }}</td>
+                <td></td>
+                <td>{{ SaleItems|sum_attribute:"total_amt"|floatformat:2|intcomma }}</td>
+            </tr>
+        </tfoot>
+    </table>
+
+
+
+
+
+
+
+</body>
+</html>

@@ -1,0 +1,39 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<div id="content-main">
+    <h1>Update Order Status</h1>
+    
+    <p>Selected Orders: <strong>{{ orders.count }}</strong></p>
+    
+    <form method="post">
+        {% csrf_token %}
+        <div style="margin: 20px 0;">
+            <label for="status"><strong>Select New Status:</strong></label>
+            <select name="status" id="status" style="padding: 8px; font-size: 14px; margin-left: 10px;" required>
+                <option value="">---------</option>
+                {% for value, label in status_choices %}
+                <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <button type="submit" class="button" style="background: #28a745; color: white; padding: 10px 20px;">
+                ✅ Update Status
+            </button>
+            <a href="{% url 'admin:app_saleorder_changelist' %}" class="button" style="background: #6c757d; color: white; padding: 10px 20px; text-decoration: none;">
+                Cancel
+            </a>
+        </div>
+    </form>
+    
+    <h3 style="margin-top: 30px;">Orders to Update:</h3>
+    <ul>
+        {% for order in orders %}
+        <li>{{ order.order_no }} - {{ order.customer.name }} (Current: {{ order.get_status_display }})</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

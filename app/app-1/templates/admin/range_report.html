@@ -1,0 +1,130 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h1>📊 Range Reports</h1>
+
+<div style="background: #f5f5f5; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+    <form method="GET" style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+        <div>
+            <label>From Date:</label>
+            <input type="date" name="from_date" value="{{ from_date }}" style="padding: 8px; border-radius: 5px; border: 1px solid #ddd;">
+        </div>
+        <div>
+            <label>To Date:</label>
+            <input type="date" name="to_date" value="{{ to_date }}" style="padding: 8px; border-radius: 5px; border: 1px solid #ddd;">
+        </div>
+        <div>
+            <label>Report Type:</label>
+            <select name="report_type" style="padding: 8px; border-radius: 5px; border: 1px solid #ddd;">
+                <option value="sales" {% if report_type == 'sales' %}selected{% endif %}>Sales Report</option>
+                <option value="purchases" {% if report_type == 'purchases' %}selected{% endif %}>Purchase Report</option>
+                <option value="daily" {% if report_type == 'daily' %}selected{% endif %}>Daily Summary</option>
+            </select>
+        </div>
+        <div>
+            <button type="submit" style="background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px;">
+                🔍 Generate Report
+            </button>
+        </div>
+        <div>
+            <button type="button" onclick="printReport()" style="background: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px;">
+                📄 Print PDF
+            </button>
+        </div>
+    </form>
+</div>
+
+{% if sales_data %}
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px;">
+    <div style="background: #4CAF50; color: white; padding: 20px; border-radius: 10px; text-align: center;">
+        <h2 style="margin: 0; font-size: 28px;">{{ sales_data.count }}</h2>
+        <p style="margin: 5px 0 0 0;">Total Sales</p>
+    </div>
+    <div style="background: #2196F3; color: white; padding: 20px; border-radius: 10px; text-align: center;">
+        <h2 style="margin: 0; font-size: 28px;">Rs. {{ sales_data.total_amount|floatformat:0 }}</h2>
+        <p style="margin: 5px 0 0 0;">Total Amount</p>
+    </div>
+    <div style="background: #FF9800; color: white; padding: 20px; border-radius: 10px; text-align: center;">
+        <h2 style="margin: 0; font-size: 28px;">Rs. {{ sales_data.total_profit|floatformat:0 }}</h2>
+        <p style="margin: 5px 0 0 0;">Total Profit</p>
+    </div>
+    <div style="background: #9C27B0; color: white; padding: 20px; border-radius: 10px; text-align: center;">
+        <h2 style="margin: 0; font-size: 28px;">{{ sales_data.total_items }}</h2>
+        <p style="margin: 5px 0 0 0;">Items Sold</p>
+    </div>
+</div>
+{% endif %}
+
+{% if purchase_data %}
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px;">
+    <div style="background: #4CAF50; color: white; padding: 20px; border-radius: 10px; text-align: center;">
+        <h2 style="margin: 0; font-size: 28px;">{{ purchase_data.count }}</h2>
+        <p style="margin: 5px 0 0 0;">Total Purchases</p>
+    </div>
+    <div style="background: #2196F3; color: white; padding: 20px; border-radius: 10px; text-align: center;">
+        <h2 style="margin: 0; font-size: 28px;">Rs. {{ purchase_data.total_amount|floatformat:0 }}</h2>
+        <p style="margin: 5px 0 0 0;">Total Amount</p>
+    </div>
+    <div style="background: #f44336; color: white; padding: 20px; border-radius: 10px; text-align: center;">
+        <h2 style="margin: 0; font-size: 28px;">Rs. {{ purchase_data.total_outstanding|floatformat:0 }}</h2>
+        <p style="margin: 5px 0 0 0;">Outstanding</p>
+    </div>
+</div>
+{% endif %}
+
+{% if top_products %}
+<div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+    <h3>🏆 Top Selling Products</h3>
+    <table style="width: 100%; border-collapse: collapse;">
+        <tr style="background: #333; color: white;">
+            <th style="padding: 10px; text-align: left;">Product</th>
+            <th style="padding: 10px; text-align: right;">Qty</th>
+            <th style="padding: 10px; text-align: right;">Sales (Rs.)</th>
+            <th style="padding: 10px; text-align: right;">Profit (Rs.)</th>
+        </tr>
+        {% for p in top_products %}
+        <tr style="border-bottom: 1px solid #ddd;">
+            <td style="padding: 10px;">{{ p.product__name }}</td>
+            <td style="padding: 10px; text-align: right;">{{ p.total_qty }}</td>
+            <td style="padding: 10px; text-align: right;">{{ p.total_sales|floatformat:0 }}</td>
+            <td style="padding: 10px; text-align: right;">{{ p.total_profit|floatformat:0 }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endif %}
+
+{% if daily_data %}
+<div style="background: white; padding: 20px; border-radius: 10px;">
+    <h3>📅 Daily Summary</h3>
+    <table style="width: 100%; border-collapse: collapse;">
+        <tr style="background: #333; color: white;">
+            <th style="padding: 10px;">Date</th>
+            <th style="padding: 10px;">Sales</th>
+            <th style="padding: 10px;">Sales Amount</th>
+            <th style="padding: 10px;">Purchases</th>
+            <th style="padding: 10px;">Profit</th>
+        </tr>
+        {% for d in daily_data %}
+        <tr style="border-bottom: 1px solid #ddd;">
+            <td style="padding: 10px;">{{ d.date }}</td>
+            <td style="padding: 10px; text-align: center;">{{ d.sales_count }}</td>
+            <td style="padding: 10px; text-align: right;">Rs. {{ d.sales_amount|floatformat:0 }}</td>
+            <td style="padding: 10px; text-align: center;">{{ d.purchase_count }}</td>
+            <td style="padding: 10px; text-align: right; color: {% if d.profit > 0 %}green{% else %}red{% endif %};">
+                Rs. {{ d.profit|floatformat:0 }}
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endif %}
+
+<script>
+function printReport() {
+    const fromDate = document.querySelector('input[name="from_date"]').value;
+    const toDate = document.querySelector('input[name="to_date"]').value;
+    const reportType = document.querySelector('select[name="report_type"]').value;
+    window.open(`/admin/reports/range/pdf/?from_date=${fromDate}&to_date=${toDate}&report_type=${reportType}`);
+}
+</script>
+{% endblock %}

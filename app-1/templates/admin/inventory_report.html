@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+{% load custom_filters %}
+{% load humanize %} <!-- Load humanize for intcomma filter -->
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            color: #333;
+        }
+        h1 {
+            font-size: 20px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        p {
+            text-align: center;
+            font-size: 12px;
+            margin-bottom: 20px;
+            color: #555;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        th, td {
+            padding: 8px;
+            border: 1px solid #ccc;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tfoot tr {
+            font-weight: bold;
+            background-color: #f4f4f4;
+        }
+        .no-data {
+            text-align: center;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+    <h1>Inventory Report</h1>
+    <p>Date: {{ date|date:"d-m-Y" }}</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Product Name</th>
+                <th>Stock</th>
+               
+                <th>Stock Value (PKR)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for inventory in inventorys %}
+            <tr>
+                <td>{{ inventory.product.name }}</td>
+                <td>{{ inventory.stock|floatformat:2|intcomma }}</td>
+                <td>{{ inventory.stock_value|floatformat:2|intcomma }}</td>       
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" class="no-data">No Inventory found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="2">Total</td>
+                 <td>{{  inventorys|sum_attribute:"stock_value"|floatformat:2|intcomma  }}</td>
+            </tr>
+        </tfoot>
+    </table>
+</body>
+</html>
