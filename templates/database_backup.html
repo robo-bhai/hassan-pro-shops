@@ -3,361 +3,429 @@
 
 {% block title %}Database Backup & Restore{% endblock %}
 
+{% block extra_css %}
+<style>
+/* ==========================================================
+   Database Backup & Restore  -  self-contained styles (bk-*)
+   (no dependency on Bootstrap 4/5 or jQuery)
+   ========================================================== */
+:root{
+  --bk-ink:#1f2937; --bk-muted:#6b7280; --bk-line:#e8ebf0; --bk-soft:#f6f8fb; --bk-brand:#3b5bdb;
+  --bk-green:#2f9e44; --bk-red:#e03131; --bk-amber:#f08c00; --bk-blue:#1c7ed6;
+}
+.bk-wrap{max-width:1280px;margin:0 auto;padding:18px 16px 48px;color:var(--bk-ink)}
+.bk-wrap *{box-sizing:border-box}
+
+/* ---- hero ---- */
+.bk-hero{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;
+  background:linear-gradient(135deg,#14213d 0%,#1c3563 55%,#2b4c9b 100%);color:#fff;border-radius:16px;padding:20px 22px;margin-bottom:16px;
+  box-shadow:0 10px 30px rgba(20,33,61,.25)}
+.bk-hero-main{display:flex;align-items:center;gap:14px;min-width:0}
+.bk-hero-ico{width:48px;height:48px;border-radius:13px;background:rgba(255,255,255,.14);display:inline-flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0}
+.bk-hero h1{font-size:1.3rem;font-weight:700;margin:0}
+.bk-hero p{margin:3px 0 0;font-size:.84rem;opacity:.8}
+.bk-hero-side{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.bk-chip{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.14);border-radius:20px;padding:6px 13px;font-size:.78rem;font-weight:600}
+.bk-chip i{font-size:.55rem;color:#69db7c}
+.bk-chip.off i{color:#ff8787}
+
+/* ---- buttons ---- */
+.bk-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid var(--bk-line);background:#fff;color:var(--bk-ink);
+  border-radius:10px;padding:9px 16px;font-size:.85rem;font-weight:600;line-height:1.2;cursor:pointer;text-decoration:none;transition:.15s}
+.bk-btn:hover{background:var(--bk-soft);color:var(--bk-ink)}
+.bk-btn:disabled{opacity:.5;cursor:not-allowed}
+.bk-btn.primary{background:var(--bk-brand);border-color:var(--bk-brand);color:#fff}
+.bk-btn.primary:hover:not(:disabled){background:#2f4ac0}
+.bk-btn.success{background:var(--bk-green);border-color:var(--bk-green);color:#fff}
+.bk-btn.success:hover:not(:disabled){background:#2b8a3e}
+.bk-btn.warn{background:var(--bk-amber);border-color:var(--bk-amber);color:#fff}
+.bk-btn.danger{background:var(--bk-red);border-color:var(--bk-red);color:#fff}
+.bk-btn.danger:hover:not(:disabled){background:#c92a2a}
+.bk-btn.ghost{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.25);color:#fff}
+.bk-btn.ghost:hover{background:rgba(255,255,255,.24);color:#fff}
+.bk-btn.block{width:100%}
+.bk-btn.sm{padding:6px 10px;font-size:.76rem;border-radius:8px}
+
+/* ---- alerts / badges ---- */
+.bk-alert{display:flex;align-items:center;gap:12px;border:1px solid var(--bk-line);border-left-width:4px;border-radius:12px;padding:13px 16px;margin-bottom:14px;background:#fff}
+.bk-alert-ico{font-size:1.5rem;flex-shrink:0}
+.bk-alert-body{flex:1;min-width:0}
+.bk-alert-body strong{display:block;font-size:.9rem}
+.bk-alert-body span{display:block;font-size:.8rem;color:var(--bk-muted);margin-top:2px;word-break:break-word}
+.bk-alert code{background:#f1f3f5;border-radius:5px;padding:1px 6px;font-size:.78rem;color:#c2255c}
+.bk-alert.info{border-left-color:var(--bk-blue);background:#f4f9ff}   .bk-alert.info .bk-alert-ico{color:var(--bk-blue)}
+.bk-alert.ok{border-left-color:var(--bk-green);background:#f4fbf6}    .bk-alert.ok .bk-alert-ico{color:var(--bk-green)}
+.bk-alert.warn{border-left-color:var(--bk-amber);background:#fffaf0}  .bk-alert.warn .bk-alert-ico{color:var(--bk-amber)}
+.bk-alert.err{border-left-color:var(--bk-red);background:#fff5f5}     .bk-alert.err .bk-alert-ico{color:var(--bk-red)}
+.bk-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:700;white-space:nowrap;background:#eceff3;color:#5c6670}
+.bk-badge.ok{background:#d3f9d8;color:#2b8a3e}  .bk-badge.warn{background:#fff0d6;color:#b35c00}
+.bk-badge.err{background:#ffe3e3;color:#c92a2a} .bk-badge.info{background:#dbe9ff;color:#1864ab}
+.bk-badge.muted{background:#eceff3;color:#868e96}
+.bk-spin{width:20px;height:20px;border:3px solid #cfe2ff;border-top-color:var(--bk-blue);border-radius:50%;animation:bkspin .8s linear infinite;flex-shrink:0}
+@keyframes bkspin{to{transform:rotate(360deg)}}
+
+/* ---- stats ---- */
+.bk-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.bk-stat{background:#fff;border:1px solid var(--bk-line);border-radius:14px;padding:14px 16px;position:relative;overflow:hidden}
+.bk-stat::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--c,var(--bk-brand))}
+.bk-stat .v{font-size:1.55rem;font-weight:800;line-height:1.15;word-break:break-word}
+.bk-stat .v.sm{font-size:1.02rem;line-height:1.5}
+.bk-stat .l{font-size:.68rem;text-transform:uppercase;letter-spacing:.07em;color:var(--bk-muted);font-weight:700;margin-top:3px}
+.text-warning{color:var(--bk-amber)} .text-success{color:var(--bk-green)}
+
+/* ---- action cards ---- */
+.bk-acts{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.bk-act{background:#fff;border:1px solid var(--bk-line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.bk-act-top{display:flex;align-items:center;gap:11px}
+.bk-act-ico{width:40px;height:40px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:1.2rem;background:var(--bg);color:var(--fg);flex-shrink:0}
+.bk-act h3{font-size:.92rem;font-weight:700;margin:0}
+.bk-act p{margin:2px 0 0;font-size:.75rem;color:var(--bk-muted)}
+
+/* ---- cards ---- */
+.bk-grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.bk-card{background:#fff;border:1px solid var(--bk-line);border-radius:14px;box-shadow:0 1px 2px rgba(16,24,40,.04);margin-bottom:16px}
+.bk-grid2 .bk-card{margin-bottom:0}
+.bk-card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:13px 16px;border-bottom:1px solid var(--bk-line)}
+.bk-card-h h2{margin:0;font-size:.93rem;font-weight:700;display:flex;align-items:center;gap:8px}
+.bk-card-b{padding:16px}
+.bk-card-b[hidden]{display:none}
+/* retention policy: band rehta hai, header par click se khulta hai, save ke baad khud band */
+.bk-toggle{cursor:pointer;user-select:none}
+.bk-toggle:hover{background:#fafbff}
+.bk-toggle:focus-visible{outline:2px solid var(--bk-brand);outline-offset:-2px}
+.bk-toggle[aria-expanded="false"]{border-bottom:none}
+.bk-toggle .bk-chev{font-size:.8rem;color:var(--bk-muted);transition:transform .2s}
+.bk-toggle[aria-expanded="true"] .bk-chev{transform:rotate(180deg)}
+.bk-ret-sum{display:block;margin-top:3px;font-size:.76rem;font-weight:500;color:var(--bk-muted)}
+
+/* ---- dropzone ---- */
+.bk-drop{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;border:2px dashed #cdd5e0;border-radius:12px;padding:22px 14px;cursor:pointer;background:var(--bk-soft);transition:.15s;margin-bottom:12px}
+.bk-drop:hover,.bk-drop.drag{border-color:var(--bk-brand);background:#eef2ff}
+.bk-drop i{font-size:2rem;color:var(--bk-brand)}
+.bk-drop strong{font-size:.9rem;word-break:break-all}
+.bk-drop span{font-size:.75rem;color:var(--bk-muted)}
+.bk-drop.bad{border-color:var(--bk-red);background:#fff5f5}.bk-drop.bad i{color:var(--bk-red)}
+.bk-drop.good{border-color:var(--bk-green);background:#f4fbf6}.bk-drop.good i{color:var(--bk-green)}
+.bk-select{width:100%;border:1px solid var(--bk-line);border-radius:10px;padding:11px 12px;font-size:.88rem;background:#fff;color:var(--bk-ink);margin-bottom:12px}
+.bk-hint{font-size:.76rem;color:var(--bk-muted);margin:0 0 12px}
+
+/* ---- progress ---- */
+.bk-track{height:14px;border-radius:10px;background:#eceff3;overflow:hidden}
+.bk-fill{height:100%;width:0;border-radius:10px;background:var(--bk-brand);color:#fff;font-size:.65rem;font-weight:700;display:flex;align-items:center;justify-content:center;transition:width .5s ease;min-width:0}
+.bk-fill.ok{background:var(--bk-green)} .bk-fill.err{background:var(--bk-red)} .bk-fill.warn{background:var(--bk-brand)}
+.bk-fill.ind{width:100% !important;background:repeating-linear-gradient(45deg,#3b5bdb,#3b5bdb 12px,#5c7cfa 12px,#5c7cfa 24px);background-size:34px 34px;animation:bkstripe 1s linear infinite}
+@keyframes bkstripe{to{background-position:34px 0}}
+.bk-prog-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-top:12px}
+.bk-prog-msg{font-size:.84rem;color:var(--bk-muted);word-break:break-word}
+#progress-container,#upload-progress,#cloud-restore-progress{display:none}
+#progress-container{animation:bkslide .35s ease}
+@keyframes bkslide{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+
+/* ---- table ---- */
+.bk-scroll{overflow-x:auto}
+.bk-table{width:100%;border-collapse:separate;border-spacing:0;font-size:.85rem}
+.bk-table th{background:var(--bk-soft);color:var(--bk-muted);font-size:.67rem;text-transform:uppercase;letter-spacing:.07em;padding:10px 14px;border-bottom:1px solid var(--bk-line);text-align:left;white-space:nowrap}
+.bk-table td{padding:12px 14px;border-bottom:1px solid #f0f2f5;vertical-align:middle}
+.bk-table tr:last-child td{border-bottom:0}
+.bk-table tbody tr:hover{background:#fafbff}
+.bk-n{color:var(--bk-muted);font-weight:700;width:44px}
+.bk-file{display:flex;align-items:center;gap:11px;min-width:200px}
+.bk-fico{width:36px;height:36px;border-radius:10px;background:#eceff3;color:#5c6670;display:inline-flex;align-items:center;justify-content:center;font-size:1.05rem;flex-shrink:0}
+.bk-fico.zip{background:#edf2ff;color:var(--bk-brand)}
+.bk-fname{display:block;font-weight:600;word-break:break-all}
+.bk-fsub{display:block;font-size:.74rem;color:var(--bk-muted);margin-top:1px}
+.bk-row-actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:nowrap}
+.bk-ib{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--bk-line);background:#fff;color:var(--bk-ink);border-radius:8px;padding:6px 9px;font-size:.74rem;font-weight:600;cursor:pointer;text-decoration:none;transition:.15s}
+.bk-ib:hover{background:var(--bk-soft);color:var(--bk-ink)}
+.bk-ib.restore:hover{border-color:var(--bk-amber);color:#b35c00;background:#fffaf0}
+.bk-ib.upload:hover{border-color:var(--bk-blue);color:#1864ab;background:#f4f9ff}
+.bk-ib.del:hover{border-color:var(--bk-red);color:#c92a2a;background:#fff5f5}
+.bk-empty{text-align:center;padding:40px 16px;color:var(--bk-muted)}
+.bk-empty i{display:block;font-size:2.3rem;margin-bottom:6px;color:#adb5bd}
+.bk-search{border:1px solid var(--bk-line);border-radius:9px;padding:7px 11px;font-size:.82rem;min-width:180px;background:#fff}
+
+/* ---- dialog ---- */
+.bk-ov{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;z-index:2000;padding:16px}
+.bk-ov.open{display:flex}
+.bk-dialog{background:#fff;border-radius:16px;width:100%;max-width:480px;box-shadow:0 24px 60px rgba(0,0,0,.3);overflow:hidden}
+.bk-dialog-h{display:flex;gap:12px;align-items:center;padding:18px 20px 6px}
+.bk-dialog-ico{width:44px;height:44px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:1.3rem;background:#edf2ff;color:var(--bk-brand);flex-shrink:0}
+.bk-dialog.danger .bk-dialog-ico{background:#ffe3e3;color:var(--bk-red)}
+.bk-dialog.warn .bk-dialog-ico{background:#fff0d6;color:#b35c00}
+.bk-dialog h3{margin:0;font-size:1.02rem;font-weight:700}
+.bk-dialog-b{padding:8px 20px 4px;font-size:.88rem;color:#4b5563;word-break:break-word}
+.bk-dialog-b strong{color:var(--bk-ink)}
+.bk-check{display:flex;gap:9px;align-items:flex-start;background:var(--bk-soft);border:1px solid var(--bk-line);border-radius:10px;padding:10px 12px;margin:12px 20px 0;font-size:.82rem;font-weight:600;cursor:pointer}
+.bk-check input{margin-top:2px;width:16px;height:16px;flex-shrink:0}
+.bk-dialog-f{display:flex;gap:10px;justify-content:flex-end;padding:16px 20px;margin-top:6px}
+
+/* ---- toasts ---- */
+.bk-toasts{position:fixed;right:16px;bottom:16px;z-index:3000;display:flex;flex-direction:column;gap:10px;max-width:min(380px,calc(100vw - 32px))}
+.bk-toast{display:flex;gap:10px;align-items:flex-start;background:#fff;border:1px solid var(--bk-line);border-left:4px solid var(--bk-blue);border-radius:12px;padding:12px 14px;box-shadow:0 10px 30px rgba(0,0,0,.18);animation:bkslide .25s ease}
+.bk-toast.success{border-left-color:var(--bk-green)} .bk-toast.danger{border-left-color:var(--bk-red)} .bk-toast.warning{border-left-color:var(--bk-amber)}
+.bk-toast>i{font-size:1.15rem;margin-top:1px}
+.bk-toast.success>i{color:var(--bk-green)} .bk-toast.danger>i{color:var(--bk-red)} .bk-toast.warning>i{color:var(--bk-amber)} .bk-toast.info>i{color:var(--bk-blue)}
+.bk-toast div{flex:1;min-width:0}
+.bk-toast strong{display:block;font-size:.82rem}
+.bk-toast span{display:block;font-size:.8rem;color:var(--bk-muted);word-break:break-word}
+.bk-toast button{border:0;background:none;font-size:1.1rem;color:var(--bk-muted);cursor:pointer;line-height:1}
+
+/* ---- responsive ---- */
+@media(max-width:991px){.bk-acts{grid-template-columns:repeat(2,1fr)}.bk-stats{grid-template-columns:repeat(2,1fr)}.bk-grid2{grid-template-columns:1fr}}
+@media(max-width:640px){
+  .bk-wrap{padding:12px 10px 40px}
+  .bk-hero{padding:16px}.bk-hero h1{font-size:1.1rem}.bk-hero p{display:none}
+  .bk-hide-sm{display:none}
+  .bk-ib span{display:none}
+  .bk-table th,.bk-table td{padding:10px 9px}
+  .bk-acts{gap:10px}.bk-act{padding:13px}.bk-act p{display:none}
+  .bk-dialog-f{flex-direction:column-reverse}.bk-dialog-f .bk-btn{width:100%}
+  .bk-ov{align-items:flex-end;padding:0}.bk-dialog{max-width:100%;border-radius:18px 18px 0 0}
+}
+
+/* ---- retention + history ---- */
+.bk-ret{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+.bk-ret label{display:flex;flex-direction:column;gap:5px;font-size:.78rem;font-weight:700;color:var(--bk-ink)}
+.bk-ret input{border:1px solid var(--bk-line);border-radius:10px;padding:10px 12px;font-size:.95rem;background:#fff;color:var(--bk-ink);width:100%}
+.bk-ret input:focus{outline:none;border-color:var(--bk-brand)}
+.bk-ret small{font-weight:500;color:var(--bk-muted);font-size:.72rem}
+.bk-hist-file{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.76rem;word-break:break-all}
+@media(max-width:700px){.bk-ret{grid-template-columns:repeat(2,1fr)}}
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <div class="card shadow-lg">
-                <div class="card-header bg-gradient-primary text-white">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h3 class="mb-0">
-                            <i class="fas fa-database"></i> Database Backup & Restore
-                        </h3>
-                        <span id="backup-status-badge" class="badge badge-light">
-                            <i class="fas fa-circle text-success"></i> System Online
-                        </span>
-                    </div>
-                </div>
-                <div class="card-body">
-                    
-                    <!-- ========================================== -->
-                    <!-- CLOUD STATUS BAR -->
-                    <!-- ========================================== -->
-                    <div class="row mb-4">
-                        <div class="col-12">
-                            <div id="cloud-status" class="alert alert-info shadow-sm">
-                                <div class="d-flex align-items-center">
-                                    <div class="spinner-border spinner-border-sm mr-2" role="status">
-                                        <span class="sr-only">Loading...</span>
-                                    </div>
-                                    <span>Checking cloud status...</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+<div class="bk-wrap">
 
-                    <!-- ========================================== -->
-                    <!-- RESTORE WARNING -->
-                    <!-- ========================================== -->
-                    <div id="restore-warning" class="alert alert-danger shadow-sm" style="display: none;">
-                        <div class="d-flex align-items-start">
-                            <i class="fas fa-exclamation-triangle fa-2x mr-3 mt-1"></i>
-                            <div>
-                                <strong>⚠️ WARNING!</strong>
-                                <p class="mb-1">Restoring will <strong>REPLACE</strong> your current database. This action <strong>CANNOT BE UNDONE!</strong></p>
-                                <small>💡 Make sure you have a recent backup before restoring.</small>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- ========================================== -->
-                    <!-- QUICK ACTION BUTTONS -->
-                    <!-- ========================================== -->
-                    <div class="row mb-4">
-                        <div class="col-md-3">
-                            <button class="btn btn-success btn-block btn-lg" onclick="startBackup()">
-                                <i class="fas fa-play"></i> Quick Backup
-                            </button>
-                            <small class="text-muted d-block text-center mt-1">~3-5 seconds</small>
-                        </div>
-                        <div class="col-md-3">
-                            <button class="btn btn-primary btn-block btn-lg" onclick="startBackgroundBackup()">
-                                <i class="fas fa-spinner"></i> Background Backup
-                            </button>
-                            <small class="text-muted d-block text-center mt-1">Runs in background</small>
-                        </div>
-                        <div class="col-md-3">
-                            <button class="btn btn-warning btn-block btn-lg" onclick="uploadAllBackups()">
-                                <i class="fas fa-cloud-upload-alt"></i> Upload All to Drive
-                            </button>
-                            <small class="text-muted d-block text-center mt-1">Sync to Google Drive</small>
-                        </div>
-                        <div class="col-md-3">
-                            <button class="btn btn-danger btn-block btn-lg" onclick="cleanBackups()">
-                                <i class="fas fa-broom"></i> Clean Old Backups
-                            </button>
-                            <small class="text-muted d-block text-center mt-1">Keep latest 5</small>
-                        </div>
-                    </div>
-
-                    <!-- ========================================== -->
-                    <!-- 🆕 UPLOAD FROM INTERNAL STORAGE -->
-                    <!-- ========================================== -->
-                    <div class="row mb-4">
-                        <div class="col-12">
-                            <div class="card border-success shadow-sm">
-                                <div class="card-header bg-success text-white">
-                                    <h5 class="mb-0">
-                                        <i class="fas fa-upload"></i> Upload Backup from Internal Storage
-                                    </h5>
-                                </div>
-                                <div class="card-body">
-                                    <form method="POST" enctype="multipart/form-data" action="{% url 'upload_backup_file' %}" id="uploadForm">
-                                        {% csrf_token %}
-                                        <div class="row">
-                                            <div class="col-md-8">
-                                                <div class="custom-file">
-                                                    <input type="file" class="custom-file-input" id="backupFileInput" name="backup_file" 
-                                                           accept=".sqlite3,.sqlite3.gz,.gz,.json">
-                                                    <label class="custom-file-label" for="backupFileInput" id="fileLabel">
-                                                        <i class="fas fa-folder-open"></i> Choose backup file from internal storage...
-                                                    </label>
-                                                </div>
-                                                <small class="text-muted">
-                                                    Allowed: .sqlite3, .sqlite3.gz, .gz, .json | Max: 500MB
-                                                </small>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <button type="submit" class="btn btn-success btn-block btn-lg" id="uploadBtn" disabled>
-                                                    <i class="fas fa-cloud-upload-alt"></i> Upload to Backup List
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </form>
-                                    <div id="upload-progress" class="mt-3" style="display: none;">
-                                        <div class="progress" style="height: 25px;">
-                                            <div id="upload-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-success" 
-                                                 role="progressbar" style="width: 0%;">
-                                                <span id="upload-text">0%</span>
-                                            </div>
-                                        </div>
-                                        <div class="mt-2 text-center">
-                                            <span id="upload-message" class="text-muted">Uploading...</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- ========================================== -->
-                    <!-- RESTORE FROM CLOUD SECTION -->
-                    <!-- ========================================== -->
-                    <div class="row mb-4">
-                        <div class="col-12">
-                            <div class="card border-warning shadow-sm">
-                                <div class="card-header bg-warning text-dark">
-                                    <h5 class="mb-0">
-                                        <i class="fas fa-cloud-download-alt"></i> Restore from Google Drive
-                                    </h5>
-                                </div>
-                                <div class="card-body">
-                                    <div class="row">
-                                        <div class="col-md-8">
-                                            <select id="cloud-restore-select" class="form-control form-control-lg">
-                                                <option value="">-- Select backup file from Drive --</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <button class="btn btn-danger btn-block btn-lg" onclick="restoreFromCloud()">
-                                                <i class="fas fa-download"></i> Restore from Drive
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div id="cloud-restore-progress" class="mt-3" style="display: none;">
-                                        <div class="progress" style="height: 30px;">
-                                            <div id="cloud-restore-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-info" 
-                                                 role="progressbar" style="width: 0%;">
-                                                <span id="cloud-restore-text">0%</span>
-                                            </div>
-                                        </div>
-                                        <div class="mt-2 text-center">
-                                            <span id="cloud-restore-message" class="text-muted">Initializing download...</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- ========================================== -->
-                    <!-- PROGRESS BAR -->
-                    <!-- ========================================== -->
-                    <div id="progress-container" class="mb-4" style="display: none;">
-                        <div class="card shadow-sm border-success">
-                            <div class="card-body">
-                                <h5 id="progress-title" class="card-title">
-                                    <i class="fas fa-sync fa-spin text-primary"></i> Backup in Progress...
-                                </h5>
-                                
-                                <div class="progress" style="height: 35px;">
-                                    <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
-                                         role="progressbar" style="width: 0%;">
-                                        <span id="progress-text" class="font-weight-bold">0%</span>
-                                    </div>
-                                </div>
-                                
-                                <div class="row mt-3">
-                                    <div class="col-md-8">
-                                        <div id="step-details">
-                                            <span id="step-message" class="text-muted">Initializing...</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4 text-right">
-                                        <span id="step-status" class="badge badge-warning badge-lg">⏳ In Progress</span>
-                                        <span id="cloud-status-badge" class="badge badge-secondary badge-lg ml-2">☁️ Pending</span>
-                                    </div>
-                                </div>
-                                
-                                <div class="mt-2">
-                                    <small class="text-muted" id="progress-time">
-                                        <i class="far fa-clock"></i> Started: Just now
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- ========================================== -->
-                    <!-- BACKUP FILES LIST -->
-                    <!-- ========================================== -->
-                    <div class="row mt-4">
-                        <div class="col-12">
-                            <div class="card shadow-sm">
-                                <div class="card-header bg-light">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <h5 class="mb-0">
-                                            <i class="fas fa-file-archive text-primary"></i> Local Backup Files
-                                        </h5>
-                                        <span id="file-count-badge" class="badge badge-primary">0 files</span>
-                                    </div>
-                                </div>
-                                <div class="card-body p-0">
-                                    <div class="table-responsive">
-                                        <table class="table table-striped table-hover mb-0" id="backup-table">
-                                            <thead class="thead-dark">
-                                                <tr>
-                                                    <th>#</th>
-                                                    <th>File Name</th>
-                                                    <th>Size</th>
-                                                    <th>Modified</th>
-                                                    <th>Compressed</th>
-                                                    <th>Cloud</th>
-                                                    <th class="text-center" style="min-width: 280px;">Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="backup-files-body">
-                                                <tr>
-                                                    <td colspan="7" class="text-center py-4">
-                                                        <div class="spinner-border text-primary" role="status">
-                                                            <span class="sr-only">Loading...</span>
-                                                        </div>
-                                                        <br>
-                                                        <span class="text-muted">Loading backup files...</span>
-                                                    </td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- ========================================== -->
-                    <!-- STATS CARDS -->
-                    <!-- ========================================== -->
-                    <div class="row mt-4">
-                        <div class="col-md-3">
-                            <div class="card bg-primary text-white shadow-sm">
-                                <div class="card-body text-center">
-                                    <h2 id="total-files" class="mb-0">0</h2>
-                                    <small>Total Files</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card bg-success text-white shadow-sm">
-                                <div class="card-body text-center">
-                                    <h2 id="total-size" class="mb-0">0 MB</h2>
-                                    <small>Total Size</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card bg-info text-white shadow-sm">
-                                <div class="card-body text-center">
-                                    <h2 id="latest-backup" class="mb-0" style="font-size: 1.2rem;">None</h2>
-                                    <small>Latest Backup</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card bg-secondary text-white shadow-sm">
-                                <div class="card-body text-center">
-                                    <h2 id="backup-status" class="mb-0">✅ Idle</h2>
-                                    <small>Status</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+  <!-- ===================== HERO ===================== -->
+  <header class="bk-hero">
+    <div class="bk-hero-main">
+      <span class="bk-hero-ico"><i class="bi bi-database-check"></i></span>
+      <div>
+        <h1>Database Backup &amp; Restore</h1>
+        <p>Create backups, sync them to Google Drive and restore safely when needed.</p>
+      </div>
     </div>
+    <div class="bk-hero-side">
+      <span id="backup-status-badge" class="bk-chip"><i class="bi bi-circle-fill"></i> <span id="bk-online-text">System Online</span></span>
+      <button type="button" class="bk-btn ghost" onclick="refreshAll()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+    </div>
+  </header>
+
+  <!-- ===================== CLOUD STATUS ===================== -->
+  <div id="cloud-status" class="bk-alert info">
+    <div class="bk-spin" role="status"></div>
+    <div class="bk-alert-body"><strong>Checking cloud status...</strong></div>
+  </div>
+
+  <!-- ===================== RESTORE WARNING ===================== -->
+  <div id="restore-warning" class="bk-alert err" style="display:none">
+    <i class="bi bi-exclamation-triangle-fill bk-alert-ico"></i>
+    <div class="bk-alert-body">
+      <strong>Restore will replace your current database</strong>
+      <span>This action cannot be undone. Make sure you have a recent backup before restoring.</span>
+    </div>
+  </div>
+
+  <!-- ===================== STATS ===================== -->
+  <section class="bk-stats" aria-label="Backup statistics">
+    <div class="bk-stat" style="--c:#3b5bdb"><div class="v" id="total-files">0</div><div class="l">Total files</div></div>
+    <div class="bk-stat" style="--c:#2f9e44"><div class="v" id="total-size">0 MB</div><div class="l">Total size</div></div>
+    <div class="bk-stat" style="--c:#1c7ed6"><div class="v sm" id="latest-backup">None</div><div class="l">Latest backup</div></div>
+    <div class="bk-stat" style="--c:#868e96"><div class="v text-success" id="backup-status">Idle</div><div class="l">Status</div></div>
+  </section>
+
+  <!-- ===================== ACTIONS ===================== -->
+  <section class="bk-acts" aria-label="Backup actions">
+    <div class="bk-act">
+      <div class="bk-act-top">
+        <span class="bk-act-ico" style="--bg:#d3f9d8;--fg:#2b8a3e"><i class="bi bi-lightning-charge-fill"></i></span>
+        <div><h3>Quick Backup</h3><p>Takes about 3-5 seconds</p></div>
+      </div>
+      <button type="button" class="bk-btn success block" onclick="startBackup()"><i class="bi bi-play-fill"></i> Backup now</button>
+    </div>
+    <div class="bk-act">
+      <div class="bk-act-top">
+        <span class="bk-act-ico" style="--bg:#dbe9ff;--fg:#1864ab"><i class="bi bi-hourglass-split"></i></span>
+        <div><h3>Background Backup</h3><p>Runs while you keep working</p></div>
+      </div>
+      <button type="button" class="bk-btn primary block" onclick="startBackgroundBackup()"><i class="bi bi-arrow-repeat"></i> Start in background</button>
+    </div>
+    <div class="bk-act">
+      <div class="bk-act-top">
+        <span class="bk-act-ico" style="--bg:#fff0d6;--fg:#b35c00"><i class="bi bi-cloud-arrow-up-fill"></i></span>
+        <div><h3>Upload All to Drive</h3><p>Sync every local backup</p></div>
+      </div>
+      <button type="button" class="bk-btn warn block" onclick="uploadAllBackups()"><i class="bi bi-cloud-upload"></i> Upload all</button>
+    </div>
+    <div class="bk-act">
+      <div class="bk-act-top">
+        <span class="bk-act-ico" style="--bg:#ffe3e3;--fg:#c92a2a"><i class="bi bi-trash3-fill"></i></span>
+        <div><h3>Clean Old Backups</h3><p>Applies your retention policy</p></div>
+      </div>
+      <button type="button" class="bk-btn danger block" onclick="cleanBackups()"><i class="bi bi-eraser"></i> Clean up</button>
+    </div>
+  </section>
+
+  <!-- ===================== PROGRESS ===================== -->
+  <div id="progress-container" class="bk-card">
+    <div class="bk-card-b">
+      <h2 id="progress-title" style="margin:0 0 12px;font-size:.95rem;font-weight:700;display:flex;gap:8px;align-items:center">
+        <i class="bi bi-arrow-repeat" style="color:var(--bk-brand)"></i> <span id="progress-title-text">Operation in progress</span>
+      </h2>
+      <div class="bk-track"><div id="progress-bar" class="bk-fill"><span id="progress-text">0%</span></div></div>
+      <div class="bk-prog-row">
+        <span id="step-message" class="bk-prog-msg">Initializing...</span>
+        <span style="display:flex;gap:6px;flex-wrap:wrap">
+          <span id="step-status" class="bk-badge warn">In progress</span>
+          <span id="cloud-status-badge" class="bk-badge muted">Cloud: pending</span>
+        </span>
+      </div>
+      <div style="margin-top:8px"><small id="progress-time" class="bk-fsub"><i class="bi bi-clock"></i> Started just now</small></div>
+    </div>
+  </div>
+
+  <!-- ===================== UPLOAD + CLOUD RESTORE ===================== -->
+  <div class="bk-grid2">
+    <section class="bk-card">
+      <div class="bk-card-h"><h2><i class="bi bi-upload" style="color:var(--bk-green)"></i> Upload backup from this device</h2></div>
+      <div class="bk-card-b">
+        <form method="POST" enctype="multipart/form-data" action="{% url 'upload_backup_file' %}" id="uploadForm">
+          {% csrf_token %}
+          <label class="bk-drop" for="backupFileInput" id="bkDrop">
+            <input type="file" id="backupFileInput" name="backup_file" accept=".sqlite3,.sqlite3.gz,.gz,.json" hidden>
+            <i class="bi bi-cloud-arrow-up"></i>
+            <strong id="fileLabel">Choose a backup file</strong>
+            <span id="fileHint">or drag &amp; drop it here &middot; .sqlite3, .sqlite3.gz, .gz, .json &middot; max 500 MB</span>
+          </label>
+          <button type="submit" class="bk-btn success block" id="uploadBtn" disabled><i class="bi bi-cloud-upload"></i> Upload to backup list</button>
+        </form>
+        <div id="upload-progress" style="margin-top:14px">
+          <div class="bk-track"><div id="upload-bar" class="bk-fill ind"><span id="upload-text"></span></div></div>
+          <div class="bk-prog-msg" style="text-align:center;margin-top:8px"><span id="upload-message">Uploading...</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="bk-card">
+      <div class="bk-card-h"><h2><i class="bi bi-cloud-download" style="color:var(--bk-amber)"></i> Restore from Google Drive</h2></div>
+      <div class="bk-card-b">
+        <p class="bk-hint">Pick a backup stored on Google Drive. It will be downloaded and will replace the current database.</p>
+        <select id="cloud-restore-select" class="bk-select" aria-label="Backup file on Google Drive">
+          <option value="">-- Select backup file from Drive --</option>
+        </select>
+        <button type="button" class="bk-btn danger block" onclick="restoreFromCloud()"><i class="bi bi-cloud-arrow-down"></i> Restore from Drive</button>
+        <div id="cloud-restore-progress" style="margin-top:14px">
+          <div class="bk-track"><div id="cloud-restore-bar" class="bk-fill"><span id="cloud-restore-text">0%</span></div></div>
+          <div class="bk-prog-msg" style="text-align:center;margin-top:8px"><span id="cloud-restore-message">Initializing download...</span></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===================== RETENTION POLICY ===================== -->
+  <section class="bk-card" id="retention-card">
+    <div class="bk-card-h bk-toggle" id="ret-head" role="button" tabindex="0" aria-expanded="false" aria-controls="ret-body" title="Click to open or close">
+      <div style="min-width:0">
+        <h2><i class="bi bi-sliders" style="color:var(--bk-brand)"></i> Retention policy <i class="bi bi-chevron-down bk-chev"></i></h2>
+        <small class="bk-ret-sum" id="ret-summary"></small>
+      </div>
+      <span id="ret-preview" class="bk-badge muted">Checking...</span>
+    </div>
+    <div class="bk-card-b" id="ret-body" hidden>
+      <p class="bk-hint">How many backups to keep. Older ones are removed automatically after each new backup. The newest backup is always kept.</p>
+      <div class="bk-ret">
+        <label>Daily<input type="number" id="ret-daily" name="daily" min="1" max="60" value="{{ backup_retention.daily }}"><small>days, 1 backup per day</small></label>
+        <label>Weekly<input type="number" id="ret-weekly" name="weekly" min="0" max="52" value="{{ backup_retention.weekly }}"><small>weeks, 1 backup per week</small></label>
+        <label>Monthly<input type="number" id="ret-monthly" name="monthly" min="0" max="60" value="{{ backup_retention.monthly }}"><small>months, 1 backup per month</small></label>
+        <label>Keep everything for<input type="number" id="ret-recent_hours" name="recent_hours" min="1" max="168" value="{{ backup_retention.recent_hours }}"><small>hours, nothing deleted</small></label>
+      </div>
+      <button type="button" class="bk-btn primary" id="retSaveBtn" onclick="saveRetention()"><i class="bi bi-check2-circle"></i> Save policy</button>
+    </div>
+  </section>
+  {{ retention_preview|json_script:"ret-preview-data" }}
+
+  <!-- ===================== LOCAL FILES ===================== -->
+  <section class="bk-card">
+    <div class="bk-card-h">
+      <h2><i class="bi bi-file-earmark-zip" style="color:var(--bk-brand)"></i> Local backup files
+        <span id="file-count-badge" class="bk-badge info">0 files</span></h2>
+      <input type="search" id="bkSearch" class="bk-search" placeholder="Search files..." aria-label="Search backup files">
+    </div>
+    <div class="bk-scroll">
+      <table class="bk-table" id="backup-table">
+        <thead>
+          <tr>
+            <th>#</th><th>File</th><th>Size</th><th class="bk-hide-sm">Format</th><th>Drive</th><th style="text-align:right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="backup-files-body">
+          <tr><td colspan="6"><div class="bk-empty"><div class="bk-spin" style="margin:0 auto 10px"></div>Loading backup files...</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===================== ACTIVITY HISTORY ===================== -->
+  <section class="bk-card">
+    <div class="bk-card-h">
+      <h2><i class="bi bi-clock-history" style="color:var(--bk-brand)"></i> Activity history
+        <span id="hist-count" class="bk-badge info">0</span></h2>
+      <input type="search" id="histSearch" class="bk-search" placeholder="Search history..." aria-label="Search history">
+    </div>
+    <div class="bk-scroll">
+      <table class="bk-table" id="history-table">
+        <thead>
+          <tr><th>When</th><th>User</th><th>Action</th><th>File</th><th>Status</th><th class="bk-hide-sm">Details</th></tr>
+        </thead>
+        <tbody id="history-body">
+          <tr><td colspan="6"><div class="bk-empty">Loading history...</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
 </div>
 
-<!-- ========================================== -->
-<!-- RESTORE CONFIRMATION MODAL -->
-<!-- ========================================== -->
-<div class="modal fade" id="restoreConfirmModal" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header bg-gradient-danger text-white">
-                <h5 class="modal-title">
-                    <i class="fas fa-exclamation-triangle"></i> Confirm Restore
-                </h5>
-                <button type="button" class="close text-white" data-dismiss="modal">
-                    <span>&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="alert alert-danger">
-                    <div class="d-flex align-items-start">
-                        <i class="fas fa-exclamation-circle fa-2x mr-3"></i>
-                        <div>
-                            <strong>WARNING!</strong>
-                            <p class="mt-2">
-                                You are about to restore <strong id="restore-filename" class="text-dark">backup_file.sqlite3.gz</strong>
-                            </p>
-                            <p>
-                                This will <strong>REPLACE</strong> your current database with the backup.
-                                All current data will be <strong>LOST</strong> if you haven't backed up recently.
-                            </p>
-                            <p class="mb-0">
-                                <small>✅ Make sure you have a recent backup before proceeding.</small>
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="confirm-restore-check">
-                    <label class="form-check-label" for="confirm-restore-check">
-                        <strong>I understand this action cannot be undone</strong>
-                    </label>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-danger btn-lg" id="confirm-restore-btn" disabled onclick="executeRestore()">
-                    <i class="fas fa-download"></i> Yes, Restore Now
-                </button>
-            </div>
-        </div>
+<!-- ===================== CONFIRM DIALOG ===================== -->
+<div class="bk-ov" id="bkOv" aria-hidden="true">
+  <div class="bk-dialog" id="bkDialog" role="dialog" aria-modal="true" aria-labelledby="bkTitle">
+    <div class="bk-dialog-h">
+      <span class="bk-dialog-ico"><i class="bi" id="bkIcon"></i></span>
+      <h3 id="bkTitle"></h3>
     </div>
+    <div class="bk-dialog-b" id="bkBody"></div>
+    <label class="bk-check" id="bkCheckWrap" style="display:none">
+      <input type="checkbox" id="bkCheck"> <span id="bkCheckText"></span>
+    </label>
+    <div class="bk-dialog-f">
+      <button type="button" class="bk-btn" id="bkCancel">Cancel</button>
+      <button type="button" class="bk-btn primary" id="bkOk">Confirm</button>
+    </div>
+  </div>
 </div>
+
+<!-- ===================== TOASTS ===================== -->
+<div class="bk-toasts" id="bkToasts" aria-live="polite"></div>
 
 <script>
-// ==========================================
-// PROFESSIONAL BACKUP JAVASCRIPT
-// ==========================================
-
+// ==========================================================
+// Database Backup & Restore  -  page script
+// (no jQuery / Bootstrap JS needed)
+// ==========================================================
 let progressInterval = null;
-let restoreFile = null;
+let lastFiles = [];            // last list returned by /backup/files/
+let cloudNames = new Set();    // names of files found on Google Drive
+let cloudReady = false;        // Google Drive configured?
 
-// ==========================================
-// GET CSRF TOKEN - IMPORTANT!
-// ==========================================
+const byId = (id) => document.getElementById(id);
+
+function esc(value) {
+    return String(value === null || value === undefined ? '' : value)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// ---------- CSRF ----------
 function getCookie(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {
@@ -372,1021 +440,678 @@ function getCookie(name) {
     }
     return cookieValue;
 }
+function csrfToken() {
+    const field = document.querySelector('#uploadForm [name=csrfmiddlewaretoken]');
+    return getCookie('csrftoken') || (field ? field.value : '');
+}
 
-// ==========================================
-// FILE INPUT HANDLING (UPLOAD)
-// ==========================================
-document.getElementById('backupFileInput').addEventListener('change', function(e) {
-    const file = this.files[0];
-    const label = document.getElementById('fileLabel');
-    const uploadBtn = document.getElementById('uploadBtn');
-    const form = document.getElementById('uploadForm');
-    
-    if (file) {
-        const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
-        label.innerHTML = `<i class="fas fa-file text-success"></i> ${file.name} (${sizeMB} MB)`;
-        uploadBtn.disabled = false;
-        uploadBtn.className = 'btn btn-success btn-block btn-lg';
-        
-        // ✅ Check file type
-        const allowedExtensions = ['.sqlite3', '.sqlite3.gz', '.gz', '.json'];
-        const isValid = allowedExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
-        
-        if (!isValid) {
-            label.innerHTML = `<i class="fas fa-exclamation-circle text-danger"></i> Invalid file type! Allowed: ${allowedExtensions.join(', ')}`;
-            uploadBtn.disabled = true;
-            uploadBtn.className = 'btn btn-secondary btn-block btn-lg';
-            showToast('danger', 'Invalid file type!');
-        }
-        
-        // ✅ Check file size
-        if (file.size > 500 * 1024 * 1024) {
-            label.innerHTML = `<i class="fas fa-exclamation-circle text-danger"></i> File too large! Max: 500MB`;
-            uploadBtn.disabled = true;
-            uploadBtn.className = 'btn btn-secondary btn-block btn-lg';
-            showToast('danger', 'File too large! Max 500MB');
-        }
-    } else {
-        label.innerHTML = `<i class="fas fa-folder-open"></i> Choose backup file from internal storage...`;
-        uploadBtn.disabled = true;
-        uploadBtn.className = 'btn btn-secondary btn-block btn-lg';
-    }
-});
-
-// ==========================================
-// UPLOAD FORM SUBMIT WITH PROGRESS
-// ==========================================
-document.getElementById('uploadForm').addEventListener('submit', function(e) {
-    const fileInput = document.getElementById('backupFileInput');
-    const file = fileInput.files[0];
-    
-    if (!file) {
-        e.preventDefault();
-        showToast('warning', 'Please select a file!');
-        return;
-    }
-    
-    // ✅ Show progress
-    document.getElementById('upload-progress').style.display = 'block';
-    document.getElementById('upload-bar').style.width = '0%';
-    document.getElementById('upload-text').innerHTML = '0%';
-    document.getElementById('upload-message').innerHTML = '📤 Uploading file...';
-    document.getElementById('uploadBtn').disabled = true;
-    document.getElementById('uploadBtn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
-});
-
-// ==========================================
-// CHECK CLOUD STATUS ON LOAD
-// ==========================================
-function checkCloudStatus() {
-    fetch('/backup/rclone-status/', {
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-        },
+// ---------- request helper (always returns parsed JSON) ----------
+function api(url, method) {
+    return fetch(url, {
+        method: method || 'GET',
+        headers: { 'X-CSRFToken': csrfToken(), 'Content-Type': 'application/json' },
         credentials: 'same-origin'
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-        return response.json();
-    })
-    .then(data => {
-        const statusDiv = document.getElementById('cloud-status');
-        
-        if (data.success && data.rclone_installed && data.remote_configured) {
-            statusDiv.className = 'alert alert-success shadow-sm';
-            statusDiv.innerHTML = `
-                <div class="d-flex align-items-center">
-                    <i class="fas fa-check-circle fa-2x text-success mr-3"></i>
-                    <div>
-                        <strong class="text-success">✅ Google Drive Ready!</strong>
-                        <div class="text-muted small">
-                            Remote: ${data.remote_name}:${data.remote_dir}
-                        </div>
-                    </div>
-                    <span class="badge badge-success badge-lg ml-auto">Connected</span>
-                </div>
-            `;
-            loadCloudFiles();
-        } else if (data.rclone_installed && !data.remote_configured) {
-            statusDiv.className = 'alert alert-warning shadow-sm';
-            statusDiv.innerHTML = `
-                <div class="d-flex align-items-center">
-                    <i class="fas fa-exclamation-triangle fa-2x text-warning mr-3"></i>
-                    <div>
-                        <strong class="text-warning">⚠️ Rclone not configured!</strong>
-                        <div class="text-muted small">
-                            Run: <code>rclone config</code> to setup Google Drive
-                        </div>
-                    </div>
-                    <span class="badge badge-warning badge-lg ml-auto">Not Configured</span>
-                </div>
-            `;
-        } else {
-            statusDiv.className = 'alert alert-danger shadow-sm';
-            statusDiv.innerHTML = `
-                <div class="d-flex align-items-center">
-                    <i class="fas fa-times-circle fa-2x text-danger mr-3"></i>
-                    <div>
-                        <strong class="text-danger">❌ Rclone not installed!</strong>
-                        <div class="text-muted small">
-                            Run: <code>pkg install rclone</code> to install
-                        </div>
-                    </div>
-                    <span class="badge badge-danger badge-lg ml-auto">Not Installed</span>
-                </div>
-            `;
-        }
-    })
-    .catch(error => {
-        document.getElementById('cloud-status').className = 'alert alert-warning shadow-sm';
-        document.getElementById('cloud-status').innerHTML = `
-            <div class="d-flex align-items-center">
-                <i class="fas fa-exclamation-circle fa-2x text-warning mr-3"></i>
-                <div>
-                    <strong class="text-warning">⚠️ Could not check cloud status</strong>
-                    <div class="text-muted small">${error.message}</div>
-                </div>
-            </div>
-        `;
+    }).then(async (response) => {
+        let data = null;
+        try { data = await response.json(); } catch (e) { /* not JSON */ }
+        if (!data) throw new Error('Server error (' + response.status + ')');
+        return data;
     });
 }
 
-// ==========================================
-// LOAD CLOUD FILES
-// ==========================================
+// ---------- toast ----------
+function showToast(type, message) {
+    const icons = { success: 'bi-check-circle-fill', danger: 'bi-x-circle-fill', warning: 'bi-exclamation-triangle-fill', info: 'bi-info-circle-fill' };
+    const titles = { success: 'Success', danger: 'Error', warning: 'Warning', info: 'Info' };
+    const kind = icons[type] ? type : 'info';
+    const toast = document.createElement('div');
+    toast.className = 'bk-toast ' + kind;
+    toast.innerHTML = '<i class="bi ' + icons[kind] + '"></i><div><strong>' + titles[kind] + '</strong><span></span></div><button type="button" aria-label="Close">&times;</button>';
+    toast.querySelector('span').textContent = message;
+    const remove = () => { if (toast.parentNode) toast.parentNode.removeChild(toast); };
+    toast.querySelector('button').addEventListener('click', remove);
+    byId('bkToasts').appendChild(toast);
+    setTimeout(remove, 5500);
+}
+
+// ---------- confirm dialog (returns a Promise<boolean>) ----------
+let dialogResolve = null;
+function bkDialog(opts) {
+    if (dialogResolve) { dialogResolve(false); dialogResolve = null; }
+    const tone = opts.tone || 'primary';
+    byId('bkDialog').className = 'bk-dialog ' + tone;
+    byId('bkIcon').className = 'bi ' + (opts.icon || 'bi-question-circle-fill');
+    byId('bkTitle').textContent = opts.title || 'Please confirm';
+    byId('bkBody').innerHTML = opts.html || '';
+    const ok = byId('bkOk');
+    ok.textContent = opts.confirmText || 'Confirm';
+    ok.className = 'bk-btn ' + (tone === 'danger' ? 'danger' : tone === 'warn' ? 'warn' : 'primary');
+    const wrap = byId('bkCheckWrap'), check = byId('bkCheck');
+    if (opts.check) {
+        wrap.style.display = 'flex';
+        byId('bkCheckText').textContent = opts.check;
+        check.checked = false;
+        ok.disabled = true;
+    } else {
+        wrap.style.display = 'none';
+        ok.disabled = false;
+    }
+    byId('bkOv').classList.add('open');
+    byId('bkOv').setAttribute('aria-hidden', 'false');
+    return new Promise((resolve) => { dialogResolve = resolve; });
+}
+function closeDialog(result) {
+    byId('bkOv').classList.remove('open');
+    byId('bkOv').setAttribute('aria-hidden', 'true');
+    if (dialogResolve) { const r = dialogResolve; dialogResolve = null; r(result); }
+}
+byId('bkCheck').addEventListener('change', function () { byId('bkOk').disabled = !this.checked; });
+byId('bkOk').addEventListener('click', () => closeDialog(true));
+byId('bkCancel').addEventListener('click', () => closeDialog(false));
+byId('bkOv').addEventListener('click', (e) => { if (e.target === byId('bkOv')) closeDialog(false); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && dialogResolve) closeDialog(false); });
+
+// ---------- small UI helpers ----------
+function showBox(id) { byId(id).style.display = 'block'; }
+function hideBox(id) { byId(id).style.display = 'none'; }
+function setBadge(id, state, text) { const el = byId(id); el.className = 'bk-badge ' + state; el.textContent = text; }
+function setCloudBadge(state, text) { setBadge('cloud-status-badge', state, text); }
+function setOnline(online) {
+    byId('backup-status-badge').className = 'bk-chip' + (online ? '' : ' off');
+    byId('bk-online-text').textContent = online ? 'System Online' : 'Offline';
+}
+
+function updateProgress(percent, message, status) {
+    const pct = Math.max(0, Math.min(100, Number(percent) || 0));
+    const bar = byId('progress-bar');
+    bar.style.width = pct + '%';
+    byId('progress-text').textContent = Math.round(pct) + '%';
+    byId('step-message').textContent = message;
+    if (status === 'completed') { setBadge('step-status', 'ok', 'Completed'); bar.className = 'bk-fill ok'; }
+    else if (status === 'failed') { setBadge('step-status', 'err', 'Failed'); bar.className = 'bk-fill err'; }
+    else { setBadge('step-status', 'warn', 'In progress'); bar.className = 'bk-fill'; }
+}
+
+// ==========================================================
+// FILE INPUT (UPLOAD) + DRAG & DROP
+// ==========================================================
+const ALLOWED_EXT = ['.sqlite3', '.sqlite3.gz', '.gz', '.json'];
+const MAX_BYTES = 500 * 1024 * 1024;
+
+function setDropState(state, title, hint) {
+    byId('bkDrop').className = 'bk-drop' + (state ? ' ' + state : '');
+    byId('fileLabel').textContent = title;
+    if (hint !== undefined) byId('fileHint').textContent = hint;
+}
+byId('backupFileInput').addEventListener('change', function () {
+    const file = this.files[0];
+    const btn = byId('uploadBtn');
+    if (!file) {
+        setDropState('', 'Choose a backup file', 'or drag & drop it here \u00b7 .sqlite3, .sqlite3.gz, .gz, .json \u00b7 max 500 MB');
+        btn.disabled = true;
+        return;
+    }
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+    const validType = ALLOWED_EXT.some((ext) => file.name.toLowerCase().endsWith(ext));
+    if (!validType) {
+        setDropState('bad', 'Invalid file type', 'Allowed: ' + ALLOWED_EXT.join(', '));
+        btn.disabled = true;
+        showToast('danger', 'Invalid file type!');
+    } else if (file.size > MAX_BYTES) {
+        setDropState('bad', 'File too large', 'Maximum size is 500 MB (this file is ' + sizeMB + ' MB)');
+        btn.disabled = true;
+        showToast('danger', 'File too large! Max 500MB');
+    } else {
+        setDropState('good', file.name, sizeMB + ' MB \u00b7 ready to upload');
+        btn.disabled = false;
+    }
+});
+['dragenter', 'dragover'].forEach((evt) => byId('bkDrop').addEventListener(evt, (e) => {
+    e.preventDefault(); byId('bkDrop').classList.add('drag');
+}));
+['dragleave', 'drop'].forEach((evt) => byId('bkDrop').addEventListener(evt, (e) => {
+    e.preventDefault(); byId('bkDrop').classList.remove('drag');
+}));
+byId('bkDrop').addEventListener('drop', (e) => {
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+        byId('backupFileInput').files = e.dataTransfer.files;
+        byId('backupFileInput').dispatchEvent(new Event('change'));
+    }
+});
+byId('uploadForm').addEventListener('submit', function (e) {
+    const file = byId('backupFileInput').files[0];
+    if (!file) { e.preventDefault(); showToast('warning', 'Please select a file!'); return; }
+    showBox('upload-progress');
+    byId('upload-message').textContent = 'Uploading file... please keep this page open.';
+    byId('uploadBtn').disabled = true;
+    byId('uploadBtn').innerHTML = '<i class="bi bi-arrow-repeat"></i> Uploading...';
+});
+
+// ==========================================================
+// CLOUD STATUS
+// ==========================================================
+function setCloud(kind, icon, title, detailHtml, badge) {
+    const el = byId('cloud-status');
+    el.className = 'bk-alert ' + kind;
+    el.innerHTML = '<i class="bi ' + icon + ' bk-alert-ico"></i><div class="bk-alert-body"><strong>' + esc(title) + '</strong>' +
+        (detailHtml ? '<span>' + detailHtml + '</span>' : '') + '</div>' +
+        (badge ? '<span class="bk-badge ' + (kind === 'ok' ? 'ok' : kind === 'warn' ? 'warn' : 'err') + '">' + esc(badge) + '</span>' : '');
+}
+function checkCloudStatus() {
+    api('/backup/rclone-status/').then((data) => {
+        if (data.success && data.rclone_installed && data.remote_configured) {
+            cloudReady = true;
+            const acct = data.account_email
+                ? '<i class="bi bi-person-circle"></i> Account: <strong>' + esc(data.account_email) + '</strong>' +
+                  (data.account_name ? ' (' + esc(data.account_name) + ')' : '')
+                : '<i class="bi bi-person-circle"></i> Account: not available';
+            setCloud('ok', 'bi-check-circle-fill', 'Google Drive is ready',
+                     acct + '<br>Remote: ' + esc(data.remote_name) + ':' + esc(data.remote_dir), 'Connected');
+            loadCloudFiles();
+        } else if (data.rclone_installed && !data.remote_configured) {
+            cloudReady = false;
+            setCloud('warn', 'bi-exclamation-triangle-fill', 'Rclone is not configured',
+                     'Run <code>rclone config</code> to set up Google Drive.', 'Not configured');
+        } else {
+            cloudReady = false;
+            setCloud('err', 'bi-x-circle-fill', 'Rclone is not installed',
+                     'Run <code>pkg install rclone</code> to install it.', 'Not installed');
+        }
+        renderFiles();
+    }).catch((error) => {
+        cloudReady = false;
+        setCloud('warn', 'bi-exclamation-circle-fill', 'Could not check cloud status', esc(error.message), '');
+    });
+}
+
 function loadCloudFiles() {
-    fetch('/backup/cloud-files/', {
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-        },
-        credentials: 'same-origin'
-    })
-    .then(response => response.json())
-    .then(data => {
-        const select = document.getElementById('cloud-restore-select');
+    api('/backup/cloud-files/').then((data) => {
+        const select = byId('cloud-restore-select');
+        const keep = select.value;
         select.innerHTML = '<option value="">-- Select backup file from Drive --</option>';
-        
+        cloudNames = new Set();
         if (data.success && data.files && data.files.length > 0) {
-            data.files.forEach(file => {
+            data.files.forEach((file) => {
+                cloudNames.add(file.name);
                 const option = document.createElement('option');
                 option.value = file.name;
-                option.textContent = `${file.name} (${file.size_display}) - ${file.modified}`;
+                option.textContent = file.name + ' (' + file.size_display + ') - ' + file.modified;
                 select.appendChild(option);
             });
+            if (keep && cloudNames.has(keep)) select.value = keep;
         } else {
             const option = document.createElement('option');
             option.value = '';
-            option.textContent = '📭 No files found on Google Drive';
+            option.textContent = 'No files found on Google Drive';
             select.appendChild(option);
         }
-    })
-    .catch(error => {
-        console.error('Error loading cloud files:', error);
-    });
+        renderFiles();
+    }).catch((error) => console.error('Error loading cloud files:', error));
 }
 
-// ==========================================
-// RESTORE FROM CLOUD
-// ==========================================
-function restoreFromCloud() {
-    const select = document.getElementById('cloud-restore-select');
-    const filename = select.value;
-    
-    if (!filename) {
-        showToast('warning', 'Please select a backup file from Google Drive!');
-        return;
+// ==========================================================
+// RESTORE (Drive + local share one confirmation dialog)
+// ==========================================================
+function confirmRestore(name, source) {
+    showBox('restore-warning');
+    byId('restore-warning').style.display = 'flex';
+    return bkDialog({
+        tone: 'danger', icon: 'bi-exclamation-triangle-fill',
+        title: 'Restore from ' + source,
+        html: 'You are about to restore <strong>' + esc(name) + '</strong>.<br><br>' +
+              'This will <strong>replace your current database</strong>. Any data created after this backup will be lost.',
+        confirmText: 'Yes, restore now',
+        check: 'I understand this action cannot be undone'
+    }).then((ok) => { if (!ok) hideBox('restore-warning'); return ok; });
+}
+
+async function restoreFromCloud() {
+    const name = byId('cloud-restore-select').value;
+    if (!name) { showToast('warning', 'Please select a backup file from Google Drive!'); return; }
+    if (await confirmRestore(name, 'Google Drive')) executeRestore('cloud', name);
+}
+async function restoreLocalBackup(name) {
+    if (await confirmRestore(name, 'a local backup')) executeRestore('local', name);
+}
+
+function executeRestore(kind, name) {
+    const encoded = encodeURIComponent(name);
+    const isCloud = kind === 'cloud';
+    showBox('progress-container');
+    byId('progress-title-text').textContent = 'Restore in progress';
+    if (isCloud) {
+        showBox('cloud-restore-progress');
+        byId('cloud-restore-bar').style.width = '10%';
+        byId('cloud-restore-text').textContent = '10%';
+        byId('cloud-restore-message').textContent = 'Downloading from Google Drive...';
+        updateProgress(10, 'Downloading backup from Google Drive...', 'in_progress');
+    } else {
+        updateProgress(30, 'Restoring from local backup...', 'in_progress');
     }
-    
-    const encodedFilename = encodeURIComponent(filename);
-    
-    document.getElementById('restore-warning').style.display = 'block';
-    document.getElementById('restore-filename').textContent = filename;
-    
-    $('#restoreConfirmModal').modal('show');
-    
-    restoreFile = encodedFilename;
-    
-    document.getElementById('confirm-restore-check').checked = false;
-    document.getElementById('confirm-restore-btn').disabled = true;
-}
-
-// ==========================================
-// CONFIRM RESTORE CHECKBOX
-// ==========================================
-document.getElementById('confirm-restore-check').addEventListener('change', function() {
-    document.getElementById('confirm-restore-btn').disabled = !this.checked;
-});
-
-// ==========================================
-// EXECUTE RESTORE
-// ==========================================
-function executeRestore() {
-    $('#restoreConfirmModal').modal('hide');
-    
-    document.getElementById('cloud-restore-progress').style.display = 'block';
-    document.getElementById('cloud-restore-bar').style.width = '10%';
-    document.getElementById('cloud-restore-text').innerHTML = '10%';
-    document.getElementById('cloud-restore-message').innerHTML = '📥 Downloading from Google Drive...';
-    
-    document.getElementById('progress-container').style.display = 'block';
-    updateProgress(10, '📥 Downloading backup from Google Drive...', 'in_progress');
-    
-    const url = `/backup/restore/${restoreFile}/`;
-    
-    fetch(url, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json'
-        },
-        credentials: 'same-origin'
-    })
-    .then(response => response.json())
-    .then(data => {
+    api(isCloud ? '/backup/restore/' + encoded + '/' : '/backup/restore-local/' + encoded + '/', 'POST').then((data) => {
         if (data.success) {
-            document.getElementById('cloud-restore-bar').style.width = '100%';
-            document.getElementById('cloud-restore-text').innerHTML = '100%';
-            document.getElementById('cloud-restore-message').innerHTML = '✅ ' + data.message;
-            
-            updateProgress(100, '✅ ' + data.message, 'completed');
-            
+            if (isCloud) {
+                byId('cloud-restore-bar').style.width = '100%';
+                byId('cloud-restore-text').textContent = '100%';
+                byId('cloud-restore-message').textContent = data.message;
+            }
+            updateProgress(100, data.message, 'completed');
+            showToast('success', 'Restore successful. Database restored from: ' + name);
             setTimeout(() => {
-                loadBackupFiles();
-                loadStats();
-                loadCloudFiles();
-                document.getElementById('cloud-restore-progress').style.display = 'none';
-                document.getElementById('progress-container').style.display = 'none';
-                document.getElementById('restore-warning').style.display = 'none';
-                
-                showToast('success', '✅ Restore successful! Database restored from: ' + restoreFile);
+                loadBackupFiles(); loadStats();
+                if (isCloud) loadCloudFiles();
+                hideBox('cloud-restore-progress'); hideBox('progress-container'); hideBox('restore-warning');
             }, 2000);
         } else {
-            document.getElementById('cloud-restore-message').innerHTML = '❌ ' + data.message;
-            updateProgress(0, '❌ ' + data.message, 'failed');
+            if (isCloud) byId('cloud-restore-message').textContent = data.message;
+            updateProgress(0, data.message, 'failed');
             showToast('danger', 'Restore failed: ' + data.message);
         }
-    })
-    .catch(error => {
-        document.getElementById('cloud-restore-message').innerHTML = '❌ Error: ' + error;
-        updateProgress(0, '❌ Error: ' + error, 'failed');
+    }).catch((error) => {
+        if (isCloud) byId('cloud-restore-message').textContent = 'Error: ' + error.message;
+        updateProgress(0, 'Error: ' + error.message, 'failed');
         showToast('danger', 'Error: ' + error.message);
     });
 }
 
-// ==========================================
-// START BACKUP - WITH CSRF TOKEN
-// ==========================================
+// ==========================================================
+// BACKUP ACTIONS
+// ==========================================================
+function startProgressPolling() {
+    if (progressInterval) clearInterval(progressInterval);
+    progressInterval = setInterval(checkProgress, 1000);
+}
+
 function startBackup() {
-    document.getElementById('progress-container').style.display = 'block';
-    updateProgress(0, '🔄 Starting backup...', 'starting');
-    document.getElementById('cloud-status-badge').innerHTML = '☁️ Checking...';
-    document.getElementById('cloud-status-badge').className = 'badge badge-secondary badge-lg ml-2';
-    
-    if (progressInterval) clearInterval(progressInterval);
-    progressInterval = setInterval(checkProgress, 1000);
-    
-    fetch('/backup/fast/', {
-        method: 'GET',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json',
-        },
-        credentials: 'same-origin'
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Network response was not ok: ' + response.status);
-        }
-        return response.json();
-    })
-    .then(data => {
+    showBox('progress-container');
+    byId('progress-title-text').textContent = 'Backup in progress';
+    updateProgress(0, 'Starting backup...', 'starting');
+    setCloudBadge('muted', 'Cloud: checking...');
+    startProgressPolling();
+    api('/backup/fast/').then((data) => {
         if (data.success) {
-            let msg = data.message;
-            if (data.cloud_uploaded) {
-                document.getElementById('cloud-status-badge').innerHTML = '☁️ ✅ Uploaded';
-                document.getElementById('cloud-status-badge').className = 'badge badge-success badge-lg ml-2';
-            } else {
-                document.getElementById('cloud-status-badge').innerHTML = '☁️ ⚠️ Skipped';
-                document.getElementById('cloud-status-badge').className = 'badge badge-warning badge-lg ml-2';
-            }
-            updateProgress(100, msg, 'completed');
-            showToast('success', msg);
-            setTimeout(() => {
-                loadBackupFiles();
-                loadStats();
-                loadCloudFiles();
-            }, 1000);
+            if (data.cloud_uploaded) setCloudBadge('ok', 'Cloud: uploaded');
+            else setCloudBadge('warn', 'Cloud: skipped');
+            updateProgress(100, data.message, 'completed');
+            showToast('success', data.message);
+            setTimeout(() => { loadBackupFiles(); loadStats(); loadCloudFiles(); }, 1000);
         } else {
-            updateProgress(0, '❌ ' + data.message, 'failed');
-            document.getElementById('cloud-status-badge').innerHTML = '☁️ ❌ Failed';
-            document.getElementById('cloud-status-badge').className = 'badge badge-danger badge-lg ml-2';
+            updateProgress(0, data.message, 'failed');
+            setCloudBadge('err', 'Cloud: failed');
             showToast('danger', data.message);
         }
-    })
-    .catch(error => {
+    }).catch((error) => {
         console.error('Backup error:', error);
-        updateProgress(0, '❌ Error: ' + error.message, 'failed');
+        updateProgress(0, 'Error: ' + error.message, 'failed');
+        setCloudBadge('err', 'Cloud: error');
         showToast('danger', 'Error: ' + error.message);
-        document.getElementById('cloud-status-badge').innerHTML = '☁️ ❌ Error';
-        document.getElementById('cloud-status-badge').className = 'badge badge-danger badge-lg ml-2';
     });
 }
 
-// ==========================================
-// START BACKGROUND BACKUP - WITH CSRF TOKEN
-// ==========================================
 function startBackgroundBackup() {
-    document.getElementById('progress-container').style.display = 'block';
-    updateProgress(0, '🔄 Starting background backup...', 'starting');
-    
-    if (progressInterval) clearInterval(progressInterval);
-    progressInterval = setInterval(checkProgress, 1000);
-    
-    fetch('/backup/background/', {
-        method: 'GET',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json',
-        },
-        credentials: 'same-origin'
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Network response was not ok: ' + response.status);
-        }
-        return response.json();
-    })
-    .then(data => {
+    showBox('progress-container');
+    byId('progress-title-text').textContent = 'Background backup';
+    updateProgress(0, 'Starting background backup...', 'starting');
+    startProgressPolling();
+    api('/backup/background/').then((data) => {
         if (data.success) {
-            document.getElementById('step-message').innerHTML = '✅ ' + data.message;
-            document.getElementById('step-status').innerHTML = '🔄 Running in background';
-            document.getElementById('step-status').className = 'badge badge-success badge-lg';
-            if (data.cloud_enabled) {
-                document.getElementById('cloud-status-badge').innerHTML = '☁️ ✅ Enabled';
-                document.getElementById('cloud-status-badge').className = 'badge badge-success badge-lg ml-2';
-            } else {
-                document.getElementById('cloud-status-badge').innerHTML = '☁️ ⚠️ Disabled';
-                document.getElementById('cloud-status-badge').className = 'badge badge-warning badge-lg ml-2';
-            }
+            byId('step-message').textContent = data.message;
+            setBadge('step-status', 'ok', 'Running in background');
+            if (data.cloud_enabled) setCloudBadge('ok', 'Cloud: enabled');
+            else setCloudBadge('warn', 'Cloud: disabled');
             showToast('success', data.message);
         } else {
-            updateProgress(0, '❌ ' + data.message, 'failed');
+            updateProgress(0, data.message, 'failed');
             showToast('danger', data.message);
         }
-    })
-    .catch(error => {
-        updateProgress(0, '❌ Error: ' + error, 'failed');
+    }).catch((error) => {
+        updateProgress(0, 'Error: ' + error.message, 'failed');
         showToast('danger', 'Error: ' + error.message);
     });
 }
 
-// ==========================================
-// UPLOAD ALL BACKUPS TO DRIVE - WITH CSRF TOKEN
-// ==========================================
-function uploadAllBackups() {
-    if (!confirm('Upload all local backups to Google Drive?')) return;
-    
-    document.getElementById('progress-container').style.display = 'block';
-    updateProgress(30, '☁️ Uploading all backups to Drive...', 'in_progress');
-    
-    fetch('/backup/upload-all/', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json',
-        },
-        credentials: 'same-origin'
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Network response was not ok: ' + response.status);
-        }
-        return response.json();
-    })
-    .then(data => {
+async function uploadAllBackups() {
+    const ok = await bkDialog({
+        tone: 'primary', icon: 'bi-cloud-arrow-up-fill', title: 'Upload all backups',
+        html: 'Upload <strong>all local backups</strong> to Google Drive?', confirmText: 'Upload all'
+    });
+    if (!ok) return;
+    showBox('progress-container');
+    byId('progress-title-text').textContent = 'Uploading to Drive';
+    updateProgress(30, 'Uploading all backups to Drive...', 'in_progress');
+    api('/backup/upload-all/', 'POST').then((data) => {
         if (data.success) {
-            updateProgress(100, '✅ ' + data.message, 'completed');
+            updateProgress(100, data.message, 'completed');
             showToast('success', data.message);
-            setTimeout(() => {
-                loadBackupFiles();
-                loadStats();
-                loadCloudFiles();
-                document.getElementById('progress-container').style.display = 'none';
-            }, 2000);
+            setTimeout(() => { loadBackupFiles(); loadStats(); loadCloudFiles(); hideBox('progress-container'); }, 2000);
         } else {
-            updateProgress(0, '❌ ' + data.message, 'failed');
+            updateProgress(0, data.message, 'failed');
             showToast('danger', data.message);
         }
-    })
-    .catch(error => {
-        updateProgress(0, '❌ Error: ' + error, 'failed');
+    }).catch((error) => {
+        updateProgress(0, 'Error: ' + error.message, 'failed');
         showToast('danger', 'Error: ' + error.message);
     });
 }
 
-// ==========================================
-// CHECK PROGRESS
-// ==========================================
+async function uploadSingleBackup(filename) {
+    const ok = await bkDialog({
+        tone: 'primary', icon: 'bi-cloud-arrow-up-fill', title: 'Upload to Google Drive',
+        html: 'Upload <strong>' + esc(filename) + '</strong> to Google Drive?', confirmText: 'Upload'
+    });
+    if (!ok) return;
+    showBox('progress-container');
+    byId('progress-title-text').textContent = 'Uploading to Drive';
+    updateProgress(30, 'Uploading ' + filename + ' to Drive...', 'in_progress');
+    api('/backup/upload-single/' + encodeURIComponent(filename) + '/', 'POST').then((data) => {
+        if (data.success) {
+            updateProgress(100, data.message, 'completed');
+            showToast('success', data.message);
+            setTimeout(() => { loadBackupFiles(); loadStats(); loadCloudFiles(); hideBox('progress-container'); }, 2000);
+        } else {
+            updateProgress(0, data.message, 'failed');
+            showToast('danger', data.message);
+        }
+    }).catch((error) => {
+        updateProgress(0, 'Error: ' + error.message, 'failed');
+        showToast('danger', 'Error: ' + error.message);
+    });
+}
+
+async function deleteBackup(filename) {
+    const ok = await bkDialog({
+        tone: 'danger', icon: 'bi-trash3-fill', title: 'Delete backup',
+        html: 'Delete <strong>' + esc(filename) + '</strong>?<br>This only removes the local file.', confirmText: 'Delete'
+    });
+    if (!ok) return;
+    api('/backup/delete/' + encodeURIComponent(filename) + '/', 'POST').then((data) => {
+        if (data.success) { loadBackupFiles(); loadStats(); loadCloudFiles(); showToast('success', data.message); }
+        else showToast('danger', data.message);
+    }).catch(() => showToast('danger', 'Error deleting file'));
+}
+
+async function cleanBackups() {
+    const n = retPreviewList.length;
+    const ok = await bkDialog({
+        tone: 'danger', icon: 'bi-eraser-fill', title: 'Clean old backups',
+        html: n ? 'Apply your retention policy now? <strong>' + n + ' old backup(s)</strong> will be deleted.'
+                : 'Apply your retention policy now? Nothing needs deleting right now.',
+        confirmText: 'Clean up'
+    });
+    if (!ok) return;
+    showBox('progress-container');
+    byId('progress-title-text').textContent = 'Cleaning old backups';
+    updateProgress(50, 'Cleaning old backups...', 'in_progress');
+    pageAction({ action: 'apply_retention' }).then((data) => {
+        if (data.success) {
+            setRetPreview(data.preview);
+            loadBackupFiles(); loadStats(); loadCloudFiles();
+            updateProgress(100, data.message, 'completed');
+            showToast('success', data.message);
+            setTimeout(() => hideBox('progress-container'), 2000);
+        } else {
+            updateProgress(0, data.message, 'failed');
+            showToast('danger', data.message);
+        }
+    }).catch((error) => {
+        updateProgress(0, 'Error: ' + error.message, 'failed');
+        showToast('danger', 'Error: ' + error.message);
+    });
+}
+
+// ==========================================================
+// RETENTION POLICY + ACTIVITY HISTORY
+// (dono isi page ke URL se chalte hain, alag route ki zaroorat nahi)
+// ==========================================================
+let retPreviewList = JSON.parse(byId('ret-preview-data').textContent || '[]');
+let historyRows = [];
+
+function pageAction(fields) {
+    const body = new FormData();
+    Object.keys(fields).forEach((k) => body.append(k, fields[k]));
+    return fetch(window.location.pathname, {
+        method: 'POST', body: body, credentials: 'same-origin',
+        headers: { 'X-CSRFToken': csrfToken(), 'X-Requested-With': 'XMLHttpRequest' }
+    }).then(async (response) => {
+        let data = null;
+        try { data = await response.json(); } catch (e) { /* not JSON */ }
+        if (!data) throw new Error('Server error (' + response.status + ')');
+        return data;
+    });
+}
+
+function setRetPreview(list) {
+    retPreviewList = list || [];
+    const el = byId('ret-preview');
+    if (!retPreviewList.length) {
+        el.className = 'bk-badge ok';
+        el.innerHTML = '<i class="bi bi-check-circle"></i> Nothing to delete right now';
+        el.removeAttribute('title');
+    } else {
+        el.className = 'bk-badge warn';
+        el.innerHTML = '<i class="bi bi-exclamation-triangle"></i> ' + retPreviewList.length +
+                       ' old backup(s) will be removed at next cleanup';
+        el.title = retPreviewList.join('\n');
+    }
+}
+
+async function saveRetention() {
+    const btn = byId('retSaveBtn');
+    const fields = { action: 'save_retention' };
+    ['daily', 'weekly', 'monthly', 'recent_hours'].forEach((k) => { fields[k] = byId('ret-' + k).value; });
+    const ok = await bkDialog({
+        tone: 'primary', icon: 'bi-sliders', title: 'Save retention policy',
+        html: 'Keep <strong>' + esc(fields.daily) + '</strong> daily, <strong>' + esc(fields.weekly) + '</strong> weekly, <strong>' +
+              esc(fields.monthly) + '</strong> monthly backups, and everything from the last <strong>' +
+              esc(fields.recent_hours) + '</strong> hours?<br><small>Old backups are removed at the next backup or when you press Clean up.</small>',
+        confirmText: 'Save'
+    });
+    if (!ok) return;
+    btn.disabled = true;
+    pageAction(fields).then((data) => {
+        if (data.success) {
+            ['daily', 'weekly', 'monthly', 'recent_hours'].forEach((k) => { byId('ret-' + k).value = data.retention[k]; });
+            setRetPreview(data.preview);
+            updateRetSummary();
+            setRetOpen(false);          // save ho gayi -> policy ka display band
+            showToast('success', data.message);
+            loadHistory();
+        } else {
+            showToast('danger', data.message);
+        }
+    }).catch((error) => showToast('danger', 'Error: ' + error.message))
+      .finally(() => { btn.disabled = false; });
+}
+
+const HIST_LABELS = {
+    create: 'Backup created', download: 'Downloaded', delete: 'Deleted', restore: 'Restored',
+    drive_upload: 'Uploaded to Drive', upload_file: 'File uploaded', cleanup: 'Cleanup',
+    retention_change: 'Policy changed'
+};
+
+function renderHistory() {
+    const q = (byId('histSearch').value || '').toLowerCase();
+    const rows = historyRows.filter((e) =>
+        !q || [e.user, e.action, HIST_LABELS[e.action], e.file, e.detail, e.status].join(' ').toLowerCase().includes(q));
+    byId('hist-count').textContent = rows.length;
+    const body = byId('history-body');
+    if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="6"><div class="bk-empty">No activity recorded yet</div></td></tr>';
+        return;
+    }
+    body.innerHTML = rows.map((e) => {
+        const kind = e.status === 'failed' ? 'err' : (e.status === 'warning' ? 'warn' : 'ok');
+        return '<tr>' +
+            '<td style="white-space:nowrap">' + esc(e.time) + '</td>' +
+            '<td>' + esc(e.user) + '</td>' +
+            '<td><strong>' + esc(HIST_LABELS[e.action] || e.action) + '</strong></td>' +
+            '<td class="bk-hist-file">' + (e.file ? esc(e.file) : '&mdash;') + '</td>' +
+            '<td><span class="bk-badge ' + kind + '">' + esc(e.status) + '</span></td>' +
+            '<td class="bk-hide-sm">' + esc(e.detail) + '</td></tr>';
+    }).join('');
+}
+
+function loadHistory() {
+    fetch(window.location.pathname + '?history=1&limit=200', {
+        credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    }).then((r) => r.json()).then((data) => {
+        historyRows = (data.success && data.events) ? data.events : [];
+        renderHistory();
+    }).catch((error) => console.error('Error loading history:', error));
+}
+byId('histSearch').addEventListener('input', renderHistory);
+setRetPreview(retPreviewList);
+
+// ---- retention card: open / close ----
+function updateRetSummary() {
+    const v = (k) => byId('ret-' + k).value;
+    byId('ret-summary').textContent = 'Keep ' + v('daily') + ' daily · ' + v('weekly') + ' weekly · ' +
+                                      v('monthly') + ' monthly · everything for ' + v('recent_hours') + ' h';
+}
+function setRetOpen(open) {
+    byId('ret-body').hidden = !open;
+    byId('ret-head').setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+byId('ret-head').addEventListener('click', () => setRetOpen(byId('ret-body').hidden));
+byId('ret-head').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setRetOpen(byId('ret-body').hidden); }
+});
+updateRetSummary();
+setRetOpen(false);
+
+// ==========================================================
+// PROGRESS POLLING
+// ==========================================================
 function checkProgress() {
-    fetch('/backup/progress/', {
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-        },
-        credentials: 'same-origin'
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success && data.progress) {
-            const p = data.progress;
-            const percent = p.percentage || 0;
-            
-            document.getElementById('progress-bar').style.width = percent + '%';
-            document.getElementById('progress-text').innerHTML = Math.round(percent) + '%';
-            document.getElementById('step-message').innerHTML = p.message || 'Processing...';
-            
-            const statusBadge = document.getElementById('step-status');
-            if (p.status === 'completed' || p.status === 'failed') {
-                statusBadge.innerHTML = p.status === 'completed' ? '✅ Completed' : '❌ Failed';
-                statusBadge.className = p.status === 'completed' ? 'badge badge-success badge-lg' : 'badge badge-danger badge-lg';
-                clearInterval(progressInterval);
-                if (p.status === 'completed') {
-                    setTimeout(() => {
-                        loadBackupFiles();
-                        loadStats();
-                        loadCloudFiles();
-                    }, 500);
-                }
-            } else {
-                statusBadge.innerHTML = '⏳ In Progress';
-                statusBadge.className = 'badge badge-warning badge-lg';
-            }
-            
-            document.getElementById('progress-time').innerHTML = '🕐 Last updated: ' + new Date().toLocaleTimeString();
-            
-            if (p.message && p.message.includes('Uploading to Drive')) {
-                document.getElementById('cloud-status-badge').innerHTML = '☁️ ⏳ Uploading';
-                document.getElementById('cloud-status-badge').className = 'badge badge-primary badge-lg ml-2';
-            }
-            
-            if (p.status === 'completed' || p.status === 'failed') {
-                setTimeout(() => {
-                    document.getElementById('progress-container').style.display = 'none';
-                }, 3000);
-            }
+    api('/backup/progress/').then((data) => {
+        if (!(data.success && data.progress)) return;
+        const p = data.progress;
+        const percent = p.percentage || 0;
+        const bar = byId('progress-bar');
+        bar.style.width = percent + '%';
+        byId('progress-text').textContent = Math.round(percent) + '%';
+        byId('step-message').textContent = p.message || 'Processing...';
+
+        if (p.status === 'completed' || p.status === 'failed') {
+            const done = p.status === 'completed';
+            setBadge('step-status', done ? 'ok' : 'err', done ? 'Completed' : 'Failed');
+            bar.className = 'bk-fill ' + (done ? 'ok' : 'err');
+            clearInterval(progressInterval);
+            if (done) setTimeout(() => { loadBackupFiles(); loadStats(); loadCloudFiles(); }, 500);
+            setTimeout(() => hideBox('progress-container'), 3000);
+        } else {
+            setBadge('step-status', 'warn', 'In progress');
+            bar.className = 'bk-fill';
         }
-    })
-    .catch(error => {
-        console.error('Progress check error:', error);
-    });
+        byId('progress-time').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+        if (p.message && p.message.includes('Uploading to Drive')) setCloudBadge('info', 'Cloud: uploading');
+    }).catch((error) => console.error('Progress check error:', error));
 }
 
-// ==========================================
-// UPDATE PROGRESS UI
-// ==========================================
-function updateProgress(percent, message, status) {
-    document.getElementById('progress-bar').style.width = percent + '%';
-    document.getElementById('progress-text').innerHTML = Math.round(percent) + '%';
-    document.getElementById('step-message').innerHTML = message;
-    
-    const statusBadge = document.getElementById('step-status');
-    if (status === 'completed') {
-        statusBadge.innerHTML = '✅ Completed';
-        statusBadge.className = 'badge badge-success badge-lg';
-    } else if (status === 'failed') {
-        statusBadge.innerHTML = '❌ Failed';
-        statusBadge.className = 'badge badge-danger badge-lg';
-    } else {
-        statusBadge.innerHTML = '⏳ In Progress';
-        statusBadge.className = 'badge badge-warning badge-lg';
+// ==========================================================
+// FILE LIST
+// ==========================================================
+function renderFiles() {
+    const tbody = byId('backup-files-body');
+    const term = byId('bkSearch').value.trim().toLowerCase();
+    const files = lastFiles.filter((f) => !term || String(f.name).toLowerCase().includes(term));
+    byId('file-count-badge').textContent = lastFiles.length + (lastFiles.length === 1 ? ' file' : ' files');
+
+    if (!files.length) {
+        tbody.innerHTML = '<tr><td colspan="6"><div class="bk-empty"><i class="bi bi-folder2-open"></i>' +
+            (lastFiles.length ? 'No files match your search.' : 'No backup files found.<br><small>Click &ldquo;Backup now&rdquo; to create your first backup.</small>') +
+            '</div></td></tr>';
+        return;
     }
+    tbody.innerHTML = files.map((file, index) => {
+        const name = esc(file.name);
+        const comp = !!file.is_compressed;
+        let drive = '<span class="bk-badge muted">&mdash;</span>';
+        if (cloudReady) {
+            drive = cloudNames.has(file.name)
+                ? '<span class="bk-badge ok"><i class="bi bi-cloud-check"></i> On Drive</span>'
+                : '<span class="bk-badge warn"><i class="bi bi-hdd"></i> Local only</span>';
+        }
+        return '<tr>' +
+            '<td class="bk-n">' + (index + 1) + '</td>' +
+            '<td><div class="bk-file"><span class="bk-fico ' + (comp ? 'zip' : '') + '"><i class="bi ' + (comp ? 'bi-file-earmark-zip' : 'bi-file-earmark') + '"></i></span>' +
+                '<div><span class="bk-fname">' + name + '</span><span class="bk-fsub">' + esc(file.modified) + '</span></div></div></td>' +
+            '<td>' + esc(file.size_display) + '</td>' +
+            '<td class="bk-hide-sm">' + (comp ? '<span class="bk-badge info">Compressed</span>' : '<span class="bk-badge muted">Raw</span>') + '</td>' +
+            '<td>' + drive + '</td>' +
+            '<td><div class="bk-row-actions">' +
+                '<a class="bk-ib" href="/backup/download/' + encodeURIComponent(file.name) + '/" title="Download"><i class="bi bi-download"></i><span>Download</span></a>' +
+                '<button type="button" class="bk-ib upload" data-act="upload" data-name="' + name + '" title="Upload to Google Drive"><i class="bi bi-cloud-arrow-up"></i><span>Upload</span></button>' +
+                '<button type="button" class="bk-ib restore" data-act="restore" data-name="' + name + '" title="Restore database"><i class="bi bi-arrow-counterclockwise"></i><span>Restore</span></button>' +
+                '<button type="button" class="bk-ib del" data-act="delete" data-name="' + name + '" title="Delete file"><i class="bi bi-trash3"></i><span>Delete</span></button>' +
+            '</div></td></tr>';
+    }).join('');
 }
 
-// ==========================================
-// LOAD BACKUP FILES WITH ACTION BUTTON LABELS
-// ==========================================
+byId('backup-files-body').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    const name = btn.dataset.name;
+    if (btn.dataset.act === 'restore') restoreLocalBackup(name);
+    else if (btn.dataset.act === 'delete') deleteBackup(name);
+    else if (btn.dataset.act === 'upload') uploadSingleBackup(name);
+});
+byId('bkSearch').addEventListener('input', renderFiles);
+
 function loadBackupFiles() {
-    fetch('/backup/files/', {
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-        },
-        credentials: 'same-origin'
-    })
-    .then(response => response.json())
-    .then(data => {
-        const tbody = document.getElementById('backup-files-body');
-        const countBadge = document.getElementById('file-count-badge');
-        
-        if (data.success && data.files && data.files.length > 0) {
-            countBadge.textContent = data.files.length + ' files';
-            let html = '';
-            data.files.forEach((file, index) => {
-                const cloudStatus = file.is_compressed ? 
-                    '<span class="badge badge-success"><i class="fas fa-cloud"></i> ✅</span>' : 
-                    '<span class="badge badge-secondary"><i class="fas fa-folder"></i> Local</span>';
-                
-                const actions = `
-                    <div class="btn-group btn-group-sm" role="group" style="flex-wrap: wrap; gap: 3px;">
-                        <a href="/backup/download/${encodeURIComponent(file.name)}/" class="btn btn-success btn-sm" title="Download Backup">
-                            <i class="fas fa-download"></i> Download
-                        </a>
-                        <button onclick="restoreLocalBackup('${file.name}')" class="btn btn-warning btn-sm" title="Restore Database">
-                            <i class="fas fa-undo"></i> Restore
-                        </button>
-                        <button onclick="deleteBackup('${file.name}')" class="btn btn-danger btn-sm" title="Delete File">
-                            <i class="fas fa-trash"></i> Delete
-                        </button>
-                        <button onclick="uploadSingleBackup('${file.name}')" class="btn btn-info btn-sm" title="Upload to Google Drive">
-                            <i class="fas fa-cloud-upload-alt"></i> Upload
-                        </button>
-                    </div>
-                `;
-                
-                html += `
-                    <tr>
-                        <td class="text-center font-weight-bold">${index + 1}</td>
-                        <td>
-                            <i class="fas fa-${file.is_compressed ? 'file-archive text-primary' : 'file text-secondary'}"></i>
-                            <span class="ml-1">${file.name}</span>
-                        </td>
-                        <td class="text-center">${file.size_display}</td>
-                        <td>${file.modified}</td>
-                        <td class="text-center">${file.is_compressed ? '✅ Yes' : '❌ No'}</td>
-                        <td class="text-center">${cloudStatus}</td>
-                        <td class="text-center">${actions}</td>
-                    </tr>
-                `;
-            });
-            tbody.innerHTML = html;
-        } else {
-            countBadge.textContent = '0 files';
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="7" class="text-center py-4 text-muted">
-                        <i class="fas fa-folder-open fa-3x mb-2 d-block"></i>
-                        <span>No backup files found</span>
-                        <br>
-                        <small>Click "Quick Backup" to create your first backup!</small>
-                    </td>
-                </tr>
-            `;
-        }
-    })
-    .catch(error => {
+    if (typeof loadHistory === 'function') loadHistory();
+    api('/backup/files/').then((data) => {
+        lastFiles = (data.success && data.files) ? data.files : [];
+        renderFiles();
+    }).catch((error) => {
         console.error('Error loading files:', error);
-        document.getElementById('backup-files-body').innerHTML = `
-            <tr>
-                <td colspan="7" class="text-center py-4 text-danger">
-                    <i class="fas fa-exclamation-circle fa-3x mb-2 d-block"></i>
-                    <span>Error loading backup files</span>
-                    <br>
-                    <small>${error.message}</small>
-                </td>
-            </tr>
-        `;
+        byId('backup-files-body').innerHTML = '<tr><td colspan="6"><div class="bk-empty" style="color:var(--bk-red)">' +
+            '<i class="bi bi-exclamation-circle"></i>Error loading backup files<br><small>' + esc(error.message) + '</small></div></td></tr>';
     });
 }
 
-// ==========================================
-// UPLOAD SINGLE BACKUP TO DRIVE
-// ==========================================
-function uploadSingleBackup(filename) {
-    if (!confirm(`Upload ${filename} to Google Drive?`)) return;
-    
-    document.getElementById('progress-container').style.display = 'block';
-    updateProgress(30, `☁️ Uploading ${filename} to Drive...`, 'in_progress');
-    
-    fetch(`/backup/upload-single/${encodeURIComponent(filename)}/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json',
-        },
-        credentials: 'same-origin'
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            updateProgress(100, '✅ ' + data.message, 'completed');
-            showToast('success', data.message);
-            setTimeout(() => {
-                loadBackupFiles();
-                loadStats();
-                loadCloudFiles();
-                document.getElementById('progress-container').style.display = 'none';
-            }, 2000);
-        } else {
-            updateProgress(0, '❌ ' + data.message, 'failed');
-            showToast('danger', data.message);
-        }
-    })
-    .catch(error => {
-        updateProgress(0, '❌ Error: ' + error, 'failed');
-        showToast('danger', 'Error: ' + error.message);
-    });
-}
-
-// ==========================================
-// LOAD STATS
-// ==========================================
 function loadStats() {
-    fetch('/backup/stats/', {
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-        },
-        credentials: 'same-origin'
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            document.getElementById('total-files').textContent = data.total_files || 0;
-            document.getElementById('total-size').textContent = (data.total_size_mb || 0) + ' MB';
-            document.getElementById('latest-backup').textContent = data.latest_backup || 'None';
-            
-            const statusEl = document.getElementById('backup-status');
-            if (data.current_progress && data.current_progress.status === 'in_progress') {
-                statusEl.innerHTML = '🔄 In Progress';
-                statusEl.className = 'text-warning';
-            } else {
-                statusEl.innerHTML = '✅ Idle';
-                statusEl.className = 'text-success';
-            }
-        }
-    })
-    .catch(error => {
-        console.error('Error loading stats:', error);
-    });
-}
-
-// ==========================================
-// DELETE BACKUP
-// ==========================================
-function deleteBackup(filename) {
-    if (!confirm(`⚠️ Delete backup: ${filename}?`)) return;
-    
-    const encodedFilename = encodeURIComponent(filename);
-    
-    fetch(`/backup/delete/${encodedFilename}/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json',
-        },
-        credentials: 'same-origin'
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            loadBackupFiles();
-            loadStats();
-            loadCloudFiles();
-            showToast('success', data.message);
+    api('/backup/stats/').then((data) => {
+        setOnline(true);
+        if (!data.success) return;
+        byId('total-files').textContent = data.total_files || 0;
+        byId('total-size').textContent = (data.total_size_mb || 0) + ' MB';
+        byId('latest-backup').textContent = data.latest_backup || 'None';
+        const statusEl = byId('backup-status');
+        if (data.current_progress && data.current_progress.status === 'in_progress') {
+            statusEl.textContent = 'In progress'; statusEl.className = 'v text-warning';
         } else {
-            showToast('danger', data.message);
+            statusEl.textContent = 'Idle'; statusEl.className = 'v text-success';
         }
-    })
-    .catch(error => {
-        showToast('danger', 'Error deleting file');
-    });
+    }).catch((error) => { console.error('Error loading stats:', error); setOnline(false); });
 }
 
-// ==========================================
-// RESTORE LOCAL BACKUP
-// ==========================================
-function restoreLocalBackup(filename) {
-    if (!confirm(`⚠️ Restore local backup: ${filename}?\n\nThis will REPLACE your current database!`)) return;
-    if (!confirm('⚠️ Are you sure? This action CANNOT BE UNDONE!')) return;
-    
-    const encodedFilename = encodeURIComponent(filename);
-    
-    document.getElementById('progress-container').style.display = 'block';
-    updateProgress(30, '🔄 Restoring from local backup...', 'in_progress');
-    
-    fetch(`/backup/restore-local/${encodedFilename}/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json',
-        },
-        credentials: 'same-origin'
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            updateProgress(100, '✅ ' + data.message, 'completed');
-            showToast('success', data.message);
-            setTimeout(() => {
-                loadBackupFiles();
-                loadStats();
-                document.getElementById('progress-container').style.display = 'none';
-            }, 2000);
-        } else {
-            updateProgress(0, '❌ ' + data.message, 'failed');
-            showToast('danger', data.message);
-        }
-    })
-    .catch(error => {
-        updateProgress(0, '❌ Error: ' + error, 'failed');
-        showToast('danger', 'Error: ' + error.message);
-    });
+function refreshAll() {
+    checkCloudStatus(); loadBackupFiles(); loadStats();
+    showToast('info', 'Refreshing...');
 }
 
-// ==========================================
-// CLEAN OLD BACKUPS
-// ==========================================
-function cleanBackups() {
-    if (!confirm('🗑️ Delete all old backups (keep latest 5)?')) return;
-    
-    document.getElementById('progress-container').style.display = 'block';
-    updateProgress(50, '🧹 Cleaning old backups...', 'in_progress');
-    
-    fetch('/backup/clean/', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json',
-        },
-        credentials: 'same-origin'
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            loadBackupFiles();
-            loadStats();
-            loadCloudFiles();
-            updateProgress(100, '✅ ' + data.message, 'completed');
-            showToast('success', data.message);
-            setTimeout(() => {
-                document.getElementById('progress-container').style.display = 'none';
-            }, 2000);
-        } else {
-            updateProgress(0, '❌ ' + data.message, 'failed');
-            showToast('danger', data.message);
-        }
-    })
-    .catch(error => {
-        updateProgress(0, '❌ Error: ' + error, 'failed');
-        showToast('danger', 'Error: ' + error.message);
-    });
-}
-
-// ==========================================
-// TOAST NOTIFICATION
-// ==========================================
-function showToast(type, message) {
-    if (typeof $ !== 'undefined' && $.fn.toast) {
-        const toastHtml = `
-            <div class="toast" role="alert" aria-live="assertive" aria-atomic="true" 
-                 style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;">
-                <div class="toast-header bg-${type} text-white">
-                    <strong class="mr-auto">
-                        ${type === 'success' ? '✅ Success' : type === 'danger' ? '❌ Error' : '⚠️ Warning'}
-                    </strong>
-                    <button type="button" class="ml-2 mb-1 close text-white" data-dismiss="toast">
-                        <span>&times;</span>
-                    </button>
-                </div>
-                <div class="toast-body">${message}</div>
-            </div>
-        `;
-        $('body').append(toastHtml);
-        $('.toast').toast('show');
-        setTimeout(() => $('.toast').remove(), 5000);
-    } else {
-        alert(message);
-    }
-}
-
-// ==========================================
-// ON PAGE LOAD
-// ==========================================
-document.addEventListener('DOMContentLoaded', function() {
+// ==========================================================
+// PAGE LOAD
+// ==========================================================
+document.addEventListener('DOMContentLoaded', function () {
     checkCloudStatus();
     loadBackupFiles();
     loadStats();
-    loadCloudFiles();
-    
-    // Auto-refresh every 15 seconds
-    setInterval(() => {
-        loadBackupFiles();
-        loadStats();
-    }, 15000);
+
+    // auto-refresh every 15 seconds (only while the tab is visible)
+    setInterval(() => { if (!document.hidden) { loadBackupFiles(); loadStats(); } }, 15000);
 });
 
-// Check for active backup on load
+// resume the progress bar if a backup is already running
 setTimeout(() => {
-    fetch('/backup/progress/', {
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-        },
-        credentials: 'same-origin'
-    })
-    .then(response => response.json())
-    .then(data => {
+    api('/backup/progress/').then((data) => {
         if (data.success && data.progress && data.progress.status === 'in_progress') {
-            document.getElementById('progress-container').style.display = 'block';
+            showBox('progress-container');
             updateProgress(data.progress.percentage, data.progress.message, 'in_progress');
-            if (progressInterval) clearInterval(progressInterval);
-            progressInterval = setInterval(checkProgress, 1000);
+            startProgressPolling();
         }
-    })
-    .catch(error => console.error('Error checking active backup:', error));
+    }).catch((error) => console.error('Error checking active backup:', error));
 }, 3000);
-
 </script>
-
-<style>
-/* ========================================== */
-/* PROFESSIONAL STYLES */
-/* ========================================== */
-
-/* Gradient Headers */
-.bg-gradient-primary {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-}
-
-.bg-gradient-danger {
-    background: linear-gradient(135deg, #dc3545 0%, #c82333 50%, #bd2130 100%);
-}
-
-/* Cards */
-.card {
-    border-radius: 12px;
-    border: none;
-    transition: all 0.3s ease;
-}
-
-.card:hover {
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-}
-
-.card-header {
-    border-radius: 12px 12px 0 0 !important;
-}
-
-/* Progress Bar */
-.progress {
-    border-radius: 10px;
-    overflow: hidden;
-    background-color: #e9ecef;
-}
-
-.progress-bar {
-    font-weight: bold;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: width 0.5s ease;
-}
-
-/* Buttons */
-.btn-block {
-    padding: 12px 0;
-    font-weight: 600;
-    border-radius: 8px;
-    transition: all 0.3s ease;
-}
-
-.btn-block:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-}
-
-.btn-block:active {
-    transform: translateY(0);
-}
-
-/* Action Buttons */
-.btn-group-sm .btn {
-    font-size: 11px;
-    padding: 4px 10px;
-    border-radius: 4px;
-}
-
-.btn-group-sm .btn i {
-    margin-right: 3px;
-}
-
-/* Badges */
-.badge-lg {
-    font-size: 14px;
-    padding: 8px 16px;
-    border-radius: 20px;
-}
-
-/* Table */
-.table {
-    margin-bottom: 0;
-}
-
-.table thead th {
-    border-bottom: 2px solid #dee2e6;
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 12px;
-    letter-spacing: 0.5px;
-}
-
-.table tbody tr {
-    transition: all 0.2s ease;
-}
-
-.table tbody tr:hover {
-    background-color: rgba(0,123,255,0.05);
-}
-
-/* Custom File Input */
-.custom-file-label {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    cursor: pointer;
-}
-
-.custom-file-label i {
-    margin-right: 5px;
-}
-
-.custom-file-input:focus ~ .custom-file-label {
-    border-color: #28a745;
-    box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
-}
-
-/* Animations */
-#progress-container {
-    animation: slideDown 0.5s ease;
-}
-
-@keyframes slideDown {
-    from {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Restore Warning */
-#restore-warning {
-    animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.85; }
-}
-
-/* Toast Notification */
-.toast {
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-}
-
-.toast-header {
-    border-radius: 12px 12px 0 0;
-    padding: 12px 20px;
-}
-
-.toast-body {
-    padding: 15px 20px;
-    font-size: 14px;
-}
-
-/* Upload Progress */
-#upload-progress {
-    animation: slideDown 0.5s ease;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .btn-block {
-        margin-bottom: 10px;
-    }
-    
-    .table {
-        font-size: 12px;
-    }
-    
-    .table td, .table th {
-        padding: 8px 10px;
-    }
-    
-    #total-files, #total-size {
-        font-size: 1.5rem;
-    }
-    
-    .btn-group-sm .btn {
-        font-size: 10px;
-        padding: 3px 7px;
-    }
-    
-    .custom-file-label {
-        font-size: 12px;
-    }
-}
-</style>
-
 {% endblock %}

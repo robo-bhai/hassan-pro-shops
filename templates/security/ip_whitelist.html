@@ -1,83 +1,62 @@
-{% extends 'base.html' %}
-{% load static %}
+{% extends 'security_base.html' %}
 
-{% block title %}IP Whitelist{% endblock %}
+{% block title %}IP Allow List{% endblock %}
 
-{% block content %}
-<div class="container-fluid px-4 py-3">
-    
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2><i class="bi bi-check-circle text-success"></i> IP Whitelist</h2>
-            <p class="text-muted">Manage allowed IP addresses</p>
+{% block page_title %}IP Allow List{% endblock %}
+{% block page_subtitle %}Addresses permitted to access the system when the allow list is enabled.{% endblock %}
+
+{% block page_body %}
+<form method="POST" class="card card-body mb-4">
+    {% csrf_token %}
+    <div class="row g-3 align-items-end">
+        <div class="col-md-5">
+            <label for="allow_ip" class="form-label">IP address</label>
+            <input type="text" id="allow_ip" name="ip_address" class="form-control" maxlength="45" autocomplete="off" spellcheck="false" placeholder="e.g. 203.0.113.10" required>
         </div>
-        <div>
-            <a href="{% url 'security_dashboard' %}" class="btn btn-secondary">
-                <i class="bi bi-arrow-left"></i> Back
-            </a>
+        <div class="col-md-5">
+            <label for="allow_description" class="form-label">Description <span class="text-muted fw-normal">(optional)</span></label>
+            <input type="text" id="allow_description" name="description" class="form-control" maxlength="255" placeholder="e.g. Head office">
         </div>
-    </div>
-    
-    <!-- Add IP -->
-    <div class="card shadow-sm border-0 mb-4">
-        <div class="card-body">
-            <form method="POST" class="row g-3">
-                {% csrf_token %}
-                <div class="col-md-5">
-                    <input type="text" name="ip_address" class="form-control" placeholder="e.g., 192.168.1.100" required>
-                </div>
-                <div class="col-md-5">
-                    <input type="text" name="description" class="form-control" placeholder="Description">
-                </div>
-                <div class="col-md-2">
-                    <button type="submit" class="btn btn-success w-100">
-                        <i class="bi bi-plus-circle"></i> Add
-                    </button>
-                </div>
-            </form>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">Add address</button>
         </div>
     </div>
-    
-    <!-- Whitelist Table -->
-    <div class="card shadow-sm border-0">
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>IP Address</th>
-                            <th>Description</th>
-                            <th>Created By</th>
-                            <th>Created At</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for ip in whitelist %}
-                        <tr>
-                            <td><code>{{ ip.ip_address }}</code></td>
-                            <td>{{ ip.description|default:"-" }}</td>
-                            <td>{{ ip.created_by.username|default:"System" }}</td>
-                            <td>{{ ip.created_at|date:"d-m-Y H:i" }}</td>
-                            <td>
-                                <span class="badge {% if ip.is_active %}bg-success{% else %}bg-secondary{% endif %}">
-                                    {% if ip.is_active %}Active{% else %}Inactive{% endif %}
-                                </span>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="5" class="text-center py-4 text-muted">
-                                <i class="bi bi-inbox fs-2 d-block"></i>
-                                <p>No IPs in whitelist</p>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+</form>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover sec-table mb-0">
+            <thead>
+                <tr>
+                    <th scope="col">IP address</th>
+                    <th scope="col">Description</th>
+                    <th scope="col">Added by</th>
+                    <th scope="col">Added at</th>
+                    <th scope="col">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ip in whitelist %}
+                <tr>
+                    <td><code>{{ ip.ip_address }}</code></td>
+                    <td>{{ ip.description|default:"-" }}</td>
+                    <td>{{ ip.created_by.username|default:"System" }}</td>
+                    <td class="text-nowrap">{{ ip.created_at|date:"d-m-Y H:i" }}</td>
+                    <td>
+                        {% if ip.is_active %}
+                        <span class="pill pill-success">Active</span>
+                        {% else %}
+                        <span class="pill pill-neutral">Inactive</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="sec-empty">No allow-listed addresses.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
-    
 </div>
 {% endblock %}

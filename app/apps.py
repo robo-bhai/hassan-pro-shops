@@ -6,4 +6,5 @@ class AppConfig(AppConfig):
     name = 'app'
 
     def ready(self):
-        import app.signals  # Import signals when the app is ready
+        import app.signals
+        import app.signals_security  

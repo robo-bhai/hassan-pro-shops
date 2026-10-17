@@ -699,14 +699,25 @@ def test_auto_status(request):
 
 @login_required
 def test_auto_stop(request):
-    """Stop the running auto test (POST). Add ?force=1 to clear a stuck state."""
+    """Stop the running background auto test (Stop button on the dashboard)."""
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+
     if not request.user.is_superuser:
-        return JsonResponse({'ok': False, 'message': 'Access denied'}, status=403)
+        if is_ajax:
+            return JsonResponse({'ok': False, 'message': 'Access denied'}, status=403)
+        messages.error(request, 'Access denied!')
+        return redirect('dashboard')
+
     if request.method != 'POST':
         return redirect('test_dashboard')
+
     from app import auto_tester
-    if request.POST.get('force') == '1':
-        auto_tester.force_reset()
+    stopping = auto_tester.request_stop()
+    if is_ajax:
+        return JsonResponse({'ok': True, 'stopping': stopping,
+                             'message': 'Stopping...' if stopping else 'No auto test is running'})
+    if stopping:
+        messages.info(request, 'Stopping the auto test...')
     else:
-        auto_tester.request_stop()
-    return JsonResponse({'ok': True})
+        messages.warning(request, 'No auto test is running.')
+    return redirect('test_dashboard')

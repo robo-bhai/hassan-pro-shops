@@ -1,5 +1,4 @@
 # context_processors.py
-from decimal import Decimal
 from django.core.cache import cache
 from .models import SystemSetting, Purchase, ShareholderDepositRequest, ShareholderWithdrawalRequest, BalanceDividend, Shareholder, CompanyInfo
 

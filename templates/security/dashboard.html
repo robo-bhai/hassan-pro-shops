@@ -1,213 +1,95 @@
-{% extends 'base.html' %}
-{% load static %}
-{% load humanize %}
+{% extends 'security_base.html' %}
 
 {% block title %}Security Dashboard{% endblock %}
 
-{% block extra_css %}
-<style>
-    .security-header {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-        border-radius: 16px;
-        padding: 30px;
-        color: white;
-        position: relative;
-        overflow: hidden;
-    }
-    .security-header::before {
-        content: '🔒';
-        position: absolute;
-        font-size: 150px;
-        right: -30px;
-        bottom: -60px;
-        opacity: 0.1;
-    }
-    .stat-card-security {
-        border: none;
-        border-radius: 12px;
-        padding: 20px;
-        transition: all 0.3s ease;
-        height: 100%;
-    }
-    .stat-card-security:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-    }
-    .stat-card-security .stat-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 22px;
-        margin-bottom: 10px;
-    }
-    .stat-card-security .stat-value {
-        font-size: 24px;
-        font-weight: 700;
-    }
-    .stat-card-security .stat-label {
-        font-size: 12px;
-        color: #6c757d;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    .alert-critical {
-        border-left: 4px solid #dc3545;
-        background: #fff5f5;
-    }
-    .alert-high {
-        border-left: 4px solid #fd7e14;
-        background: #fff8f0;
-    }
-</style>
+{% block page_title %}Security Dashboard{% endblock %}
+{% block page_subtitle %}Alerts, sign-in activity and active sessions.{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'security_alerts' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-bell" aria-hidden="true"></i> Alerts
+</a>
+<a href="{% url 'security_settings' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-gear" aria-hidden="true"></i> Settings
+</a>
 {% endblock %}
 
-{% block content %}
-<div class="container-fluid px-4 py-3">
-    
-    <!-- ========================================== -->
-    <!-- HEADER                                     -->
-    <!-- ========================================== -->
-    <div class="security-header mb-4">
-        <div class="d-flex justify-content-between align-items-center">
-            <div>
-                <h2><i class="bi bi-shield-lock text-primary me-2"></i> Security Dashboard</h2>
-                <p style="opacity:0.8;">Monitor your system security in real-time</p>
-            </div>
-            <div>
-                <a href="{% url 'security_settings' %}" class="btn btn-light btn-sm">
-                    <i class="bi bi-gear"></i> Settings
-                </a>
-                <a href="{% url 'security_alerts' %}" class="btn btn-outline-light btn-sm">
-                    <i class="bi bi-bell"></i> Alerts
-                </a>
-            </div>
+{% block page_body %}
+<section class="card mb-4" aria-label="Summary">
+    <div class="stat-strip">
+        <div>
+            <div class="stat-value">{{ total_alerts }}</div>
+            <div class="stat-label">Total alerts</div>
+        </div>
+        <div>
+            <div class="stat-value {% if unresolved_alerts %}text-danger{% endif %}">{{ unresolved_alerts }}</div>
+            <div class="stat-label">Unresolved alerts</div>
+        </div>
+        <div>
+            <div class="stat-value">{{ failed_logins }}</div>
+            <div class="stat-label">Failed logins</div>
+        </div>
+        <div>
+            <div class="stat-value">{{ active_sessions }}</div>
+            <div class="stat-label">Active sessions</div>
         </div>
     </div>
-    
-    <!-- ========================================== -->
-    <!-- STATS CARDS                               -->
-    <!-- ========================================== -->
-    <div class="row g-3 mb-4">
-        <div class="col-xl-3 col-md-6">
-            <div class="stat-card-security" style="background: linear-gradient(135deg, #e3f2fd, #bbdefb);">
-                <div class="stat-icon" style="background: rgba(25,118,210,0.15); color: #1976d2;">
-                    <i class="bi bi-shield-check"></i>
-                </div>
-                <div class="stat-value" style="color: #1976d2;">{{ total_alerts }}</div>
-                <div class="stat-label">Total Alerts</div>
+</section>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <section class="card h-100">
+            <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                <h2 class="h6 mb-0">Recent alerts</h2>
+                <a href="{% url 'security_alerts' %}" class="btn btn-sm btn-outline-secondary">View all</a>
             </div>
-        </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="stat-card-security" style="background: linear-gradient(135deg, #fce4ec, #f8bbd0);">
-                <div class="stat-icon" style="background: rgba(198,40,40,0.15); color: #c62828;">
-                    <i class="bi bi-exclamation-triangle"></i>
-                </div>
-                <div class="stat-value" style="color: #c62828;">{{ unresolved_alerts }}</div>
-                <div class="stat-label">Unresolved Alerts</div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="stat-card-security" style="background: linear-gradient(135deg, #fff3e0, #ffe0b2);">
-                <div class="stat-icon" style="background: rgba(245,124,0,0.15); color: #f57c00;">
-                    <i class="bi bi-person-x"></i>
-                </div>
-                <div class="stat-value" style="color: #f57c00;">{{ failed_logins }}</div>
-                <div class="stat-label">Failed Logins</div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="stat-card-security" style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9);">
-                <div class="stat-icon" style="background: rgba(46,125,50,0.15); color: #2e7d32;">
-                    <i class="bi bi-person-check"></i>
-                </div>
-                <div class="stat-value" style="color: #2e7d32;">{{ active_sessions }}</div>
-                <div class="stat-label">Active Sessions</div>
-            </div>
-        </div>
+            <ul class="list-group list-group-flush">
+                {% for alert in recent_alerts %}
+                <li class="list-group-item d-flex justify-content-between align-items-center gap-3">
+                    <div class="min-w-0">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="pill pill-{{ alert.severity }}">{{ alert.get_severity_display }}</span>
+                            <span class="fw-semibold text-truncate">{{ alert.title|truncatechars:40 }}</span>
+                        </div>
+                        <small class="text-muted">{{ alert.created_at|date:"d-m-Y H:i" }}</small>
+                    </div>
+                    {% if alert.is_resolved %}
+                    <span class="pill pill-success">Resolved</span>
+                    {% else %}
+                    <span class="pill pill-danger">Unresolved</span>
+                    {% endif %}
+                </li>
+                {% empty %}
+                <li class="list-group-item sec-empty">No security alerts.</li>
+                {% endfor %}
+            </ul>
+        </section>
     </div>
-    
-    <!-- ========================================== -->
-    <!-- RECENT ALERTS                             -->
-    <!-- ========================================== -->
-    <div class="row g-3">
-        <div class="col-md-6">
-            <div class="card shadow-sm border-0">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0"><i class="bi bi-bell text-danger"></i> Recent Security Alerts</h6>
-                    <a href="{% url 'security_alerts' %}" class="btn btn-sm btn-outline-primary">View All</a>
-                </div>
-                <div class="card-body p-0">
-                    <ul class="list-unstyled mb-0">
-                        {% for alert in recent_alerts %}
-                        <li class="border-bottom px-3 py-2 d-flex justify-content-between align-items-center">
-                            <div>
-                                <span class="badge 
-                                    {% if alert.severity == 'critical' %}bg-danger
-                                    {% elif alert.severity == 'high' %}bg-warning
-                                    {% elif alert.severity == 'medium' %}bg-info
-                                    {% else %}bg-secondary{% endif %}">
-                                    {{ alert.get_severity_display }}
-                                </span>
-                                <span class="fw-bold">{{ alert.title|truncatechars:30 }}</span>
-                                <br>
-                                <small class="text-muted">{{ alert.created_at|date:"d-m-Y H:i" }}</small>
-                            </div>
-                            <div>
-                                {% if not alert.is_resolved %}
-                                <span class="badge bg-danger">Unresolved</span>
-                                {% else %}
-                                <span class="badge bg-success">Resolved</span>
-                                {% endif %}
-                            </div>
-                        </li>
-                        {% empty %}
-                        <li class="text-center py-4 text-muted">
-                            <i class="bi bi-check-circle fs-2 d-block text-success"></i>
-                            <p>No security alerts</p>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                </div>
+
+    <div class="col-lg-6">
+        <section class="card h-100">
+            <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                <h2 class="h6 mb-0">Recent login attempts</h2>
+                <a href="{% url 'security_logs' %}" class="btn btn-sm btn-outline-secondary">View all</a>
             </div>
-        </div>
-        
-        <div class="col-md-6">
-            <div class="card shadow-sm border-0">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0"><i class="bi bi-clock-history text-primary"></i> Recent Login Attempts</h6>
-                    <a href="{% url 'security_logs' %}" class="btn btn-sm btn-outline-primary">View All</a>
-                </div>
-                <div class="card-body p-0">
-                    <ul class="list-unstyled mb-0">
-                        {% for login in recent_logins %}
-                        <li class="border-bottom px-3 py-2 d-flex justify-content-between align-items-center">
-                            <div>
-                                <span class="fw-bold">{{ login.username }}</span>
-                                <br>
-                                <small class="text-muted">{{ login.ip_address }} • {{ login.attempted_at|date:"d-m-Y H:i" }}</small>
-                            </div>
-                            <div>
-                                {% if login.is_success %}
-                                <span class="badge bg-success">✅ Success</span>
-                                {% else %}
-                                <span class="badge bg-danger">❌ Failed</span>
-                                {% endif %}
-                            </div>
-                        </li>
-                        {% empty %}
-                        <li class="text-center py-4 text-muted">
-                            <i class="bi bi-inbox fs-2 d-block"></i>
-                            <p>No login attempts</p>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                </div>
-            </div>
-        </div>
+            <ul class="list-group list-group-flush">
+                {% for login in recent_logins %}
+                <li class="list-group-item d-flex justify-content-between align-items-center gap-3">
+                    <div>
+                        <div class="fw-semibold">{{ login.username }}</div>
+                        <small class="text-muted">{{ login.ip_address }} &middot; {{ login.attempted_at|date:"d-m-Y H:i" }}</small>
+                    </div>
+                    {% if login.is_success %}
+                    <span class="pill pill-success">Success</span>
+                    {% else %}
+                    <span class="pill pill-danger">Failed</span>
+                    {% endif %}
+                </li>
+                {% empty %}
+                <li class="list-group-item sec-empty">No login attempts yet.</li>
+                {% endfor %}
+            </ul>
+        </section>
     </div>
-    
 </div>
 {% endblock %}

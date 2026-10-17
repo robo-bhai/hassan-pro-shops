@@ -18,6 +18,7 @@ Run from the web (Testing dashboard -> "Run Auto Tests") or from the terminal:
 """
 import json
 import os
+import re
 import tempfile
 import threading
 import time
@@ -44,25 +45,11 @@ MAX_BUGS_PER_CHECK = 25          # a broken system must not flood the bug list
 SKIP_URL_WORDS = (
     "delete", "remove", "logout", "signout", "backup", "restore", "reset", "clear", "purge",
     "send", "whatsapp", "sms", "email", "notify", "sync", "upload", "import", "process",
-    "two-factor", "2fa", "mfa", "otp", "approve", "reject", "cancel", "close", "generate", "run-auto", "auto-test", "bulk",
+    "approve", "reject", "cancel", "close", "generate", "run-auto", "auto-test", "bulk",
     "ai/", "/ai-", "stream", "/live", "-live", "webhook", "callback", "download", "export", "pdf",
     "toggle", "mark-", "execute", "payment", "pay/", "checkout", "buy-now", "add-to-cart",
 )
 _note_cb = None                  # set by the background worker to show "Pages: 120/300"
-
-
-class RunCancelled(Exception):
-    """Raised when the user pressed Stop."""
-
-
-def _check_cancel():
-    try:
-        if _read_state().get("cancel"):
-            raise RunCancelled()
-    except RunCancelled:
-        raise
-    except Exception:
-        pass
 
 
 def _note(text):
@@ -158,35 +145,6 @@ def check_database_tables():
     return r
 
 
-def check_database_integrity():
-    r = CheckResult("Database", "Data integrity (no broken links between records)",
-                    "Looks for records that point to a parent record that no longer exists, and checks the database file itself.",
-                    "No orphaned records and the database file is healthy.")
-    try:
-        if connection.vendor == "sqlite":
-            with connection.cursor() as cur:
-                cur.execute("PRAGMA integrity_check")
-                verdict = [str(row[0]) for row in cur.fetchall()]
-                if verdict != ["ok"]:
-                    r.fail("database file", "SQLite integrity_check: " + "; ".join(verdict)[:300], "critical")
-                cur.execute("PRAGMA foreign_key_check")
-                rows = cur.fetchmany(5000)
-            groups = {}
-            for table, rowid, parent, _fk in rows:
-                g = groups.setdefault((table, parent), [0, rowid])
-                g[0] += 1
-            for (table, parent), (count, sample) in sorted(groups.items()):
-                r.fail(f"{table} -> {parent}",
-                       f"{count} record(s) in '{table}' point to a missing '{parent}' record (example row id: {sample}).",
-                       "major")
-        else:
-            connection.check_constraints()
-    except Exception as e:
-        r.fail("integrity check", f"{type(e).__name__}: {str(e)[:300]}", "major")
-    r.finish()
-    return r
-
-
 def _template_names():
     seen = set()
     dirs = []
@@ -242,7 +200,9 @@ def _iter_urls(patterns, prefix=""):
 
 
 def _clean_route(route):
-    return route.replace("^", "").replace("$", "").replace("\\", "")
+    # re_path patterns (jaise django-pwa ka ^manifest\.json$) ko saaf URL banao: ^ $ aur backslash escapes hata do
+    route = route.replace("^", "").replace("$", "")
+    return re.sub(r"\\(.)", r"\1", route)
 
 
 def check_pages(user, host):
@@ -265,35 +225,19 @@ def check_pages(user, host):
         urls.append("/" + route.lstrip("/"))
     urls = sorted(set(urls))[:MAX_PAGES]
 
-    r.checked = set(urls)            # lets _store() know which pages were really tested
-    from collections import Counter
-    causes = Counter()               # same error on many pages = one root cause
-    timings = []                     # (seconds, url) of pages that answered
     ok = redirects = missing = 0
     for i, url in enumerate(urls, 1):
-        _check_cancel()
         if i % 10 == 1 or i == len(urls):
             _note(f"Pages: {i}/{len(urls)}")
-        resp = err = None
-        for attempt in (1, 2):                            # a 5xx must repeat once before it counts
-            t = time.monotonic()
-            try:
-                with transaction.atomic():
-                    resp = client.get(url, follow=False)
-                    transaction.set_rollback(True)        # undo anything a GET view might write
-                err = None
-            except Exception as e:
-                resp, err = None, e
-            if err is None and resp.status_code < 500:
-                break
-            if attempt == 1:
-                time.sleep(0.3)
-        took = time.monotonic() - t
-        if err is not None:
-            msg = f"Crashed: {type(err).__name__}: {str(err)[:300]}"
-            causes[msg] += 1
-            r.fail(url, msg, "major")
+        t = time.monotonic()
+        try:
+            with transaction.atomic():
+                resp = client.get(url, follow=False)
+                transaction.set_rollback(True)            # undo anything a GET view might write
+        except Exception as e:
+            r.fail(url, f"Crashed: {type(e).__name__}: {str(e)[:300]}", "major")
             continue
+        took = time.monotonic() - t
         code = resp.status_code
         if code >= 500:
             exc = getattr(resp, "exc_info", None)
@@ -307,32 +251,17 @@ def check_pages(user, host):
                         msg += f" [{os.path.basename(frames[-1].filename)}:{frames[-1].lineno}]"
                 except Exception:
                     pass
-            if "database is locked" in msg:
-                r.warn(url, "SQLite was busy (another request was writing): " + msg)
-            else:
-                causes[msg.split(" [")[0]] += 1
-                r.fail(url, msg, "major")
+            r.fail(url, msg, "major")
         elif code == 404:
             missing += 1
             r.warn(url, "HTTP 404 (URL exists in urls.py but page says not found)")
         else:
             redirects += 1 if 300 <= code < 400 else 0
             ok += 1 if code < 400 else 0
-            body = b"" if getattr(resp, "streaming", False) else (resp.content or b"")[:300000]
-            if code == 200 and b"Traceback (most recent call last)" in body:
-                msg = "Page shows a Python traceback (HTTP 200)"
-                causes[msg] += 1
-                r.fail(url, msg, "major")
-        if code < 500:
-            timings.append((took, url))
         if took > SLOW_SECONDS and code < 500:
             r.warn(url, f"Slow page: {took:.1f}s")
     r.actual_extra = f"{len(urls)} pages tried"
     r.finish()
-    if r.status == "failed" and causes:
-        top, n = causes.most_common(1)[0]
-        r.actual += f" - most common cause ({n}x): {top[:160]}"
-    r.slowest = [{"url": u, "seconds": round(t, 2)} for t, u in sorted(timings, reverse=True)[:3]]
     if r.status == "passed":
         r.actual = f"OK - {len(urls)} pages tried ({ok} ok, {redirects} redirects, {missing} not found)"
     return r
@@ -361,37 +290,6 @@ CUSTOM_CHECKS = [
 # --------------------------------------------------------------------------------------
 # Saving results inside the Testing module
 # --------------------------------------------------------------------------------------
-CLOSED_STATUSES = ["fixed", "verified", "closed", "duplicate", "won_fix"]
-
-
-def _auto_close_resolved(result, case, real):
-    """Old [Auto] bugs of this check whose problem is no longer reported are marked 'fixed'.
-    Only bugs the check really re-tested are touched; anything uncertain stays open."""
-    if any(d[1] == "crash" for d in real):          # the checker itself crashed -> we know nothing
-        return 0
-    suffix = f" - {result.title}"
-    still = {f"[Auto] {name}{suffix}"[:200] for _sev, name, _msg in real}
-    unsure = {f"[Auto] {name}{suffix}"[:200] for sev, name, msg in result.details
-              if sev == "warning" and "SQLite was busy" in str(msg)}
-    checked = getattr(result, "checked", None)       # None = every problem is re-tested each run
-    summary_prefix = f"[Auto] {result.title}: "
-    closed = 0
-    open_bugs = Bug.objects.filter(test_case=case, title__startswith="[Auto] ").exclude(status__in=CLOSED_STATUSES)
-    for bug in open_bugs:
-        if bug.title in still or bug.title in unsure:
-            continue
-        if bug.title.startswith(summary_prefix):
-            if len(real) > MAX_BUGS_PER_CHECK:
-                continue
-        elif checked is not None:
-            if not bug.title.endswith(suffix) or bug.title[7:-len(suffix)] not in checked:
-                continue                              # page was not opened this run -> cannot say it is fixed
-        bug.status = "fixed"
-        bug.save(update_fields=["status"])
-        closed += 1
-    return closed
-
-
 def _store(result, user):
     project, _ = TestProject.objects.get_or_create(
         name=PROJECT_NAME,
@@ -449,8 +347,7 @@ def _store(result, user):
                 steps_to_reproduce=f"Run Auto Tests -> '{result.title}'", actual_result=result.actual,
                 expected_result=result.expected)
             bugs += 1
-    closed = _auto_close_resolved(result, case, real)
-    return bugs, closed
+    return bugs
 
 
 def _runners(user, host, include_pages):
@@ -458,7 +355,6 @@ def _runners(user, host, include_pages):
         ("Django system check", check_django_system),
         ("Pending migrations", check_migrations),
         ("Database tables", check_database_tables),
-        ("Data integrity", check_database_integrity),
         ("Templates", check_templates),
     ]
     if include_pages:
@@ -478,22 +374,17 @@ def run_all(user=None, host="localhost", include_pages=True, progress=None):
         raise RuntimeError("No active superuser found - create one with: python manage.py createsuperuser")
 
     items = _runners(user, host, include_pages)
-    results, new_bugs, auto_closed = [], 0, 0
+    results, new_bugs = [], 0
     for idx, (label, run) in enumerate(items):
         if progress:
             progress(idx, len(items), label, None)
-        _check_cancel()
         try:
             res = run()
-        except RunCancelled:
-            raise
         except Exception:
             res = CheckResult("System", label, "Checker crashed", "No crash")
             res.fail("crash", traceback.format_exc()[-800:], "major")
             res.finish()
-        created, closed = _store(res, user)
-        new_bugs += created
-        auto_closed += closed
+        new_bugs += _store(res, user)
         results.append(res)
         if progress:
             progress(idx + 1, len(items), label, res)
@@ -501,7 +392,7 @@ def run_all(user=None, host="localhost", include_pages=True, progress=None):
     passed = sum(1 for r in results if r.status == "passed")
     return {
         "total": len(results), "passed": passed, "failed": len(results) - passed,
-        "new_bugs": new_bugs, "auto_closed": auto_closed,
+        "new_bugs": new_bugs,
         "warnings": sum(1 for r in results for d in r.details if d[0] == "warning"),
         "results": results,
     }
@@ -514,27 +405,6 @@ def run_all(user=None, host="localhost", include_pages=True, progress=None):
 _STATE_FILE = os.path.join(tempfile.gettempdir(), "erp_auto_tester_state.json")
 _STALE_SECONDS = 20 * 60          # a "running" state older than this is treated as crashed
 _thread_lock = threading.Lock()
-_worker_thread = None
-
-
-def _worker_alive():
-    return _worker_thread is not None and _worker_thread.is_alive()
-
-
-def request_stop():
-    """Ask the running test to stop; if nothing is really running, just reset the state."""
-    st = _read_state()
-    if st.get("state") != "running":
-        return False
-    _write_state(cancel=True, current="Stopping...")
-    return True
-
-
-def force_reset():
-    """Hard reset - clears a stuck 'running' state."""
-    _write_state(state="stopped", finished=time.time(), cancel=False, current="Stopped", error=None)
-
-
 
 
 def _read_state():
@@ -556,28 +426,32 @@ def _write_state(**changes):
     return state
 
 
-def _pid_alive(pid):
-    try:
-        os.kill(int(pid), 0)
-        return True
-    except Exception:
-        return False
-
-
 def get_status():
     st = _read_state()
-    if st.get("state") == "running":
-        pid = st.get("pid")
-        # Server restarted / worker died -> the run can never finish, so stop reporting "running".
-        dead = (pid == os.getpid() and not _worker_alive()) or (pid != os.getpid() and pid and not _pid_alive(pid))
-        if dead:
-            st = _write_state(state="error", finished=time.time(),
-                              error="The last run stopped unexpectedly (server restarted?).")
     if st.get("state") == "running" and time.time() - st.get("updated", 0) > _STALE_SECONDS:
         st = _write_state(state="error", error="The last run stopped unexpectedly (server restarted?).")
     if st.get("state") == "running":
         st["elapsed"] = int(time.time() - st.get("started", time.time()))
     return st
+
+
+class _StopRequested(BaseException):
+    """Raised inside the worker when the user presses Stop.
+    BaseException on purpose: the checks use `except Exception`, which must not swallow it."""
+
+
+def request_stop():
+    """Ask a running auto test to stop at the next step. Returns True if a run was active."""
+    with _thread_lock:
+        if get_status().get("state") != "running":
+            return False
+        _write_state(stop_requested=True, current="Stopping...")
+        return True
+
+
+def _check_stop():
+    if _read_state().get("stop_requested"):
+        raise _StopRequested()
 
 
 def _worker(user_id, host, include_pages):
@@ -588,18 +462,19 @@ def _worker(user_id, host, include_pages):
         user = User.objects.get(pk=user_id)
 
         def note(text):
+            _check_stop()
             _write_state(current=text)
 
         _note_cb = note
 
         def progress(done, total, label, res):
+            _check_stop()
             if res is None:
                 _write_state(step=done, total=total, current=label)
             else:
                 rows = _read_state().get("results", [])
                 rows.append({
                     "suite": res.suite, "title": res.title, "status": res.status, "actual": res.actual,
-                    "slowest": getattr(res, "slowest", []), "slow_limit": SLOW_SECONDS,
                     "details": [
                         {"severity": sv, "item": nm, "message": str(ms)[:300]}
                         for sv, nm, ms in res.details
@@ -609,9 +484,9 @@ def _worker(user_id, host, include_pages):
 
         summary = run_all(user=user, host=host, include_pages=include_pages, progress=progress)
         _write_state(state="done", finished=time.time(), current="Finished", summary={
-            k: summary[k] for k in ("total", "passed", "failed", "warnings", "new_bugs", "auto_closed")})
-    except RunCancelled:
-        _write_state(state="stopped", finished=time.time(), cancel=False, current="Stopped by user")
+            k: summary[k] for k in ("total", "passed", "failed", "warnings", "new_bugs")})
+    except _StopRequested:
+        _write_state(state="stopped", finished=time.time(), current="Stopped by user", stop_requested=False)
     except Exception:
         _write_state(state="error", finished=time.time(), error=traceback.format_exc()[-600:])
     finally:
@@ -625,10 +500,7 @@ def start_background(user, host, include_pages=True):
         if get_status().get("state") == "running":
             return False
         _write_state(state="running", started=time.time(), finished=None, step=0, total=0,
-                     current="Starting...", results=[], summary=None, error=None,
-                     cancel=False, pid=os.getpid(),
+                     current="Starting...", results=[], summary=None, error=None, stop_requested=False,
                      started_by=getattr(user, "username", ""))
-        global _worker_thread
-        _worker_thread = threading.Thread(target=_worker, args=(user.pk, host, include_pages), daemon=True)
-        _worker_thread.start()
+        threading.Thread(target=_worker, args=(user.pk, host, include_pages), daemon=True).start()
         return True

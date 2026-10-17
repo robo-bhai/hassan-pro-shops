@@ -1,286 +1,195 @@
-{% extends 'base.html' %}
-{% load static %}
+{% extends 'security_base.html' %}
 
 {% block title %}Security Settings{% endblock %}
 
-{% block extra_css %}
+{% block page_title %}Security Settings{% endblock %}
+{% block page_subtitle %}Authentication, password policy, network access and alerts.{% endblock %}
+
+{% block page_css %}
 <style>
-    .settings-group {
-        background: #f8f9fa;
-        border-radius: 12px;
-        padding: 16px 20px;
-        margin-bottom: 16px;
-    }
-    .settings-group .group-title {
-        font-weight: 600;
-        font-size: 14px;
-        color: #2d3748;
-        margin-bottom: 12px;
-    }
-    .toggle-switch {
-        width: 50px;
-        height: 26px;
-        background: #ccc;
-        border-radius: 13px;
-        position: relative;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }
-    .toggle-switch.active {
-        background: #28a745;
-    }
-    .toggle-switch .toggle-slider {
-        width: 22px;
-        height: 22px;
-        background: white;
-        border-radius: 50%;
-        position: absolute;
-        top: 2px;
-        left: 2px;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    }
-    .toggle-switch.active .toggle-slider {
-        left: 26px;
-    }
-    .setting-item {
+    .setting-row {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 10px 0;
-        border-bottom: 1px solid #f1f3f5;
+        gap: 1rem;
+        padding: .75rem 0;
+        border-bottom: 1px solid var(--bs-border-color, #dee2e6);
     }
-    .setting-item:last-child {
-        border-bottom: none;
-    }
-    .setting-item .setting-label {
-        font-weight: 500;
-    }
-    .setting-item .setting-desc {
-        font-size: 12px;
-        color: #6c757d;
-    }
+    .setting-row:last-of-type { border-bottom: 0; }
+    .setting-row .form-check-input { width: 2.5em; height: 1.35em; cursor: pointer; }
+    .setting-row label { cursor: pointer; }
 </style>
 {% endblock %}
 
-{% block content %}
-<div class="container-fluid px-4 py-3">
-    
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2><i class="bi bi-gear text-primary"></i> Security Settings</h2>
-            <p class="text-muted">Configure system security parameters</p>
-        </div>
-        <div>
-            <a href="{% url 'security_dashboard' %}" class="btn btn-secondary">
-                <i class="bi bi-arrow-left"></i> Back
-            </a>
-        </div>
-    </div>
-    
-    <div class="card shadow-sm border-0">
-        <div class="card-body">
-            <form method="POST">
-                {% csrf_token %}
-                
-                <!-- Authentication -->
-                <div class="settings-group">
-                    <div class="group-title">🔐 Authentication</div>
-                    
-                    <div class="setting-item">
-                        <div>
-                            <div class="setting-label">Two-Factor Authentication</div>
-                            <div class="setting-desc">Enable 2FA for all users</div>
-                        </div>
-                        <div class="toggle-switch {% if settings.enable_2fa %}active{% endif %}" onclick="toggleSwitch(this)">
-                            <input type="hidden" name="enable_2fa" value="{% if settings.enable_2fa %}on{% endif %}">
-                            <div class="toggle-slider"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="setting-item">
-                        <div>
-                            <div class="setting-label">Auto Logout</div>
-                            <div class="setting-desc">Auto logout inactive users</div>
-                        </div>
-                        <div class="toggle-switch {% if settings.enable_auto_logout %}active{% endif %}" onclick="toggleSwitch(this)">
-                            <input type="hidden" name="enable_auto_logout" value="{% if settings.enable_auto_logout %}on{% endif %}">
-                            <div class="toggle-slider"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="row g-3 mt-2">
-                        <div class="col-md-4">
-                            <label class="form-label">Max Login Attempts</label>
-                            <input type="number" name="max_login_attempts" class="form-control" value="{{ settings.max_login_attempts }}">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Lockout Time (minutes)</label>
-                            <input type="number" name="lockout_time" class="form-control" value="{{ settings.lockout_time }}">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Session Timeout (minutes)</label>
-                            <input type="number" name="session_timeout" class="form-control" value="{{ settings.session_timeout }}">
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Password Policy -->
-                <div class="settings-group">
-                    <div class="group-title">🔑 Password Policy</div>
-                    
-                    <div class="setting-item">
-                        <div>
-                            <div class="setting-label">Prevent Password Reuse</div>
-                            <div class="setting-desc">Prevent users from reusing old passwords</div>
-                        </div>
-                        <div class="toggle-switch {% if settings.prevent_password_reuse %}active{% endif %}" onclick="toggleSwitch(this)">
-                            <input type="hidden" name="prevent_password_reuse" value="{% if settings.prevent_password_reuse %}on{% endif %}">
-                            <div class="toggle-slider"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="row g-3 mt-2">
-                        <div class="col-md-3">
-                            <label class="form-label">Min Password Length</label>
-                            <input type="number" name="min_password_length" class="form-control" value="{{ settings.min_password_length }}">
-                        </div>
-                        <div class="col-md-3">
-                            <div class="form-check mt-4">
-                                <input type="checkbox" name="require_uppercase" class="form-check-input" {% if settings.require_uppercase %}checked{% endif %}>
-                                <label class="form-check-label">Uppercase</label>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="form-check mt-4">
-                                <input type="checkbox" name="require_lowercase" class="form-check-input" {% if settings.require_lowercase %}checked{% endif %}>
-                                <label class="form-check-label">Lowercase</label>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="form-check mt-4">
-                                <input type="checkbox" name="require_numbers" class="form-check-input" {% if settings.require_numbers %}checked{% endif %}>
-                                <label class="form-check-label">Numbers</label>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="row g-3 mt-2">
-                        <div class="col-md-4">
-                            <div class="form-check">
-                                <input type="checkbox" name="require_special_chars" class="form-check-input" {% if settings.require_special_chars %}checked{% endif %}>
-                                <label class="form-check-label">Special Characters</label>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Password Expiry (days)</label>
-                            <input type="number" name="password_expiry_days" class="form-control" value="{{ settings.password_expiry_days }}">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Password History Count</label>
-                            <input type="number" name="password_history_count" class="form-control" value="{{ settings.password_history_count }}">
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- IP Security -->
-                <div class="settings-group">
-                    <div class="group-title">🌐 IP Security</div>
-                    
-                    <div class="setting-item">
-                        <div>
-                            <div class="setting-label">IP Whitelist</div>
-                            <div class="setting-desc">Allow only whitelisted IPs</div>
-                        </div>
-                        <div class="toggle-switch {% if settings.enable_ip_whitelist %}active{% endif %}" onclick="toggleSwitch(this)">
-                            <input type="hidden" name="enable_ip_whitelist" value="{% if settings.enable_ip_whitelist %}on{% endif %}">
-                            <div class="toggle-slider"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="setting-item">
-                        <div>
-                            <div class="setting-label">IP Blacklist</div>
-                            <div class="setting-desc">Block malicious IPs</div>
-                        </div>
-                        <div class="toggle-switch {% if settings.enable_ip_blacklist %}active{% endif %}" onclick="toggleSwitch(this)">
-                            <input type="hidden" name="enable_ip_blacklist" value="{% if settings.enable_ip_blacklist %}on{% endif %}">
-                            <div class="toggle-slider"></div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- API Security -->
-                <div class="settings-group">
-                    <div class="group-title">🔌 API Security</div>
-                    
-                    <div class="setting-item">
-                        <div>
-                            <div class="setting-label">API Authentication</div>
-                            <div class="setting-desc">Require API key for API access</div>
-                        </div>
-                        <div class="toggle-switch {% if settings.enable_api_auth %}active{% endif %}" onclick="toggleSwitch(this)">
-                            <input type="hidden" name="enable_api_auth" value="{% if settings.enable_api_auth %}on{% endif %}">
-                            <div class="toggle-slider"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="row g-3 mt-2">
-                        <div class="col-md-6">
-                            <label class="form-label">API Rate Limit (requests/min)</label>
-                            <input type="number" name="api_rate_limit" class="form-control" value="{{ settings.api_rate_limit }}">
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Alerts -->
-                <div class="settings-group">
-                    <div class="group-title">🔔 Security Alerts</div>
-                    
-                    <div class="setting-item">
-                        <div>
-                            <div class="setting-label">Enable Security Alerts</div>
-                            <div class="setting-desc">Send alerts for security events</div>
-                        </div>
-                        <div class="toggle-switch {% if settings.enable_security_alerts %}active{% endif %}" onclick="toggleSwitch(this)">
-                            <input type="hidden" name="enable_security_alerts" value="{% if settings.enable_security_alerts %}on{% endif %}">
-                            <div class="toggle-slider"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="row g-3 mt-2">
-                        <div class="col-md-6">
-                            <label class="form-label">Alert Email</label>
-                            <input type="email" name="alert_email" class="form-control" value="{{ settings.alert_email }}">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Alert WhatsApp</label>
-                            <input type="text" name="alert_whatsapp" class="form-control" value="{{ settings.alert_whatsapp }}">
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="mt-4">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-save"></i> Save Settings
-                    </button>
-                    <a href="{% url 'security_dashboard' %}" class="btn btn-secondary">
-                        <i class="bi bi-x-circle"></i> Cancel
-                    </a>
-                </div>
-            </form>
-        </div>
-    </div>
-    
-</div>
+{% block page_body %}
+<form method="POST" novalidate>
+    {% csrf_token %}
 
-<script>
-    function toggleSwitch(element) {
-        element.classList.toggle('active');
-        var input = element.querySelector('input[type="hidden"]');
-        if (input) {
-            input.value = element.classList.contains('active') ? 'on' : 'off';
-        }
-    }
-</script>
+    <section class="card mb-4">
+        <div class="card-header bg-transparent"><h2 class="h6 mb-0">Authentication</h2></div>
+        <div class="card-body">
+            <div class="setting-row">
+                <label for="enable_2fa">
+                    <span class="d-block fw-medium">Two-factor authentication</span>
+                    <span class="d-block small text-muted">Require a one-time code at sign-in.</span>
+                </label>
+                <div class="form-check form-switch m-0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="enable_2fa" name="enable_2fa" {% if settings.enable_2fa %}checked{% endif %}>
+                </div>
+            </div>
+            <div class="setting-row">
+                <label for="enable_auto_logout">
+                    <span class="d-block fw-medium">Automatic logout</span>
+                    <span class="d-block small text-muted">Sign out users after the session timeout below.</span>
+                </label>
+                <div class="form-check form-switch m-0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="enable_auto_logout" name="enable_auto_logout" {% if settings.enable_auto_logout %}checked{% endif %}>
+                </div>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-md-4">
+                    <label for="max_login_attempts" class="form-label">Failed logins before block</label>
+                    <input type="number" id="max_login_attempts" name="max_login_attempts" class="form-control" min="1" value="{{ settings.max_login_attempts }}">
+                    <div class="form-text">Counted per IP address over 5 minutes.</div>
+                </div>
+                <div class="col-md-4">
+                    <label for="lockout_time" class="form-label">Block duration (minutes)</label>
+                    <input type="number" id="lockout_time" name="lockout_time" class="form-control" min="1" value="{{ settings.lockout_time }}">
+                </div>
+                <div class="col-md-4">
+                    <label for="session_timeout" class="form-label">Session timeout (minutes)</label>
+                    <input type="number" id="session_timeout" name="session_timeout" class="form-control" min="1" value="{{ settings.session_timeout }}">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="card mb-4">
+        <div class="card-header bg-transparent"><h2 class="h6 mb-0">Password policy</h2></div>
+        <div class="card-body">
+            <div class="setting-row">
+                <label for="prevent_password_reuse">
+                    <span class="d-block fw-medium">Prevent password reuse</span>
+                    <span class="d-block small text-muted">Reject passwords that were used recently.</span>
+                </label>
+                <div class="form-check form-switch m-0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="prevent_password_reuse" name="prevent_password_reuse" {% if settings.prevent_password_reuse %}checked{% endif %}>
+                </div>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-md-4">
+                    <label for="min_password_length" class="form-label">Minimum length</label>
+                    <input type="number" id="min_password_length" name="min_password_length" class="form-control" min="1" value="{{ settings.min_password_length }}">
+                </div>
+                <div class="col-md-4">
+                    <label for="password_expiry_days" class="form-label">Expiry (days)</label>
+                    <input type="number" id="password_expiry_days" name="password_expiry_days" class="form-control" min="0" value="{{ settings.password_expiry_days }}">
+                </div>
+                <div class="col-md-4">
+                    <label for="password_history_count" class="form-label">Remembered passwords</label>
+                    <input type="number" id="password_history_count" name="password_history_count" class="form-control" min="0" value="{{ settings.password_history_count }}">
+                </div>
+            </div>
+
+            <fieldset class="mt-3">
+                <legend class="form-label fs-6">Required characters</legend>
+                <div class="d-flex flex-wrap gap-4">
+                    <div class="form-check">
+                        <input type="checkbox" id="require_uppercase" name="require_uppercase" class="form-check-input" {% if settings.require_uppercase %}checked{% endif %}>
+                        <label for="require_uppercase" class="form-check-label">Uppercase letter</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" id="require_lowercase" name="require_lowercase" class="form-check-input" {% if settings.require_lowercase %}checked{% endif %}>
+                        <label for="require_lowercase" class="form-check-label">Lowercase letter</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" id="require_numbers" name="require_numbers" class="form-check-input" {% if settings.require_numbers %}checked{% endif %}>
+                        <label for="require_numbers" class="form-check-label">Number</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" id="require_special_chars" name="require_special_chars" class="form-check-input" {% if settings.require_special_chars %}checked{% endif %}>
+                        <label for="require_special_chars" class="form-check-label">Special character</label>
+                    </div>
+                </div>
+            </fieldset>
+        </div>
+    </section>
+
+    <section class="card mb-4">
+        <div class="card-header bg-transparent"><h2 class="h6 mb-0">Network access</h2></div>
+        <div class="card-body">
+            <div class="setting-row">
+                <label for="enable_ip_whitelist">
+                    <span class="d-block fw-medium">IP allow list</span>
+                    <span class="d-block small text-muted">Only allow requests from allow-listed IP addresses. Add your own IP first, or you will lock yourself out.</span>
+                </label>
+                <div class="form-check form-switch m-0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="enable_ip_whitelist" name="enable_ip_whitelist" {% if settings.enable_ip_whitelist %}checked{% endif %}>
+                </div>
+            </div>
+            <div class="setting-row">
+                <label for="enable_ip_blacklist">
+                    <span class="d-block fw-medium">IP block list</span>
+                    <span class="d-block small text-muted">Deny requests from blocked IP addresses, including automatic blocks after repeated failed logins.</span>
+                </label>
+                <div class="form-check form-switch m-0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="enable_ip_blacklist" name="enable_ip_blacklist" {% if settings.enable_ip_blacklist %}checked{% endif %}>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="card mb-4">
+        <div class="card-header bg-transparent"><h2 class="h6 mb-0">API access</h2></div>
+        <div class="card-body">
+            <div class="setting-row">
+                <label for="enable_api_auth">
+                    <span class="d-block fw-medium">Require API key</span>
+                    <span class="d-block small text-muted">Reject API requests that do not include a valid key.</span>
+                </label>
+                <div class="form-check form-switch m-0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="enable_api_auth" name="enable_api_auth" {% if settings.enable_api_auth %}checked{% endif %}>
+                </div>
+            </div>
+            <div class="row g-3 mt-1">
+                <div class="col-md-6">
+                    <label for="api_rate_limit" class="form-label">Rate limit (requests per minute)</label>
+                    <input type="number" id="api_rate_limit" name="api_rate_limit" class="form-control" min="1" value="{{ settings.api_rate_limit }}">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="card mb-4">
+        <div class="card-header bg-transparent"><h2 class="h6 mb-0">Alert notifications</h2></div>
+        <div class="card-body">
+            <div class="setting-row">
+                <label for="enable_security_alerts">
+                    <span class="d-block fw-medium">Security alerts</span>
+                    <span class="d-block small text-muted">Notify the contacts below when a security event occurs.</span>
+                </label>
+                <div class="form-check form-switch m-0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="enable_security_alerts" name="enable_security_alerts" {% if settings.enable_security_alerts %}checked{% endif %}>
+                </div>
+            </div>
+            <div class="row g-3 mt-1">
+                <div class="col-md-6">
+                    <label for="alert_email" class="form-label">Alert email</label>
+                    <input type="email" id="alert_email" name="alert_email" class="form-control" autocomplete="email" value="{{ settings.alert_email|default_if_none:'' }}">
+                </div>
+                <div class="col-md-6">
+                    <label for="alert_whatsapp" class="form-label">Alert WhatsApp number</label>
+                    <input type="tel" id="alert_whatsapp" name="alert_whatsapp" class="form-control" autocomplete="tel" value="{{ settings.alert_whatsapp|default_if_none:'' }}">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Save changes</button>
+        <a href="{% url 'security_dashboard' %}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</form>
 {% endblock %}

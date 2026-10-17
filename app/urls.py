@@ -13,7 +13,7 @@ from django.urls import path
 from . import views
 from . import views_delivery
 from . import views_order_tracking
-from app.views_frontend.settings_center import settings_center
+from app.views_frontend.settings_center import settings_center, module_settings_redirect, delivery_settings_redirect
 
 urlpatterns = [
     # ============================================
@@ -25,7 +25,7 @@ urlpatterns = [
     ), name='login'),
     path('settings/toggle/<str:setting_key>/', views_frontend.toggle_setting, name='toggle_setting'),
     path('production/stock/consume/<int:pk>/', views_frontend.production_consume_stock, name='production_consume_stock'),
-    path('settings/modules/', views_frontend.module_settings, name='module_settings'),
+    path('settings/modules/', settings_center, {'tab': 'modules'}, name='module_settings'),
     path('cash/', views_frontend.cash_dashboard, name='cash_dashboard'),
     path('cash/add/', views_frontend.cash_add, name='cash_add'),
     path('cash/withdraw/', views_frontend.cash_withdraw, name='cash_withdraw'),
@@ -776,6 +776,9 @@ urlpatterns = [
     re_path(r'^backup/restore/(?P<filename>.+)/$', views_frontend.restore_from_cloud, name='restore_from_cloud'),
     re_path(r'^backup/restore-local/(?P<filename>.+)/$', views_frontend.restore_local_backup, name='restore_local_backup'),
     path('backup/upload/', views_frontend.upload_backup_file, name='upload_backup_file'),
+    path('backup/rclone-status/', views_frontend.check_rclone_status, name='check_rclone_status'),
+    path('backup/upload-all/', views_frontend.upload_all_backups, name='upload_all_backups'),
+    re_path(r'^backup/upload-single/(?P<filename>.+)/$', views_frontend.upload_single_backup, name='upload_single_backup'),
     path('vendors/<int:pk>/delete/', views_frontend.vendor_delete, name='vendor_delete'),
     
     
@@ -1089,7 +1092,7 @@ urlpatterns = [
     path('admin-chat/<int:pk>/reopen/', views_frontend.admin_chat_reopen, name='admin_chat_reopen'),
     path('admin-chat/stats/', views_frontend.admin_chat_stats_api, name='admin_chat_stats_api'),
     path('shop/set-delivery-type/', views_customer_portal.set_delivery_type, name='set_delivery_type'),
-    path('settings/delivery/', views_delivery.delivery_settings_view, name='delivery_settings_view'),
+    path('settings/delivery/', settings_center, {'tab': 'delivery'}, name='delivery_settings_view'),
     path('settings/delivery/toggle/', views_delivery.delivery_settings_toggle, name='delivery_settings_toggle'),
     path('settings/delivery/reset/', views_delivery.delivery_settings_reset, name='delivery_settings_reset'),
     path('order-tracking/', 
