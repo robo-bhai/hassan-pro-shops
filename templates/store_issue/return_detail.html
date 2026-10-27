@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}{{ ret.return_no }} - {{ company_name }}{% endblock %}
+{% block extra_css %}{% include 'store_issue/_styles.html' %}{% endblock %}
+{% block content %}
+<div class="container-fluid px-4 py-4 si-page">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <div><h1 class="h3 mb-1"><i class="bi bi-arrow-return-left text-success me-2"></i>{{ ret.return_no }}</h1>
+      <p class="text-muted small mb-0">{{ ret.return_date|date:"d M Y, h:i A" }} &middot; {{ ret.issue.from_warehouse.name }} &middot; issue <a href="{% url 'store_issue_detail' ret.issue_id %}">{{ ret.issue.issue_no }}</a></p></div>
+    <a href="{% url 'store_return_list' %}" class="btn btn-outline-secondary rounded-pill px-3">Back</a>
+  </div>
+  <div class="si-card p-3 mb-3"><div class="row g-3">
+    <div class="col-sm-4"><div class="si-stat">Returned by<b>{{ ret.returned_by|default:"-" }}</b></div></div>
+    <div class="col-sm-4"><div class="si-stat">Store keeper<b>{{ ret.created_by.get_username|default:"-" }}</b></div></div>
+    <div class="col-sm-4"><div class="si-stat">Cost<b>Rs. {{ ret.total_cost|floatformat:2 }}</b></div></div>
+    <div class="col-12"><div class="si-stat">Note<b class="fw-normal">{{ ret.notes|default:"-" }}</b></div></div></div></div>
+  <div class="si-card"><div class="table-responsive"><table class="table si-table align-middle mb-0">
+    <thead><tr><th>#</th><th>Item</th><th class="si-num">Qty wapas</th><th class="si-num">Cost</th></tr></thead><tbody>
+    {% for l in lines %}<tr><td>{{ forloop.counter }}</td><td class="fw-semibold">{{ l.issue_item.product.name }}</td><td class="si-num">{{ l.qty|floatformat:"-3" }} {{ l.issue_item.product.unit.name|default:"" }}</td><td class="si-num">{{ l.total_cost|floatformat:2 }}</td></tr>{% endfor %}
+    </tbody></table></div></div>
+</div>
+{% endblock %}

@@ -222,7 +222,7 @@ def daily_closing_pdf(request, pk):
     
     # Footer
     story.append(Paragraph(f"Closed by: {closing.closed_by.username if closing.closed_by else 'System'}", styles['Normal']))
-    story.append(Paragraph(f"Closed at: {closing.closed_at.strftime('%d-%m-%Y %H:%M') if closing.closed_at else 'N/A'}", styles['Normal']))
+    story.append(Paragraph(f"Closed at: {closing.closed_at.strftime('%d-%m-%Y %I:%M %p') if closing.closed_at else 'N/A'}", styles['Normal']))
     if closing.notes:
         story.append(Paragraph(f"Notes: {closing.notes}", styles['Normal']))
     
@@ -392,7 +392,7 @@ def closing_pdf(request, pk):
         ),
         Paragraph(
             f'<font size="11" color="white"><b>{status_text}</b></font><br/>'
-            f'<font size="8" color="#cccccc">Generated: {now().strftime("%d-%m-%Y %H:%M")}</font>',
+            f'<font size="8" color="#cccccc">Generated: {now().strftime("%d-%m-%Y %I:%M %p")}</font>',
             ParagraphStyle('box2', alignment=TA_RIGHT, fontSize=10, textColor=colors.white)
         )
     ]]
@@ -550,7 +550,7 @@ def closing_pdf(request, pk):
     story.append(Spacer(1, 0.5*inch))
     story.append(Paragraph('_' * 80, normal_style))
     story.append(Paragraph(
-        f'<font size="8" color="#8a8fa0">This is a computer generated report. Generated on {now().strftime("%d-%m-%Y %H:%M")}</font>',
+        f'<font size="8" color="#8a8fa0">This is a computer generated report. Generated on {now().strftime("%d-%m-%Y %I:%M %p")}</font>',
         ParagraphStyle('footer', alignment=TA_CENTER)
     ))
     story.append(Paragraph(
@@ -627,7 +627,7 @@ def closing_pnl(request, pk):
     
     story.append(table)
     story.append(Spacer(1, 0.3*inch))
-    story.append(Paragraph(f'<font size="8">Generated: {now().strftime("%d-%m-%Y %H:%M")}</font>', styles['Normal']))
+    story.append(Paragraph(f'<font size="8">Generated: {now().strftime("%d-%m-%Y %I:%M %p")}</font>', styles['Normal']))
     
     doc.build(story)
     buffer.seek(0)
@@ -695,7 +695,7 @@ def closing_cashflow(request, pk):
     
     story.append(table)
     story.append(Spacer(1, 0.3*inch))
-    story.append(Paragraph(f'<font size="8">Generated: {now().strftime("%d-%m-%Y %H:%M")}</font>', styles['Normal']))
+    story.append(Paragraph(f'<font size="8">Generated: {now().strftime("%d-%m-%Y %I:%M %p")}</font>', styles['Normal']))
     
     doc.build(story)
     buffer.seek(0)

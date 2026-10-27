@@ -682,6 +682,7 @@
                                 <th>Qty</th>
                                 <th>Price</th>
                                 <th>Total</th>
+                                <th>Batch / Expiry <small>(میعاد)</small></th><!-- agri-edition:th -->
                                 <th></th>
                             </tr>
                         </thead>
@@ -2020,6 +2021,10 @@
                     <td><input type="number" class="form-control form-control-sm" value="${item.qty}" min="0.1" step="any" onchange="updateQty(${i},this.value)"></td>
                     <td><input type="number" class="form-control form-control-sm" value="${item.price.toFixed(2)}" step="any" onchange="updatePrice(${i},this.value)"></td>
                     <td><strong>Rs. ${(item.qty*item.price).toFixed(2)}</strong></td>
+                    <td style="min-width:170px;"><!-- agri-edition:row -->
+                        <input type="text" class="form-control form-control-sm mb-1" placeholder="Batch no" maxlength="50" value="${(item.batch||'').replace(/"/g,'&quot;')}" onchange="agriSetBatch(${i},this.value)">
+                        <input type="date" class="form-control form-control-sm" title="Expiry date" value="${item.expiry||''}" onchange="agriSetExpiry(${i},this.value)">
+                    </td>
                     <td><button class="btn-remove" onclick="removeItem(${i})"><i class="bi bi-trash"></i></button></td>
                 </tr>
             `).join('');
@@ -2039,6 +2044,8 @@
     }
     
     function updatePrice(i,v){cartItems[i].price=parseFloat(v)||0;renderCart();updateTotals();}
+    function agriSetBatch(i,v){cartItems[i].batch=(v||'').trim();updateHiddenFields();} // agri-edition:js
+    function agriSetExpiry(i,v){cartItems[i].expiry=v||'';updateHiddenFields();}
     function removeItem(i){cartItems.splice(i,1);renderCart();updateTotals();}
     
     function updateHiddenFields(){
@@ -2046,6 +2053,8 @@
             <input type="hidden" name="product_id[]" value="${i.productId}">
             <input type="hidden" name="qty[]" value="${i.qty}">
             <input type="hidden" name="price[]" value="${i.price.toFixed(2)}">
+            <input type="hidden" name="batch_no[]" value="${(i.batch||'').replace(/"/g,'&quot;')}"><!-- agri-edition:hidden -->
+            <input type="hidden" name="expiry_date[]" value="${i.expiry||''}">
         `).join('');
     }
     

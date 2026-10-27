@@ -91,13 +91,13 @@ class CompanyInfoAdmin(admin.ModelAdmin):
     readonly_fields = ['updated_at']
 
     def has_add_permission(self, request):
-        # Sirf tab add karo jab koi record na ho
+        # Add only when there is no record yet
         if CompanyInfo.objects.exists():
             return False
         return True
 
     def has_delete_permission(self, request, obj=None):
-        # Delete bilkul allow na karo
+        # Do not allow delete at all
         return False
 
     def has_change_permission(self, request, obj=None):

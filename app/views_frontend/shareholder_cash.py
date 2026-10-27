@@ -59,7 +59,7 @@ def shareholder_balance_dashboard(request):
     if missing:
         ShareholderCashBalance.objects.bulk_create(missing, ignore_conflicts=True)
     
-    # ✅ STEP 2: Ek query mein SAARA data fetch karo
+    # ✅ STEP 2: Fetch ALL the data in one query
     shareholders = Shareholder.objects.filter(status='active').annotate(
         annotated_balance=Coalesce(
             Sum('cash_balance__balance', output_field=DecimalField(max_digits=20, decimal_places=2)),
@@ -114,7 +114,7 @@ def shareholder_balance_dashboard(request):
             notes='Default share price (auto-created)'
         )
     
-    # ✅ STEP 4: Python loop mein sirf calculation (no queries!)
+    # ✅ STEP 4: Only calculation in the Python loop (no queries!)
     shareholder_balances = []
     total_balance = Decimal('0.00')
     total_balance_without_share = Decimal('0.00')
@@ -339,7 +339,7 @@ def shareholder_deposit(request, pk):
             
             with transaction.atomic():
                 # ============================================
-                # STEP 1: ONLY Shareholder balance mein ADD karo
+                # STEP 1: ONLY ADD to the Shareholder balance
                 # ============================================
                 new_shareholder_balance = ShareholderCashBalance.deposit(
                     shareholder=shareholder,
@@ -349,9 +349,9 @@ def shareholder_deposit(request, pk):
                 )
                 
                 # ============================================
-                # STEP 2: Main Cash ko TOUCH MAT KARO ❌
+                # STEP 2: DO NOT TOUCH Main Cash ❌
                 # ============================================
-                # CashBalance.update_balance(...) - YEH HATANA HAI
+                # CashBalance.update_balance(...) - REMOVE THIS
                 
                 messages.success(
                     request, 
@@ -403,7 +403,7 @@ def shareholder_withdraw(request, pk):
             
             with transaction.atomic():
                 # ============================================
-                # STEP 1: ONLY Shareholder balance se MINUS karo
+                # STEP 1: ONLY SUBTRACT from the Shareholder balance
                 # ============================================
                 new_shareholder_balance = ShareholderCashBalance.withdraw(
                     shareholder=shareholder,
@@ -413,9 +413,9 @@ def shareholder_withdraw(request, pk):
                 )
                 
                 # ============================================
-                # STEP 2: Main Cash ko TOUCH MAT KARO ❌
+                # STEP 2: DO NOT TOUCH Main Cash ❌
                 # ============================================
-                # CashBalance.update_balance(...) - YEH HATANA HAI
+                # CashBalance.update_balance(...) - REMOVE THIS
                 
                 messages.success(
                     request, 
@@ -693,7 +693,7 @@ def shareholder_transactions_export(request, pk):
             total_deposits += trans.amount
         
         ws.append([
-            trans.created_at.strftime('%d-%m-%Y %H:%M'),
+            trans.created_at.strftime('%d-%m-%Y %I:%M %p'),
             type_display,
             float(amount),
             float(trans.balance_after),
@@ -810,7 +810,7 @@ def shareholder_balance_report_pdf(request, pk):
     for trans in transactions:
         amount_str = f"+Rs. {trans.amount:,.2f}" if trans.is_deposit else f"-Rs. {trans.amount:,.2f}"
         trans_data.append([
-            trans.created_at.strftime('%d-%m-%Y %H:%M'),
+            trans.created_at.strftime('%d-%m-%Y %I:%M %p'),
             trans.get_transaction_type_display()[:15],
             amount_str,
             f"Rs. {trans.balance_after:,.2f}",
@@ -831,7 +831,7 @@ def shareholder_balance_report_pdf(request, pk):
     
     # Footer
     story.append(Spacer(1, 0.5*inch))
-    story.append(Paragraph(f"Generated: {now().strftime('%d-%m-%Y %H:%M')}", styles['Normal']))
+    story.append(Paragraph(f"Generated: {now().strftime('%d-%m-%Y %I:%M %p')}", styles['Normal']))
     story.append(Paragraph("This is a computer generated report.", styles['Normal']))
     
     doc.build(story)
@@ -1562,7 +1562,7 @@ def shareholder_deduction_report_pdf(request):
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=18, alignment=TA_CENTER)
     story.append(Paragraph(company_name, title_style))
     story.append(Paragraph("Shareholder Deduction Report", title_style))
-    story.append(Paragraph(f"Generated: {now().strftime('%d-%m-%Y %H:%M')}", styles['Normal']))
+    story.append(Paragraph(f"Generated: {now().strftime('%d-%m-%Y %I:%M %p')}", styles['Normal']))
     story.append(Spacer(1, 0.2*inch))
     
     # Summary
@@ -1656,7 +1656,7 @@ def shareholder_deduction_report_export(request):
     ws_summary['A2'].alignment = Alignment(horizontal='center')
     
     ws_summary.merge_cells('A3:C3')
-    ws_summary['A3'] = f"Generated: {now().strftime('%d-%m-%Y %H:%M')}"
+    ws_summary['A3'] = f"Generated: {now().strftime('%d-%m-%Y %I:%M %p')}"
     ws_summary['A3'].alignment = Alignment(horizontal='center')
     
     # Summary data
@@ -2171,7 +2171,7 @@ def shareholder_cash_report(request):
     if transaction_type:
         transaction_filter &= Q(cash_transactions__transaction_type=transaction_type)
     
-    # ✅ STEP 3: ✅ CRITICAL FIX - Ek query mein SAARA data!
+    # ✅ STEP 3: ✅ CRITICAL FIX - ALL the data in one query!
     shareholders = shareholders.annotate(
         annotated_deposits=Coalesce(
             Sum(
@@ -2450,7 +2450,7 @@ def shareholder_cash_report_export(request):
     
     row = 2
     for trans in transactions[:500]:  # Limit to 500 rows
-        ws2.cell(row=row, column=1, value=trans.created_at.strftime('%d-%m-%Y %H:%M'))
+        ws2.cell(row=row, column=1, value=trans.created_at.strftime('%d-%m-%Y %I:%M %p'))
         ws2.cell(row=row, column=2, value=trans.shareholder.name)
         ws2.cell(row=row, column=3, value=trans.get_transaction_type_display())
         ws2.cell(row=row, column=4, value=float(trans.amount))
@@ -2560,7 +2560,7 @@ def shareholder_cash_report_pdf(request, pk):
     for trans in transactions[:100]:
         amount_str = f"+Rs. {trans.amount:,.2f}" if trans.transaction_type in ['deposit', 'dividend', 'balance_dividend', 'transfer_in'] else f"-Rs. {trans.amount:,.2f}"
         data.append([
-            trans.created_at.strftime('%d-%m-%Y %H:%M'),
+            trans.created_at.strftime('%d-%m-%Y %I:%M %p'),
             trans.get_transaction_type_display()[:20],
             amount_str,
             f"Rs. {trans.balance_after:,.2f}",
@@ -2581,7 +2581,7 @@ def shareholder_cash_report_pdf(request, pk):
     
     story.append(trans_table)
     story.append(Spacer(1, 0.2*inch))
-    story.append(Paragraph(f"Generated: {now().strftime('%d-%m-%Y %H:%M')}", styles['Normal']))
+    story.append(Paragraph(f"Generated: {now().strftime('%d-%m-%Y %I:%M %p')}", styles['Normal']))
     
     doc.build(story)
     buffer.seek(0)
@@ -2787,7 +2787,7 @@ def shareholder_cash_report_all_pdf(request):
     story.append(Paragraph(company_name, title_style))
     story.append(Paragraph("Shareholder Deposit Withdraw Report ", title_style))
     story.append(Paragraph(f"Period: {from_date} to {to_date}", subtitle_style))
-    story.append(Paragraph(f"Generated: {now().strftime('%d-%m-%Y %H:%M')}", subtitle_style))
+    story.append(Paragraph(f"Generated: {now().strftime('%d-%m-%Y %I:%M %p')}", subtitle_style))
     story.append(Spacer(1, 0.2*inch))
     
     # ==========================================
@@ -2872,7 +2872,7 @@ def shareholder_cash_report_all_pdf(request):
     # FOOTER
     # ==========================================
     story.append(Paragraph(
-        f"Generated: {now().strftime('%d-%m-%Y %H:%M')}",
+        f"Generated: {now().strftime('%d-%m-%Y %I:%M %p')}",
         ParagraphStyle('Footer', parent=styles['Normal'], fontSize=8, alignment=TA_CENTER)
     ))
     story.append(Paragraph(

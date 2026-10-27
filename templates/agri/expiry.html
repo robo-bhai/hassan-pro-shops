@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% block title %}Expiry Manager{% endblock %}
+{% block extra_css %}{% include 'agri/_css.html' %}{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+      <h4 class="mb-0">⏰ Expiry Manager <span class="agri-ur">/ میعاد</span></h4>
+      <div class="text-muted small">Har batch ki expiry date yahan daalen ya theek karen. Expired maal sale mein khud ruk jata hai.</div>
+    </div>
+    <div class="d-flex gap-2">
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'agri_writeoffs' %}">📋 Write-off record</a>
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'agri_dashboard' %}">← Agri Dashboard</a>
+    </div>
+  </div>
+
+  <div class="agri-pills mb-2">
+    <a class="btn btn-sm {% if flt == 'expired' %}btn-danger{% else %}btn-outline-danger{% endif %}" href="?f=expired&q={{ q|urlencode }}">Expired ({{ buckets.expired.count }})</a>
+    <a class="btn btn-sm {% if flt == '30' %}btn-warning{% else %}btn-outline-warning{% endif %}" href="?f=30&q={{ q|urlencode }}">30 din ({{ buckets.d30.count }})</a>
+    <a class="btn btn-sm {% if flt == '60' %}btn-warning{% else %}btn-outline-warning{% endif %}" href="?f=60&q={{ q|urlencode }}">60 din</a>
+    <a class="btn btn-sm {% if flt == '90' %}btn-success{% else %}btn-outline-success{% endif %}" href="?f=90&q={{ q|urlencode }}">90 din</a>
+    <a class="btn btn-sm {% if flt == 'missing' %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="?f=missing&q={{ q|urlencode }}">Expiry nahi daali ({{ buckets.missing.count }})</a>
+    <a class="btn btn-sm {% if flt == 'all' %}btn-dark{% else %}btn-outline-dark{% endif %}" href="?f=all&q={{ q|urlencode }}">Sab</a>
+  </div>
+
+  <form method="get" class="row g-2 mb-3">
+    <input type="hidden" name="f" value="{{ flt }}">
+    <div class="col-8 col-md-4"><input type="text" name="q" value="{{ q }}" class="form-control form-control-sm" placeholder="Product ya batch no talash karen"></div>
+    <div class="col-4 col-md-2"><button class="btn btn-sm btn-primary w-100">Talash</button></div>
+  </form>
+
+  <form method="post" action="{% url 'agri_expiry_save' %}">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+      <button class="btn btn-success btn-sm">💾 Sab tabdeeliyan save karen</button>
+      <span class="small text-muted ms-2">Khali expiry par ek hi tareekh lagane ke liye:</span>
+      <input type="date" id="fillDate" class="form-control form-control-sm" style="width:auto">
+      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="agriFill()">Khali jagah bharen</button>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle agri-table">
+        <thead><tr><th style="width:34px"><input type="checkbox" onclick="document.querySelectorAll('.agri-wo').forEach(function(c){c.checked=this.checked}.bind(this))" title="Sab chunein"></th><th>Product</th><th>Batch no</th><th>Expiry date</th><th>Halat</th><th class="text-end">Baaqi qty</th><th class="text-end">Cost value</th><th>Store</th></tr></thead>
+        <tbody>
+        {% for r in rows %}
+          <tr class="{% if r.status == 'expired' %}table-danger{% elif r.status == 'd30' %}table-warning{% endif %}">
+            <td><input type="checkbox" class="agri-wo" name="wo" value="{{ r.b.pk }}"></td>
+            <td class="fw-semibold">{{ r.b.product.name }}<input type="hidden" name="ids" value="{{ r.b.pk }}"></td>
+            <td><input type="text" class="form-control form-control-sm" name="batch_{{ r.b.pk }}" value="{{ r.b.batch_no|default:'' }}" maxlength="50" placeholder="Batch"></td>
+            <td><input type="date" class="form-control form-control-sm agri-exp" name="expiry_{{ r.b.pk }}" value="{{ r.b.expiry_date|date:'Y-m-d' }}"></td>
+            <td>{% if r.status == 'expired' %}<span class="badge bg-danger">{{ r.days_abs }} din pehle expire</span>
+                {% elif r.status == 'none' %}<span class="badge bg-secondary">Date nahi</span>
+                {% elif r.status == 'd30' %}<span class="badge bg-warning text-dark">{{ r.days }} din baaqi</span>
+                {% elif r.status == 'd60' or r.status == 'd90' %}<span class="badge bg-info text-dark">{{ r.days }} din baaqi</span>
+                {% else %}<span class="badge bg-success">{{ r.days }} din</span>{% endif %}</td>
+            <td class="text-end">{{ r.b.remaining_qty|floatformat:"-2" }}</td>
+            <td class="text-end">Rs. {{ r.value|floatformat:"0g" }}</td>
+            <td>{{ r.b.warehouse.name }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="8" class="text-center text-muted py-4">Is filter mein koi batch nahi.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if rows %}<button class="btn btn-success btn-sm">💾 Sab tabdeeliyan save karen</button>{% endif %}
+    {% if rows %}
+    <div class="border rounded p-2 mt-3 bg-light">
+      <div class="fw-semibold mb-1">🗑️ Tick kiye hue batch stock se nikalein (write-off)</div>
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <select name="reason" class="form-select form-select-sm" style="width:auto">
+          <option value="expired">Expire ho gaya</option>
+          <option value="damaged">Kharab / zaya</option>
+          <option value="vendor_return">Supplier ko wapas bheja</option>
+        </select>
+        <input type="text" name="note" maxlength="200" class="form-control form-control-sm" style="max-width:280px" placeholder="Note (ikhtiyari)">
+        <button type="submit" class="btn btn-sm btn-danger" formaction="{% url 'agri_expiry_writeoff' %}"
+                onclick="return confirm('Tick kiye hue batch ka poora baaqi maal stock se nikal diya jayega. Aage barhein?')">Stock se nikalein</button>
+      </div>
+      <div class="small text-muted mt-1">Maal ki cost nuqsan (stock loss) mein jati hai. Supplier se paisa wapas milne par Purchase Return alag se banayen.</div>
+    </div>
+    {% endif %}
+  </form>
+
+  {% if page.paginator.num_pages > 1 %}
+  <nav class="mt-3"><ul class="pagination pagination-sm flex-wrap">
+    {% if page.has_previous %}<li class="page-item"><a class="page-link" href="?{{ qstring }}&page={{ page.previous_page_number }}">‹</a></li>{% endif %}
+    <li class="page-item disabled"><span class="page-link">{{ page.number }} / {{ page.paginator.num_pages }}</span></li>
+    {% if page.has_next %}<li class="page-item"><a class="page-link" href="?{{ qstring }}&page={{ page.next_page_number }}">›</a></li>{% endif %}
+  </ul></nav>
+  {% endif %}
+
+  <div class="alert alert-light border small mt-3 mb-0">
+    <b>Zaroori:</b> expired maal ki sale block hoti hai aur sab se pehle expire hone wala maal pehle bikta hai (FEFO).
+    Expired maal ko neeche "Stock se nikalein" se hata dein; vendor se paisa wapas lena ho to Purchase Return banayen.
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+function agriFill(){
+  var d = document.getElementById('fillDate').value;
+  if(!d){ alert('Pehle tareekh chunein.'); return; }
+  document.querySelectorAll('.agri-exp').forEach(function(el){ if(!el.value){ el.value = d; } });
+}
+</script>
+{% endblock %}

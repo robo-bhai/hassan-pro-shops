@@ -1,0 +1,329 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Multi-Product Monthly Plan{% endblock %}
+
+{% block extra_css %}
+<style>
+    .mp-head {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: #fff;
+        border-radius: 15px;
+        padding: 22px 26px;
+        margin-bottom: 22px;
+    }
+    .mp-card { border: none; border-radius: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); margin-bottom: 20px; }
+    .mp-card .card-header { background: #1a1a2e; color: #fff; border-radius: 14px 14px 0 0; font-weight: 600; }
+    .mp-table thead th {
+        background: #f8f9fc; font-size: 0.78rem; text-transform: uppercase;
+        letter-spacing: .4px; white-space: nowrap; vertical-align: middle;
+    }
+    .mp-table td { vertical-align: middle; }
+    .mp-table .p-select { min-width: 220px; }
+    .mp-table input.form-control-sm { min-width: 90px; }
+    .mp-table tr.dup td { background: #fff1f0; }
+    .mp-table tfoot td { background: #1a1a2e; color: #fff; font-weight: 700; font-size: 1.02rem; border: none; }
+    .grand-box { border-radius: 12px; padding: 16px 18px; background: #f8f9fc; height: 100%; }
+    .grand-box small { color: #6c757d; text-transform: uppercase; letter-spacing: .4px; font-size: .72rem; }
+    .grand-box h4 { margin: 4px 0 0; font-weight: 700; }
+    .auto-badge { background: #198754; color: #fff; font-size: .6rem; padding: 2px 6px; border-radius: 8px; margin-left: 4px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <div class="mp-head d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <h4 class="mb-1 fw-bold"><i class="bi bi-collection me-2"></i>Multi-Product Monthly Plan</h4>
+            <div class="opacity-75 small">
+                Add many products in one plan for <strong>{{ selected_month|date:"F Y" }}</strong>. The grand total is shown at the bottom.
+            </div>
+        </div>
+        <a href="{% url 'monthly_purchase_planner' %}?month={{ month_str }}" class="btn btn-light">
+            <i class="bi bi-arrow-left me-1"></i> Back
+        </a>
+    </div>
+
+    <form method="post" id="multiForm" autocomplete="off">
+        {% csrf_token %}
+
+        <!-- PLAN INFO -->
+        <div class="card mp-card">
+            <div class="card-header"><i class="bi bi-info-circle me-2"></i>Plan Info</div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-2 col-6">
+                        <label class="form-label fw-bold">📅 Month</label>
+                        <input type="month" name="month" class="form-control" value="{{ month_str }}" required>
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <label class="form-label fw-bold">🏭 Warehouse</label>
+                        <select name="warehouse" id="warehouseSelect" class="form-select" required>
+                            <option value="">Select Warehouse</option>
+                            {% for w in warehouses %}
+                            <option value="{{ w.id }}" {% if posted.warehouse == w.id|stringformat:"s" %}selected{% endif %}>{{ w.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">🏷️ Title <span class="text-muted fw-normal">(optional)</span></label>
+                        <input type="text" name="title" class="form-control" maxlength="200" value="{{ posted.title }}" placeholder="e.g., Ramzan stock">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">📝 Notes</label>
+                        <input type="text" name="notes" class="form-control" value="{{ posted.notes }}" placeholder="Additional notes...">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PRODUCTS -->
+        <div class="card mp-card">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span><i class="bi bi-box-seam me-2"></i>Products</span>
+                <button type="button" class="btn btn-sm btn-warning" id="btnAddRow">
+                    <i class="bi bi-plus-circle me-1"></i> Add Product
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mp-table mb-0" id="linesTable">
+                        <thead>
+                            <tr>
+                                <th style="width:40px">#</th>
+                                <th>Product</th>
+                                <th class="text-end">Available Stock</th>
+                                <th class="text-end">Sale Qty</th>
+                                <th class="text-end">Buy Qty <span class="auto-badge">AUTO</span></th>
+                                <th class="text-end">Unit Price</th>
+                                <th class="text-end">Selling Price <span class="text-muted fw-normal">(optional)</span></th>
+                                <th class="text-end">Line Total</th>
+                                <th style="width:48px"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="linesBody"></tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="3" class="text-end">GRAND TOTAL</td>
+                                <td class="text-end" id="gSale">0</td>
+                                <td class="text-end" id="gBuy">0</td>
+                                <td></td>
+                                <td class="text-end" id="gSales">0</td>
+                                <td class="text-end" id="gTotal">Rs. 0</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer bg-white small text-muted">
+                <i class="bi bi-calculator me-1"></i>
+                Buy Qty = Sale Qty − Available Stock (never below zero). Line Total = Buy Qty × Unit Price.
+            </div>
+        </div>
+
+        <!-- BUDGET VS PLAN -->
+        <div class="card mp-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-speedometer2 me-2"></i>Budget vs Plan</span>
+                <span class="badge bg-light text-dark"><span id="fCount">0</span> products</span>
+            </div>
+            <div class="card-body">
+                {% include 'shareholders/_budget_bar.html' with budget=budget %}
+            </div>
+        </div>
+
+        <div class="d-flex gap-2 justify-content-end mb-4">
+            <a href="{% url 'monthly_purchase_planner' %}?month={{ month_str }}" class="btn btn-outline-secondary">Cancel</a>
+            <button type="submit" class="btn btn-success btn-lg" id="btnSave">
+                <i class="bi bi-check-circle me-1"></i> Save Multi-Product Plan
+            </button>
+        </div>
+    </form>
+</div>
+
+{{ products|json_script:"productsData" }}
+{{ posted_rows|json_script:"postedRows" }}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const infoUrl   = "{% url 'monthly_plan_multi_product_info' %}";
+    const form      = document.getElementById('multiForm');
+    const body      = document.getElementById('linesBody');
+    const whSelect  = document.getElementById('warehouseSelect');
+    const products  = JSON.parse(document.getElementById('productsData').textContent);
+    const posted    = JSON.parse(document.getElementById('postedRows').textContent);
+    let lastBudget  = {level: 'empty', over: 0};
+
+    const fmt = n => Math.round(n).toLocaleString('en-US');
+    const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const optionsHtml = '<option value="">Select product</option>' +
+        products.map(p => '<option value="' + p.id + '">' + esc(p.name) + '</option>').join('');
+
+    function addRow(data) {
+        data = data || {};
+        const tr = document.createElement('tr');
+        tr.dataset.stock = '0';
+        tr.innerHTML =
+            '<td class="row-no text-muted"></td>' +
+            '<td><select name="product" class="form-select form-select-sm p-select">' + optionsHtml + '</select>' +
+                '<div class="dup-msg text-danger small d-none">This product is already added.</div></td>' +
+            '<td><input type="text" class="form-control form-control-sm text-end stock-in" value="0" readonly tabindex="-1"></td>' +
+            '<td><input type="number" name="sale_qty" class="form-control form-control-sm text-end sale-in" min="0" step="1" inputmode="numeric" placeholder="0"></td>' +
+            '<td><input type="text" class="form-control form-control-sm text-end fw-bold buy-in" value="0" readonly tabindex="-1"></td>' +
+            '<td><input type="number" name="unit_price" class="form-control form-control-sm text-end price-in" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></td>' +
+            '<td><input type="number" name="sell_price" class="form-control form-control-sm text-end sell-in" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></td>' +
+            '<td class="text-end fw-bold line-total">0</td>' +
+            '<td><button type="button" class="btn btn-sm btn-outline-danger btn-remove" title="Remove"><i class="bi bi-x-lg"></i></button></td>';
+        body.appendChild(tr);
+        if (data.product)    tr.querySelector('.p-select').value = data.product;
+        if (data.sale_qty)   tr.querySelector('.sale-in').value  = data.sale_qty;
+        if (data.unit_price) tr.querySelector('.price-in').value = data.unit_price;
+        if (data.sell_price) tr.querySelector('.sell-in').value  = data.sell_price;
+        if (data.product) loadInfo(tr, false);
+        renumber();
+        recalc();
+        return tr;
+    }
+
+    function renumber() {
+        body.querySelectorAll('tr').forEach((tr, i) => { tr.querySelector('.row-no').textContent = i + 1; });
+    }
+
+    function loadInfo(tr, autofill) {
+        const pid = tr.querySelector('.p-select').value;
+        if (!pid) { tr.dataset.stock = '0'; tr.querySelector('.stock-in').value = 0; recalc(); return; }
+        const url = infoUrl + '?product_id=' + encodeURIComponent(pid) + '&warehouse_id=' + encodeURIComponent(whSelect.value || '');
+        fetch(url, {credentials: 'same-origin'})
+            .then(r => r.json())
+            .then(d => {
+                if (tr.querySelector('.p-select').value !== pid || !d.success) return;   // row changed meanwhile
+                tr.dataset.stock = d.available_stock;
+                tr.querySelector('.stock-in').value = Math.round(d.available_stock * 100) / 100;
+                if (autofill) {
+                    const price = tr.querySelector('.price-in'), sell = tr.querySelector('.sell-in');
+                    if (!parseFloat(price.value) && d.cost_price > 0) price.value = d.cost_price;
+                    if (!parseFloat(sell.value) && d.selling_price > 0) sell.value = d.selling_price;
+                }
+                recalc();
+            })
+            .catch(() => { recalc(); });
+    }
+
+    // ---- Budget vs Plan (same rules as _mp_budget() in views_frontend/purchasing.py) ----
+    // limit = investor balance + available cash
+    // ok = inside investor balance | warn = needs cash | over = above the limit (red)
+    function budgetUpdate(plan) {
+        const box   = document.getElementById('bvp');
+        const inv   = Math.max(0, parseFloat(box.dataset.investor) || 0);
+        const cash  = Math.max(0, parseFloat(box.dataset.cash) || 0);
+        const limit = inv + cash;
+        plan = Math.max(0, plan || 0);
+        let level = 'empty';
+        if (plan > 0) level = plan <= inv ? 'ok' : (plan <= limit ? 'warn' : 'over');
+        const pct = (a, b) => b > 0 ? a / b * 100 : (a > 0 ? 100 : 0);
+        const fill = plan <= 0 ? 0 : Math.min(pct(plan, limit), 100);
+        const invPct = pct(plan, inv), cashPct = pct(plan, cash);
+        const overBy = plan > limit ? plan - limit : 0;
+        const texts = {
+            empty: ['No plan yet', 'Add products to see how the plan compares with your budget.'],
+            ok:    ['Within budget', 'The plan is inside the investor balance. Rs. ' + fmt(inv - plan) + ' of investor balance will be left.'],
+            warn:  ['Uses cash', 'The plan is Rs. ' + fmt(plan - inv) + ' more than the investor balance. Available cash will be needed for the rest.'],
+            over:  ['OVER BUDGET', 'OVER BUDGET by Rs. ' + fmt(overBy) + '! The plan is more than the investor balance and available cash together.']
+        };
+        const setLevel = (el) => { el.classList.remove('bvp-empty', 'bvp-ok', 'bvp-warn', 'bvp-over'); el.classList.add('bvp-' + level); };
+        setLevel(document.getElementById('bvpBadge'));
+        setLevel(document.getElementById('bvpFill'));
+        setLevel(document.getElementById('bvpMsg'));
+        document.getElementById('bvpBadge').textContent = texts[level][0];
+        document.getElementById('bvpMsg').textContent = texts[level][1];
+        document.getElementById('bvpFill').style.width = fill.toFixed(1) + '%';
+        document.getElementById('bvpPlan').textContent = 'Rs. ' + fmt(plan);
+        document.getElementById('bvpLeftLbl').textContent = level === 'over' ? 'Over by' : 'Left in budget';
+        const left = document.getElementById('bvpLeft');
+        left.textContent = 'Rs. ' + fmt(level === 'over' ? overBy : Math.max(0, limit - plan));
+        left.classList.toggle('text-danger', level === 'over');
+        document.getElementById('bvpInvPct').textContent = Math.round(invPct) + '%';
+        document.getElementById('bvpCashPct').textContent = Math.round(cashPct) + '%';
+        const invFill = document.getElementById('bvpInvFill'), cashFill = document.getElementById('bvpCashFill');
+        invFill.style.width = Math.min(invPct, 100).toFixed(1) + '%';
+        cashFill.style.width = Math.min(cashPct, 100).toFixed(1) + '%';
+        invFill.classList.toggle('bvp-bad', invPct > 100);
+        cashFill.classList.toggle('bvp-bad', cashPct > 100);
+        return {level: level, over: overBy};
+    }
+
+    function recalc() {
+        let gSale = 0, gBuy = 0, gSales = 0, gTotal = 0, count = 0;
+        const counts = {};
+        body.querySelectorAll('tr').forEach(tr => {
+            const v = tr.querySelector('.p-select').value;
+            if (v) counts[v] = (counts[v] || 0) + 1;
+        });
+        let hasDup = false;
+        body.querySelectorAll('tr').forEach(tr => {
+            const pid   = tr.querySelector('.p-select').value;
+            const sale  = parseFloat(tr.querySelector('.sale-in').value) || 0;
+            const stock = parseFloat(tr.dataset.stock) || 0;
+            const price = parseFloat(tr.querySelector('.price-in').value) || 0;
+            const sell  = parseFloat(tr.querySelector('.sell-in').value) || 0;
+            const buy   = Math.max(0, Math.round(sale - stock));
+            const line  = buy * price;
+            tr.querySelector('.buy-in').value = buy;
+            tr.querySelector('.line-total').textContent = fmt(line);
+            const dup = pid && counts[pid] > 1;
+            tr.classList.toggle('dup', !!dup);
+            tr.querySelector('.dup-msg').classList.toggle('d-none', !dup);
+            if (dup) hasDup = true;
+            if (pid) { count++; gSale += sale; gBuy += buy; gSales += sale * sell; gTotal += line; }
+        });
+        document.getElementById('gSale').textContent  = fmt(gSale);
+        document.getElementById('gBuy').textContent   = fmt(gBuy);
+        document.getElementById('gSales').textContent = gSales > 0 ? fmt(gSales) : '-';
+        document.getElementById('gTotal').textContent = 'Rs. ' + fmt(gTotal);
+        document.getElementById('fCount').textContent = count;
+        lastBudget = budgetUpdate(gTotal);
+        document.getElementById('btnSave').disabled = hasDup;
+    }
+
+    // ---- events ----
+    body.addEventListener('change', e => {
+        if (e.target.classList.contains('p-select')) loadInfo(e.target.closest('tr'), true);
+    });
+    body.addEventListener('input', e => {
+        if (e.target.matches('.sale-in, .price-in, .sell-in')) recalc();
+    });
+    body.addEventListener('click', e => {
+        const btn = e.target.closest('.btn-remove');
+        if (!btn) return;
+        const tr = btn.closest('tr');
+        if (body.querySelectorAll('tr').length > 1) { tr.remove(); } else { tr.remove(); addRow(); }
+        renumber(); recalc();
+    });
+    document.getElementById('btnAddRow').addEventListener('click', () => {
+        const tr = addRow();
+        tr.querySelector('.p-select').focus();
+    });
+    whSelect.addEventListener('change', () => {
+        body.querySelectorAll('tr').forEach(tr => loadInfo(tr, false));
+    });
+    form.addEventListener('submit', e => {
+        const filled = Array.from(body.querySelectorAll('.p-select')).filter(s => s.value).length;
+        if (!filled) { e.preventDefault(); alert('Add at least one product.'); return; }
+        const bad = Array.from(body.querySelectorAll('tr')).some(tr => tr.querySelector('.p-select').value &&
+            (!(parseFloat(tr.querySelector('.sale-in').value) > 0) || !(parseFloat(tr.querySelector('.price-in').value) > 0)));
+        if (bad) { e.preventDefault(); alert('Every product needs a Sale Qty and a Unit Price greater than zero.'); return; }
+        if (lastBudget.level === 'over' && !confirm('⚠️ This plan is OVER BUDGET by Rs. ' + fmt(lastBudget.over) + '.\n\nSave it anyway?')) { e.preventDefault(); }
+    });
+
+    // ---- start ----
+    if (posted.length) { posted.forEach(r => addRow(r)); }
+    else { addRow(); addRow(); addRow(); }
+    recalc();
+})();
+</script>
+{% endblock %}

@@ -116,7 +116,7 @@ class ShareholderAdmin(admin.ModelAdmin):
         story = []
         
         story.append(Paragraph("Shareholder Dividend Report", styles['Heading1']))
-        story.append(Paragraph(f"Generated: {now().strftime('%d-%m-%Y %H:%M')}", styles['Normal']))
+        story.append(Paragraph(f"Generated: {now().strftime('%d-%m-%Y %I:%M %p')}", styles['Normal']))
         story.append(Spacer(1, 0.2*inch))
         
         data = [['Code', 'Name', 'Total Shares', 'Total Investment', 'Total Dividends']]

@@ -1,31 +1,47 @@
 from django.urls import path, re_path
 from django.contrib.auth import views as auth_views
 from . import views_frontend
-from . import views_customer_portal
-from app import views_customer_auth
-from app import views_admin_otp
-from app import views_security
-from app import views_bi  
-from app import views_testing  
-from app import views_document
+from .customer import views_customer_portal
+from app.customer import views_customer_auth
+from app.security import views_admin_otp
+from app.security import views_security
+from app.backoffice import views_bi  
+from app.backoffice import views_testing  
+from app.backoffice import views_document
 from app import views_frontend
 from django.urls import path
 from . import views
-from . import views_delivery
-from . import views_order_tracking
-from app.views_frontend.settings_center import settings_center, module_settings_redirect, delivery_settings_redirect
+from .customer import views_delivery
+from .customer import views_order_tracking
+from app.views_frontend.system.settings_center import settings_center
+from app.views_frontend.pos_sales import pos as pos_views
+from app.views_frontend.pos_sales import shift as shift_views
+from app.views_frontend.pos_sales import shop_tools
 
 urlpatterns = [
     # ============================================
     # AUTHENTICATION
     # ============================================
+    path('set-language/<str:code>/', views_frontend.set_language, name='set_language'),
+    path('settings/translations/', views_frontend.translation_manager, name='translation_manager'),
+    path('settings/translations/save/', views_frontend.translation_save, name='translation_save'),
+    path('settings/translations/add/', views_frontend.translation_add, name='translation_add'),
+    path('settings/translations/delete/', views_frontend.translation_delete, name='translation_delete'),
+    path('settings/translations/review/', views_frontend.translation_review, name='translation_review'),
+    path('settings/translations/auto-run/', views_frontend.translation_auto_run, name='translation_auto_run'),
+    path('settings/translations/toggle-auto/', views_frontend.translation_toggle_auto, name='translation_toggle_auto'),
+    path('settings/translations/seed/', views_frontend.translation_seed, name='translation_seed'),
+    path('settings/translations/export/', views_frontend.translation_export, name='translation_export'),
+    path('settings/translations/import/', views_frontend.translation_import, name='translation_import'),
+    path('i18n/dictionary/<str:code>.js', views_frontend.i18n_dictionary, name='i18n_dictionary'),
+    path('i18n/collect/', views_frontend.i18n_collect, name='i18n_collect'),
     path('login/', auth_views.LoginView.as_view(
         template_name='auth/login.html',
         redirect_authenticated_user=True
     ), name='login'),
     path('settings/toggle/<str:setting_key>/', views_frontend.toggle_setting, name='toggle_setting'),
     path('production/stock/consume/<int:pk>/', views_frontend.production_consume_stock, name='production_consume_stock'),
-    path('settings/modules/', settings_center, {'tab': 'modules'}, name='module_settings'),
+    path('settings/modules/', views_frontend.module_settings, name='module_settings'),
     path('cash/', views_frontend.cash_dashboard, name='cash_dashboard'),
     path('cash/add/', views_frontend.cash_add, name='cash_add'),
     path('cash/withdraw/', views_frontend.cash_withdraw, name='cash_withdraw'),
@@ -160,6 +176,10 @@ urlpatterns = [
     # PURCHASE ORDERS
     # ============================================
     path('orders/purchase/', views_frontend.purchase_order_list, name='purchase_order_list'),
+    path('orders/purchase/products/', views_frontend.purchase_order_products, name='purchase_order_products'),
+    path('orders/purchase/<int:pk>/edit/', views_frontend.purchase_order_edit, name='purchase_order_edit'),
+    path('orders/purchase/<int:pk>/print/', views_frontend.purchase_order_print, name='purchase_order_print'),
+    path('orders/purchase/<int:pk>/duplicate/', views_frontend.purchase_order_duplicate, name='purchase_order_duplicate'),
     path('orders/purchase/create/', views_frontend.purchase_order_create, name='purchase_order_create'),
     path('orders/purchase/<int:pk>/', views_frontend.purchase_order_detail, name='purchase_order_detail'),
     path('orders/purchase/<int:pk>/status/<str:status>/', views_frontend.purchase_order_quick_status, name='purchase_order_quick_status'),
@@ -219,6 +239,43 @@ urlpatterns = [
     path('warehouses/create/', views_frontend.warehouse_create, name='warehouse_create'),
     path('warehouses/<int:pk>/update/', views_frontend.warehouse_update, name='warehouse_update'),
     path('warehouses/<int:pk>/inventory/', views_frontend.warehouse_inventory, name='warehouse_inventory'),
+
+    # STORES + INTERNAL STORE ISSUE (PMS / RMS / FGS / Technical)
+    path('stores/', views_frontend.store_dashboard, name='store_dashboard'),
+    path('stores/access/', views_frontend.store_access, name='store_access'),
+    path('store-issue/', views_frontend.store_issue_list, name='store_issue_list'),
+    path('store-issue/create/', views_frontend.store_issue_create, name='store_issue_create'),
+    path('store-issue/report/', views_frontend.store_issue_report, name='store_issue_report'),
+    path('store-issue/api/products/', views_frontend.store_issue_products_api, name='store_issue_products_api'),
+    path('store-issue/<int:pk>/', views_frontend.store_issue_detail, name='store_issue_detail'),
+    path('store-issue/<int:pk>/print/', views_frontend.store_issue_print, name='store_issue_print'),
+    path('store-issue/<int:pk>/cancel/', views_frontend.store_issue_cancel, name='store_issue_cancel'),
+
+    # STORE TRANSFER (bhejna / receive) + STORE RECEIPTS (purchase / GRN)
+    path('store-transfer/', views_frontend.store_transfer_list, name='store_transfer_list'),
+    path('store-transfer/create/', views_frontend.store_transfer_create, name='store_transfer_create'),
+    path('store-transfer/<int:pk>/', views_frontend.store_transfer_detail, name='store_transfer_detail'),
+    path('store-transfer/<int:pk>/receive/', views_frontend.store_transfer_receive, name='store_transfer_receive'),
+    path('store-transfer/<int:pk>/cancel/', views_frontend.store_transfer_cancel, name='store_transfer_cancel'),
+    path('store-transfer/<int:pk>/print/', views_frontend.store_transfer_print, name='store_transfer_print'),
+    path('store-receipts/', views_frontend.store_receipts, name='store_receipts'),
+
+    # STORE OPS: settings, approvals, physical count, return to store
+    path('stores/settings/', views_frontend.store_settings, name='store_settings'),
+    path('store-request/', views_frontend.store_request_list, name='store_request_list'),
+    path('store-request/<int:pk>/', views_frontend.store_request_detail, name='store_request_detail'),
+    path('store-request/<int:pk>/approve/', views_frontend.store_request_approve, name='store_request_approve'),
+    path('store-request/<int:pk>/reject/', views_frontend.store_request_reject, name='store_request_reject'),
+    path('store-request/<int:pk>/cancel/', views_frontend.store_request_cancel, name='store_request_cancel'),
+    path('store-count/', views_frontend.store_count_list, name='store_count_list'),
+    path('store-count/new/', views_frontend.store_count_new, name='store_count_new'),
+    path('store-count/<int:pk>/', views_frontend.store_count_detail, name='store_count_detail'),
+    path('store-count/<int:pk>/save/', views_frontend.store_count_save, name='store_count_save'),
+    path('store-count/<int:pk>/post/', views_frontend.store_count_post, name='store_count_post'),
+    path('store-count/<int:pk>/cancel/', views_frontend.store_count_cancel, name='store_count_cancel'),
+    path('store-return/', views_frontend.store_return_list, name='store_return_list'),
+    path('store-return/new/<int:issue_pk>/', views_frontend.store_return_create, name='store_return_create'),
+    path('store-return/<int:pk>/', views_frontend.store_return_detail, name='store_return_detail'),
     
     # ============================================
     # PRODUCTS
@@ -264,6 +321,11 @@ urlpatterns = [
     path('users/<int:pk>/delete/', views_frontend.user_delete, name='user_delete'),
     path('users/<int:pk>/toggle-status/', views_frontend.user_toggle_status, name='user_toggle_status'),
     path('users/<int:pk>/reset-password/', views_frontend.user_reset_password, name='user_reset_password'),
+    path('users/<int:pk>/activity/', views_frontend.user_activity, name='user_activity'),
+    path('users/roles/create/', views_frontend.role_create, name='role_create'),
+    path('users/roles/<int:pk>/delete/', views_frontend.role_delete, name='role_delete'),
+    path('users/roles/builtin/<str:key>/delete/', views_frontend.role_delete_builtin, name='role_delete_builtin'),
+    path('users/roles/builtin/<str:key>/restore/', views_frontend.role_restore_builtin, name='role_restore_builtin'),
     
     # ============================================
     # HR & STAFF MANAGEMENT
@@ -778,7 +840,6 @@ urlpatterns = [
     path('backup/upload/', views_frontend.upload_backup_file, name='upload_backup_file'),
     path('backup/rclone-status/', views_frontend.check_rclone_status, name='check_rclone_status'),
     path('backup/upload-all/', views_frontend.upload_all_backups, name='upload_all_backups'),
-    re_path(r'^backup/upload-single/(?P<filename>.+)/$', views_frontend.upload_single_backup, name='upload_single_backup'),
     path('vendors/<int:pk>/delete/', views_frontend.vendor_delete, name='vendor_delete'),
     
     
@@ -914,6 +975,13 @@ urlpatterns = [
     path('shareholders/cash-report/all-pdf/', views_frontend.shareholder_cash_report_all_pdf, name='shareholder_cash_report_all_pdf'),
     path('monthly-planner/', views_frontend.monthly_purchase_planner, name='monthly_purchase_planner'),
     path('monthly-planner/history/', views_frontend.monthly_plan_history, name='monthly_plan_history'),
+    # Multi-product monthly plan (many products in one plan, one grand total)
+    path('monthly-planner/multi/new/', views_frontend.monthly_plan_multi_create, name='monthly_plan_multi_create'),
+    path('monthly-planner/multi/product-info/', views_frontend.monthly_plan_multi_product_info, name='monthly_plan_multi_product_info'),
+    path('monthly-planner/multi/<int:pk>/', views_frontend.monthly_plan_multi_detail, name='monthly_plan_multi_detail'),
+    path('monthly-planner/multi/<int:pk>/approve/', views_frontend.monthly_plan_multi_approve, name='monthly_plan_multi_approve'),
+    path('monthly-planner/multi/<int:pk>/delete/', views_frontend.monthly_plan_multi_delete, name='monthly_plan_multi_delete'),
+    path('monthly-planner/multi/<int:pk>/generate-po/', views_frontend.monthly_plan_multi_generate_po, name='monthly_plan_multi_generate_po'),
     path('monthly-planner/<int:pk>/', views_frontend.monthly_plan_detail, name='monthly_plan_detail'),
     path('monthly-planner/<int:pk>/approve/', views_frontend.monthly_plan_approve, name='monthly_plan_approve'),
     path('monthly-planner/<int:pk>/complete/', views_frontend.monthly_plan_complete, name='monthly_plan_complete'),
@@ -924,6 +992,7 @@ urlpatterns = [
     path('monthly-planner/<int:pk>/delete/', views_frontend.monthly_plan_delete, name='monthly_plan_delete'),
     path('api/check-stock-for-plan/', views_frontend.check_stock_for_plan, name='check_stock_for_plan'),
     path('monthly-planner/<int:pk>/generate-po/', views_frontend.generate_purchase_order_from_plan, name='generate_purchase_order_from_plan'),
+    path('monthly-planner/<int:pk>/generate-po/quick/', views_frontend.generate_po_quick, name='generate_po_quick'),
     path('grn/<int:pk>/', views_frontend.grn_detail, name='grn_detail'),
     path('grn/<int:pk>/convert/', views_frontend.grn_convert_to_purchase, name='grn_convert_to_purchase'),
     path('grn/<int:pk>/delete/', views_frontend.grn_delete, name='grn_delete'),
@@ -1092,7 +1161,7 @@ urlpatterns = [
     path('admin-chat/<int:pk>/reopen/', views_frontend.admin_chat_reopen, name='admin_chat_reopen'),
     path('admin-chat/stats/', views_frontend.admin_chat_stats_api, name='admin_chat_stats_api'),
     path('shop/set-delivery-type/', views_customer_portal.set_delivery_type, name='set_delivery_type'),
-    path('settings/delivery/', settings_center, {'tab': 'delivery'}, name='delivery_settings_view'),
+    path('settings/delivery/', views_delivery.delivery_settings_view, name='delivery_settings_view'),
     path('settings/delivery/toggle/', views_delivery.delivery_settings_toggle, name='delivery_settings_toggle'),
     path('settings/delivery/reset/', views_delivery.delivery_settings_reset, name='delivery_settings_reset'),
     path('order-tracking/', 
@@ -1125,5 +1194,34 @@ urlpatterns = [
      path('testing/run-auto/stop/', views_testing.test_auto_stop, name='test_auto_stop'),
      path('settings/center/', settings_center, name='settings_center'),
      path('settings/<str:tab>/', settings_center, name='settings_center_tab'),
+     path('stores/profiles/', views_frontend.store_profile_list, name='store_profile_list'),
+     path('stores/profiles/add/', views_frontend.store_profile_form, name='store_profile_add'),
+     path('stores/profiles/<int:pk>/edit/', views_frontend.store_profile_form, name='store_profile_edit'),
+     path('sales/pos/', pos_views.pos_screen, name='pos_screen'),
+     path('sales/pos/products/', pos_views.pos_products, name='pos_products'),
+     path('sales/pos/customers/', pos_views.pos_customers, name='pos_customers'),
+     path('sales/pos/checkout/', pos_views.pos_checkout, name='pos_checkout'),
+     path('sales/shift/status/', shift_views.shift_status, name='shift_status'),
+     path('sales/shift/open/', shift_views.shift_open, name='shift_open'),
+     path('sales/shift/movement/', shift_views.shift_movement, name='shift_movement'),
+     path('sales/shift/close/', shift_views.shift_close, name='shift_close'),
+     path('sales/shift/<int:pk>/close/', shift_views.shift_close, name='shift_close_pk'),
+     path('sales/shift/<int:pk>/report/', shift_views.shift_report, name='shift_report'),
+     path('sales/shifts/', shift_views.shift_list, name='shift_list'),
+     path('reports/profit-analysis/', views_frontend.profit_analysis, name='profit_analysis'),
+     path('sales/pos/recent/', shop_tools.recent_bills, name='pos_recent'),
+     path('sales/pos/bill/<int:pk>/', shop_tools.bill_detail, name='pos_bill'),
+     path('sales/pos/void/', shop_tools.pos_void, name='pos_void'),
+     path('inventory/stock-register/', shop_tools.stock_register, name='stock_register'),
+
+     # Step 4 - customer / vendor statements and ageing from the general ledger
+     path('customers/<int:pk>/statement/', views_frontend.customer_statement, name='customer_statement'),
+     path('vendors/<int:pk>/statement/', views_frontend.vendor_statement, name='vendor_statement'),
+     path('reports/ledger/receivable-aging/', views_frontend.gl_receivable_aging, name='gl_receivable_aging'),
+     path('reports/ledger/payable-aging/', views_frontend.gl_payable_aging, name='gl_payable_aging'),
 
 ]
+
+# ---- Agri Edition (added by install_agri.py) ----
+from app.agri.urls import urlpatterns as _agri_urlpatterns  # app.agri.urls
+urlpatterns += _agri_urlpatterns

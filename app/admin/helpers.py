@@ -117,7 +117,7 @@ def generate_invoice_pdf(sale_obj):
     # HEADER SECTION
     # ============================================
     
-    # Company Logo (storage se bytes parh kar lagate hain, URL ya path par depend nahi)
+    # Company Logo (read bytes from storage, does not depend on URL or path)
     try:
         if company and company.logo:
             from reportlab.lib.utils import ImageReader
@@ -133,7 +133,7 @@ def generate_invoice_pdf(sale_obj):
             story.append(logo_img)
             story.append(Spacer(1, 0.05 * inch))
     except Exception as e:
-        # Logo na lage to bhi invoice ban jaye
+        # The invoice should still be created even if the logo is missing
         logging.getLogger(__name__).warning("Invoice logo skipped: %s", e)
     
     story.append(Paragraph(company_name, title_style))

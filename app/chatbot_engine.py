@@ -117,16 +117,16 @@ class BusinessChatbot:
         """Main response method — safe with try/except"""
         
         if not question:
-            return "Please kuch poochein 😊"
+            return "Please ask something 😊"
         
         try:
             return self._process_question(question)
         except Exception as e:
             logger.error(f"Chatbot processing error: {e}")
             return (
-                "🤔 **Sorry, kuch technical issue hua.**\n\n"
-                "Aap dubara try karein ya koi admin se rabta karein.\n\n"
-                "📞 Support se baat karein."
+                "🤔 **Sorry, there was a technical issue.**\n\n"
+                "Please try again or contact an admin.\n\n"
+                "📞 Talk to Support."
             )
     
     def _process_question(self, question):
@@ -143,10 +143,10 @@ class BusinessChatbot:
             return self.greeting_response()
         
         if any(w in q_clean for w in ['thank', 'shukriya', 'shukria', 'thanks', 'thanx', 'jazak']):
-            return "You're welcome! 😊 Kuch aur poochna hai?"
+            return "You're welcome! 😊 Anything else you want to ask?"
         
         if any(w in q_clean for w in ['bye', 'khuda hafiz', 'goodbye', 'allah hafiz']):
-            return "Allah Hafiz! 👋 Phir milte hain."
+            return "Allah Hafiz! 👋 See you again."
         
         if any(w in q_clean for w in ['help', 'madad', 'kya kar sakte', 'kya kar skte']):
             return self.help_response()
@@ -378,13 +378,13 @@ class BusinessChatbot:
         """Order status check"""
         
         if order_no:
-            return f"""📦 **Order #{order_no} ke baare mein:**
+            return f"""📦 **About Order #{order_no}:**
 
-Aap **Track Order** page se live status dekh sakte hain:
+You can see the live status from the **Track Order** page:
 
 🔗 **Link:** `/shop/track/`
 
-Wahan apna:
+There, enter your:
 - ✅ Order number
 - ✅ Phone number
 
@@ -399,9 +399,9 @@ Daalein aur status dekh lein! 📊
 • 🚚 Shipped
 • 🎉 Delivered
 
-Agar order number yaad nahi, to phone number se check karein!"""
+If you do not remember the order number, check with your phone number!"""
         
-        return """📦 **Order Status Check Karne Ke Liye:**
+        return """📦 **To Check Order Status:**
 
 **Option 1: Online Track Karein**
 🔗 `/shop/track/` pe jaayein
@@ -410,10 +410,10 @@ Agar order number yaad nahi, to phone number se check karein!"""
 - Live status dekhein
 
 **Option 2: Yahan Bataein**
-Apna order number likhein, main check karta hoon.
+Enter your order number and I will check it.
 
 ━━━━━━━━━━━━━━━━━
-💡 **Tip:** Order milne ke baad tracking number bhi milega — usse bhi track kar sakte hain."""
+💡 **Tip:** Once your order is received you will also get a tracking number — you can track with that too."""
     
     # ========================================== #
     # ✅ NEW: PAYMENT METHODS                    #
@@ -425,25 +425,25 @@ Apna order number likhein, main check karta hoon.
 
 💰 **1. Cash on Delivery (COD)**
 Sabse popular! Ghar par cash dein
-✅ Koi extra charge nahi
+✅ No extra charge
 
 📱 **2. JazzCash**
-Mobile wallet se pay karein
+Pay with a mobile wallet
 ✅ Instant confirmation
 
 📱 **3. EasyPaisa**
-Mobile wallet se pay karein
+Pay with a mobile wallet
 ✅ Instant confirmation
 
 🏦 **4. Bank Transfer**
-Direct bank account mein
-✅ Bade orders ke liye best
+Directly into a bank account
+✅ Best for large orders
 
 ━━━━━━━━━━━━━━━━━
 🔒 **100% Secure Payments**
 Aapki information safe hai!
 
-💡 Order checkout ke waqt method choose karein."""
+💡 Choose the method at order checkout."""
     
     # ========================================== #
     # ✅ NEW: DELIVERY INFO                      #
@@ -466,7 +466,7 @@ Aapki information safe hai!
 Karachi, Lahore, Islamabad, Rawalpindi, Faisalabad, Multan, Peshawar, Quetta — aur zyada shehr
 
 📦 **Tracking:**
-Order confirm hote hi tracking number milega
+You get the tracking number as soon as the order is confirmed
 SMS + Email pe bhi notification aayegi
 
 ━━━━━━━━━━━━━━━━━
@@ -481,7 +481,7 @@ SMS + Email pe bhi notification aayegi
         return """↩️ **Return & Refund Policy:**
 
 ✅ **7-Day Return:**
-Product milne ke **7 din** tak return kar sakte hain
+You can return the product within **7 days** of receiving it
 
 📋 **Conditions:**
 • Original packaging
@@ -490,9 +490,9 @@ Product milne ke **7 din** tak return kar sakte hain
 • Bill/receipt zaroori
 
 💰 **Refund Process:**
-• Request ke baad **3-5 working days**
+• **3-5 working days** after the request
 • Original payment method pe refund
-• COD orders ke liye bank transfer
+• Bank transfer for COD orders
 
 ⚠️ **Not Refundable:**
 • Used/damaged products
@@ -501,8 +501,8 @@ Product milne ke **7 din** tak return kar sakte hain
 • Sale items
 
 ━━━━━━━━━━━━━━━━━
-📞 **Return ke liye:**
-Admin ko message karein
+📞 **For returns:**
+Message the admin
 Order number + Reason bataein"""
     
     # ========================================== #
@@ -540,12 +540,12 @@ Order number + Reason bataein"""
         
         return """📞 **Contact Us:**
 
-Hamare saath rabta karein:
-• Chat mein message bhejein
+Contact us:
+• Send a message in chat
 • Shop page pe "Contact" section dekhein
-• Admin se personally baat karein
+• Talk to the admin personally
 
-🤝 Hum aapki madad ke liye hamesha tayyar hain!"""
+🤝 We are always ready to help you!"""
     
     # ========================================== #
     # ✅ NEW: PRODUCT SEARCH                     #
@@ -571,7 +571,7 @@ Hamare saath rabta karein:
                 products = self.Product.objects.filter(query, is_active=True)[:5]
                 
                 if products.exists():
-                    result = "🔍 **Yeh products mile:**\n\n"
+                    result = "🔍 **These products were found:**\n\n"
                     
                     for p in products:
                         # Stock check
@@ -594,7 +594,7 @@ Hamare saath rabta karein:
                         result += "\n"
                     
                     result += "━━━━━━━━━━━━━━━━━\n"
-                    result += "🛒 Order karne ke liye shop page pe jaayein!\n"
+                    result += "🛒 Go to the shop page to place an order!\n"
                     result += "🔗 `/shop/`"
                     
                     return result
@@ -605,14 +605,14 @@ Hamare saath rabta karein:
 
 **Option 1: Online Search Karein**
 🔗 `/shop/` pe jaayein
-- Search box mein product ka naam daalein
-- Price + Stock sab dikh jayega
+- Enter the product name in the search box
+- Price + Stock will all be shown
 
 **Option 2: Yahan Bataein**
-Product ka naam likhein, main check karta hoon.
+Enter the product name and I will check it.
 
 ━━━━━━━━━━━━━━━━━
-💡 **Tip:** Sahi spelling likhein ya shop pe search karein."""
+💡 **Tip:** Write the correct spelling or search in the shop."""
     
     # ========================================== #
     # GREETINGS & HELP                           #
@@ -638,16 +638,16 @@ Product ka naam likhein, main check karta hoon.
 
 Main aapka **Business Assistant** hoon 🤖
 
-Kya jaanna chahte hain?
+What would you like to know?
 📊 Sales | 💰 Profit | 📦 Stock | 👥 Customers
 💵 Cash | 🚨 Alerts | ✅ Tasks
 
-Ya order/delivery ke baare mein poochein! 📦
+Or ask about orders/delivery! 📦
 
 Bas likhein ya mic dabayein! 🎤"""
     
     def help_response(self):
-        return """🤖 **Main Kya Kar Sakta Hoon:**
+        return """🤖 **What Can I Do:**
 
 🛒 **Customer Help:**
 "order status check karo"
@@ -669,19 +669,19 @@ Bas likhein ya mic dabayein! 🎤"""
 "alerts dikhao"
 
 💡 **Tips:**
-- Simple Roman Urdu mein likhein
+- Write in simple Roman Urdu
 - Ya 🎤 mic button dabayein
-- Koi bhi sawal, main madad karunga!"""
+- Any question, I will help!"""
     
     def who_are_you_response(self):
         return """Main hoon **Business Assistant** 🤖
 
 Aapka smart AI assistant jo:
 • 📊 Business numbers jaanta hai
-• 🛒 Order/delivery info de sakta hai
-• 💡 Suggestions deta hai
+• 🛒 Can give order/delivery info
+• 💡 Gives suggestions
 • 🚨 Alerts dikhata hai
-• 🎤 Voice mein jawaab deta hai
+• 🎤 Replies by voice
 
 Bas poochein — main bata dunga! 😊"""
     
@@ -708,7 +708,7 @@ Bas poochein — main bata dunga! 😊"""
 💰 Total: **Rs. {total:,.2f}**
 🛒 Orders: **{count}**{top_str}
 
-Aur kuch jaanna hai? 😊"""
+Want to know anything else? 😊"""
         
         if any(w in question for w in ['yesterday', 'kal']):
             yesterday = today - timedelta(days=1)
@@ -900,7 +900,7 @@ Aur kuch jaanna hai? 😊"""
 {items}
 
 💡 **Action:** Inhe turant order karein!"""
-            return "✅ **Sab products ka stock theek hai!** 🎉"
+            return "✅ **All products have enough stock!** 🎉"
         
         if any(w in question for w in ['out', 'khatam', 'zero', 'empty']):
             out_stock = self.Inventory.objects.filter(
@@ -916,8 +916,8 @@ Aur kuch jaanna hai? 😊"""
 
 {items}
 
-🚨 **Urgent:** Inhe abhi order karein!"""
-            return "✅ **Koi product out of stock nahi!**"
+🚨 **Urgent:** Order these now!"""
+            return "✅ **No product is out of stock!**"
         
         if any(w in question for w in ['value', 'worth', 'total']):
             total_value = Decimal('0')
@@ -1101,7 +1101,7 @@ Rs. {total_pay:,.2f} to {v_count} vendors
 
 💰 Available: **Rs. {balance:,.2f}**
 
-💡 "cash report" poochein detail ke liye"""
+💡 Ask "cash report" for details"""
     
     # ========================================== #
     # EXPENSE ANSWERS                            #
@@ -1171,7 +1171,7 @@ Rs. {total_pay:,.2f} to {v_count} vendors
 {items}
 
 Total: **{my_tasks.count()}**"""
-                    return "🎉 **Koi pending task nahi!**"
+                    return "🎉 **No pending tasks!**"
         
         if any(w in question for w in ['overdue', 'late', 'der']):
             overdue = [
@@ -1190,7 +1190,7 @@ Total: **{my_tasks.count()}**"""
 {items}
 
 Total: **{len(overdue)}**"""
-            return "✅ **Koi overdue task nahi!**"
+            return "✅ **No overdue tasks!**"
         
         pending = self.OperationTask.objects.filter(status='pending').count()
         in_progress = self.OperationTask.objects.filter(status='in_progress').count()
@@ -1223,7 +1223,7 @@ Total: **{len(overdue)}**"""
         count = active.count()
         
         if count == 0:
-            return "📋 **Koi active plan nahi hai**"
+            return "📋 **There is no active plan**"
         
         items = "\n".join([
             f"• **{p.plan_no}** - {p.title} ({p.progress_percent:.0f}%)"
@@ -1244,7 +1244,7 @@ Total: **{count}**"""
         kpis = self.OperationsKPI.objects.filter(is_active=True)
         
         if not kpis.exists():
-            return "📊 **Koi KPI set nahi hai**"
+            return "📊 **No KPI is set**"
         
         on_track = kpis.filter(status='on_track').count()
         warning = kpis.filter(status='warning').count()
@@ -1279,7 +1279,7 @@ Total: **{count}**"""
         if not insights:
             return """🤖 **AI Analysis:**
 
-Abhi koi insights nahi hain.
+There are no insights right now.
 
 💡 **Tip:** Operations Dashboard pe "Run AI Analysis" button dabayein!"""
         
@@ -1329,7 +1329,7 @@ Abhi koi insights nahi hain.
 🚨 Active Alerts: **{alert_count}**{alert_str}"""
         except Exception as e:
             logger.error(f"Alert error: {e}")
-            return "🔔 **Alerts load nahi ho sake.**"
+            return "🔔 **Could not load alerts.**"
     
     # ========================================== #
     # INSTALLMENT ANSWERS                        #
@@ -1537,11 +1537,11 @@ Outstanding: Rs. {given_total:,.2f}
     # ========================================== #
     
     def default_response(self, question):
-        return f"""🤔 **Samajh nahi aaya:**
+        return f"""🤔 **I did not understand:**
 
 "{question[:100]}"
 
-💡 **Yeh try karein:**
+💡 **Try this:**
 
 🛒 **Customer Help:**
 • "order status check karo"
@@ -1567,7 +1567,7 @@ Ya **help** likhein! 😊"""
 # ==========================================
 class CustomerChatbot:
     """
-    Customer ke liye chatbot — SIRF customer-related info
+    Chatbot for customers — customer-related info ONLY
     
     ✅ Allowed:
     - Greetings, help, thanks
@@ -1608,16 +1608,16 @@ class CustomerChatbot:
     def get_response(self, question):
         """Main response method"""
         if not question:
-            return "Please kuch poochein 😊"
+            return "Please ask something 😊"
         
         try:
             return self._process_question(question)
         except Exception as e:
             logger.error(f"Customer chatbot error: {e}")
             return (
-                "🤔 **Sorry, kuch technical issue hua.**\n\n"
-                "Aap dobara try karein ya koi admin se rabta karein.\n\n"
-                "📞 Support se baat karein."
+                "🤔 **Sorry, there was a technical issue.**\n\n"
+                "Please try again or contact an admin.\n\n"
+                "📞 Talk to Support."
             )
     
     def _process_question(self, question):
@@ -1633,10 +1633,10 @@ class CustomerChatbot:
             return self.greeting_response()
         
         if any(w in q_clean for w in ['thank', 'shukriya', 'shukria', 'thanks', 'thanx', 'jazak']):
-            return "You're welcome! 😊 Kuch aur poochna hai?"
+            return "You're welcome! 😊 Anything else you want to ask?"
         
         if any(w in q_clean for w in ['bye', 'khuda hafiz', 'goodbye', 'allah hafiz']):
-            return "Allah Hafiz! 👋 Phir milte hain."
+            return "Allah Hafiz! 👋 See you again."
         
         if any(w in q_clean for w in ['help', 'madad', 'kya kar sakte', 'kya kar skte']):
             return self.help_response()
@@ -1703,7 +1703,7 @@ class CustomerChatbot:
             return self.get_shop_timing_response()
         
         # ========================================== #
-        # 11. DEFAULT — Business data NAHI deta      #
+        # 11. DEFAULT — Does NOT give business data      #
         # ========================================== #
         return self.default_response(question)
     
@@ -1731,7 +1731,7 @@ class CustomerChatbot:
 
 Main **Customer Support** assistant hoon 🤖
 
-Kya madad chahiye?
+What help do you need?
 🛒 Product search
 📦 Order tracking
 💳 Payment info
@@ -1741,7 +1741,7 @@ Kya madad chahiye?
 Bas likhein ya mic dabayein! 🎤"""
     
     def help_response(self):
-        return """🤖 **Main Kya Kar Sakta Hoon:**
+        return """🤖 **What Can I Do:**
 
 🛒 **Products:**
 • "iPhone ki price"
@@ -1767,7 +1767,7 @@ Bas apna sawal likhein! 😊"""
     def who_are_you_response(self):
         return """Main hoon **Customer Support Assistant** 🤖
 
-Aapki madad kar sakta hoon:
+I can help you with:
 • 🛒 Product search
 • 📦 Order tracking
 • 💳 Payment info
@@ -1794,18 +1794,18 @@ Bas poochein! 😊"""
 📅 **Date:** {order.order_date.strftime('%d-%m-%Y')}
 💰 **Total:** Rs. {total:,.2f}
 
-Aur detail ke liye:
+For more details:
 🔗 `/shop/track/?order_no={order.order_no}`"""
                 else:
                     return f"""🔍 **Order #{order_no} nahi mila**
 
-Kya aap sahi order number likhein? Ya apna phone number check karein.
+Please enter the correct order number, or check your phone number.
 
 🔗 **Track Order:** `/shop/track/`"""
             except Exception as e:
                 logger.error(f"Order status error: {e}")
         
-        return """📦 **Order Status Check Karne Ke Liye:**
+        return """📦 **To Check Order Status:**
 
 **Option 1: Online Track Karein**
 🔗 `/shop/track/` pe jaayein
@@ -1814,7 +1814,7 @@ Kya aap sahi order number likhein? Ya apna phone number check karein.
 - Live status dekhein
 
 **Option 2: Yahan Bataein**
-Apna order number likhein, main check karta hoon."""
+Enter your order number and I will check it."""
     
     def get_payment_methods_response(self):
         return """💳 **Payment Methods:**
@@ -1829,7 +1829,7 @@ Mobile wallet se pay
 Mobile wallet se pay
 
 🏦 **Bank Transfer**
-Bade orders ke liye
+For large orders
 
 ━━━━━━━━━━━━━━━━━
 🔒 **100% Secure**"""
@@ -1854,7 +1854,7 @@ Order confirm hone pe tracking number milega
     def get_return_response(self):
         return """↩️ **Return & Refund:**
 
-✅ **7-Day Return** — Milne ke baad 7 din tak
+✅ **7-Day Return** — Within 7 days of receiving
 
 📋 **Conditions:**
 • Original packaging
@@ -1864,7 +1864,7 @@ Order confirm hone pe tracking number milega
 💰 **Refund:** 3-5 working days
 
 ━━━━━━━━━━━━━━━━━
-📞 Return ke liye admin se message karein"""
+📞 For returns, message the admin"""
     
     def get_contact_response(self):
         try:
@@ -1896,12 +1896,12 @@ Order confirm hone pe tracking number milega
         
         return """📞 **Contact Us:**
 
-Hamare saath rabta karein:
-• Chat mein message bhejein
+Contact us:
+• Send a message in chat
 • Shop page pe "Contact" section dekhein
-• Admin se personally baat karein
+• Talk to the admin personally
 
-🤝 Hum madad ke liye hain!"""
+🤝 We are here to help!"""
     
     def get_product_search_response(self, question):
         """Product price/stock search"""
@@ -1923,7 +1923,7 @@ Hamare saath rabta karein:
                 products = self.Product.objects.filter(query, is_active=True)[:5]
                 
                 if products.exists():
-                    result = "🔍 **Yeh products mile:**\n\n"
+                    result = "🔍 **These products were found:**\n\n"
                     
                     for p in products:
                         # ✅ Stock check
@@ -1940,7 +1940,7 @@ Hamare saath rabta karein:
                         result += f"   {stock_status}\n\n"
                     
                     result += "━━━━━━━━━━━━━━━━━\n"
-                    result += "🛒 Order karne ke liye shop page pe jaayein!\n"
+                    result += "🛒 Go to the shop page to place an order!\n"
                     result += "🔗 `/shop/`"
                     
                     return result
@@ -1952,14 +1952,14 @@ Hamare saath rabta karein:
 
 **Option 1: Online Search**
 🔗 `/shop/` pe jaayein
-- Search box mein naam daalein
+- Enter the name in the search box
 - Price + Stock dikhega
 
 **Option 2: Yahan Bataein**
-Product ka naam likhein, main check karta hoon."""
+Enter the product name and I will check it."""
     
     def get_my_orders_response(self):
-        return """📦 **Aapke Orders Dekhne Ke Liye:**
+        return """📦 **To See Your Orders:**
 
 🔗 `/shop/my-orders/` pe jaayein
 
@@ -1974,15 +1974,15 @@ Login zaroori hai! 🔒"""
     def get_cart_help_response(self):
         return """🛒 **Shopping Cart Help:**
 
-**Products Add Karne Ke Liye:**
+**To Add Products:**
 1. Shop page pe jaayein: `/shop/`
 2. Product pe "Add to Cart" dabayein
 
-**Cart Dekhne Ke Liye:**
+**To See Your Cart:**
 🔗 `/shop/cart/`
 
-**Checkout Karne Ke Liye:**
-Cart mein "Checkout" button dabayein
+**To Check Out:**
+Press the "Checkout" button in the cart
 
 Koi masla? Bataein! 😊"""
     
@@ -1999,11 +1999,11 @@ Online shop **24/7** open hai! 🛒
 🔗 `/shop/`"""
     
     def default_response(self, question):
-        return f"""🤔 **Samajh nahi aaya:**
+        return f"""🤔 **I did not understand:**
 
 "{question[:100]}"
 
-💡 **Yeh try karein:**
+💡 **Try this:**
 
 🛒 **Products:**
 • "[product name] ki price"

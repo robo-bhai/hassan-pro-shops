@@ -11,7 +11,7 @@ def send_chat_notification_email(
     is_guest=False,
     unread_count=1
 ):
-    """Admin ko chat message ka email bhejo"""
+    """Send an email of the chat message to the admin"""
     from django.conf import settings
     from django.core.mail import EmailMultiAlternatives
     
@@ -65,7 +65,7 @@ Automated notification from {getattr(settings, 'SITE_NAME', 'Your Store')} Live 
             </div>
             
             <div style="background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #92400e;">
-                <strong>⏰ Tip:</strong> Customer ko turant reply karne se sale complete hone ke chances zyada hote hain.
+                <strong>⏰ Tip:</strong> Replying to the customer quickly increases the chances of completing the sale.
             </div>
         </div>
         

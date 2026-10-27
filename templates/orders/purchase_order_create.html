@@ -1,85 +1,172 @@
 {% extends 'base.html' %}
-{% load static %}
-{% block title %}New Purchase Order{% endblock %}
-{% block page_title %}📑 New Purchase Order{% endblock %}
-
-{% block extra_css %}
+{% block title %}{% if order %}Edit {{ order.order_no }}{% else %}New Purchase Order{% endif %}{% endblock %}
+{% block page_title %}{% if order %}Edit {{ order.order_no }}{% else %}New Purchase Order{% endif %}{% endblock %}
+{% block extra_css %}{% include 'orders/_po_css.html' %}
 <style>
-    .form-grid { display:grid; grid-template-columns:1fr 380px; gap:20px; align-items:start; }
-    @media(max-width:992px){.form-grid{grid-template-columns:1fr}}
-    .form-card { background:white; border-radius:16px; border:1px solid #eef0f5; padding:22px; margin-bottom:20px; }
-    .form-card h5 { font-weight:700; margin-bottom:18px; font-size:0.95rem; }
-    .form-label-mini { font-weight:700; font-size:0.68rem; text-transform:uppercase; letter-spacing:1px; color:#5a6070; margin-bottom:4px; display:block; }
-    .form-control-custom, .form-select-custom { border-radius:10px; border:2px solid #eef0f5; padding:10px 14px; font-size:0.9rem; font-weight:500; background:#fafbfc; margin-bottom:12px; width:100%; }
-    .form-control-custom:focus, .form-select-custom:focus { border-color:#0d6efd; outline:none; box-shadow:0 0 0 3px rgba(13,110,253,0.08); }
-    .product-row { display:flex; gap:10px; align-items:center; padding:12px; background:#fafbfc; border-radius:12px; border:1px solid #eef0f5; margin-bottom:10px; flex-wrap:wrap; }
-    .product-row select{flex:2;min-width:150px;margin-bottom:0!important}
-    .product-row input{flex:1;min-width:80px;margin-bottom:0!important}
-    .product-row .row-total{font-weight:700;min-width:90px;text-align:right}
-    .btn-remove-row{width:34px;height:34px;border-radius:8px;border:none;background:#fee2e2;color:#dc3545;cursor:pointer}
-    .btn-add-product{border-radius:10px;padding:12px 20px;font-weight:600;background:#f0fff4;color:#2e7d32;border:2px dashed #4caf50;cursor:pointer;width:100%}
-    .btn-submit{width:100%;padding:14px;border-radius:12px;font-weight:700;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;cursor:pointer;margin-top:15px}
+.pf{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start}
+@media(max-width:992px){.pf{grid-template-columns:1fr}}
+.pl{display:grid;grid-template-columns:minmax(160px,3fr) 90px 110px 110px 34px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--po-bd)}
+.pl.head{font-size:.66rem;text-transform:uppercase;letter-spacing:.7px;color:var(--po-mut);font-weight:700;border-bottom:2px solid var(--po-bd)}
+.pl .tot{text-align:right;font-weight:700;font-size:.85rem}
+.pl .x{border:0;background:rgba(220,38,38,.12);color:#dc2626;border-radius:8px;height:32px;cursor:pointer}
+.pl .nm{position:relative}
+.pl .unit{font-size:.7rem;color:var(--po-mut)}
+.sug{position:absolute;left:0;right:0;top:100%;z-index:50;background:var(--po-card);border:1px solid var(--po-bd);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.18);max-height:260px;overflow:auto;display:none}
+.sug div{padding:8px 12px;cursor:pointer;font-size:.85rem;border-bottom:1px solid var(--po-bd)}
+.sug div:hover,.sug div.on{background:var(--po-soft)}
+.sug small{color:var(--po-mut)}
+@media(max-width:640px){.pl{grid-template-columns:1fr 1fr 1fr 34px}.pl .nm{grid-column:1/-1}.pl.head{display:none}.pl .tot{grid-column:1/4}}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="form-grid">
-    <div>
-        <form method="POST" id="poForm">{% csrf_token %}
-            <div class="form-card">
-                <h5>📦 Products</h5>
-                <div id="productsContainer">
-                    <div class="product-row" id="row-0">
-                        <select name="product_id[]" onchange="updateRowTotal(this)"><option value="">-- Select Product --</option>{% for p in products %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</select>
-                        <input type="number" name="qty[]" value="1" min="1" onchange="updateRowTotal(this)" placeholder="Qty">
-                        <input type="number" name="price[]" value="0" step="0.01" onchange="updateRowTotal(this)" placeholder="Price">
-                        <span class="row-total">Rs. 0</span>
-                        <button type="button" class="btn-remove-row" onclick="removeProductRow(this)">✕</button>
-                    </div>
-                </div>
-                <button type="button" class="btn-add-product mt-3" onclick="addProductRow()">➕ Add Product</button>
-            </div>
-        </form>
+<div class="po">
+{% if copy_of %}<div class="alert alert-info py-2">Copied from <strong>{{ copy_of.order_no }}</strong>. Check quantities and prices, then save as a new order.</div>{% endif %}
+<form method="post" id="poForm" autocomplete="off">{% csrf_token %}
+<div class="pf">
+  <div>
+    <div class="po-card">
+      <div class="po-card-h">Items</div>
+      <div class="po-card-b">
+        <div class="pl head"><div>Product</div><div>Qty</div><div>Price</div><div style="text-align:right">Total</div><div></div></div>
+        <div id="lines"></div>
+        <button type="button" class="po-btn mt-3" id="addBtn"><i class="bi bi-plus-lg"></i> Add item</button>
+        <span class="po-muted ms-2" style="font-size:.78rem">Type a name, barcode or serial. Price is filled from the last purchase.</span>
+      </div>
     </div>
-    
-    <div>
-        <div class="form-card">
-            <h5>📋 Order Details</h5>
-            <label class="form-label-mini">Vendor *</label>
-            <select name="vendor" class="form-select-custom" form="poForm" required><option value="">Select Vendor</option>{% for v in vendors %}<option value="{{ v.id }}" {% if forloop.first %}selected{% endif %}>{{ v.vendor_code|default:'N/A' }} - {{ v.name }}</option>{% endfor %}</select>
-            
-            <label class="form-label-mini">Warehouse *</label>
-            <select name="warehouse" class="form-select-custom" form="poForm" required><option value="">Select Warehouse</option>{% for wh in warehouses %}<option value="{{ wh.id }}" {% if forloop.first %}selected{% endif %}>{{ wh.name }}</option>{% endfor %}</select>
-            
-            <div class="row g-2"><div class="col-6"><label class="form-label-mini">Vendor SO</label><input type="text" name="vendor_so" class="form-control-custom" form="poForm"></div><div class="col-6"><label class="form-label-mini">Expected Date</label><input type="date" name="expected_date" class="form-control-custom" form="poForm"></div></div>
-            
-            <label class="form-label-mini">Status</label>
-            <select name="status" class="form-select-custom" form="poForm"><option value="pending">⏳ Pending</option><option value="confirmed">✅ Confirmed</option></select>
-            
-            <div class="row g-2"><div class="col-6"><label class="form-label-mini">Advance</label><input type="number" name="advance" class="form-control-custom" form="poForm" value="0" step="0.01"></div><div class="col-6"><label class="form-label-mini">Discount</label><input type="number" name="discount" class="form-control-custom" form="poForm" value="0" step="0.01"></div></div>
-            
-            <label class="form-label-mini">Notes</label>
-            <textarea name="notes" class="form-control-custom" form="poForm" rows="2"></textarea>
-            
-            <button type="submit" form="poForm" class="btn-submit">✅ Create Purchase Order</button>
-            <a href="{% url 'purchase_order_list' %}" class="btn btn-outline-secondary w-100 mt-2" style="border-radius:10px;">← Back</a>
-        </div>
-    </div>
+  </div>
+  <div>
+    <div class="po-card"><div class="po-card-b">
+      <label class="po-lbl">Vendor *</label>
+      <select name="vendor" class="po-inp mb-2" required>
+        <option value="">Select vendor</option>
+        {% for v in vendors %}<option value="{{ v.id }}" {% if order.vendor_id == v.id or copy_of.vendor_id == v.id %}selected{% endif %}>{% if v.vendor_code %}{{ v.vendor_code }} - {% endif %}{{ v.name }}</option>{% endfor %}
+      </select>
+      <label class="po-lbl">Deliver to warehouse *</label>
+      <select name="warehouse" class="po-inp mb-2" required>
+        {% for w in warehouses %}<option value="{{ w.id }}" {% if order.warehouse_id == w.id or copy_of.warehouse_id == w.id %}selected{% endif %}>{{ w.name }}</option>{% endfor %}
+      </select>
+      <div class="row g-2 mb-2">
+        <div class="col-6"><label class="po-lbl">Expected date</label><input type="date" name="expected_date" class="po-inp" min="{{ today|date:'Y-m-d' }}" value="{{ order.expected_date|date:'Y-m-d' }}"></div>
+        <div class="col-6"><label class="po-lbl">Vendor SO no</label><input name="vendor_so" class="po-inp" maxlength="50" value="{{ order.vendor_so_number|default:'' }}"></div>
+      </div>
+      <label class="po-lbl">Status</label>
+      <select name="status" class="po-inp mb-2">
+        <option value="pending" {% if order.status != 'confirmed' %}selected{% endif %}>Pending (draft)</option>
+        <option value="confirmed" {% if order.status == 'confirmed' %}selected{% endif %}>Confirmed (sent to vendor)</option>
+      </select>
+      <label class="po-lbl">Notes / terms</label>
+      <textarea name="notes" rows="2" class="po-inp">{{ order.notes|default:'' }}</textarea>
+    </div></div>
+
+    <div class="po-card"><div class="po-card-b">
+      <div class="po-sum"><span>Subtotal</span><span id="sSub">0.00</span></div>
+      <div class="row g-2 my-1">
+        <div class="col-6"><label class="po-lbl">Discount</label><input type="number" step="0.01" min="0" name="discount" id="disc" class="po-inp" value="{{ order.discount_value|default:0 }}"></div>
+        <div class="col-6"><label class="po-lbl">Advance</label><input type="number" step="0.01" min="0" name="advance" id="adv" class="po-inp" value="{{ order.advance_payment|default:0 }}"></div>
+      </div>
+      <div class="po-sum big"><span>Net total (Rs.)</span><span id="sNet">0.00</span></div>
+      <div class="po-sum"><span>Balance after advance</span><span id="sBal">0.00</span></div>
+      <div id="err" class="text-danger" style="font-size:.82rem;min-height:18px"></div>
+      <button class="po-btn pri w-100 justify-content-center mt-2" type="submit"><i class="bi bi-check2-circle"></i> {% if order %}Save changes{% else %}Create purchase order{% endif %}</button>
+      <a class="po-btn w-100 justify-content-center mt-2" href="{% if order %}{% url 'purchase_order_detail' order.pk %}{% else %}{% url 'purchase_order_list' %}{% endif %}">Cancel</a>
+    </div></div>
+  </div>
 </div>
+</form>
+</div>
+{{ rows|json_script:"po-rows" }}
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    let rowCount = 1;
-    function addProductRow() {
-        const container = document.getElementById('productsContainer');
-        const row = document.createElement('div'); row.className = 'product-row'; row.id = `row-${rowCount}`;
-        let options = '<option value="">-- Select Product --</option>'; {% for p in products %} options += '<option value="{{ p.id }}">{{ p.name }}</option>'; {% endfor %}
-        row.innerHTML = `<select name="product_id[]" onchange="updateRowTotal(this)">${options}</select><input type="number" name="qty[]" value="1" min="1" onchange="updateRowTotal(this)"><input type="number" name="price[]" value="0" step="0.01" onchange="updateRowTotal(this)"><span class="row-total">Rs. 0</span><button type="button" class="btn-remove-row" onclick="removeProductRow(this)">✕</button>`;
-        container.appendChild(row); rowCount++;
+(function(){
+  const SEARCH = "{% url 'purchase_order_products' %}";
+  const lines = document.getElementById('lines');
+  const fmt = n => n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const num = v => { const x = parseFloat(v); return isFinite(x) ? x : 0; };
+  let timer = null;
+
+  function recalc(){
+    let sub = 0;
+    lines.querySelectorAll('.pl').forEach(r=>{
+      const t = num(r.querySelector('.q').value) * num(r.querySelector('.p').value);
+      r.querySelector('.tot').textContent = fmt(t); sub += t;
+    });
+    const d = num(document.getElementById('disc').value), a = num(document.getElementById('adv').value);
+    const net = sub - d;
+    document.getElementById('sSub').textContent = fmt(sub);
+    document.getElementById('sNet').textContent = fmt(net);
+    document.getElementById('sBal').textContent = fmt(net - a);
+    let e = '';
+    if (d < 0 || d > sub) e = 'Discount must be between 0 and the subtotal.';
+    else if (a < 0 || a > net) e = 'Advance cannot be more than the net total.';
+    document.getElementById('err').textContent = e;
+    return e;
+  }
+
+  function addLine(d){
+    d = d || {};
+    const r = document.createElement('div'); r.className = 'pl';
+    r.innerHTML = '<div class="nm"><input type="hidden" name="product_id[]" class="pid">' +
+      '<input class="po-inp name" placeholder="Search product..."><div class="unit"></div><div class="sug"></div></div>' +
+      '<input class="po-inp q" name="qty[]" type="number" step="any" min="0.001" value="1">' +
+      '<input class="po-inp p" name="price[]" type="number" step="0.01" min="0" value="0">' +
+      '<div class="tot">0.00</div><button type="button" class="x" title="Remove">&times;</button>';
+    lines.appendChild(r);
+    const pid = r.querySelector('.pid'), name = r.querySelector('.name'), sug = r.querySelector('.sug'),
+          q = r.querySelector('.q'), p = r.querySelector('.p'), unit = r.querySelector('.unit');
+    if (d.id){ pid.value = d.id; name.value = d.name; q.value = d.qty; p.value = d.price; unit.textContent = d.unit || ''; }
+
+    function pick(it){
+      pid.value = it.id; name.value = it.name; unit.textContent = it.unit || '';
+      if (!num(p.value) && it.last_price) p.value = it.last_price;
+      sug.style.display = 'none'; recalc(); q.focus(); q.select();
     }
-    function removeProductRow(btn) { const rows = document.querySelectorAll('#productsContainer .product-row'); if(rows.length<=1){alert('Need at least 1 product!');return;} btn.closest('.product-row').remove(); }
-    function updateRowTotal(input) { const row = input.closest('.product-row'); const qty = parseFloat(row.querySelector('input[name="qty[]"]').value)||0; const price = parseFloat(row.querySelector('input[name="price[]"]').value)||0; row.querySelector('.row-total').textContent = 'Rs. '+(qty*price).toFixed(2); }
-    document.getElementById('poForm').addEventListener('submit',function(e){if(!this.querySelector('select[name="vendor"]').value){e.preventDefault();alert('Select vendor!');return;}if(!this.querySelector('select[name="warehouse"]').value){e.preventDefault();alert('Select warehouse!');return;}});
+    function search(){
+      fetch(SEARCH + '?q=' + encodeURIComponent(name.value.trim()), {credentials:'same-origin'})
+        .then(x=>x.json()).then(j=>{
+          sug.innerHTML = '';
+          if (!j.results.length){ sug.innerHTML = '<div class="po-muted">No product found</div>'; }
+          j.results.forEach(it=>{
+            const o = document.createElement('div');
+            o.innerHTML = '<strong></strong> <small></small>';
+            o.firstChild.textContent = it.name;
+            o.lastChild.textContent = (it.unit ? it.unit + ' ' : '') + (it.last_price ? ' | last ' + it.last_price : '');
+            o.addEventListener('mousedown', ev=>{ ev.preventDefault(); pick(it); });
+            sug.appendChild(o);
+          });
+          sug.style.display = 'block';
+        });
+    }
+    name.addEventListener('input', ()=>{ pid.value=''; unit.textContent=''; clearTimeout(timer); timer = setTimeout(search, 220); });
+    name.addEventListener('focus', ()=>{ if(!pid.value) search(); });
+    name.addEventListener('blur', ()=>{ setTimeout(()=>{ sug.style.display='none'; if(!pid.value) name.value=''; }, 150); });
+    name.addEventListener('keydown', ev=>{
+      if (ev.key === 'Enter'){ ev.preventDefault(); const f = sug.firstElementChild; if (f && sug.style.display==='block') f.dispatchEvent(new Event('mousedown')); }
+    });
+    [q,p].forEach(i=>i.addEventListener('input', recalc));
+    p.addEventListener('keydown', ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); addLine().querySelector('.name').focus(); } });
+    r.querySelector('.x').addEventListener('click', ()=>{ if(lines.children.length>1){ r.remove(); recalc(); } else { pid.value=''; name.value=''; q.value=1; p.value=0; unit.textContent=''; recalc(); } });
+    return r;
+  }
+
+  document.getElementById('addBtn').addEventListener('click', ()=>addLine().querySelector('.name').focus());
+  ['disc','adv'].forEach(i=>document.getElementById(i).addEventListener('input', recalc));
+
+  let rows = [];
+  try { rows = JSON.parse(document.getElementById('po-rows').textContent) || []; } catch(e){}
+  if (rows.length) rows.forEach(addLine); else addLine();
+  recalc();
+
+  document.getElementById('poForm').addEventListener('submit', ev=>{
+    const filled = [...lines.querySelectorAll('.pid')].filter(i=>i.value);
+    let e = recalc();
+    if (!filled.length) e = 'Add at least one product (pick it from the list).';
+    else if ([...lines.querySelectorAll('.pl')].some(r=>r.querySelector('.pid').value && (num(r.querySelector('.q').value)<=0 || num(r.querySelector('.p').value)<=0)))
+      e = 'Every item needs a quantity and a price greater than zero.';
+    if (e){ ev.preventDefault(); document.getElementById('err').textContent = e; }
+  });
+})();
 </script>
 {% endblock %}

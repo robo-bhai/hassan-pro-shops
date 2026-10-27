@@ -1,8 +1,8 @@
 """
 Custom Decorators for Customer Portal
 ======================================
-- customer_login_required: Customer portal ke pages ke liye
-- staff_required: Sirf staff/admin ke liye
+- customer_login_required: for Customer portal pages
+- staff_required: for staff/admin only
 """
 from functools import wraps
 from django.shortcuts import redirect
@@ -15,10 +15,10 @@ def customer_login_required(view_func):
     ✅ Custom decorator for customer portal pages
     
     Behavior:
-    - Agar user authenticated nahi → customer_login par redirect (next ke saath)
-    - Agar customer hai → view chalayein
-    - Agar admin/staff hai → allowed (bypass)
-    - Agar aur koi user hai → shop_home par redirect
+    - If the user is not authenticated → redirect to customer_login (with next)
+    - If a customer → run the view
+    - If admin/staff → allowed (bypass)
+    - If any other user → redirect to shop_home
     """
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
@@ -26,7 +26,7 @@ def customer_login_required(view_func):
         # CHECK 1: User authenticated hai?
         # ==========================================
         if not request.user.is_authenticated:
-            messages.warning(request, '🛒 Pehle login karein')
+            messages.warning(request, '🛒 Please log in first')
             next_url = request.get_full_path()
             return redirect(f"{reverse('customer_login')}?next={next_url}")
         
@@ -44,8 +44,8 @@ def customer_login_required(view_func):
             # ✅ Admin/staff hai — allowed (bypass)
             return view_func(request, *args, **kwargs)
         
-        # ❌ Koi aur user hai — access denied
-        messages.error(request, '❌ Yeh page sirf customers ke liye hai')
+        # ❌ Any other user — access denied
+        messages.error(request, '❌ This page is for customers only')
         return redirect('shop_home')
     
     return wrapper
@@ -53,12 +53,12 @@ def customer_login_required(view_func):
 
 def staff_required(view_func):
     """
-    ✅ Only staff/admin users ke liye
+    ✅ For staff/admin users only
     """
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
-            messages.warning(request, '🔒 Pehle login karein')
+            messages.warning(request, '🔒 Please log in first')
             return redirect('login')
         
         if not (request.user.is_staff or request.user.is_superuser):

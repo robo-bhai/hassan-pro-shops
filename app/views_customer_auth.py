@@ -80,20 +80,20 @@ def safe_login(request, user):
 
 def auto_place_order(request, customer):
     """
-    OTP verify hone ke baad AUTO ORDER PLACE karo
+    AUTO PLACE ORDER after the OTP is verified
     """
     try:
         with transaction.atomic():
             # Step 1: Cart check
             cart = request.session.get('cart', {})
             if not cart:
-                logger.warning(f"Cart khali hai for {customer.name}")
-                return None, "Cart khali hai"
+                logger.warning(f"Cart is empty for {customer.name}")
+                return None, "Cart is empty"
             
             # Step 2: Warehouse
             warehouse = Warehouse.objects.first()
             if not warehouse:
-                return None, "Koi warehouse nahi hai"
+                return None, "There is no warehouse"
             
             # Step 3: Payment method
             payment_method = request.session.get('selected_payment', 'cod')
@@ -126,7 +126,7 @@ def auto_place_order(request, customer):
                 ).values_list('stock', flat=True).first() or 0
                 
                 if stock < item['quantity']:
-                    return None, f"{product.name} ka stock kam hai"
+                    return None, f"Not enough stock for {product.name}"
             
             # Step 6: Create order
             order = SaleOrder.objects.create(
@@ -244,30 +244,30 @@ def customer_register(request):
             
             # Validation
             if not full_name or len(full_name) < 3:
-                messages.error(request, '❌ Poora naam likhein')
+                messages.error(request, '❌ Enter your full name')
                 return redirect('customer_register')
             
             if not phone or not is_valid_phone(phone):
-                messages.error(request, '❌ Sahi phone number likhein')
+                messages.error(request, '❌ Enter a valid phone number')
                 return redirect('customer_register')
             
             # ✅ EMAIL MANDATORY
             if not email:
-                messages.error(request, '❌ Email zaroori hai (OTP verification ke liye)')
+                messages.error(request, '❌ Email is required (for OTP verification)')
                 return redirect('customer_register')
             
             try:
                 validate_email(email)
             except ValidationError:
-                messages.error(request, '❌ Sahi email address likhein')
+                messages.error(request, '❌ Enter a valid email address')
                 return redirect('customer_register')
             
             if not city:
-                messages.error(request, '❌ Sahi shehar likhein')
+                messages.error(request, '❌ Enter a valid city')
                 return redirect('customer_register')
             
             if not address or len(address) < 10:
-                messages.error(request, '❌ Mukammal pata likhein')
+                messages.error(request, '❌ Enter the full address')
                 return redirect('customer_register')
             
             if not password or len(password) < 6:
@@ -275,17 +275,17 @@ def customer_register(request):
                 return redirect('customer_register')
             
             if password != confirm_password:
-                messages.error(request, '❌ Password match nahi ho rahe')
+                messages.error(request, '❌ Passwords do not match')
                 return redirect('customer_register')
             
             phone = normalize_phone(phone)
             
             if Customer.objects.filter(contact_number=phone).exists():
-                messages.error(request, '⚠️ Yeh phone pehle se registered hai')
+                messages.error(request, '⚠️ This phone is already registered')
                 return redirect('customer_login')
             
             if User.objects.filter(email=email).exists():
-                messages.error(request, '⚠️ Yeh email pehle se registered hai')
+                messages.error(request, '⚠️ This email is already registered')
                 return redirect('customer_register')
             
             with transaction.atomic():
@@ -347,7 +347,7 @@ def customer_register(request):
             
         except Exception as e:
             logger.error(f"Register error: {e}")
-            messages.error(request, '❌ Register mein masla hua')
+            messages.error(request, '❌ There was a problem with registration')
             return redirect('customer_register')
     
     company = CompanyInfo.objects.first()
@@ -377,14 +377,14 @@ def customer_login(request):
             next_url = request.POST.get('next') or request.GET.get('next', '')
             
             if not phone or not password:
-                messages.error(request, '❌ Phone aur password dono likhein')
+                messages.error(request, '❌ Enter both phone and password')
                 return redirect('customer_login')
             
             phone = normalize_phone(phone)
             
             customer = Customer.objects.filter(contact_number=phone).first()
             if not customer or not hasattr(customer, 'portal_profile'):
-                messages.error(request, '❌ Ghalat phone number ya password')
+                messages.error(request, '❌ Wrong phone number or password')
                 return redirect('customer_login')
             
             user = customer.portal_profile.user
@@ -393,7 +393,7 @@ def customer_login(request):
                 return redirect('customer_login')
             
             if user.is_superuser or user.is_staff:
-                messages.error(request, '❌ Yeh admin account hai')
+                messages.error(request, '❌ This is an admin account')
                 return redirect('login')
             
             authenticated_user = authenticate(
@@ -423,7 +423,7 @@ def customer_login(request):
                 
         except Exception as e:
             logger.error(f"Login error: {e}")
-            messages.error(request, '❌ Login mein masla hua')
+            messages.error(request, '❌ There was a problem with login')
             return redirect('customer_login')
     
     context = {
@@ -441,7 +441,7 @@ def customer_logout(request):
     """Logout with session flush + admin presence offline"""
     from .models import AdminPresence
     
-    # ✅ Admin offline mark karo (agar staff hai)
+    # ✅ Mark admin offline (if staff)
     if request.user.is_authenticated and request.user.is_staff:
         try:
             AdminPresence.mark_offline(request.user)
@@ -450,7 +450,7 @@ def customer_logout(request):
     
     request.session.flush()
     logout(request)
-    messages.success(request, '👋 Aap logout ho gaye hain. Phir milenge!')
+    messages.success(request, '👋 You have been logged out. See you again!')
     return redirect('shop_home')
 
 
@@ -715,13 +715,13 @@ def verify_order_otp(request):
         if order:
             return JsonResponse({
                 'success': True,
-                'message': '✅ OTP verified! Order place ho gaya.',
+                'message': '✅ OTP verified! Order placed.',
                 'redirect_url': f'/shop/order-success/{order.id}/',
             })
         else:
             return JsonResponse({
                 'success': True,
-                'message': f'✅ OTP verified! Lekin order place nahi hua: {error}',
+                'message': f'✅ OTP verified! But the order was not placed: {error}',
                 'redirect_url': '/shop/cart/',
             })
         
@@ -844,10 +844,10 @@ def verify_otp_later(request):
             order, error = auto_place_order(request, customer)
             
             if order:
-                messages.success(request, f'🎉 Order #{order.order_no} place ho gaya!')
+                messages.success(request, f'🎉 Order #{order.order_no} placed!')
                 return redirect('order_success_page', order_id=order.id)
             else:
-                messages.warning(request, f'⚠️ OTP verified, lekin order place nahi hua: {error}')
+                messages.warning(request, f'⚠️ OTP verified, but the order was not placed: {error}')
                 return redirect('cart_view')
                 
         except Exception as e:
@@ -872,7 +872,7 @@ def verify_otp_later(request):
 @customer_login_required
 def place_order_direct(request):
     """
-    Trusted/Verified customer ke liye — Direct order place
+    For a Trusted/Verified customer — Direct order placement
     """
     if not hasattr(request.user, 'customer_profile'):
         return JsonResponse({'success': False, 'message': 'Login required'})
@@ -891,7 +891,7 @@ def place_order_direct(request):
         if not (is_trusted or is_verified):
             return JsonResponse({
                 'success': False,
-                'message': 'OTP verify zaroori hai'
+                'message': 'OTP verification is required'
             })
         
         # Auto order place
@@ -900,13 +900,13 @@ def place_order_direct(request):
         if order:
             return JsonResponse({
                 'success': True,
-                'message': f'Order #{order.order_no} place ho gaya!',
+                'message': f'Order #{order.order_no} placed!',
                 'redirect_url': f'/shop/order-success/{order.id}/',
             })
         else:
             return JsonResponse({
                 'success': False,
-                'message': error or 'Order place nahi hua'
+                'message': error or 'Order was not placed'
             })
     
     except Exception as e:

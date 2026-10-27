@@ -7,4 +7,5 @@ class AppConfig(AppConfig):
 
     def ready(self):
         import app.signals
-        import app.signals_security  
+        import app.security.signals_security  
+        import app.ledger.signals_gl

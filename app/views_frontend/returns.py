@@ -238,7 +238,15 @@ def purchase_return_create(request):
             
             # ✅ Bulk create
             if items_to_create:
-                PurchaseRetrnItem.objects.bulk_create(items_to_create)
+                # FIXED_RETURN_STOCK: save each line so the stock really moves; all lines or none
+                from django.db import transaction as _tx
+                try:
+                    with _tx.atomic():
+                        for _line in items_to_create:
+                            _line.save()
+                except Exception:
+                    purchase_return.delete()
+                    raise
             else:
                 messages.error(request, '❌ No valid items added!')
                 purchase_return.delete()
@@ -387,7 +395,15 @@ def sale_return_create(request):
             
             # ✅ Bulk create (1 query instead of N)
             if items_to_create:
-                SaleRetrnItem.objects.bulk_create(items_to_create)
+                # FIXED_RETURN_STOCK: save each line so the stock really moves; all lines or none
+                from django.db import transaction as _tx
+                try:
+                    with _tx.atomic():
+                        for _line in items_to_create:
+                            _line.save()
+                except Exception:
+                    sale_return.delete()
+                    raise
             else:
                 messages.error(request, '❌ No valid items added to return!')
                 if errors:
@@ -713,7 +729,7 @@ def get_purchase_return_history(request):
             
             history.append({
                 'id': ret.id,
-                'date': ret.purchase_return_date.strftime('%d-%m-%Y %H:%M'),
+                'date': ret.purchase_return_date.strftime('%d-%m-%Y %I:%M %p'),
                 'date_short': ret.purchase_return_date.strftime('%d %b, %Y'),
                 'time': ret.purchase_return_date.strftime('%I:%M %p'),
                 'reason': ret.get_return_reason_display(),
@@ -885,7 +901,7 @@ def get_sale_return_history(request):
             
             history.append({
                 'id': ret.id,
-                'date': ret.sale_return_date.strftime('%d-%m-%Y %H:%M'),
+                'date': ret.sale_return_date.strftime('%d-%m-%Y %I:%M %p'),
                 'date_short': ret.sale_return_date.strftime('%d %b, %Y'),
                 'time': ret.sale_return_date.strftime('%I:%M %p'),
                 'reason': ret.get_return_reason_display(),

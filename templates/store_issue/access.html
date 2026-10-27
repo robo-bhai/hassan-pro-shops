@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% block title %}Store Teams - {{ company_name }}{% endblock %}
+{% block extra_css %}{% include 'store_issue/_styles.html' %}{% endblock %}
+{% block content %}
+<div class="container-fluid px-4 py-4 si-page">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <div>
+      <h1 class="h3 mb-1"><i class="bi bi-people text-primary me-2"></i>Store Teams</h1>
+      <p class="text-muted small mb-0">Each store has its own team. Only a superuser can see all stores.</p>
+    </div>
+    <a href="{% url 'store_dashboard' %}" class="btn btn-outline-secondary rounded-pill px-3"><i class="bi bi-arrow-left me-1"></i>Stores</a>
+  </div>
+
+  <div class="si-card mb-3">
+    <button class="btn btn-link text-decoration-none fw-semibold w-100 text-start p-3" type="button"
+            data-bs-toggle="collapse" data-bs-target="#newUserBox">
+      <i class="bi bi-person-plus me-2"></i>Create a new user (and add them straight to the store team)
+    </button>
+    <div class="collapse border-top" id="newUserBox">
+      <form method="post" class="p-3" autocomplete="off">{% csrf_token %}
+        <input type="hidden" name="action" value="create_user">
+        <div class="row g-2">
+          <div class="col-md-3"><label class="form-label small mb-1">Username <span class="text-danger">*</span></label>
+            <input name="username" class="form-control" maxlength="150" required></div>
+          <div class="col-md-3"><label class="form-label small mb-1">First name</label>
+            <input name="first_name" class="form-control" maxlength="150"></div>
+          <div class="col-md-3"><label class="form-label small mb-1">Last name</label>
+            <input name="last_name" class="form-control" maxlength="150"></div>
+          <div class="col-md-3"><label class="form-label small mb-1">Email</label>
+            <input type="email" name="email" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label small mb-1">Password <span class="text-danger">*</span></label>
+            <input type="password" name="password" class="form-control" required autocomplete="new-password"></div>
+          <div class="col-md-3"><label class="form-label small mb-1">Password dobara <span class="text-danger">*</span></label>
+            <input type="password" name="confirm_password" class="form-control" required autocomplete="new-password"></div>
+          <div class="col-md-3"><label class="form-label small mb-1">Store <span class="text-danger">*</span></label>
+            <select name="warehouse" class="form-select" required><option value="">Select...</option>
+              {% for w in stores %}<option value="{{ w.pk }}">{% if w.store_profile %}[{{ w.store_profile.code }}] {% endif %}{{ w.name }}</option>{% endfor %}</select></div>
+          <div class="col-md-3"><label class="form-label small mb-1">Darja</label>
+            <select name="level" class="form-select">
+              {% for k,l in levels %}<option value="{{ k }}" {% if k == 'keeper' %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+          <div class="col-md-3"><label class="form-label small mb-1">Role (group)</label>
+            <select name="role" class="form-select"><option value="">- none -</option>
+              {% for r in roles %}<option value="{{ r }}" {% if r == default_role %}selected{% endif %}>{{ r }}</option>{% endfor %}</select></div>
+          <div class="col-md-9 d-flex align-items-end justify-content-end">
+            <button class="btn btn-primary px-4"><i class="bi bi-check2-circle me-1"></i>User banayein</button></div>
+        </div>
+        <div class="form-text mt-2">The password must follow your settings rules (minimum length, etc.). The Role (group) decides the user's rights in the rest of the ERP; Store access comes only from the store and level chosen above.</div>
+      </form>
+    </div>
+  </div>
+
+  <div class="alert alert-info border-0 small">
+    <b>Levels:</b> Viewer = can only view &middot; Store keeper = can issue &middot; Store manager = issue + cancel.
+    A user who is not in a store's team will not see that store's stock, issues or reports.
+  </div>
+
+  <div class="row g-3">
+    {% for w in stores %}
+    <div class="col-xl-4 col-lg-6">
+      <div class="si-card h-100 p-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <span class="si-code {{ w.store_profile.store_type|default:'GEN' }}">{{ w.store_profile.code|default:'-' }}</span>
+          <div class="fw-semibold">{{ w.name }}</div>
+        </div>
+
+        {% for m in w.members.all %}
+        <div class="d-flex align-items-center gap-2 py-2 border-top">
+          <div class="flex-grow-1"><div class="fw-semibold">{{ m.user.get_username }}</div>
+            <div class="small text-muted">{{ m.user.get_full_name }}</div></div>
+          <form method="post" class="d-flex gap-1">{% csrf_token %}
+            <input type="hidden" name="action" value="level"><input type="hidden" name="member" value="{{ m.pk }}">
+            <select name="level" class="form-select form-select-sm" onchange="this.form.submit()">
+              {% for k,l in levels %}<option value="{{ k }}" {% if m.level == k %}selected{% endif %}>{{ k|capfirst }}</option>{% endfor %}
+            </select>
+          </form>
+          <form method="post" onsubmit="return confirm('Remove {{ m.user.get_username|escapejs }} from this store team?')">{% csrf_token %}
+            <input type="hidden" name="action" value="remove"><input type="hidden" name="member" value="{{ m.pk }}">
+            <button class="btn btn-sm btn-outline-danger" title="Remove"><i class="bi bi-x-lg"></i></button>
+          </form>
+        </div>
+        {% empty %}
+        <div class="small text-muted py-2 border-top">No members yet (only a superuser can see this)</div>
+        {% endfor %}
+
+        <form method="post" class="d-flex gap-2 mt-3 pt-3 border-top flex-wrap">{% csrf_token %}
+          <input type="hidden" name="action" value="add"><input type="hidden" name="warehouse" value="{{ w.pk }}">
+          <select name="user" class="form-select form-select-sm flex-grow-1" required style="min-width:140px">
+            <option value="">User chunein...</option>
+            {% for u in users %}<option value="{{ u.pk }}">{{ u.get_username }}{% if u.get_full_name %} - {{ u.get_full_name }}{% endif %}</option>{% endfor %}
+          </select>
+          <select name="level" class="form-select form-select-sm" style="width:auto">
+            {% for k,l in levels %}<option value="{{ k }}" {% if k == 'keeper' %}selected{% endif %}>{{ k|capfirst }}</option>{% endfor %}
+          </select>
+          <button class="btn btn-sm btn-primary"><i class="bi bi-plus-lg"></i> Add</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

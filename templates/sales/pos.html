@@ -1,0 +1,636 @@
+{% extends 'base.html' %}
+{% block title %}POS - {{ company_name }}{% endblock %}
+{% block extra_css %}
+<style>
+.pos{--pos-gap:.65rem;padding:.6rem}
+.pos .card-lite{background:var(--bs-body-bg);border:1px solid var(--bs-border-color);border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.pos-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:var(--pos-gap);height:calc(100vh - 130px);min-height:540px}
+.pos-left,.pos-right{display:flex;flex-direction:column;min-height:0}
+.pos-top{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:var(--pos-gap);padding:.5rem .65rem}
+.pos-top .form-select{width:auto;max-width:200px}
+.pos-title{font-weight:700;display:flex;align-items:center;gap:.4rem;margin-right:.4rem}
+.pos-title i{color:var(--bs-primary)}
+.search-wrap{position:relative}
+.search-wrap i{position:absolute;left:.85rem;top:50%;transform:translateY(-50%);opacity:.5}
+#search{font-size:1.1rem;min-height:50px;padding-left:2.4rem;border-radius:12px}
+.hint{font-size:.74rem;opacity:.65;margin:.3rem .2rem 0}
+.chips{display:flex;gap:.4rem;overflow-x:auto;padding:.5rem 0;scrollbar-width:thin}
+.chip{border:1px solid var(--bs-border-color);background:transparent;color:inherit;border-radius:999px;padding:.25rem .85rem;white-space:nowrap;font-size:.85rem}
+.chip.on{background:var(--bs-primary);color:#fff;border-color:var(--bs-primary)}
+.tiles{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:.55rem;align-content:start;padding-bottom:.5rem}
+.tile{text-align:left;border:1px solid var(--bs-border-color);background:var(--bs-body-bg);color:inherit;border-radius:12px;padding:.65rem;min-height:92px;display:flex;flex-direction:column;justify-content:space-between;transition:border-color .12s,box-shadow .12s}
+.tile:hover{border-color:var(--bs-primary);box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.tile:active{transform:scale(.98)}
+.tile .n{font-weight:600;font-size:.9rem;line-height:1.25}
+.tile .m{display:flex;justify-content:space-between;align-items:center;margin-top:.4rem}
+.tile .p{font-weight:700;font-size:.95rem}
+.stk{font-size:.72rem;padding:.1rem .45rem;border-radius:999px;background:var(--bs-success-bg-subtle);color:var(--bs-success-text-emphasis)}
+.stk.low{background:var(--bs-warning-bg-subtle);color:var(--bs-warning-text-emphasis)}
+.stk.zero{background:var(--bs-danger-bg-subtle);color:var(--bs-danger-text-emphasis)}
+.tile.out{opacity:.5}
+.cart-head{display:flex;justify-content:space-between;align-items:center;padding:.6rem .8rem;border-bottom:1px solid var(--bs-border-color)}
+.cart-head .ttl{font-weight:700}
+.cart{flex:1;overflow:auto}
+.line{padding:.6rem .8rem;border-bottom:1px solid var(--bs-border-color)}
+.line .top{display:flex;justify-content:space-between;gap:.5rem;align-items:flex-start}
+.line .nm{font-weight:600;font-size:.92rem;line-height:1.25}
+.line .del{border:0;background:transparent;color:var(--bs-danger);padding:0 .2rem}
+.line .bot{display:flex;align-items:center;gap:.4rem;margin-top:.4rem;flex-wrap:wrap}
+.line .bot .lbl{font-size:.75rem;opacity:.65}
+.qty-box{display:flex;align-items:center}
+.qty-box input{width:84px;text-align:center;font-weight:700;min-height:36px;border-radius:0;padding:.15rem .3rem}
+.qty-box .qbtn{border-radius:8px 0 0 8px}
+.qty-box .qbtn.p{border-radius:0 8px 8px 0}
+.qbtn{width:36px;height:36px;border:1px solid var(--bs-border-color);background:var(--bs-tertiary-bg);color:inherit;font-weight:700;font-size:1.05rem}
+.qbtn:active{background:var(--bs-secondary-bg)}
+.line .pr{width:86px;text-align:right;min-height:36px;padding:.15rem .4rem}
+.line .tot{margin-left:auto;font-weight:800;font-size:1rem}
+.line .unit{font-size:.75rem;opacity:.7}
+.sum{padding:.75rem .8rem;border-top:1px solid var(--bs-border-color);background:var(--bs-tertiary-bg);border-radius:0 0 14px 14px}
+.sum .row2{display:flex;justify-content:space-between;align-items:center;margin-bottom:.3rem}
+.grand{font-size:2rem;font-weight:800;line-height:1.1}
+.pos-actions{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.6rem}
+.pos-actions .pay{grid-column:1/-1;min-height:56px;font-size:1.2rem;font-weight:700;border-radius:12px}
+.kbd{font-size:.7rem;opacity:.75;margin-left:.3rem;border:1px solid currentColor;border-radius:4px;padding:0 .25rem}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;display:none;align-items:center;justify-content:center;padding:.8rem}
+.ov.show{display:flex}
+.box{background:var(--bs-body-bg);color:var(--bs-body-color);border-radius:16px;width:100%;max-width:480px;max-height:92vh;overflow:auto;padding:1.1rem}
+.pm{display:grid;grid-template-columns:92px 1fr;gap:.4rem;align-items:center;margin-bottom:.5rem}
+.big{font-size:2.1rem;font-weight:800}
+.toast-pos{position:fixed;left:50%;transform:translateX(-50%);bottom:90px;background:#212529;color:#fff;padding:.5rem 1rem;border-radius:999px;z-index:3000;display:none;font-size:.9rem;max-width:90vw;text-align:center}
+.cust-res button{display:block;width:100%;text-align:left;padding:.55rem;border:0;border-bottom:1px solid var(--bs-border-color);background:transparent;color:inherit}
+.empty{text-align:center;opacity:.6;padding:2rem 1rem}
+@media (max-width:991px){
+  .pos-grid{grid-template-columns:1fr;height:auto}
+  .tiles{max-height:38vh}
+  .cart{max-height:42vh}
+  .grand{font-size:1.6rem}
+}
+</style>
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="pos">
+  <div class="pos-top card-lite">
+    <div class="pos-title"><i class="bi bi-lightning-charge-fill"></i> Fast Sale</div>
+    <select id="wh" class="form-select form-select-sm" title="Store">{% for w in warehouses %}<option value="{{ w.pk }}">{{ w.name }}</option>{% endfor %}</select>
+    <button class="btn btn-sm btn-outline-secondary" id="custBtn"><i class="bi bi-person"></i> <span id="custName">Walk-in Customer</span></button>
+    <span class="badge bg-success-subtle text-success-emphasis border" id="shiftBadge" style="display:none"></span>
+    <button class="btn btn-sm btn-outline-secondary" id="mvBtn" style="display:none"><i class="bi bi-cash-stack"></i> Cash in/out</button>
+    <a class="btn btn-sm btn-outline-danger" id="closeShiftBtn" href="{% url 'shift_close' %}" style="display:none"><i class="bi bi-box-arrow-right"></i> Close shift</a>
+    <button class="btn btn-sm btn-outline-secondary" id="heldBtn"><i class="bi bi-pause-circle"></i> Held <span class="badge bg-warning text-dark" id="heldCount">0</span><span class="kbd">F9</span></button>
+    <button class="btn btn-sm btn-outline-secondary" id="recentBtn"><i class="bi bi-receipt"></i> Recent bills <span class="kbd">F6</span></button>
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'stock_register' %}" title="Stock register"><i class="bi bi-journal-text"></i> Stock register</a>
+    <div class="form-check form-switch ms-auto mb-0"><input class="form-check-input" type="checkbox" id="askQty"><label class="form-check-label small" for="askQty">Ask quantity</label></div>
+    <div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" id="autoPrint"><label class="form-check-label small" for="autoPrint">Auto print</label></div>
+    <button class="btn btn-sm btn-outline-secondary" id="fsBtn" title="Fullscreen"><i class="bi bi-arrows-fullscreen"></i></button>
+  </div>
+
+  <div class="pos-grid">
+    <div class="pos-left card-lite p-2">
+      <div class="search-wrap"><i class="bi bi-upc-scan"></i>
+        <input id="search" class="form-control" type="search" autocomplete="off" placeholder="Scan a barcode or type a product name   (F2)"></div>
+      <div class="hint">Tip: type <b>0.5*milk</b> or <b>2.25*barcode</b> and press Enter to add a decimal quantity.</div>
+      <div class="chips" id="chips"><button class="chip on" data-c="">All</button>{% for c in categories %}<button class="chip" data-c="{{ c.pk }}">{{ c.name }}</button>{% endfor %}</div>
+      <div class="tiles" id="tiles"></div>
+    </div>
+
+    <div class="pos-right card-lite">
+      <div class="cart-head"><span class="ttl"><i class="bi bi-cart3"></i> Current sale</span><span class="small text-muted"><span id="lines">0</span> lines <span class="kbd">F7 edit qty</span></span></div>
+      <div class="cart" id="cart"></div>
+      <div class="sum">
+        <div class="row2"><span>Total quantity <b id="cnt">0</b></span><span>Subtotal <b id="sub">0</b></span></div>
+        <div class="row2"><span>Discount</span>
+          <span class="d-flex gap-1"><input id="disc" type="text" inputmode="decimal" class="form-control form-control-sm text-end" style="width:90px" value="0">
+            <select id="discType" class="form-select form-select-sm" style="width:64px"><option value="amt">Rs</option><option value="pct">%</option></select></span></div>
+        <div class="row2"><span class="fw-semibold">TOTAL</span><span class="grand" id="grand">0</span></div>
+        <div class="pos-actions">
+          <button class="btn btn-success pay" id="payBtn"><i class="bi bi-credit-card-2-front"></i> Pay <span class="kbd">F4</span></button>
+          <button class="btn btn-outline-warning" id="holdBtn"><i class="bi bi-pause-circle"></i> Hold <span class="kbd">F8</span></button>
+          <button class="btn btn-outline-danger" id="clearBtn"><i class="bi bi-trash"></i> Clear</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-pos" id="toast"></div>
+
+<!-- Quantity prompt -->
+<div class="ov" id="qtyOv"><div class="box" style="max-width:340px">
+  <div class="d-flex justify-content-between align-items-center mb-2"><h5 class="mb-0" id="qpName">Quantity</h5><button class="btn-close" data-close></button></div>
+  <div class="small text-muted mb-2" id="qpInfo"></div>
+  <input id="qpVal" type="text" inputmode="decimal" class="form-control form-control-lg text-center mb-2" value="1" autocomplete="off">
+  <div class="d-flex gap-1 flex-wrap mb-3">
+    <button class="btn btn-sm btn-outline-secondary qp" data-v="0.25">0.25</button>
+    <button class="btn btn-sm btn-outline-secondary qp" data-v="0.5">0.5</button>
+    <button class="btn btn-sm btn-outline-secondary qp" data-v="0.75">0.75</button>
+    <button class="btn btn-sm btn-outline-secondary qp" data-v="1">1</button>
+    <button class="btn btn-sm btn-outline-secondary qp" data-v="1.5">1.5</button>
+    <button class="btn btn-sm btn-outline-secondary qp" data-v="2">2</button>
+  </div>
+  <button class="btn btn-primary w-100" id="qpGo" style="min-height:48px">Add to sale <span class="kbd">Enter</span></button>
+</div></div>
+
+<!-- Payment -->
+<div class="ov" id="payOv"><div class="box">
+  <div class="d-flex justify-content-between align-items-center mb-2"><h5 class="mb-0">Payment</h5><button class="btn-close" data-close></button></div>
+  <div class="text-center mb-3"><div class="text-muted small">Bill total</div><div class="big" id="pTotal">0</div></div>
+  <div id="pmRows">
+  {% for k, label, ic in methods %}
+    <div class="pm"><label class="small"><i class="bi {{ ic }}"></i> {{ label }}</label>
+      <div class="d-flex gap-1"><input type="text" inputmode="decimal" autocomplete="off" class="form-control pm-in" data-m="{{ k }}" placeholder="0">{% if k != 'cash' %}<input class="form-control pm-ref" data-m="{{ k }}" placeholder="Reference" style="max-width:120px">{% endif %}</div></div>
+  {% endfor %}
+  </div>
+  <div class="d-flex gap-1 flex-wrap mb-3">
+    <button class="btn btn-sm btn-outline-primary" id="exactBtn">Exact cash</button>
+    <button class="btn btn-sm btn-outline-secondary q" data-v="500">500</button>
+    <button class="btn btn-sm btn-outline-secondary q" data-v="1000">1000</button>
+    <button class="btn btn-sm btn-outline-secondary q" data-v="5000">5000</button>
+  </div>
+  <div class="d-flex justify-content-between"><span>Received</span><b id="pRecv">0</b></div>
+  <div class="d-flex justify-content-between"><span id="pLbl">Balance due</span><b id="pDue" class="fs-5">0</b></div>
+  <div class="d-none mt-2" id="hvBox"><!-- agri-edition:harvest -->
+    <label class="small">Wapsi ki tareekh (fasal par) <span class="text-muted">(میعاد)</span></label>
+    <input type="date" id="hvDate" class="form-control form-control-sm mb-1">
+    <input type="text" id="hvNote" maxlength="200" class="form-control form-control-sm" placeholder="Note (maslan: gandum ki fasal par)">
+  </div>
+  <div class="alert alert-danger py-1 mt-2 mb-0 d-none" id="pErr"></div>
+  <button class="btn btn-success w-100 mt-3" style="min-height:54px;font-size:1.1rem" id="doPay">Complete sale <span class="kbd">Enter</span></button>
+</div></div>
+
+<!-- Done -->
+<div class="ov" id="doneOv"><div class="box text-center">
+  <div class="text-success fs-1"><i class="bi bi-check-circle-fill"></i></div>
+  <h5 id="dBill"></h5>
+  <div class="text-muted">Change to return</div><div class="big" id="dChange">0</div>
+  <div class="small text-muted mb-3" id="dInfo"></div>
+  <div class="d-grid gap-2"><button class="btn btn-outline-primary" id="printBtn"><i class="bi bi-printer"></i> Print receipt</button>
+  <button class="btn btn-primary" id="newBtn" style="min-height:50px">New sale <span class="kbd">Enter</span></button></div>
+</div></div>
+
+<!-- Customer -->
+<div class="ov" id="custOv"><div class="box">
+  <div class="d-flex justify-content-between align-items-center mb-2"><h5 class="mb-0">Customer</h5><button class="btn-close" data-close></button></div>
+  <input id="custQ" class="form-control mb-2" placeholder="Name, code or phone...">
+  <div class="cust-res" id="custRes"></div>
+  <button class="btn btn-outline-secondary w-100 mt-2" id="walkBtn">Walk-in Customer</button>
+  <div class="small text-muted mt-2">Select a customer to sell on credit. A walk-in customer must pay the full bill.</div>
+</div></div>
+
+<!-- Open shift -->
+<div class="ov" id="shiftOv"><div class="box">
+  <h5>Open shift</h5>
+  <p class="small text-muted">You must open your shift before making bills. Enter the cash that is in the drawer right now.</p>
+  <label class="form-label small">Store</label>
+  <select id="shWh" class="form-select mb-2">{% for w in warehouses %}<option value="{{ w.pk }}">{{ w.name }}</option>{% endfor %}</select>
+  <label class="form-label small">Opening cash (Rs)</label>
+  <input id="shCash" type="text" inputmode="decimal" class="form-control mb-2" value="0">
+  <div class="alert alert-danger py-1 d-none" id="shErr"></div>
+  <button class="btn btn-success w-100" style="min-height:50px" id="shGo">Start shift</button>
+  <a class="btn btn-link w-100 mt-1" href="{% url 'shift_list' %}">View previous shifts</a>
+</div></div>
+
+<!-- Cash in/out -->
+<div class="ov" id="mvOv"><div class="box">
+  <div class="d-flex justify-content-between align-items-center mb-2"><h5 class="mb-0">Cash in / out</h5><button class="btn-close" data-close></button></div>
+  <div class="small text-muted mb-2">Cash in drawer now: <b id="mvNow">0</b></div>
+  <div class="btn-group w-100 mb-2"><input type="radio" class="btn-check" name="mvk" id="mvOut" value="out" checked><label class="btn btn-outline-danger" for="mvOut">Cash out</label>
+    <input type="radio" class="btn-check" name="mvk" id="mvIn" value="in"><label class="btn btn-outline-success" for="mvIn">Cash in</label></div>
+  <input id="mvAmt" type="text" inputmode="decimal" class="form-control mb-2" placeholder="Amount">
+  <input id="mvWhy" class="form-control mb-2" maxlength="200" placeholder="Reason (tea, transport, bank deposit...)">
+  <div class="alert alert-danger py-1 d-none" id="mvErr"></div>
+  <button class="btn btn-primary w-100" id="mvGo">Save</button>
+</div></div>
+
+<!-- Recent bills (reprint) -->
+<div class="ov" id="recentOv"><div class="box">
+  <div class="d-flex justify-content-between align-items-center mb-2"><h5 class="mb-0">Recent bills</h5><button class="btn-close" data-close></button></div>
+  <input id="recentQ" class="form-control mb-2" placeholder="Search by bill number or customer...">
+  <div id="recentList"></div>
+</div></div>
+
+<!-- Void bill -->
+<div class="ov" id="voidOv"><div class="box" style="max-width:380px">
+  <div class="d-flex justify-content-between align-items-center mb-2"><h5 class="mb-0 text-danger">Void bill</h5><button class="btn-close" data-close></button></div>
+  <div class="mb-2"><b id="voBill"></b> <span class="text-muted small" id="voInfo"></span></div>
+  <div class="small text-muted mb-2">This puts all items back in stock, refunds the cash and clears the customer's balance for this bill. It cannot be undone.</div>
+  <input id="voWhy" class="form-control mb-2" maxlength="120" placeholder="Reason (wrong item, customer cancelled...)">
+  <div class="alert alert-danger py-1 d-none" id="voErr"></div>
+  <button class="btn btn-danger w-100" id="voGo" style="min-height:48px">Void this bill</button>
+</div></div>
+
+<!-- Held -->
+<div class="ov" id="heldOv"><div class="box">
+  <div class="d-flex justify-content-between align-items-center mb-2"><h5 class="mb-0">Held bills</h5><button class="btn-close" data-close></button></div>
+  <div id="heldList"></div>
+</div></div>
+{% endblock %}
+
+{% block extra_js %}
+{{ company|json_script:"coData" }}
+<script>
+(function(){
+'use strict';
+var WALKIN = {{ walkin_id }};
+var CO = JSON.parse(document.getElementById('coData').textContent);
+var $ = function(id){ return document.getElementById(id); };
+var CSRF = (document.querySelector('[name=csrfmiddlewaretoken]')||{}).value || '';
+var S = { cart: [], customer: {id: WALKIN, name: 'Walk-in Customer'}, cat: '' };
+var lastSale = null, searchTimer = null, reqSeq = 0, pending = null;
+
+/* ---------- helpers ---------- */
+function esc(t){ var d=document.createElement('div'); d.textContent=(t==null?'':t); return d.innerHTML; }
+function money(n){ n = Number(n)||0; return n.toLocaleString('en-PK',{minimumFractionDigits:0,maximumFractionDigits:2}); }
+function num(v){ var n = parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : 0; }
+function r3(n){ return Math.round(n*1000)/1000; }
+function fq(n){ return String(r3(Number(n)||0)); }                       /* quantity text: 1, 0.25, 1.5 */
+/* keep only digits and one dot, at most `dec` decimals */
+function clean(v, dec){
+  v = String(v).replace(/,/g,'.').replace(/[^0-9.]/g,'');
+  var i = v.indexOf('.');
+  if(i >= 0){ v = v.slice(0,i+1) + v.slice(i+1).replace(/\./g,'').slice(0,dec); }
+  return v;
+}
+function lsGet(k, d){ try{ var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } }
+function lsSet(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+var audio;
+function beep(ok){ try{ audio = audio || new (window.AudioContext||window.webkitAudioContext)();
+  var o = audio.createOscillator(), g = audio.createGain(); o.connect(g); g.connect(audio.destination);
+  o.frequency.value = ok ? 880 : 220; g.gain.value = .06; o.start(); o.stop(audio.currentTime + (ok?.06:.25)); }catch(e){} }
+var toastT;
+function toast(msg, bad){ var t=$('toast'); t.textContent=msg; t.style.background = bad ? '#b02a37' : '#212529'; t.style.display='block';
+  clearTimeout(toastT); toastT=setTimeout(function(){ t.style.display='none'; }, 2200); if(bad) beep(false); }
+function show(id){ $(id).classList.add('show'); }
+function hide(id){ $(id).classList.remove('show'); }
+function anyOpen(){ return document.querySelector('.ov.show'); }
+function focusSearch(){ var s=$('search'); s.focus(); s.select(); }
+function selectAll(el){ setTimeout(function(){ try{ el.select(); }catch(e){} }, 0); }
+
+/* ---------- totals ---------- */
+function subtotal(){ return S.cart.reduce(function(a,l){ return a + l.qty*l.price; }, 0); }
+function discount(){ var d = num($('disc').value), sub = subtotal();
+  if($('discType').value === 'pct') d = sub * Math.min(Math.max(d,0),100) / 100;
+  return Math.min(Math.max(d,0), sub); }
+function total(){ return Math.round((subtotal() - discount())*100)/100; }
+function save(){ lsSet('pos_cart', {cart:S.cart, customer:S.customer, disc:$('disc').value, dt:$('discType').value, wh:$('wh').value}); }
+
+/* update only the numbers (does not rebuild the cart, so typing is never interrupted) */
+function totals(){
+  $('cnt').textContent = fq(S.cart.reduce(function(a,l){ return a + l.qty; }, 0));
+  $('lines').textContent = S.cart.length;
+  $('sub').textContent = money(subtotal());
+  $('grand').textContent = money(total());
+  $('custName').textContent = S.customer.name;
+  $('heldCount').textContent = lsGet('pos_held', []).length;
+  save();
+}
+function stockBadge(l){
+  return (l.stock != null && l.qty > l.stock + 1e-9) ? ' <span class="badge bg-danger">only '+fq(l.stock)+' in stock</span>' : '';
+}
+function updateLine(i){
+  var l = S.cart[i], row = $('cart').querySelector('.line[data-i="'+i+'"]'); if(!l || !row) return;
+  row.querySelector('.tot').textContent = money(l.qty*l.price);
+  row.querySelector('.stkw').innerHTML = stockBadge(l);
+}
+function render(){
+  var c = $('cart');
+  if(!S.cart.length){ c.innerHTML = '<div class="empty"><i class="bi bi-cart3 fs-1"></i><div class="mt-1">The cart is empty.<br>Scan a barcode or choose an item.</div></div>'; }
+  else c.innerHTML = S.cart.map(function(l,i){
+    return '<div class="line" data-i="'+i+'"><div class="top"><div class="nm">'+esc(l.name)+'<span class="stkw">'+stockBadge(l)+'</span></div>'+
+      '<button class="del" data-a="del" data-i="'+i+'" title="Remove"><i class="bi bi-x-lg"></i></button></div>'+
+      '<div class="bot"><div class="qty-box"><button class="qbtn" data-a="dec" data-i="'+i+'" title="Less">&minus;</button>'+
+      '<input type="text" inputmode="decimal" autocomplete="off" class="form-control" data-a="qty" data-i="'+i+'" value="'+fq(l.qty)+'" aria-label="Quantity">'+
+      '<button class="qbtn p" data-a="inc" data-i="'+i+'" title="More">+</button></div>'+
+      (l.unit ? '<span class="unit">'+esc(l.unit)+'</span>' : '')+
+      '<span class="lbl">x</span><input class="form-control pr" type="text" inputmode="decimal" autocomplete="off" data-a="price" data-i="'+i+'" value="'+l.price+'" aria-label="Price">'+
+      '<span class="tot">'+money(l.qty*l.price)+'</span></div></div>';
+  }).join('');
+  totals();
+}
+
+/* ---------- cart ---------- */
+function addProduct(p, qty){
+  if(!p) return;
+  qty = qty > 0 ? r3(qty) : 1;
+  if(p.stock <= 0){ toast(p.name + ': out of stock', true); return; }
+  var line = S.cart.find(function(l){ return l.id === p.id; });
+  if(line){ line.qty = r3(line.qty + qty); line.stock = p.stock; }
+  else S.cart.unshift({id:p.id, name:p.name, unit:p.unit||'', qty:qty, price:p.price, stock:p.stock});
+  var cur = S.cart.find(function(l){ return l.id === p.id; });
+  if(cur.qty > cur.stock + 1e-9){ toast(p.name + ': only ' + fq(cur.stock) + ' in stock', true); }
+  else beep(true);
+  if(!cur.price){ toast(p.name + ': enter the price'); }
+  render();
+}
+/* add from tile / scanner: optionally ask for the quantity first */
+function pick(p, qty){
+  if(!p) return;
+  if(qty == null && $('askQty').checked && p.stock > 0){ pending = p; $('qpName').textContent = p.name;
+    $('qpInfo').textContent = 'In stock: ' + fq(p.stock) + ' ' + (p.unit||'') + (p.price ? '  ·  Rs ' + money(p.price) : '');
+    $('qpVal').value = '1'; show('qtyOv'); setTimeout(function(){ $('qpVal').focus(); $('qpVal').select(); }, 40); return; }
+  addProduct(p, qty);
+}
+function qpDone(){
+  var q = num($('qpVal').value); if(q <= 0){ toast('Enter a quantity greater than zero', true); return; }
+  var p = pending; pending = null; hide('qtyOv'); addProduct(p, q); focusSearch();
+}
+$('qpVal').addEventListener('input', function(){ var v = clean(this.value, 3); if(v !== this.value) this.value = v; });
+$('qpVal').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); qpDone(); } });
+$('qpGo').addEventListener('click', qpDone);
+document.querySelectorAll('.qp').forEach(function(b){ b.addEventListener('click', function(){ $('qpVal').value = b.dataset.v; qpDone(); }); });
+
+$('cart').addEventListener('click', function(e){
+  var b = e.target.closest('button[data-a]'); if(!b) return; var i = +b.dataset.i, a = b.dataset.a, l = S.cart[i]; if(!l) return;
+  if(a==='inc') l.qty = r3(l.qty + 1);
+  else if(a==='dec'){ l.qty = r3(l.qty - 1); if(l.qty <= 0) S.cart.splice(i,1); }
+  else if(a==='del') S.cart.splice(i,1);
+  render();
+});
+/* live typing: qty and price update the totals immediately, focus is never lost */
+$('cart').addEventListener('input', function(e){
+  var t = e.target, a = t.dataset.a; if(a !== 'qty' && a !== 'price') return;
+  var i = +t.dataset.i, l = S.cart[i]; if(!l) return;
+  var v = clean(t.value, a === 'qty' ? 3 : 2); if(v !== t.value) t.value = v;
+  var n = num(v);
+  if(a === 'qty'){ if(n > 0) l.qty = r3(n); }
+  else l.price = n;
+  updateLine(i); totals();
+});
+$('cart').addEventListener('focusin', function(e){ if(e.target.dataset && (e.target.dataset.a === 'qty' || e.target.dataset.a === 'price')) selectAll(e.target); });
+$('cart').addEventListener('keydown', function(e){
+  var t = e.target; if(!t.dataset || (t.dataset.a !== 'qty' && t.dataset.a !== 'price')) return;
+  if(e.key === 'Enter'){ e.preventDefault(); t.blur(); focusSearch(); }
+  if(e.key === 'ArrowUp' || e.key === 'ArrowDown'){ e.preventDefault(); var l = S.cart[+t.dataset.i]; if(!l || t.dataset.a !== 'qty') return;
+    l.qty = Math.max(0.001, r3(l.qty + (e.key === 'ArrowUp' ? 1 : -1))); t.value = fq(l.qty); updateLine(+t.dataset.i); totals(); }
+});
+/* when the field is left: tidy the text; 0 removes the line; empty restores the old value */
+$('cart').addEventListener('change', function(e){
+  var t = e.target, a = t.dataset.a; if(a !== 'qty' && a !== 'price') return;
+  var i = +t.dataset.i, l = S.cart[i]; if(!l) return;
+  if(a === 'qty'){
+    if(t.value.trim() === '' ){ t.value = fq(l.qty); return; }
+    if(num(t.value) <= 0){ S.cart.splice(i,1); render(); return; }
+    t.value = fq(l.qty);
+  } else { t.value = String(l.price); }
+});
+$('disc').addEventListener('input', function(){ var v = clean(this.value, 2); if(v !== this.value) this.value = v; totals(); });
+$('discType').addEventListener('change', totals);
+$('clearBtn').addEventListener('click', function(){ if(S.cart.length && !confirm('Clear the cart?')) return; reset(); });
+function reset(){ S.cart = []; S.customer = {id:WALKIN, name:'Walk-in Customer'}; $('disc').value = 0; render(); focusSearch(); }
+function editTopQty(){ var i = $('cart').querySelector('input[data-a="qty"]'); if(i){ i.focus(); } else toast('The cart is empty', true); }
+
+/* ---------- search / scan ---------- */
+/* agri-edition: expiry line under the item (expired stock is never sold) */
+function agriExp(p){
+  var out = '';
+  if(p.expired_qty > 0) out += '<span class="small text-danger d-block">&#9888; '+fq(p.expired_qty)+' expired (sale nahi hogi)</span>';
+  if(p.expiry){
+    var c = p.exp_status === 'd30' ? 'text-danger' : (p.exp_status === 'd60' || p.exp_status === 'd90' ? 'text-warning' : 'text-muted');
+    out += '<span class="small d-block '+c+'">Exp '+esc(p.expiry)+(p.exp_days <= 90 ? ' ('+p.exp_days+' din)' : '')+'</span>';
+  }
+  return out;
+}
+function stkClass(p){ return p.stock <= 0 ? 'zero' : (p.stock <= 5 ? 'low' : ''); }
+function load(q){
+  var wh = $('wh').value, seq = ++reqSeq;
+  fetch('{% url "pos_products" %}?warehouse='+encodeURIComponent(wh)+'&q='+encodeURIComponent(q||'')+'&category='+encodeURIComponent(S.cat))
+   .then(function(r){ return r.json(); }).then(function(d){
+     if(seq !== reqSeq) return;
+     var t = $('tiles'); t.__rows = d.results || [];
+     t.innerHTML = t.__rows.length ? t.__rows.map(function(p,i){
+       return '<button class="tile'+(p.stock<=0?' out':'')+'" data-i="'+i+'"><span class="n">'+esc(p.name)+'</span>'+
+         '<span class="m"><span class="p">'+(p.price? 'Rs '+money(p.price) : 'No price')+'</span><span class="stk '+stkClass(p)+'">'+fq(p.stock)+' '+esc(p.unit)+'</span></span>'+agriExp(p)+'</button>';
+     }).join('') : '<div class="text-muted p-3">No items found.</div>';
+   }).catch(function(){ toast('Could not load items', true); });
+}
+$('tiles').addEventListener('click', function(e){ var b = e.target.closest('.tile'); if(b){ pick(this.__rows[+b.dataset.i]); } if(!$('qtyOv').classList.contains('show')) focusSearch(); });
+$('search').addEventListener('input', function(){ clearTimeout(searchTimer); var v=this.value.trim(); var m = v.match(/^\d*\.?\d+\s*[*x]\s*(.*)$/i); if(m) v = m[1].trim();
+  searchTimer=setTimeout(function(){ load(v); }, 180); });
+$('search').addEventListener('keydown', function(e){
+  if(e.key !== 'Enter') return; e.preventDefault();
+  var v = this.value.trim(); if(!v) { if(S.cart.length) openPay(); return; }
+  var qty = null, m = v.match(/^(\d*\.?\d+)\s*[*x]\s*(.+)$/i);       /* "0.5*milk" = quantity 0.5 of milk */
+  if(m){ qty = num(m[1]); v = m[2].trim(); if(qty <= 0){ toast('Enter a quantity greater than zero', true); return; } }
+  var self = this;
+  fetch('{% url "pos_products" %}?warehouse='+encodeURIComponent($('wh').value)+'&barcode='+encodeURIComponent(v))
+   .then(function(r){ return r.json(); }).then(function(d){
+     if(d.results && d.results.length){ pick(d.results[0], qty); self.value=''; load(''); return; }
+     var rows = $('tiles').__rows || [];
+     if(rows.length === 1){ pick(rows[0], qty); self.value=''; load(''); }
+     else if(rows.length > 1){ toast('Several items found. Choose one from the list.'); }
+     else toast('"'+v+'" was not found', true);
+   }).catch(function(){ toast('Search failed', true); });
+});
+$('chips').addEventListener('click', function(e){ var b = e.target.closest('.chip'); if(!b) return;
+  [].forEach.call(this.children, function(c){ c.classList.remove('on'); }); b.classList.add('on'); S.cat = b.dataset.c; load($('search').value.trim()); });
+$('wh').addEventListener('change', function(){ lsSet('pos_wh', this.value); if(S.cart.length) toast('Store changed. Stock is checked again at checkout.'); load(''); render(); });
+
+/* ---------- customer ---------- */
+$('custBtn').addEventListener('click', function(){ show('custOv'); $('custQ').value=''; $('custRes').innerHTML=''; setTimeout(function(){ $('custQ').focus(); }, 50); });
+var custT;
+$('custQ').addEventListener('input', function(){ clearTimeout(custT); var v=this.value.trim(); custT=setTimeout(function(){
+  if(!v){ $('custRes').innerHTML=''; return; }
+  fetch('{% url "pos_customers" %}?q='+encodeURIComponent(v)).then(function(r){ return r.json(); }).then(function(d){
+    $('custRes').innerHTML = (d.results||[]).map(function(c){ return '<button data-id="'+c.id+'" data-n="'+esc(c.name)+'">'+esc(c.name)+' <small class="text-muted">'+esc(c.code)+' '+esc(c.phone)+'</small></button>'; }).join('') || '<div class="text-muted p-2">No customer found</div>';
+  }); }, 200); });
+$('custRes').addEventListener('click', function(e){ var b = e.target.closest('button'); if(!b) return; S.customer = {id:+b.dataset.id, name:b.dataset.n}; hide('custOv'); render(); focusSearch(); });
+$('walkBtn').addEventListener('click', function(){ S.customer = {id:WALKIN, name:'Walk-in Customer'}; hide('custOv'); render(); focusSearch(); });
+
+/* ---------- hold / resume ---------- */
+function hold(){
+  if(!S.cart.length){ toast('The cart is empty', true); return; }
+  var h = lsGet('pos_held', []); h.unshift({id:Date.now(), cart:S.cart, customer:S.customer, disc:$('disc').value, dt:$('discType').value, wh:$('wh').value});
+  lsSet('pos_held', h.slice(0,20)); toast('Bill held'); reset();
+}
+function heldList(){
+  var h = lsGet('pos_held', []);
+  $('heldList').innerHTML = h.length ? h.map(function(b,i){
+    var t = b.cart.reduce(function(a,l){ return a + l.qty*l.price; }, 0);
+    return '<div class="d-flex justify-content-between align-items-center border-bottom py-2"><div><b>'+esc(b.customer.name)+'</b><div class="small text-muted">'+
+      new Date(b.id).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true})+' &middot; '+b.cart.length+' items &middot; Rs '+money(t)+'</div></div><div class="d-flex gap-1">'+
+      '<button class="btn btn-sm btn-primary" data-r="'+i+'">Resume</button><button class="btn btn-sm btn-outline-danger" data-d="'+i+'"><i class="bi bi-trash"></i></button></div></div>';
+  }).join('') : '<div class="text-muted">No held bills.</div>';
+}
+$('heldBtn').addEventListener('click', function(){ heldList(); show('heldOv'); });
+$('holdBtn').addEventListener('click', hold);
+$('heldList').addEventListener('click', function(e){
+  var h = lsGet('pos_held', []), r = e.target.closest('[data-r]'), d = e.target.closest('[data-d]');
+  if(r){ if(S.cart.length) hold(); h = lsGet('pos_held', []); var b = h.splice(+r.dataset.r,1)[0]; lsSet('pos_held', h);
+    if(b){ S.cart=b.cart; S.customer=b.customer; $('disc').value=b.disc; $('discType').value=b.dt; if(b.wh) $('wh').value=b.wh; render(); load(''); } hide('heldOv'); focusSearch(); }
+  if(d){ h.splice(+d.dataset.d,1); lsSet('pos_held', h); heldList(); totals(); }
+});
+
+/* ---------- recent bills / reprint ---------- */
+var BILL_URL = '{% url "pos_bill" 0 %}', recentT;
+function loadRecent(){
+  fetch('{% url "pos_recent" %}?q='+encodeURIComponent($('recentQ').value.trim())).then(function(r){ return r.json(); }).then(function(d){
+    $('recentList').innerHTML = (d.results||[]).map(function(b){
+      return '<div class="d-flex justify-content-between align-items-center border-bottom py-2"><div><b>'+esc(b.bill_no)+'</b> '+(b.voided?'<span class="badge bg-danger">VOID</span> ':'')+'<span class="text-muted small">'+esc(b.time)+'</span>'+
+        '<div class="small text-muted">'+esc(b.customer)+' &middot; Rs '+money(b.total)+'</div></div>'+
+        '<div class="d-flex gap-1"><button class="btn btn-sm btn-outline-primary" data-bill="'+b.id+'" title="Print"><i class="bi bi-printer"></i></button>'+
+        (b.can_void?'<button class="btn btn-sm btn-outline-danger" data-void="'+b.id+'" data-no="'+esc(b.bill_no)+'" data-info="'+esc(b.customer)+' · Rs '+money(b.total)+'">Void</button>':'')+'</div></div>';
+    }).join('') || '<div class="text-muted">No bills found.</div>';
+  }).catch(function(){ $('recentList').innerHTML = '<div class="text-danger">Could not load bills.</div>'; });
+}
+function openRecent(){ $('recentQ').value=''; show('recentOv'); loadRecent(); setTimeout(function(){ $('recentQ').focus(); }, 50); }
+$('recentBtn').addEventListener('click', openRecent);
+$('recentQ').addEventListener('input', function(){ clearTimeout(recentT); recentT = setTimeout(loadRecent, 220); });
+var voidId = null;
+$('recentList').addEventListener('click', function(e){
+  var v = e.target.closest('[data-void]');
+  if(v){ voidId = v.dataset.void; $('voBill').textContent = v.dataset.no; $('voInfo').textContent = v.dataset.info; $('voWhy').value = '';
+    $('voErr').classList.add('d-none'); hide('recentOv'); show('voidOv'); setTimeout(function(){ $('voWhy').focus(); }, 50); return; }
+  var b = e.target.closest('[data-bill]'); if(!b) return;
+  fetch(BILL_URL.replace('/0/', '/'+b.dataset.bill+'/')).then(function(r){ return r.json(); }).then(function(d){
+    if(d && d.success){ printReceipt(d); } else toast('Could not load this bill', true); }).catch(function(){ toast('Could not load this bill', true); });
+});
+
+$('voGo').addEventListener('click', function(){
+  var btn = this; if(!voidId) return; btn.disabled = true; $('voErr').classList.add('d-none');
+  fetch('{% url "pos_void" %}', {method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({sale_id:voidId, reason:$('voWhy').value})})
+   .then(function(r){ return r.json(); }).then(function(d){ btn.disabled = false;
+     if(!d.success){ $('voErr').textContent = d.message || 'The bill was not voided.'; $('voErr').classList.remove('d-none'); return; }
+     hide('voidOv'); voidId = null; loadShift(); load($('search').value.trim());
+     var m = d.bill_no + ' voided.'; if(d.cash_refund > 0) m += ' Return Rs ' + money(d.cash_refund) + ' cash to the customer.';
+     if(d.other_refund > 0) m += ' Bank payment Rs ' + money(d.other_refund) + ' must be refunded by transfer.';
+     toast(m); setTimeout(function(){ openRecent(); }, 2300); })
+   .catch(function(){ btn.disabled = false; $('voErr').textContent = 'Network problem. Check the recent bills before trying again.'; $('voErr').classList.remove('d-none'); });
+});
+$('voWhy').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); $('voGo').click(); } });
+
+/* ---------- payment ---------- */
+function ins(){ return [].slice.call(document.querySelectorAll('.pm-in')); }
+function received(){ return ins().reduce(function(a,i){ return a + num(i.value); }, 0); }
+function applied(){            /* what counts toward the bill: extra cash is change */
+  var t = total(), other = 0, cash = 0;
+  ins().forEach(function(i){ var v = num(i.value); if(i.dataset.m==='cash') cash = v; else other += v; });
+  var cashApplied = Math.max(0, Math.min(cash, t - other));
+  return {cash:cashApplied, other:other, change: Math.max(0, cash - cashApplied), paid: cashApplied + other};
+}
+function payCalc(){
+  var t = total(), a = applied(), diff = Math.round((t - a.paid)*100)/100, walk = S.customer.id === WALKIN;
+  $('pTotal').textContent = money(t); $('pRecv').textContent = money(received());
+  if(a.paid > t + 0.005){ $('pLbl').textContent = 'Extra (bank)'; $('pDue').textContent = money(a.paid - t); }
+  else if(a.change > 0){ $('pLbl').textContent = 'Change to return'; $('pDue').textContent = money(a.change); }
+  else { $('pLbl').textContent = walk ? 'Balance due' : 'Balance due (credit)'; $('pDue').textContent = money(Math.max(diff,0)); }
+  var err = '';
+  if(a.other > t + 0.005) err = 'The bank amount is more than the bill total.';
+  else if(walk && diff > 0.005) err = 'A walk-in customer must pay the full bill (or select a customer).';
+  $('pErr').textContent = err; $('pErr').classList.toggle('d-none', !err);
+  $('hvBox').classList.toggle('d-none', !(diff > 0.005 && !walk));      /* agri: ask the repayment date for credit sales */
+  return !err;
+}
+function openPay(){
+  if(!S.cart.length){ toast('The cart is empty', true); return; }
+  if(S.cart.some(function(l){ return !(l.price > 0); })){ toast('Enter a price for every item', true); return; }
+  if(S.cart.some(function(l){ return !(l.qty > 0); })){ toast('Enter a quantity for every item', true); return; }
+  ins().forEach(function(i){ i.value=''; }); document.querySelectorAll('.pm-ref').forEach(function(i){ i.value=''; });
+  $('hvDate').value = ''; $('hvNote').value = '';
+  show('payOv'); payCalc(); var c = document.querySelector('.pm-in[data-m=cash]'); setTimeout(function(){ c.focus(); }, 50);
+}
+$('payBtn').addEventListener('click', openPay);
+$('pmRows').addEventListener('input', function(e){ var t = e.target; if(t.classList.contains('pm-in')){ var v = clean(t.value, 2); if(v !== t.value) t.value = v; } payCalc(); });
+$('exactBtn').addEventListener('click', function(){ ins().forEach(function(i){ i.value=''; });
+  document.querySelector('.pm-in[data-m=cash]').value = total(); payCalc(); });
+document.querySelectorAll('.q').forEach(function(b){ b.addEventListener('click', function(){
+  document.querySelector('.pm-in[data-m=cash]').value = b.dataset.v; payCalc(); }); });
+
+var busy = false;
+function complete(){
+  if(busy || !payCalc()) return;
+  var a = applied(), pays = [], t = total();
+  ins().forEach(function(i){ var v = num(i.value), m = i.dataset.m; if(m==='cash') v = a.cash; if(v>0){
+    var ref = document.querySelector('.pm-ref[data-m='+m+']'); pays.push({method:m, amount:Math.round(v*100)/100, reference: ref?ref.value:''}); } });
+  busy = true; $('doPay').disabled = true;
+  fetch('{% url "pos_checkout" %}', {method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({warehouse:$('wh').value, customer:S.customer.id, discount:Math.round(discount()*100)/100,
+      harvest_due_date: $('hvBox').classList.contains('d-none') ? '' : $('hvDate').value, harvest_note: $('hvNote').value,
+      items:S.cart.map(function(l){ return {product_id:l.id, qty:r3(l.qty), price:l.price}; }), payments:pays})})
+   .then(function(r){ return r.json().then(function(d){ d.__ok = r.ok; return d; }); })
+   .then(function(d){
+     busy = false; $('doPay').disabled = false;
+     if(!d.success){ $('pErr').textContent = d.message || 'The sale was not saved.'; $('pErr').classList.remove('d-none'); beep(false); return; }
+     lastSale = d; lastSale.change = a.change; hide('payOv'); beep(true);
+     $('dBill').textContent = d.bill_no; $('dChange').textContent = money(a.change);
+     $('dInfo').textContent = 'Total Rs ' + money(d.total) + (d.balance > 0 ? ' · Credit Rs ' + money(d.balance) : '') + (d.credit_warning ? ' · ⚠ ' + d.credit_warning : '');
+     show('doneOv'); reset(); loadShift();
+     if($('autoPrint').checked) printReceipt(lastSale);
+   }).catch(function(){ busy = false; $('doPay').disabled = false; $('pErr').textContent = 'Network problem: the sale may not be saved. Check the sales list before trying again.'; $('pErr').classList.remove('d-none'); });
+}
+$('doPay').addEventListener('click', complete);
+$('payOv').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); complete(); } });
+$('newBtn').addEventListener('click', function(){ hide('doneOv'); focusSearch(); });
+$('printBtn').addEventListener('click', function(){ if(lastSale) printReceipt(lastSale); });
+document.querySelectorAll('[data-close]').forEach(function(b){ b.addEventListener('click', function(){ b.closest('.ov').classList.remove('show'); pending = null; focusSearch(); }); });
+
+/* ---------- receipt (80mm) ---------- */
+function printReceipt(s){
+  var rows = s.items.map(function(i){ return '<tr><td colspan="3">'+esc(i.name)+'</td></tr><tr><td>'+fq(i.qty)+' x '+money(i.price)+'</td><td></td><td class="r">'+money(i.total)+'</td></tr>'; }).join('');
+  var html = '<html><head><meta charset="utf-8"><style>@page{size:80mm auto;margin:3mm}body{font:12px monospace;width:74mm;margin:0}'+
+   'h3{text-align:center;margin:0 0 2px}.c{text-align:center}.r{text-align:right}table{width:100%;border-collapse:collapse}hr{border:0;border-top:1px dashed #000}'+
+   '.b{font-weight:bold;font-size:14px}</style></head><body><h3>'+esc(CO.name)+'</h3>'+(s.voided?'<div class="c b">*** VOID ***</div>':'')+'<div class="c">'+esc(CO.address)+'<br>'+esc(CO.phone)+'</div><hr>'+
+   'Bill: '+esc(s.bill_no)+'<br>'+esc(s.date)+'<br>Cashier: '+esc(s.cashier)+'<br>Customer: '+esc(s.customer)+'<hr><table>'+rows+'</table><hr><table>'+
+   '<tr><td>Subtotal</td><td class="r">'+money(s.subtotal)+'</td></tr>'+(s.discount?'<tr><td>Discount</td><td class="r">-'+money(s.discount)+'</td></tr>':'')+
+   '<tr class="b"><td>TOTAL</td><td class="r">'+money(s.total)+'</td></tr><tr><td>Paid</td><td class="r">'+money(s.paid)+'</td></tr>'+
+   (s.change?'<tr><td>Change</td><td class="r">'+money(s.change)+'</td></tr>':'')+(s.balance>0?'<tr><td>Balance due</td><td class="r">'+money(s.balance)+'</td></tr>':'')+
+   '</table><hr><div class="c">'+esc(CO.footer||'Thank you! Please visit again.')+'</div></body></html>';
+  var f = document.createElement('iframe'); f.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+  document.body.appendChild(f); var d = f.contentWindow.document; d.open(); d.write(html); d.close();
+  setTimeout(function(){ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){} setTimeout(function(){ f.remove(); }, 2000); }, 250);
+}
+
+/* ---------- keyboard + misc ---------- */
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape'){ var o = anyOpen(); if(o){ o.classList.remove('show'); pending = null; focusSearch(); } return; }
+  if(e.key==='Enter' && $('doneOv').classList.contains('show')){ e.preventDefault(); hide('doneOv'); focusSearch(); return; }
+  var map = {F2:focusSearch, F4:openPay, F6:openRecent, F7:editTopQty, F8:hold, F9:function(){ heldList(); show('heldOv'); }};
+  if(map[e.key]){ e.preventDefault(); if(!anyOpen() || e.key==='F2') map[e.key](); }
+});
+$('fsBtn').addEventListener('click', function(){ if(document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen(); });
+$('autoPrint').checked = !!lsGet('pos_autoprint', false);
+$('autoPrint').addEventListener('change', function(){ lsSet('pos_autoprint', this.checked); });
+$('askQty').checked = !!lsGet('pos_askqty', false);
+$('askQty').addEventListener('change', function(){ lsSet('pos_askqty', this.checked); focusSearch(); });
+$('shCash').addEventListener('input', function(){ var v = clean(this.value, 2); if(v !== this.value) this.value = v; });
+$('mvAmt').addEventListener('input', function(){ var v = clean(this.value, 2); if(v !== this.value) this.value = v; });
+
+/* ---------- shift ---------- */
+var REQ_SHIFT = {{ require_shift|yesno:"true,false" }}, SHIFT = null;
+function applyShift(d){
+  SHIFT = d && d.open ? d : null;
+  var on = !!SHIFT;
+  $('shiftBadge').style.display = on ? '' : 'none'; $('mvBtn').style.display = on ? '' : 'none'; $('closeShiftBtn').style.display = on ? '' : 'none';
+  if(on){ $('shiftBadge').textContent = 'Shift #'+d.id+' · '+d.opened_at+' · Drawer Rs '+money(d.cash_in_drawer);
+    $('wh').value = String(d.warehouse); $('wh').disabled = true; hide('shiftOv'); lsSet('pos_wh', String(d.warehouse)); load(''); }
+  else { $('wh').disabled = false; if(REQ_SHIFT) show('shiftOv'); }
+}
+function loadShift(){ fetch('{% url "shift_status" %}').then(function(r){ return r.json(); }).then(applyShift).catch(function(){ if(REQ_SHIFT) show('shiftOv'); }); }
+$('shGo').addEventListener('click', function(){
+  var b = this; b.disabled = true; $('shErr').classList.add('d-none');
+  fetch('{% url "shift_open" %}', {method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({warehouse:$('shWh').value, opening_cash:$('shCash').value})})
+   .then(function(r){ return r.json(); }).then(function(d){ b.disabled = false;
+     if(!d.success){ $('shErr').textContent = d.message; $('shErr').classList.remove('d-none'); return; } loadShift(); focusSearch(); })
+   .catch(function(){ b.disabled = false; $('shErr').textContent = 'Network problem.'; $('shErr').classList.remove('d-none'); });
+});
+$('mvBtn').addEventListener('click', function(){ $('mvNow').textContent = SHIFT ? money(SHIFT.cash_in_drawer) : '0'; $('mvAmt').value=''; $('mvWhy').value=''; $('mvErr').classList.add('d-none'); show('mvOv'); $('mvAmt').focus(); });
+$('mvGo').addEventListener('click', function(){
+  var kind = document.querySelector('input[name=mvk]:checked').value;
+  fetch('{% url "shift_movement" %}', {method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({kind:kind, amount:$('mvAmt').value, reason:$('mvWhy').value})})
+   .then(function(r){ return r.json(); }).then(function(d){
+     if(!d.success){ $('mvErr').textContent = d.message; $('mvErr').classList.remove('d-none'); return; }
+     hide('mvOv'); toast('Saved'); loadShift(); focusSearch(); });
+});
+
+/* ---------- init ---------- */
+var saved = lsGet('pos_cart', null), wh = lsGet('pos_wh', null);
+if(wh && $('wh').querySelector('option[value="'+wh+'"]')) $('wh').value = wh;
+if(saved && saved.cart && saved.cart.length){ S.cart = saved.cart; S.customer = saved.customer || S.customer; $('disc').value = saved.disc || 0; $('discType').value = saved.dt || 'amt'; }
+render(); load(''); loadShift(); focusSearch();
+})();
+</script>
+{% endblock %}

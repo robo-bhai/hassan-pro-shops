@@ -1,5 +1,5 @@
 <aside class="sidebar" id="sidebar" aria-label="Main navigation">
-    <a href="{% url 'dashboard' %}" class="sidebar-brand" title="{{ company_name|default:'ERP System' }}" aria-label="{{ company_name|default:'ERP System' }} - Dashboard">
+    <a href="{% if STORE_RESTRICTED %}{% url 'store_dashboard' %}{% else %}{% url 'dashboard' %}{% endif %}" class="sidebar-brand" title="{{ company_name|default:'ERP System' }}" aria-label="{{ company_name|default:'ERP System' }} - Dashboard">
         <div class="brand-icon-wrap{% if company_logo %} has-logo{% endif %}">
             {% if company_logo %}
                 <img src="{{ company_logo }}" alt="{{ company_name|default:'Logo' }}" class="brand-logo">
@@ -36,7 +36,7 @@
                 {% endif %}
             </strong>
             <div class="user-role-badge">
-                {# Superuser = Administrator. CEO badge sirf tab jab user CEO group me ho. #}
+                {# Superuser = Administrator. The CEO badge shows only when the user is in the CEO group. #}
                 {% if request.user.is_superuser %}
                     <span class="role-badge admin">🛡️ Administrator</span>
                 {% endif %}
@@ -157,10 +157,15 @@
         <!-- ################ OVERVIEW ################ -->
         <li class="menu-group-label" role="presentation">Overview</li>
 
-<li><a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+<li><a href="{% if STORE_RESTRICTED %}{% url 'store_dashboard' %}{% else %}{% url 'dashboard' %}{% endif %}" class="{% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'store_dashboard' %}active{% endif %}">
                 <span class="menu-icon">📊</span>Main Dashboard
             </a>
         </li>
+        {% if MODULE_VISIBLE.agri != False %}<!-- agri-edition:menu -->
+        <li><a href="/agri/" class="{% if request.path == '/agri/' %}active{% endif %}"><span class="menu-icon">🌾</span>Agri Edition</a></li>
+        <li><a href="/agri/expiry/?f=expired" class="{% if '/agri/expiry' in request.path %}active{% endif %}"><span class="menu-icon">⏰</span>Expiry Manager</a></li>
+        <li><a href="/agri/credit/" class="{% if '/agri/credit' in request.path %}active{% endif %}"><span class="menu-icon">💰</span>Kisan Udhaar</a></li>
+        {% endif %}
 
         {% if SHOW_BI_MODULE %}
         <!-- ========== 📊 BUSINESS INTELLIGENCE SECTION ========== -->
@@ -363,6 +368,8 @@
                 <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
             </a>
             <ul class="collapse list-unstyled {% if 'sale' in request.path or 'challan' in request.path %}show{% endif %}" id="salesSubmenu">
+                <li><a href="{% url 'pos_screen' %}" class="sub-link {% if '/sales/pos/' in request.path %}active{% endif %}"><span>🖥️</span> POS Screen</a></li>
+                <li><a href="{% url 'shift_list' %}" class="sub-link {% if '/sales/shift' in request.path %}active{% endif %}"><span>🕒</span> Cashier Shifts</a></li>
                 <li><a href="{% url 'sale_create' %}" class="sub-link"><span>➕</span> New Sale</a></li>
                 <li><a href="{% url 'sale_list' %}" class="sub-link"><span>📋</span> Sales List</a></li>
                 <li><a href="{% url 'sale_order_create' %}" class="sub-link"><span>📝</span> New Sale Order</a></li>
@@ -522,6 +529,32 @@
         </li>
         {% endif %}
 
+        {% if SHOW_STORE_ISSUE_MODULE %}
+        <!-- ========== STORES & ISSUE (PMS / RMS / FGS / Technical) ========== -->
+        <li class="has-submenu">
+            <a href="#storeIssueSubmenu" data-bs-toggle="collapse" aria-controls="storeIssueSubmenu" role="button" aria-expanded="{% if '/stores/' in request.path or 'store-issue' in request.path or 'store-transfer' in request.path or 'store-receipts' in request.path or 'store-request' in request.path or 'store-count' in request.path or 'store-return' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">🏬</span> Stores &amp; Issue
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if '/stores/' in request.path or 'store-issue' in request.path or 'store-transfer' in request.path or 'store-receipts' in request.path or 'store-request' in request.path or 'store-count' in request.path or 'store-return' in request.path %}show{% endif %}" id="storeIssueSubmenu">
+                <li><a href="{% url 'store_dashboard' %}" class="sub-link"><span>📊</span> Stores</a></li>
+                <li><a href="{% url 'store_issue_create' %}" class="sub-link"><span>📤</span> New Issue</a></li>
+                <li><a href="{% url 'store_issue_list' %}" class="sub-link"><span>📋</span> All Issues</a></li>
+                <li><a href="{% url 'store_issue_report' %}" class="sub-link"><span>📈</span> Issue Report</a></li>
+                <li><a href="{% url 'store_transfer_list' %}" class="sub-link {% if 'store-transfer' in request.path %}active{% endif %}"><span>🔄</span> Store Transfers</a></li>
+                <li><a href="{% url 'store_receipts' %}" class="sub-link {% if 'store-receipts' in request.path %}active{% endif %}"><span>📥</span> Store Receipts</a></li>
+                <li><a href="{% url 'store_request_list' %}" class="sub-link {% if 'store-request' in request.path %}active{% endif %}"><span>🙋</span> Store Requests</a></li>
+                <li><a href="{% url 'store_count_list' %}" class="sub-link {% if 'store-count' in request.path %}active{% endif %}"><span>🧮</span> Store Count</a></li>
+                <li><a href="{% url 'store_return_list' %}" class="sub-link {% if 'store-return' in request.path %}active{% endif %}"><span>↩️</span> Store Returns</a></li>
+                {% if request.user.is_superuser %}
+                <li><a href="{% url 'store_profile_list' %}" class="sub-link {% if '/stores/profiles/' in request.path %}active{% endif %}"><span>🏷️</span> Store Profiles</a></li>
+                <li><a href="{% url 'store_access' %}" class="sub-link {% if '/stores/access/' in request.path %}active{% endif %}"><span>👥</span> Store Teams</a></li>
+                <li><a href="{% url 'store_settings' %}" class="sub-link {% if '/stores/settings/' in request.path %}active{% endif %}"><span>⚙️</span> Store Settings</a></li>
+                {% endif %}
+            </ul>
+        </li>
+        {% endif %}
+
         {% if SHOW_SUPPLY_CHAIN_MODULE %}
         <!-- ========== SUPPLY CHAIN SECTION ========== -->
 <li class="has-submenu">
@@ -610,6 +643,7 @@
                 <li><a href="{% url 'cash_transactions' %}" class="sub-link"><span>📋</span> Transactions</a></li>
                 <li><a href="{% url 'cash_report' %}" class="sub-link"><span>📈</span> Cash Report</a></li>
                 <li><a href="{% url 'self_expense_report' %}" class="sub-link"><span>💱</span> Self Expense Report <span class="badge bg-warning text-dark ms-1" style="font-size:0.55rem;">New</span></a></li>
+                <li><a href="{% url 'cash_withdraw' %}" class="sub-link {% if '/cash/withdraw/' in request.path %}active{% endif %}"><span>💸</span> Cash Withdraw</a></li>
                 <li><a href="{% url 'cash_set_opening' %}" class="sub-link"><span>🏁</span> Opening Balance</a></li>
             </ul>
         </li>
@@ -943,8 +977,10 @@
             </a>
             <ul class="collapse list-unstyled {% if 'report' in request.path or 'profit' in request.path or 'closing' in request.path or 'targets' in request.path %}show{% endif %}" id="reportsSubmenu">
                 <li><a href="{% url 'reports_dashboard' %}" class="sub-link"><span>📊</span> Reports Dashboard</a></li>
+                <li><a href="{% url 'range_report' %}" class="sub-link {% if '/reports/range/' in request.path %}active{% endif %}"><span>🗓️</span> Date Range Report</a></li>
                 <li><a href="{% url 'business_health' %}" class="sub-link"><span>💚</span> Business Health</a></li>
                 <li><a href="{% url 'profit_loss_report' %}" class="sub-link"><span>💰</span> Profit & Loss</a></li>
+                <li><a href="{% url 'profit_analysis' %}" class="sub-link"><span>📊</span> Profit Analysis</a></li>
                 <li><a href="{% url 'cash_flow_report' %}" class="sub-link"><span>💵</span> Cash Flow</a></li>
                 <li class="menu-section-label" role="presentation">📋 SALES REPORTS</li>
                 <li><a href="{% url 'sales_summary_report' %}" class="sub-link"><span>📊</span> Sales Summary</a></li>
@@ -968,6 +1004,7 @@
                 <li class="menu-section-label" role="presentation">📊 COMPARATIVE REPORTS</li>
                 <li><a href="{% url 'yearly_comparison_report' %}" class="sub-link"><span>📅</span> Yearly Comparison</a></li>
                 <li><a href="{% url 'monthly_comparison_report' %}" class="sub-link"><span>📆</span> Monthly Comparison</a></li>
+                <li><a href="{% url 'daily_closing_list' %}" class="sub-link {% if 'daily-closing' in request.path %}active{% endif %}"><span>📒</span> Daily Closing</a></li>
                 <li><a href="{% url 'monthly_closing_report' %}" class="sub-link"><span>🔒</span> Monthly Closing</a></li>
                 <li class="menu-section-label" role="presentation">👔 PERFORMANCE REPORTS</li>
                 <li><a href="{% url 'employee_performance_report' %}" class="sub-link"><span>👔</span> Employee Performance</a></li>
@@ -1066,12 +1103,13 @@
 
         <!-- ========== SYSTEM SECTION ========== -->
 <li class="has-submenu">
-    <a href="#systemSubmenu" data-bs-toggle="collapse" aria-controls="systemSubmenu" role="button" aria-expanded="{% if 'settings' in request.path or 'backup' in request.path or 'users' in request.path or 'terms' in request.path or 'permission-matrix' in request.path or 'voice' in request.path %}true{% else %}false{% endif %}">
+    <a href="#systemSubmenu" data-bs-toggle="collapse" aria-controls="systemSubmenu" role="button" aria-expanded="{% if 'settings' in request.path or 'backup' in request.path or 'users' in request.path or 'terms' in request.path or 'permission-matrix' in request.path or 'voice' in request.path or 'admin-chat' in request.path or 'otp-management' in request.path or 'notifications' in request.path or 'admin/support' in request.path %}true{% else %}false{% endif %}">
         <span class="menu-icon">⚙️</span> System
         <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
     </a>
-    <ul class="collapse list-unstyled {% if 'settings' in request.path or 'backup' in request.path or 'users' in request.path or 'terms' in request.path or 'permission-matrix' in request.path or 'voice' in request.path %}show{% endif %}" id="systemSubmenu">
+    <ul class="collapse list-unstyled {% if 'settings' in request.path or 'backup' in request.path or 'users' in request.path or 'terms' in request.path or 'permission-matrix' in request.path or 'voice' in request.path or 'admin-chat' in request.path or 'otp-management' in request.path or 'notifications' in request.path or 'admin/support' in request.path %}show{% endif %}" id="systemSubmenu">
         
+        {% if not STORE_RESTRICTED %}
         <li class="menu-section-label" role="presentation">👥 USERS & PERMISSIONS</li>
         <li><a href="{% url 'user_list' %}" class="sub-link"><span>👥</span> User Management</a></li>
         <li><a href="{% url 'permission_matrix' %}" class="sub-link"><span>🔐</span> Permission Matrix</a></li>
@@ -1079,6 +1117,19 @@
         <li class="menu-section-label" role="presentation">⚙️ CONFIGURATION</li>
         <li><a href="{% url 'settings_center' %}" class="sub-link {% if '/settings/center/' in request.path or '/settings/modules/' in request.path %}active{% endif %}"><span>⚙️</span> Settings</a></li>
         <li><a href="{% url 'strategy_allocations_list' %}" class="sub-link"><span>⚙️</span> Strategy Allocations</a></li>
+        {% if request.user.is_superuser or request.user.is_staff %}
+        <li><a href="{% url 'translation_manager' %}" class="sub-link {% if '/settings/translations/' in request.path %}active{% endif %}"><span>🌐</span> Translation Manager</a></li>
+        {% endif %}
+
+        <li class="menu-section-label" role="presentation">💬 COMMUNICATION</li>
+        <li><a href="{% url 'admin_chat_panel' %}" class="sub-link {% if 'admin-chat' in request.path %}active{% endif %}"><span>💬</span> Admin Chat</a></li>
+        <li><a href="{% url 'notification_list' %}" class="sub-link {% if '/notifications/' in request.path %}active{% endif %}"><span>🔔</span> Notifications</a></li>
+        {% if request.user.is_superuser or request.user.is_staff %}
+        <li><a href="{% url 'admin_support_tickets' %}" class="sub-link {% if 'admin/support' in request.path %}active{% endif %}"><span>🎫</span> Support Tickets</a></li>
+        {% endif %}
+        {% if request.user.is_superuser %}
+        <li><a href="{% url 'otp_management' %}" class="sub-link {% if 'otp-management' in request.path %}active{% endif %}"><span>🔑</span> OTP Management</a></li>
+        {% endif %}
 
         <li class="menu-section-label" role="presentation">📋 TERMS & CONDITIONS</li>
         <li>
@@ -1098,6 +1149,7 @@
         {% endif %}
         
         <li><a href="{% url 'admin:index' %}" target="_blank" class="sub-link"><span>🔒</span> Admin Panel <i class="bi bi-box-arrow-up-right ms-auto" style="font-size:0.6rem;opacity:0.5;"></i></a></li>
+        {% endif %}{# /not STORE_RESTRICTED #}
         <li><a href="{% url 'logout' %}" class="sub-link"><span>🚪</span> Logout</a></li>
         
     </ul>

@@ -1,0 +1,405 @@
+"""
+posting.py - one place that turns business documents into ledger entries (Dynamics-365 style).
+
+    Sale            Dr Accounts Receivable   Cr Sales Revenue (and Dr Sales Discount when mapped)
+    Sale payment    Dr Cash / Bank           Cr Accounts Receivable
+    Purchase        Dr Inventory             Cr Accounts Payable
+    Vendor payment  Dr Accounts Payable      Cr Cash / Bank
+    Expense (paid)  Dr Expense account       Cr Cash / Bank
+
+Step 4: every line on the Receivable account carries its customer, every line on the Payable account its vendor
+(`D(account, amount, memo, party=cust(customer))`), so statements and ageing come from the ledger itself.
+
+Every entry is balanced, stored as a posted JournalEntry with its lines, copied into the General Ledger
+(LedgerEntry) with a running balance, and linked to its document through GLPosting so it can never be
+booked twice. A changed document is re-posted (old entry reversed, new one booked); nothing is edited or deleted.
+"""
+from decimal import Decimal
+
+from django.db import transaction
+from django.utils import timezone
+
+from ..models import (
+    Account, AccountType, JournalEntry, JournalEntryItem, LedgerEntry, PostingRule, GLPosting,
+    Sale, SalePayment, CustomerPayment, Purchase, VendorPayment, Expense,
+)
+from .posting_core import (Line, D, C, q2, clean_lines, check_balanced, next_balance, line_signature, PostingError,
+                           party_key, split_party)
+
+__all__ = ['PostingError', 'post_entry', 'reverse_posting', 'post_document', 'SOURCES', 'setup_defaults',
+           'post_sale', 'post_sale_payment', 'post_customer_payment', 'post_purchase', 'post_vendor_payment', 'post_expense']
+
+
+# ---------------------------------------------------------------------------
+# account lookup
+# ---------------------------------------------------------------------------
+def account_for(key, fallback=None):
+    rule = PostingRule.objects.select_related('account').filter(key=key).first()
+    if rule:
+        return rule.account
+    if fallback:
+        return account_for(fallback)
+    raise PostingError(f"Account '{key}' is not mapped. Run: python manage.py post_ledger --setup")
+
+
+def optional_account(key):
+    rule = PostingRule.objects.select_related('account').filter(key=key).first()
+    return rule.account if rule else None
+
+
+def method_account(method_name):
+    """Cash goes to the cash account, every other method to the bank/wallet account (pm_<name> overrides)."""
+    name = (method_name or 'cash').strip().lower()
+    return account_for(f'pm_{name}', fallback='cash' if name == 'cash' else 'bank')
+
+
+def _day(value):
+    if hasattr(value, 'date'):
+        if timezone.is_aware(value):
+            value = timezone.localtime(value)
+        return value.date()
+    return value or timezone.localdate()
+
+
+# ---------------------------------------------------------------------------
+# ledger writing
+# ---------------------------------------------------------------------------
+def cust(customer_or_id):
+    """Party key of a customer (accepts an object or an id)."""
+    return party_key('C', getattr(customer_or_id, 'pk', customer_or_id))
+
+
+def vend(vendor_or_id):
+    """Party key of a vendor (accepts an object or an id)."""
+    return party_key('V', getattr(vendor_or_id, 'pk', vendor_or_id))
+
+
+def party_fields(party):
+    """'C12' -> {'customer_id': 12, 'vendor_id': None}   (used for JournalEntryItem and LedgerEntry rows)."""
+    kind, pk = split_party(party)
+    return {'customer_id': pk if kind == 'C' else None, 'vendor_id': pk if kind == 'V' else None}
+
+
+def item_party(item):
+    """Party key stored on a JournalEntryItem / LedgerEntry row ('' when none)."""
+    return party_key('C', item.customer_id) or party_key('V', item.vendor_id)
+
+
+def _rebuild_running_balance(account):
+    """Recalculate the running balance of one account in date order (needed after a back-dated entry)."""
+    acc = Account.objects.select_related('account_type').get(pk=account.pk)
+    running = q2(acc.opening_balance)
+    rows = list(LedgerEntry.objects.filter(account=acc).order_by('date', 'id'))
+    for row in rows:
+        running = next_balance(running, row.debit, row.credit, acc.account_type.account_class)
+        row.balance = running
+    LedgerEntry.objects.bulk_update(rows, ['balance'])
+
+
+def _write_lines(entry, lines, reference, description):
+    for ln in lines:
+        JournalEntryItem.objects.create(
+            journal_entry=entry, account=ln.account, is_debit=(ln.side == 'D'),
+            amount=ln.amount, description=(ln.memo or '')[:255], **party_fields(ln.party),
+        )
+        acc = Account.objects.select_for_update().select_related('account_type').get(pk=ln.account.pk)
+        last = LedgerEntry.objects.filter(account=acc).order_by('-date', '-id').first()
+        previous = last.balance if last else q2(acc.opening_balance)
+        debit = ln.amount if ln.side == 'D' else Decimal('0.00')
+        credit = ln.amount if ln.side == 'C' else Decimal('0.00')
+        LedgerEntry.objects.create(
+            journal_entry=entry, account=acc, date=entry.entry_date, reference=(reference or '')[:100],
+            description=ln.memo or description, debit=debit, credit=credit,
+            balance=next_balance(previous, debit, credit, acc.account_type.account_class),
+            **party_fields(ln.party),
+        )
+        if last and last.date > entry.entry_date:
+            _rebuild_running_balance(acc)
+
+
+def _acc_id(ln):
+    return getattr(ln.account, 'pk', ln.account)
+
+
+def _strip_party(lines):
+    return [Line(_acc_id(ln), ln.side, q2(ln.amount), '', '') for ln in lines]
+
+
+def _only_missing_party(old_lines, new_lines):
+    """True when the two entries are the same except that the old one has no party on lines that now have one."""
+    if line_signature(_strip_party(old_lines)) != line_signature(_strip_party(new_lines)):
+        return False
+    pool = [(_acc_id(ln), ln.side, q2(ln.amount), ln.party) for ln in new_lines]
+    for ln in old_lines:
+        if not ln.party:
+            continue                                  # no party yet: can be filled in
+        key = (_acc_id(ln), ln.side, q2(ln.amount), ln.party)
+        if key not in pool:
+            return False                              # the old line names a different party: a real change
+        pool.remove(key)
+    return True
+
+
+def _tag_party(entry, lines):
+    """Write the party of `lines` onto the existing journal items and ledger rows of `entry` (amounts untouched)."""
+    pool = [ln for ln in lines if ln.party]
+    for item in entry.items.all():
+        if item_party(item):
+            continue
+        side = 'D' if item.is_debit else 'C'
+        match = next((ln for ln in pool if _acc_id(ln) == item.account_id and ln.side == side
+                      and q2(ln.amount) == item.amount), None)
+        if not match:
+            continue
+        pool.remove(match)
+        fields = party_fields(match.party)
+        JournalEntryItem.objects.filter(pk=item.pk).update(**fields)
+        row = LedgerEntry.objects.filter(
+            journal_entry=entry, account_id=item.account_id, customer__isnull=True, vendor__isnull=True,
+            debit=item.amount if item.is_debit else 0, credit=0 if item.is_debit else item.amount,
+        ).order_by('id').first()
+        if row:
+            LedgerEntry.objects.filter(pk=row.pk).update(**fields)
+
+
+@transaction.atomic
+def post_entry(*, entry_date, entry_type, description, lines, source_type, source_id,
+               reference='', user=None, repost=False, links=None):
+    """Book one balanced entry for a document. Returns the JournalEntry (existing one if already posted)."""
+    lines = clean_lines(lines)
+    amount = check_balanced(lines)
+
+    existing = GLPosting.objects.select_for_update().select_related('journal_entry').filter(
+        source_type=source_type, source_id=source_id, is_active=True).first()
+    if existing:
+        if not repost:
+            return existing.journal_entry
+        old = existing.journal_entry
+        old_items = list(old.items.all())
+        old_lines = [Line(i.account_id, 'D' if i.is_debit else 'C', i.amount, '', item_party(i)) for i in old_items]
+        if old.entry_date == entry_date:
+            if line_signature(old_lines) == line_signature(lines):
+                return old                  # nothing changed - do not touch the books
+            if _only_missing_party(old_lines, lines):
+                _tag_party(old, lines)      # entry booked before Step 4: just name the customer / vendor on its lines
+                return old
+        reverse_posting(source_type, source_id, user=user, reason='Document changed - re-posted')
+
+    entry = JournalEntry.objects.create(
+        entry_no='', entry_date=entry_date, entry_type=entry_type, reference=(reference or '')[:100],
+        description=description, status='posted', posted_by=user, posted_at=timezone.now(),
+        created_by=user, **(links or {}),
+    )
+    _write_lines(entry, lines, reference, description)
+    GLPosting.objects.create(source_type=source_type, source_id=source_id, journal_entry=entry, amount=amount)
+    return entry
+
+
+@transaction.atomic
+def reverse_posting(source_type, source_id, user=None, reason=''):
+    """Cancel a document's entry with an opposite entry. The old entry stays visible as 'reversed'."""
+    gp = GLPosting.objects.select_for_update().select_related('journal_entry').filter(
+        source_type=source_type, source_id=source_id, is_active=True).first()
+    if not gp:
+        return None
+    orig = gp.journal_entry
+    lines = [
+        Line(item.account, 'C' if item.is_debit else 'D', item.amount, f'Reversal: {item.description or orig.description}'[:255],
+             item_party(item))
+        for item in orig.items.select_related('account')
+    ]
+    description = f'Reversal of {orig.entry_no}' + (f' - {reason}' if reason else '')
+    rev = JournalEntry.objects.create(
+        entry_no='', entry_date=timezone.localdate(), entry_type='adjustment', reference=f'REV {orig.entry_no}'[:100],
+        description=description, status='posted', posted_by=user, posted_at=timezone.now(),
+        created_by=user, reversed_from=orig,
+    )
+    _write_lines(rev, lines, rev.reference, description)
+
+    orig.status = 'reversed'
+    orig.save(update_fields=['status', 'updated_at'])
+    gp.is_active = False
+    gp.reversed_at = timezone.now()
+    gp.save(update_fields=['is_active', 'reversed_at'])
+    return rev
+
+
+# ---------------------------------------------------------------------------
+# posting rules per document
+# ---------------------------------------------------------------------------
+def post_sale(sale, user=None, repost=False):
+    gross = q2(sale.total_without_discount())
+    discount = q2(sale.discount_value)
+    net = gross - discount
+    if net <= 0:
+        return None
+    receivable, revenue = account_for('receivable'), account_for('sales_revenue')
+    discount_acc = optional_account('sales_discount')
+    if discount > 0 and discount_acc:
+        lines = [D(receivable, net, 'Customer invoice', cust(sale.customer_id)), D(discount_acc, discount, 'Sales discount'),
+                 C(revenue, gross, 'Sales revenue')]
+    else:
+        lines = [D(receivable, net, 'Customer invoice', cust(sale.customer_id)), C(revenue, net, 'Sales revenue')]
+    return post_entry(
+        entry_date=_day(sale.sale_date), entry_type='sale', source_type='sale', source_id=sale.pk,
+        description=f'Sale {sale.bill_no} - {sale.customer.name}', reference=sale.bill_no,
+        lines=lines, user=user, repost=repost, links={'sale': sale},
+    )
+
+
+def post_sale_payment(payment, user=None, repost=False):
+    amount = q2(payment.amount)
+    if amount <= 0:
+        return None
+    sale = payment.sale
+    return post_entry(
+        entry_date=_day(payment.payment_date), entry_type='receipt', source_type='sale_payment',
+        source_id=payment.pk, description=f'Receipt {sale.bill_no} - {sale.customer.name}',
+        reference=payment.reference_no or sale.bill_no,
+        lines=[D(method_account(payment.method.name), amount, f'Received ({payment.method.name})'),
+               C(account_for('receivable'), amount, 'Customer payment', cust(sale.customer_id))],
+        user=user, repost=repost, links={'payment': payment},
+    )
+
+
+def post_customer_payment(payment, user=None, repost=False):
+    """Money received from a customer on the customer-ledger screen (clears old balances)."""
+    amount = q2(payment.amount)
+    if amount <= 0:
+        return None
+    method = payment.payment_method.name if payment.payment_method else 'cash'
+    return post_entry(
+        entry_date=_day(payment.payment_date), entry_type='receipt', source_type='customer_payment',
+        source_id=payment.pk, description=f'Customer payment - {payment.customer.name}',
+        reference=payment.reference_no or f'CP-{payment.pk}',
+        lines=[D(method_account(method), amount, f'Received ({method})'),
+               C(account_for('receivable'), amount, 'Customer payment', cust(payment.customer_id))],
+        user=user, repost=repost,
+    )
+
+
+def post_purchase(purchase, user=None, repost=False):
+    total = q2(purchase.total_amount())
+    if total <= 0:
+        return None
+    ref = purchase.bill_no or f'PUR-{purchase.pk}'
+    return post_entry(
+        entry_date=_day(purchase.pur_date), entry_type='purchase', source_type='purchase',
+        source_id=purchase.pk, description=f'Purchase {ref} - {purchase.vendor.name}', reference=ref,
+        lines=[D(account_for('inventory'), total, 'Stock purchased'),
+               C(account_for('payable'), total, 'Vendor invoice', vend(purchase.vendor_id))],
+        user=user, repost=repost, links={'purchase': purchase},
+    )
+
+
+def post_vendor_payment(payment, user=None, repost=False):
+    amount = q2(payment.amount)
+    if amount <= 0:
+        return None
+    method = payment.payment_method.name if payment.payment_method else 'cash'
+    return post_entry(
+        entry_date=_day(payment.payment_date), entry_type='payment', source_type='vendor_payment',
+        source_id=payment.pk, description=f'Payment to {payment.vendor.name}',
+        reference=payment.reference_no or f'VP-{payment.pk}',
+        lines=[D(account_for('payable'), amount, 'Vendor payment', vend(payment.vendor_id)),
+               C(method_account(method), amount, f'Paid ({method})')],
+        user=user, repost=repost,
+    )
+
+
+def post_expense(expense, user=None, repost=False):
+    """Booked when the expense is marked paid."""
+    if expense.status != 'paid':
+        return None
+    amount = q2(expense.total_amount)
+    if amount <= 0:
+        return None
+    expense_acc = account_for(f'expense_cat_{expense.category_id}', fallback='expense_default')
+    return post_entry(
+        entry_date=expense.payment_date or expense.expense_date, entry_type='expense', source_type='expense',
+        source_id=expense.pk, description=f'Expense {expense.expense_no} - {expense.category}',
+        reference=expense.expense_no,
+        lines=[D(expense_acc, amount, str(expense.category)),
+               C(method_account(expense.payment_method), amount, f'Paid ({expense.payment_method})')],
+        user=user, repost=repost, links={'expense': expense},
+    )
+
+
+# source type -> (model, poster).  Used by the backfill command and by Step 2 hooks.
+SOURCES = {
+    'sale': (Sale, post_sale),
+    'sale_payment': (SalePayment, post_sale_payment),
+    'customer_payment': (CustomerPayment, post_customer_payment),
+    'purchase': (Purchase, post_purchase),
+    'vendor_payment': (VendorPayment, post_vendor_payment),
+    'expense': (Expense, post_expense),
+}
+
+
+def post_document(source_type, obj, user=None, repost=False):
+    """
+    Single entry point: post (or re-post) any supported document.
+    With repost=True a document that no longer qualifies (emptied sale, expense no longer paid)
+    has its old entry reversed.
+    """
+    entry = SOURCES[source_type][1](obj, user=user, repost=repost)
+    if entry is None and repost:
+        reverse_posting(source_type, obj.pk, user=user, reason='Nothing left to post')
+    return entry
+
+
+# ---------------------------------------------------------------------------
+# default chart + mapping
+# ---------------------------------------------------------------------------
+DEFAULT_CHART = [
+    # key,              code,      name,                    class,      flags,                      type-name
+    ('cash',            'GL-1010', 'Cash in Hand',          'asset',    {'is_cash': True},          'Assets'),
+    ('bank',            'GL-1020', 'Bank & Wallets',        'asset',    {'is_bank': True},          'Assets'),
+    ('receivable',      'GL-1100', 'Accounts Receivable',   'asset',    {'is_receivable': True},    'Assets'),
+    ('inventory',       'GL-1200', 'Inventory',             'asset',    {},                         'Assets'),
+    ('opening_equity',  'GL-3010', 'Opening Balance Equity', 'equity',  {},                         'Equity'),
+    ('shareholder_funds', 'GL-3020', 'Shareholder Funds',   'equity',  {},                         'Equity'),
+    ('payable',         'GL-2100', 'Accounts Payable',      'liability', {'is_payable': True},      'Liabilities'),
+    ('sales_revenue',   'GL-4010', 'Sales Revenue',         'income',   {},                         'Income'),
+    ('sales_discount',  'GL-4020', 'Sales Discount',        'income',   {'is_contra': True},        'Income'),
+    ('sales_returns',   'GL-4030', 'Sales Returns',         'income',   {'is_contra': True},        'Income'),
+    ('stock_gain',      'GL-4040', 'Stock Gain',            'income',   {},                         'Income'),
+    ('cogs',            'GL-5010', 'Cost of Goods Sold',    'expense',  {},                         'Expenses'),
+    ('stock_loss',      'GL-5020', 'Stock Loss / Write-off', 'expense', {},                         'Expenses'),
+    ('expense_default', 'GL-6010', 'General Expenses',      'expense',  {},                         'Expenses'),
+    # Step 5 - shareholders, loans, salaries, cash book
+    ('share_capital',   'GL-3030', 'Share Capital',          'equity',   {},                         'Equity'),
+    ('owner_capital',   'GL-3050', 'Owner Capital',          'equity',   {},                         'Equity'),
+    ('dividends',       'GL-3040', 'Dividends Paid',         'equity',   {'is_contra': True},        'Equity'),
+    ('owner_drawings',  'GL-3060', 'Owner Drawings',         'equity',   {'is_contra': True},        'Equity'),
+    ('loans_receivable', 'GL-1300', 'Loans Receivable',      'asset',    {},                         'Assets'),
+    ('employee_loans',  'GL-1310', 'Employee Loans & Advances', 'asset', {},                         'Assets'),
+    ('emergency_fund',  'GL-1400', 'Emergency Fund (reserve)', 'asset',  {},                         'Assets'),
+    ('loans_payable',   'GL-2200', 'Loans Payable',          'liability', {},                        'Liabilities'),
+    ('tax_payable',     'GL-2300', 'Tax Withheld Payable',   'liability', {},                        'Liabilities'),
+    ('suspense',        'GL-2900', 'Unclassified Cash Movements', 'liability', {},                  'Liabilities'),
+    ('interest_expense', 'GL-6020', 'Loan Interest & Charges', 'expense', {},                        'Expenses'),
+    ('salary_expense',  'GL-6030', 'Salaries & Wages',       'expense',  {},                         'Expenses'),
+    ('cash_over_short', 'GL-6040', 'Cash Over / Short',      'expense',  {},                         'Expenses'),
+]
+
+
+@transaction.atomic
+def setup_defaults():
+    """Create the starter accounts and mapping. Safe to run again; existing mapping is never changed."""
+    made = []
+    for key, code, name, cls, flags, type_name in DEFAULT_CHART:
+        atype = AccountType.objects.filter(account_class=cls, is_active=True).order_by('id').first()
+        if not atype:
+            atype = AccountType.objects.create(name=type_name, code=cls[:3].upper() + 'T', account_class=cls)
+        account, _ = Account.objects.get_or_create(code=code, defaults={'name': name, 'account_type': atype, **flags})
+        _, created = PostingRule.objects.get_or_create(key=key, defaults={'account': account})
+        if created:
+            made.append(f'{key} -> {account.code} {account.name}')
+    return made
+
+
+# Step 3: stock and cost rules register themselves in SOURCES (kept in their own file).
+from . import posting_stock  # noqa: E402,F401
+from . import posting_gaps  # noqa: E402,F401   (Step 2b: money paid on the bill itself)
+from . import posting_step5  # noqa: E402,F401  (Step 5: cash book, payroll, daily closing)

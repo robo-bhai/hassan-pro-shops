@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+
+{% block title %}Translation Manager{% endblock %}
+{% block page_title %}🌐 Translation Manager{% endblock %}
+
+{% block content %}
+<style>
+    .tm-badge { font-size: .65rem; padding: 2px 7px; border-radius: 10px; font-weight: 700; color: #fff; }
+    .st-none { background: #dc3545; } .st-default { background: #6c757d; } .st-auto { background: #f59e0b; }
+    .st-manual { background: #0d6efd; } .st-reviewed { background: #198754; }
+    .tm-row textarea { resize: vertical; min-height: 38px; }
+    .tm-row.saved { box-shadow: 0 0 0 2px rgba(25,135,84,.5); }
+</style>
+
+<div class="container-fluid py-3">
+
+    {% if messages %}{% for m in messages %}
+        <div class="alert alert-{% if m.tags == 'error' %}danger{% else %}{{ m.tags|default:'info' }}{% endif %} py-2">{{ m }}</div>
+    {% endfor %}{% endif %}
+
+    <!-- Stats -->
+    <div class="row g-2 mb-3">
+        <div class="col-6 col-md-3"><div class="card"><div class="card-body py-2 text-center"><div class="h4 mb-0">{{ stats.total }}</div><small class="text-muted">Total words</small></div></div></div>
+        <div class="col-6 col-md-3"><div class="card"><div class="card-body py-2 text-center"><div class="h4 mb-0 text-danger">{{ stats.missing }}</div><small class="text-muted">Missing</small></div></div></div>
+        <div class="col-6 col-md-3"><div class="card"><div class="card-body py-2 text-center"><div class="h4 mb-0 text-warning">{{ stats.auto }}</div><small class="text-muted">Auto (review)</small></div></div></div>
+        <div class="col-6 col-md-3"><div class="card"><div class="card-body py-2 text-center"><div class="h4 mb-0 text-success">{{ stats.reviewed }}</div><small class="text-muted">Reviewed</small></div></div></div>
+    </div>
+
+    <!-- Auto translate -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div>
+                    <div class="fw-semibold">🤖 Auto-translate: <span class="badge {% if auto_on %}bg-success{% else %}bg-secondary{% endif %}">{% if auto_on %}ON{% else %}OFF{% endif %}</span></div>
+                    <small class="text-muted">Service: <b>{{ provider_label }}</b>. Only short English words of menus/buttons/headings are sent; customer, product or money data is never sent.</small>
+                    {% if last_run %}<br><small class="text-muted">Last run: {{ last_run }}</small>{% endif %}
+                    {% if last_error %}<br><small class="text-danger">Last error: {{ last_error }}</small>{% endif %}
+                </div>
+                <div class="d-flex gap-2">
+                    <form method="post" action="{% url 'translation_toggle_auto' %}">{% csrf_token %}
+                        <button class="btn btn-sm {% if auto_on %}btn-outline-secondary{% else %}btn-success{% endif %}">{% if auto_on %}Turn OFF{% else %}Turn ON{% endif %}</button>
+                    </form>
+                    <button class="btn btn-sm btn-primary" id="tmAutoRun">Translate missing now</button>
+                </div>
+            </div>
+            <div id="tmAutoMsg" class="small mt-2"></div>
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <form method="get" class="row g-2 align-items-center">
+                <div class="col-12 col-md-5"><input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Search English / Urdu / Arabic"></div>
+                <div class="col-8 col-md-3">
+                    <select name="f" class="form-select">
+                        <option value="all" {% if flt == 'all' %}selected{% endif %}>All</option>
+                        <option value="missing" {% if flt == 'missing' %}selected{% endif %}>Missing only</option>
+                        <option value="auto" {% if flt == 'auto' %}selected{% endif %}>Auto (to review)</option>
+                        <option value="manual" {% if flt == 'manual' %}selected{% endif %}>Manual</option>
+                        <option value="reviewed" {% if flt == 'reviewed' %}selected{% endif %}>Reviewed</option>
+                    </select>
+                </div>
+                <div class="col-4 col-md-2"><button class="btn btn-primary w-100">Search</button></div>
+            </form>
+            <div class="d-flex flex-wrap gap-2 mt-3">
+                <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#tmAdd">➕ Add word</button>
+                <a class="btn btn-sm btn-outline-secondary" href="{% url 'translation_export' %}">⬇ Export CSV</a>
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#tmImport">⬆ Import CSV</button>
+                <form method="post" action="{% url 'translation_review' %}" class="d-inline">{% csrf_token %}<input type="hidden" name="all" value="1">
+                    <button class="btn btn-sm btn-outline-success" onclick="return confirm('Mark all auto translations as Reviewed?')">✔ Mark all auto as reviewed</button></form>
+                <form method="post" action="{% url 'translation_seed' %}" class="d-inline">{% csrf_token %}
+                    <button class="btn btn-sm btn-outline-secondary">Load default words</button></form>
+            </div>
+
+            <div class="collapse mt-3" id="tmAdd">
+                <form method="post" action="{% url 'translation_add' %}" class="row g-2">{% csrf_token %}
+                    <div class="col-12 col-md-4"><input name="source" class="form-control" placeholder="English text" required></div>
+                    <div class="col-12 col-md-3"><input name="ur" class="form-control" dir="rtl" placeholder="اردو"></div>
+                    <div class="col-12 col-md-3"><input name="ar" class="form-control" dir="rtl" placeholder="العربية"></div>
+                    <div class="col-12 col-md-2"><button class="btn btn-primary w-100">Save</button></div>
+                </form>
+            </div>
+            <div class="collapse mt-3" id="tmImport">
+                <form method="post" action="{% url 'translation_import' %}" enctype="multipart/form-data" class="row g-2">{% csrf_token %}
+                    <div class="col-12 col-md-8"><input type="file" name="file" accept=".csv" class="form-control" required>
+                        <small class="text-muted">Columns: source, ur, ar (same as the Export file). Empty cells are left untouched.</small></div>
+                    <div class="col-12 col-md-4"><button class="btn btn-primary w-100">Import</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rows (data-no-i18n: English source must stay English here) -->
+    <div id="tmRows" data-no-i18n>
+        {% for t in page_obj %}
+        <div class="card tm-row mb-2" data-id="{{ t.id }}">
+            <div class="card-body p-2 p-md-3">
+                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                    <div class="fw-semibold">{{ t.source }} <small class="text-muted fw-normal">· {{ t.seen_count }}×</small></div>
+                    <button class="btn btn-sm btn-outline-danger tm-del" type="button" title="Delete"><i class="bi bi-trash"></i></button>
+                </div>
+                <div class="row g-2">
+                    <div class="col-12 col-md-6">
+                        <small class="text-muted">اردو <span class="tm-badge st-{{ t.ur_status|default:'none' }}" data-lang="ur">{{ t.get_ur_status_display }}</span></small>
+                        <textarea class="form-control tm-ur" dir="rtl" lang="ur" rows="1">{{ t.ur }}</textarea>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <small class="text-muted">العربية <span class="tm-badge st-{{ t.ar_status|default:'none' }}" data-lang="ar">{{ t.get_ar_status_display }}</span></small>
+                        <textarea class="form-control tm-ar" dir="rtl" lang="ar" rows="1">{{ t.ar }}</textarea>
+                    </div>
+                </div>
+                <div class="mt-2 d-flex gap-2 align-items-center">
+                    <button class="btn btn-sm btn-primary tm-save" type="button">Save</button>
+                    <button class="btn btn-sm btn-outline-success tm-ok" type="button">✔ Reviewed</button>
+                    <span class="tm-msg small"></span>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="text-center text-muted py-5">No word found.</div>
+        {% endfor %}
+    </div>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+    <nav class="d-flex justify-content-center gap-2 my-3">
+        {% if page_obj.has_previous %}<a class="btn btn-sm btn-outline-secondary" href="?q={{ q|urlencode }}&f={{ flt }}&page={{ page_obj.previous_page_number }}">‹ Prev</a>{% endif %}
+        <span class="btn btn-sm disabled">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}<a class="btn btn-sm btn-outline-secondary" href="?q={{ q|urlencode }}&f={{ flt }}&page={{ page_obj.next_page_number }}">Next ›</a>{% endif %}
+    </nav>
+    {% endif %}
+</div>
+
+<script>
+(function () {
+    var CSRF = '{{ csrf_token }}';
+    var LABEL = {'': 'Missing', 'default': 'Default', 'auto': 'Auto', 'manual': 'Manual', 'reviewed': 'Reviewed'};
+    function post(url, data) {
+        return fetch(url, {method: 'POST', credentials: 'same-origin',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF}, body: JSON.stringify(data)})
+            .then(function (r) { return r.json(); });
+    }
+    function setBadge(row, lang, st) {
+        var b = row.querySelector('.tm-badge[data-lang="' + lang + '"]');
+        b.className = 'tm-badge st-' + (st || 'none'); b.textContent = LABEL[st || ''];
+    }
+    function flash(row, text, ok) {
+        var m = row.querySelector('.tm-msg'); m.textContent = text; m.className = 'tm-msg small ' + (ok ? 'text-success' : 'text-danger');
+        if (ok) { row.classList.add('saved'); setTimeout(function () { row.classList.remove('saved'); m.textContent = ''; }, 1500); }
+    }
+    function after(row, j) {
+        if (!j.ok) return flash(row, 'Error', false);
+        setBadge(row, 'ur', j.ur_status); setBadge(row, 'ar', j.ar_status); flash(row, 'Saved ✓', true);
+    }
+    document.getElementById('tmRows').addEventListener('click', function (e) {
+        var row = e.target.closest('.tm-row'); if (!row) return;
+        var id = row.dataset.id;
+        if (e.target.closest('.tm-save')) {
+            post('{% url "translation_save" %}', {id: id, ur: row.querySelector('.tm-ur').value, ar: row.querySelector('.tm-ar').value})
+                .then(function (j) { after(row, j); }).catch(function () { flash(row, 'Network error', false); });
+        } else if (e.target.closest('.tm-ok')) {
+            post('{% url "translation_review" %}', {id: id}).then(function (j) { after(row, j); });
+        } else if (e.target.closest('.tm-del')) {
+            if (!confirm('Delete this word?')) return;
+            post('{% url "translation_delete" %}', {id: id}).then(function () { row.remove(); });
+        }
+    });
+    document.getElementById('tmAutoRun').addEventListener('click', function () {
+        var btn = this, msg = document.getElementById('tmAutoMsg');
+        btn.disabled = true; msg.className = 'small mt-2 text-muted'; msg.textContent = 'Translating…';
+        post('{% url "translation_auto_run" %}', {}).then(function (j) {
+            btn.disabled = false;
+            msg.className = 'small mt-2 ' + (j.error ? 'text-danger' : 'text-success');
+            msg.textContent = 'Translated: ' + j.translated + ' · Pending: ' + j.pending + (j.error ? ' · ' + j.error : '');
+            if (j.translated) setTimeout(function () { location.reload(); }, 1200);
+        }).catch(function () { btn.disabled = false; msg.className = 'small mt-2 text-danger'; msg.textContent = 'Network error'; });
+    });
+})();
+</script>
+{% endblock %}

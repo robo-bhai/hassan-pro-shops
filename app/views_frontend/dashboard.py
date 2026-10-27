@@ -2,6 +2,7 @@
 from django.utils.timezone import localdate
 from django.db.models.functions import Coalesce
 from django.db.models import ExpressionWrapper
+from .. import store_access as _sa      # store-wise: dusre store ka stock chhupao
 from django.core.cache import cache
 from ..models import *
 import os
@@ -47,8 +48,7 @@ def profile_view(request):
     })
 
 
-from ..module_catalog import MODULE_CATALOG, MODULE_GROUPS
-_MODULE_KEYS = tuple(m['key'] for m in MODULE_CATALOG)
+from ..module_catalog import MODULE_GROUPS, get_module_catalog, get_module_keys
 
 
 @login_required
@@ -65,16 +65,16 @@ def module_settings(request):
                 setting_key = key.replace('setting_', '')
                 SystemSetting.set_value(setting_key, value == 'on', request.user)
         
-        # Har module ke liye Shop / Factory switch (unchecked = off bhi save hota hai)
-        for m in _MODULE_KEYS:
+        # Shop / Factory switch for each module (unchecked = off is also saved)
+        for m in get_module_keys():
             shop_on = request.POST.get('mode_shop_%s' % m) == 'on'
             factory_on = request.POST.get('mode_factory_%s' % m) == 'on'
             SystemSetting.set_value('mode_shop_%s' % m, shop_on, request.user)
             SystemSetting.set_value('mode_factory_%s' % m, factory_on, request.user)
-            # purana global switch union ke sath sync rakho (purane code ke liye)
+            # keep the old global switch in sync with the union (for old code)
             SystemSetting.set_value('show_%s_module' % m, shop_on or factory_on, request.user)
 
-        # Shareholder deduction: unchecked = off, aur type bhi save ho
+        # Shareholder deduction: unchecked = off, and the type is saved too
         SystemSetting.set_value('enable_shareholder_purchase_deduction',
                                 request.POST.get('setting_enable_shareholder_purchase_deduction') == 'on',
                                 request.user)
@@ -118,13 +118,13 @@ def module_settings(request):
     from ..context_processors import unit_enabled, module_visibility
     visible = module_visibility()
     module_settings = []
-    for m in MODULE_CATALOG:
+    for m in get_module_catalog():
         module_settings.append({
             'id': m['key'], 'key': 'show_%s_module' % m['key'],
             'name': m['label'], 'icon': m['icon'], 'description': m['description'], 'group': m['group'],
             'shop': unit_enabled(m['key'], 'shop'),
             'factory': unit_enabled(m['key'], 'factory'),
-            'visible': visible.get(m['key'], True),     # abhi chalu hai?
+            'visible': visible.get(m['key'], True),     # is it running now?
         })
     module_groups = [
         {'name': g, 'items': [x for x in module_settings if x['group'] == g]}
@@ -265,21 +265,24 @@ def dashboard_view(request):
     month_start = today.replace(day=1)
     
     cache_key = f'dashboard_stats_{today}'
+    if request.GET.get('refresh'):          # the Refresh link on the dashboard
+        cache.delete(cache_key)
+        cache.delete(f'dashboard_extra_{today}')
     base_stats = cache.get(cache_key)
     
     if base_stats is None:
         # ✅ All heavy queries in one place
-        today_stats = Sale.objects.filter(sale_date__date=today).aggregate(
+        _today_sales = Sale.objects.filter(sale_date__date=today).exclude(returns__notes__startswith='VOID')
+        today_stats = _today_sales.aggregate(
             total_sales=Coalesce(
                 Sum('saleitem__total_amt', output_field=DecimalField(max_digits=20, decimal_places=2)),
                 Value(Decimal('0.00'))
             ),
             sales_count=Count('id', distinct=True),
-            total_discount=Coalesce(
-                Sum('discount_value'),
-                Value(Decimal('0.00'))
-            )
         )
+        # The discount is summed on its own. Summed together with the items it was counted once per item.
+        today_stats['total_discount'] = _today_sales.aggregate(
+            d=Coalesce(Sum('discount_value'), Value(Decimal('0.00'))))['d']
         
         today_purchases = Purchase.objects.filter(pur_date__date=today).aggregate(
             total=Coalesce(
@@ -291,17 +294,17 @@ def dashboard_view(request):
         
         today_profit_raw = SaleItem.objects.filter(
             sale__sale_date__date=today
-        ).aggregate(
+        ).exclude(sale__returns__notes__startswith='VOID').aggregate(
             total=Coalesce(Sum('profit'), Value(Decimal('0.00')))
         )['total']
         
         # Monthly stats
-        monthly_stats = Sale.objects.filter(
-            sale_date__date__gte=month_start
-        ).aggregate(
+        _month_sales = Sale.objects.filter(sale_date__date__gte=month_start).exclude(returns__notes__startswith='VOID')
+        monthly_stats = _month_sales.aggregate(
             total_sales=Coalesce(Sum('saleitem__total_amt'), Value(Decimal('0.00'))),
-            total_discount=Coalesce(Sum('discount_value'), Value(Decimal('0.00')))
         )
+        monthly_stats['total_discount'] = _month_sales.aggregate(
+            d=Coalesce(Sum('discount_value'), Value(Decimal('0.00'))))['d']
         
         monthly_purchases = Purchase.objects.filter(
             pur_date__date__gte=month_start
@@ -311,7 +314,7 @@ def dashboard_view(request):
         
         monthly_profit_raw = SaleItem.objects.filter(
             sale__sale_date__date__gte=month_start
-        ).aggregate(
+        ).exclude(sale__returns__notes__startswith='VOID').aggregate(
             total=Coalesce(Sum('profit'), Value(Decimal('0.00')))
         )['total']
         
@@ -329,13 +332,16 @@ def dashboard_view(request):
         # Top products (30 days)
         top_products = list(SaleItem.objects.filter(
             sale__sale_date__date__gte=month_ago
-        ).values(
+        ).exclude(sale__returns__notes__startswith='VOID').values(
             'product__id', 'product__name', 'product__price'
         ).annotate(
             total_sales=Coalesce(Sum('total_amt'), Value(Decimal('0.00'))),
             total_qty=Coalesce(Sum('qty'), Value(0.0)),
             total_profit=Coalesce(Sum('profit'), Value(Decimal('0.00')))
         ).order_by('-total_sales')[:8])
+        _best = max([float(p['total_sales']) for p in top_products] + [1.0])
+        for p in top_products:                      # width of the bar in the "Top products" card
+            p['sales_percent'] = max(3, round(float(p['total_sales']) * 100 / _best))
         
         # Counts
         total_customers = Customer.objects.count()
@@ -371,7 +377,7 @@ def dashboard_view(request):
         # Recent sales
         recent_sales = list(Sale.objects.select_related(
             'customer', 'warehouse', 'created_by'
-        ).annotate(
+        ).exclude(returns__notes__startswith='VOID').annotate(
             cached_total=Coalesce(Sum('saleitem__total_amt'), Value(Decimal('0.00')))
         ).order_by('-sale_date')[:10])
         
@@ -407,6 +413,18 @@ def dashboard_view(request):
         # ✅ Cache for 5 minutes
         cache.set(cache_key, base_stats, 300)
     
+    # ✅ Everyone except the superuser sees stock numbers only for their own stores (the cache is shared for everyone)
+    if not is_superuser:
+        base_stats = dict(base_stats)
+        _inv = _sa.hide_other_stores(request.user, Inventory.objects.all(), 'warehouse')
+        _low = _inv.filter(stock__lt=F('product__low_stock_threshold'))
+        base_stats['low_stock_items'] = list(_low.select_related('product', 'warehouse', 'product__unit').order_by('stock')[:10])
+        base_stats['low_stock_count'] = _low.count()
+        _val = _sa.hide_other_stores(request.user, StockBatch.objects.filter(remaining_qty__gt=0), 'warehouse').aggregate(
+            total=Sum(ExpressionWrapper(F('remaining_qty') * F('price'),
+                                        output_field=DecimalField(max_digits=20, decimal_places=2))))['total']
+        base_stats['total_stock_value'] = _val or Decimal('0.00')
+
     # ========================================== #
     # ROLE-SPECIFIC STATS (Per-user, not cached) #
     # ========================================== #
@@ -505,8 +523,8 @@ def dashboard_view(request):
         today_attendance = Attendance.objects.filter(date=today, status='present').count()
         today_absent = Attendance.objects.filter(date=today, status='absent').count()
         
-        total_stock_items = Inventory.objects.filter(stock__gt=0).count()
-        out_of_stock_items = Inventory.objects.filter(stock=0).count()
+        total_stock_items = _sa.hide_other_stores(request.user, Inventory.objects.filter(stock__gt=0), 'warehouse').count()
+        out_of_stock_items = _sa.hide_other_stores(request.user, Inventory.objects.filter(stock=0), 'warehouse').count()
         
         today_avg_sale = Decimal('0.00')
         if base_stats['today_sales_count'] > 0:
@@ -604,38 +622,44 @@ def dashboard_view(request):
     
     if is_superuser:
         quick_actions = [
-            {'name': '👥 Users', 'url': '/users/', 'icon': 'bi-people', 'color': 'primary'},
-            {'name': '⚙️ Settings', 'url': '/settings/modules/', 'icon': 'bi-gear', 'color': 'success'},
-            {'name': '💾 Backup', 'url': '/database-backup/', 'icon': 'bi-hdd-stack', 'color': 'info'},
-            {'name': '📊 Reports', 'url': '/reports/dashboard/', 'icon': 'bi-graph-up', 'color': 'warning'},
+            {'name': 'Users', 'url': '/users/', 'icon': 'bi-people', 'color': 'primary'},
+            {'name': 'Settings', 'url': '/settings/modules/', 'icon': 'bi-gear', 'color': 'success'},
+            {'name': 'Backup', 'url': '/database-backup/', 'icon': 'bi-hdd-stack', 'color': 'info'},
+            {'name': 'Reports', 'url': '/reports/dashboard/', 'icon': 'bi-graph-up', 'color': 'warning'},
         ]
     elif is_ceo:
         quick_actions = [
-            {'name': '👥 Users', 'url': '/users/', 'icon': 'bi-people', 'color': 'primary'},
-            {'name': '👔 HR', 'url': '/hr/employees/', 'icon': 'bi-person-badge', 'color': 'success'},
-            {'name': '👥 Shareholders', 'url': '/shareholders/', 'icon': 'bi-building', 'color': 'info'},
-            {'name': '📊 Reports', 'url': '/reports/dashboard/', 'icon': 'bi-graph-up', 'color': 'warning'},
+            {'name': 'Users', 'url': '/users/', 'icon': 'bi-people', 'color': 'primary'},
+            {'name': 'HR', 'url': '/hr/employees/', 'icon': 'bi-person-badge', 'color': 'success'},
+            {'name': 'Shareholders', 'url': '/shareholders/', 'icon': 'bi-building', 'color': 'info'},
+            {'name': 'Reports', 'url': '/reports/dashboard/', 'icon': 'bi-graph-up', 'color': 'warning'},
         ]
     elif is_md:
         quick_actions = [
-            {'name': '🛒 Sale', 'url': '/sales/create/', 'icon': 'bi-cart-plus', 'color': 'primary'},
-            {'name': '📥 Purchase', 'url': '/purchases/create/', 'icon': 'bi-box-arrow-in-down', 'color': 'success'},
-            {'name': '📦 Inventory', 'url': '/inventory/', 'icon': 'bi-box', 'color': 'info'},
-            {'name': '📊 Reports', 'url': '/reports/dashboard/', 'icon': 'bi-graph-up', 'color': 'warning'},
+            {'name': 'Sale', 'url': '/sales/create/', 'icon': 'bi-cart-plus', 'color': 'primary'},
+            {'name': 'Purchase', 'url': '/purchases/create/', 'icon': 'bi-box-arrow-in-down', 'color': 'success'},
+            {'name': 'Inventory', 'url': '/inventory/', 'icon': 'bi-box', 'color': 'info'},
+            {'name': 'Reports', 'url': '/reports/dashboard/', 'icon': 'bi-graph-up', 'color': 'warning'},
         ]
     elif is_cto:
         quick_actions = [
-            {'name': '💾 Backup', 'url': '/database-backup/', 'icon': 'bi-hdd-stack', 'color': 'success'},
-            {'name': '🔐 Security', 'url': '/security/', 'icon': 'bi-shield-lock', 'color': 'danger'},
-            {'name': '📊 BI', 'url': '/bi/', 'icon': 'bi-bar-chart', 'color': 'info'},
-            {'name': '🤖 AI', 'url': '/ai/dashboard/', 'icon': 'bi-robot', 'color': 'warning'},
+            {'name': 'Backup', 'url': '/database-backup/', 'icon': 'bi-hdd-stack', 'color': 'success'},
+            {'name': 'Security', 'url': '/security/', 'icon': 'bi-shield-lock', 'color': 'danger'},
+            {'name': 'BI', 'url': '/bi/', 'icon': 'bi-bar-chart', 'color': 'info'},
+            {'name': 'AI', 'url': '/ai/dashboard/', 'icon': 'bi-robot', 'color': 'warning'},
         ]
     
     # ========================================== #
     # CONTEXT                                     #
     # ========================================== #
+    try:
+        from .dashboard_extras import dashboard_extras
+        _extras = dashboard_extras(today, request.user)
+    except Exception:
+        _extras = {}
     context = {
         **base_stats,
+        **_extras,
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'is_superuser': is_superuser,
         'is_ceo': is_ceo,
@@ -719,8 +743,8 @@ def get_total_profit():
 # SETTINGS
 # ============================================
 def _apply_company_logo(request, company):
-    """POST se aaya logo check karke company par lagata hai. Save caller karega.
-    Galat file par ValueError uthata hai. Kuch badla ho to True lautata hai."""
+    """Checks the logo that came from POST and applies it to the company. The caller will save.
+    Raises ValueError on a bad file. Returns True if anything changed."""
     if request.POST.get('remove_logo') and company.logo:
         company.logo.delete(save=False)
         return True
@@ -728,16 +752,16 @@ def _apply_company_logo(request, company):
     if not logo:
         return False
     if logo.size > 2 * 1024 * 1024:
-        raise ValueError('Logo 2MB se chota hona chahiye.')
+        raise ValueError('Logo must be smaller than 2MB.')
     from PIL import Image
     try:
         img = Image.open(logo)
         img.verify()
         fmt = (img.format or '').upper()
     except Exception:
-        raise ValueError('Sahi image file (PNG/JPG/WEBP) upload karein.')
+        raise ValueError('Upload a valid image file (PNG/JPG/WEBP).')
     if fmt not in ('PNG', 'JPEG', 'WEBP'):
-        raise ValueError('Sirf PNG, JPG ya WEBP logo allowed hai.')
+        raise ValueError('Only PNG, JPG or WEBP logos are allowed.')
     logo.seek(0)
     company.logo = logo
     return True
@@ -747,7 +771,7 @@ def _apply_company_logo(request, company):
 def company_settings(request):
     """Company settings with deposit payment details"""
     
-    # Sirf superuser, Owner ya CEO (bank/JazzCash/EasyPaisa ke numbers badalne ka khatra)
+    # Only superuser, Owner or CEO (risk of changing bank/JazzCash/EasyPaisa numbers)
     if not request.user.is_superuser and not request.user.groups.filter(name__in=['Owner', 'CEO']).exists():
         messages.error(request, 'Access denied! Only Owner or CEO can change company settings.')
         return redirect('dashboard')
@@ -766,7 +790,7 @@ def company_settings(request):
                 company.website = request.POST.get('website', '')
                 company.footer_note = request.POST.get('footer_note', '')
                 
-                # ✅ Deposit Payment Details - YEH ADD KARO
+                # ✅ Deposit Payment Details - ADD THIS
                 company.jazzcash_number = request.POST.get('jazzcash_number', '').strip()
                 company.easypaisa_number = request.POST.get('easypaisa_number', '').strip()
                 company.bank_name = request.POST.get('bank_name', '').strip()

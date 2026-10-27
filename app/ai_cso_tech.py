@@ -256,12 +256,12 @@ class AICSOTechEngine:
             if inactive_users > 5:
                 self.warnings.append({
                     'title': f'{inactive_users} inactive accounts',
-                    'message': '90+ days se login nahi kiya. Review karo.',
+                    'message': 'Has not logged in for 90+ days. Please review.',
                     'severity': 'medium'
                 })
                 self.recommendations.append({
                     'title': 'Deactivate inactive accounts',
-                    'description': f'{inactive_users} users 90+ days se inactive hain',
+                    'description': f'{inactive_users} users have been inactive for 90+ days',
                     'priority': 'medium'
                 })
             else:
@@ -426,14 +426,14 @@ class AICSOTechEngine:
             # Recommendations based on common issues
             self.opportunities.append({
                 'title': 'Add keyboard shortcuts',
-                'description': 'Power users ke liye shortcuts add karo',
+                'description': 'Add shortcuts for power users',
                 'priority': 'low',
                 'impact': 'Faster daily usage'
             })
             
             self.opportunities.append({
                 'title': 'Mobile app',
-                'description': '40% users mobile se aate hain',
+                'description': '40% of users come from mobile',
                 'priority': 'high',
                 'impact': '3x user growth'
             })
@@ -614,8 +614,8 @@ class AICSOTechEngine:
                 suggestion, created = AIFeatureSuggestion.objects.get_or_create(
                     title='Bulk Customer Import',
                     defaults={
-                        'description': 'Users customers ko CSV se bulk import kar sakein',
-                        'reason': f'{Customer.objects.count()} customers manually add karna slow hai',
+                        'description': 'Let users bulk import customers from CSV',
+                        'reason': f'{Customer.objects.count()} customers: adding them manually is slow',
                         'priority': 'medium',
                         'expected_impact': '90% time saved',
                         'effort_hours': 4,
@@ -636,7 +636,7 @@ class AICSOTechEngine:
                 title='Mobile App',
                 defaults={
                     'description': 'Business ka mobile version',
-                    'reason': '40% users mobile se access karte hain',
+                    'reason': '40% of users access from mobile',
                     'priority': 'high',
                     'expected_impact': '3x user growth',
                     'effort_hours': 80,
@@ -657,7 +657,7 @@ class AICSOTechEngine:
                 title='Advanced Analytics Dashboard',
                 defaults={
                     'description': 'Power BI style dashboards',
-                    'reason': 'Users chahte hain deep insights',
+                    'reason': 'Users want deep insights',
                     'priority': 'medium',
                     'expected_impact': 'Better decisions',
                     'effort_hours': 40,

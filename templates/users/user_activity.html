@@ -1,0 +1,84 @@
+<!-- users/user_activity.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}🕒 Activity - {{ target_user.username }} - {{ company_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <div class="d-flex flex-wrap align-items-center justify-content-between mb-4">
+        <div>
+            <h1 class="h3 mb-1"><i class="bi bi-clock-history text-primary me-2"></i>Login &amp; Activity History</h1>
+            <p class="text-muted small mb-0">
+                {{ target_user.get_full_name|default:target_user.username }}
+                <span class="badge bg-secondary ms-1">{{ role_display }}</span>
+                {% if target_user.is_active %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-danger">Inactive</span>{% endif %}
+            </p>
+        </div>
+        <a href="{% url 'user_list' %}" class="btn btn-outline-secondary rounded-pill px-3">
+            <i class="bi bi-arrow-left me-2"></i>Back to Users
+        </a>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-4"><div class="card border-0 shadow-sm"><div class="card-body">
+            <div class="text-muted small text-uppercase fw-semibold">Last login</div>
+            <div class="fw-bold">{% if target_user.last_login %}{{ target_user.last_login|date:'Y-m-d h:i A' }}{% else %}Never{% endif %}</div>
+        </div></div></div>
+        <div class="col-md-4"><div class="card border-0 shadow-sm"><div class="card-body">
+            <div class="text-muted small text-uppercase fw-semibold">Account created</div>
+            <div class="fw-bold">{{ target_user.date_joined|date:'Y-m-d h:i A' }}</div>
+        </div></div></div>
+        <div class="col-md-4"><div class="card border-0 shadow-sm"><div class="card-body">
+            <div class="text-muted small text-uppercase fw-semibold">Failed logins (7 days)</div>
+            <div class="fw-bold {% if failed_recent >= 5 %}text-danger{% endif %}">{{ failed_recent }}</div>
+        </div></div></div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white fw-semibold">Recent login attempts</div>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light"><tr><th>When</th><th>Result</th><th>IP</th></tr></thead>
+                        <tbody>
+                        {% for l in logins %}
+                            <tr>
+                                <td>{{ l.attempted_at|date:'Y-m-d h:i A' }}</td>
+                                <td>{% if l.is_success %}<span class="badge bg-success">Success</span>{% else %}<span class="badge bg-danger">Failed</span>{% if l.failure_reason %} <small class="text-muted">{{ l.failure_reason }}</small>{% endif %}{% endif %}</td>
+                                <td><code>{{ l.ip_address }}</code></td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="3" class="text-center text-muted py-4">No login attempts recorded.</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white fw-semibold">Recent actions by this user</div>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light"><tr><th>When</th><th>Action</th><th>Module</th><th>IP</th></tr></thead>
+                        <tbody>
+                        {% for a in actions %}
+                            <tr>
+                                <td>{{ a.created_at|date:'Y-m-d h:i A' }}</td>
+                                <td>{{ a.action }}</td>
+                                <td>{{ a.module }}</td>
+                                <td><code>{{ a.ip_address }}</code></td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="4" class="text-center text-muted py-4">No actions recorded.</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

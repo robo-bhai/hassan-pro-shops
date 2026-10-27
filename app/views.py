@@ -16,8 +16,8 @@ from decimal import Decimal
 from io import BytesIO
 import json
 import re
-# app/views.py ke top par:
-from app.views_customer_auth import verify_order_token
+# At the top of app/views.py:
+from app.customer.views_customer_auth import verify_order_token
 
 # Models import
 from .models import (
@@ -230,7 +230,7 @@ def generate_invoice_pdf(request, sale_id):
     story.append(Paragraph("2. Payment is due within 15 days.", normal_style))
     
     story.append(Spacer(1, 0.5*inch))
-    story.append(Paragraph(f"Generated on: {now().strftime('%d-%m-%Y %H:%M:%S')}", normal_style))
+    story.append(Paragraph(f"Generated on: {now().strftime('%d-%m-%Y %I:%M:%S %p')}", normal_style))
     story.append(Paragraph("Thank you for your business!", normal_style))
     
     doc.build(story)

@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}Kisan Udhaar{% endblock %}
+{% block extra_css %}{% include 'agri/_css.html' %}{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+      <h4 class="mb-0">💰 Kisan Udhaar <span class="agri-ur">/ کسان کا ادھار</span></h4>
+      <div class="text-muted small">Kis kisan se kitna lena hai aur fasal par kab wapsi hai</div>
+    </div>
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'agri_dashboard' %}">← Agri Dashboard</a>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-md-3"><div class="agri-stat agri-blue"><div class="n">Rs. {{ summary.total|floatformat:"0g" }}</div><div class="l">Kul baqaya ({{ summary.farmers }} kisan)</div></div></div>
+    <div class="col-6 col-md-3"><div class="agri-stat agri-red"><div class="n">Rs. {{ summary.overdue_total|floatformat:"0g" }}</div><div class="l">Tareekh guzar gayi</div></div></div>
+    <div class="col-6 col-md-3"><div class="agri-stat agri-yellow"><div class="n">{{ summary.week_farmers }}</div><div class="l">Is hafte wapsi</div></div></div>
+    <div class="col-6 col-md-3"><div class="agri-stat agri-grey"><div class="n">{{ summary.nodate_farmers }}</div><div class="l">Tareekh nahi lagi</div></div></div>
+  </div>
+
+  <div class="agri-pills mb-2">
+    <a class="btn btn-sm {% if flt == 'all' %}btn-dark{% else %}btn-outline-dark{% endif %}" href="?f=all&q={{ q|urlencode }}">Sab</a>
+    <a class="btn btn-sm {% if flt == 'overdue' %}btn-danger{% else %}btn-outline-danger{% endif %}" href="?f=overdue&q={{ q|urlencode }}">Late ({{ summary.overdue_farmers }})</a>
+    <a class="btn btn-sm {% if flt == 'week' %}btn-warning{% else %}btn-outline-warning{% endif %}" href="?f=week&q={{ q|urlencode }}">Is hafte</a>
+    <a class="btn btn-sm {% if flt == 'nodate' %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="?f=nodate&q={{ q|urlencode }}">Tareekh nahi</a>
+    <a class="btn btn-sm {% if flt == 'overlimit' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?f=overlimit&q={{ q|urlencode }}">Limit se zyada ({{ summary.over_limit }})</a>
+  </div>
+  <form method="get" class="row g-2 mb-3">
+    <input type="hidden" name="f" value="{{ flt }}">
+    <div class="col-8 col-md-4"><input type="text" name="q" value="{{ q }}" class="form-control form-control-sm" placeholder="Naam, mobile ya gaon"></div>
+    <div class="col-4 col-md-2"><button class="btn btn-sm btn-primary w-100">Talash</button></div>
+  </form>
+
+  {% for r in rows %}
+  <div class="agri-farmer {% if r.is_overdue %}late{% elif r.due_week %}soon{% endif %}">
+    <div class="d-flex justify-content-between flex-wrap gap-2">
+      <div>
+        <a href="{% url 'agri_farmer' r.customer.pk %}" class="fw-bold fs-6 text-decoration-none">{{ r.customer.name }}</a>
+        <div class="small text-muted">
+          {% if r.customer.village %}📍 {{ r.customer.village }} · {% endif %}{% if r.customer.main_crop %}🌱 {{ r.customer.main_crop }} · {% endif %}{{ r.bills }} bill
+          {% if r.customer.contact_number %} · {{ r.customer.contact_number }}{% endif %}
+        </div>
+        <div class="small mt-1">
+          {% if r.next_due %}
+            {% if r.is_overdue %}<span class="badge bg-danger">{{ r.days_abs }} din late ({{ r.next_due|date:"d-m-Y" }})</span>
+            {% else %}<span class="badge bg-warning text-dark">Wapsi {{ r.next_due|date:"d-m-Y" }} ({{ r.days }} din baaqi)</span>{% endif %}
+          {% else %}<span class="badge bg-secondary">Wapsi ki tareekh nahi lagi</span>{% endif %}
+          {% if r.over_limit %}<span class="badge bg-primary">Limit Rs. {{ r.limit|floatformat:"0g" }} se zyada</span>{% endif %}
+        </div>
+      </div>
+      <div class="text-end">
+        <div class="agri-amt">Rs. {{ r.balance|floatformat:"0g" }}</div>
+        <div class="mt-1 d-flex gap-1 justify-content-end flex-wrap">
+          <a class="btn btn-sm btn-outline-primary" href="{% url 'agri_farmer' r.customer.pk %}">Tafseel</a>
+          {% if r.wa %}<a class="btn btn-sm btn-success" target="_blank" rel="noopener" href="{{ r.wa }}">WhatsApp</a>{% endif %}
+          {% if r.tel %}<a class="btn btn-sm btn-outline-dark" href="{{ r.tel }}">Call</a>{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="text-center text-muted py-5">Is filter mein koi kisan nahi.</div>
+  {% endfor %}
+</div>
+{% endblock %}

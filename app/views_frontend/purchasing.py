@@ -18,7 +18,10 @@ from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
 from io import BytesIO
 from django.db import transaction
+from django.urls import reverse
 from ..models import CashBalance, Location, Shareholder, CompanyInfo, Purchase, PurchaseRetrnItem, Product
+from .. import store_access as _sa          # store-wise access
+from .. import store_receive as _sr         # which store can receive the goods
 from openpyxl.styles import Font, Alignment, PatternFill
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
@@ -97,7 +100,7 @@ def purchase_create(request):
                 payment_type = request.POST.get('payment_type', 'credit')
                 cash_used = Decimal(request.POST.get('cash_used', 0))
                 
-                # ✅ FIX: Purchase date field - YEH IMPORTANT HAI
+                # ✅ FIX: Purchase date field - THIS IS IMPORTANT
                 pur_date = request.POST.get('pur_date')
                 if pur_date:
                     pur_date_obj = datetime.strptime(pur_date, '%Y-%m-%d').date()
@@ -110,6 +113,9 @@ def purchase_create(request):
                 if not warehouse_id:
                     messages.error(request, 'Please select a warehouse!')
                     return redirect('purchase_create')
+                if not _sr.can_receive(request.user, warehouse_id):
+                    messages.error(request, '❌ You cannot receive goods in this store (you are not a keeper/manager of that store team).')
+                    return redirect('purchase_create')
                 
                 product_ids = request.POST.getlist('product_id[]')
                 if not product_ids or not any(product_ids):
@@ -119,7 +125,7 @@ def purchase_create(request):
                 # ✅ CASH BALANCE VALIDATION - STRICT CHECK
                 current_balance = CashBalance.get_balance()
                 
-                # Agar payment type cash hai ya mixed hai aur cash_used > 0 hai
+                # If the payment type is cash or mixed and cash_used > 0
                 if payment_type == 'cash':
                     if cash_used <= 0:
                         messages.error(request, '❌ Cash payment selected but cash amount is 0!')
@@ -140,7 +146,7 @@ def purchase_create(request):
                             messages.error(request, f'❌ Cash used cannot be more than total paid amount!')
                             return redirect('purchase_create')
                 
-                # ✅ FIX: pur_date ko purchase mein set karein
+                # ✅ FIX: set pur_date on the purchase
                 purchase = Purchase(
                     vendor_id=vendor_id,
                     warehouse_id=warehouse_id,
@@ -148,7 +154,7 @@ def purchase_create(request):
                     paid=paid,
                     payment_type=payment_type,
                     cash_used=cash_used,
-                    pur_date=pur_date_obj  # ✅ YEH LINE ADD KAREIN
+                    pur_date=pur_date_obj  # ✅ ADD THIS LINE
                 )
                 purchase.created_by = request.user
                 purchase.save()
@@ -165,7 +171,7 @@ def purchase_create(request):
                             price=Decimal(prices[i])
                         )
                 
-                # ✅ Agar cash use hui hai toh cash balance deduct karo
+                # ✅ If cash was used, deduct the cash balance
                 if cash_used > 0:
                     CashBalance.update_balance(
                         amount=cash_used,
@@ -185,7 +191,7 @@ def purchase_create(request):
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'vendors': Vendor.objects.all().order_by('vendor_code'),
-        'warehouses': Warehouse.objects.all(),
+        'warehouses': _sr.receivable_warehouses(request.user),
         'products': Product.objects.all().order_by('name')[:50],
         'cash_balance': CashBalance.get_balance(),
         'today': date.today(),  
@@ -213,9 +219,9 @@ def purchase_tax_summary(request):
     )
     
     total_purchases = sum(p.total_amount() for p in purchases)
-    tax_rate = Decimal('16')  # ✅ Decimal mein convert karo
+    tax_rate = Decimal('16')  # ✅ Convert to Decimal
     tax_percent = tax_rate / Decimal('100')
-    total_tax = total_purchases * tax_percent  # ✅ Ab sahi chlega
+    total_tax = total_purchases * tax_percent  # ✅ This will work now
     
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
@@ -302,7 +308,7 @@ def vendor_wise_report(request):
 @login_required
 def get_purchase_products(request):
     """
-    AJAX: Purchase ke saare products dikhaye, sirf wohi jin ki remaining quantity > 0 hai
+    AJAX: Show all products of the Purchase, only those whose remaining quantity is > 0
     Also shows return history for each product
     """
     purchase_id = request.GET.get('purchase_id')
@@ -319,7 +325,7 @@ def get_purchase_products(request):
         total_remaining = 0
         total_returned = 0
         
-        # ✅ Saare purchase items par loop
+        # ✅ Loop over all purchase items
         for item in purchase.purchaseitem_set.all():
             # ✅ Calculate total returned quantity for this product (across all returns)
             returned_qty = PurchaseRetrnItem.objects.filter(
@@ -331,7 +337,7 @@ def get_purchase_products(request):
             original_qty = Decimal(str(item.qty))
             remaining_qty = original_qty - returned_qty
             
-            # ✅ Sirf wohi products show karein jinki remaining quantity > 0
+            # ✅ Show only products whose remaining quantity > 0
             if remaining_qty > 0:
                 products[str(item.product.id)] = {
                     'name': item.product.name,
@@ -379,7 +385,7 @@ def get_purchase_products(request):
                 })
             return_history.append({
                 'id': ret.id,
-                'date': ret.purchase_return_date.strftime('%d-%m-%Y %H:%M'),
+                'date': ret.purchase_return_date.strftime('%d-%m-%Y %I:%M %p'),
                 'reason': ret.get_return_reason_display(),
                 'bill_no': ret.bill_no or 'N/A',
                 'items': ret_items,
@@ -678,7 +684,7 @@ def purchase_pdf(request, pk):
     story.append(Paragraph('-' * 80, small_style))
     story.append(Spacer(1, 0.05*inch))
     story.append(Paragraph("This is a computer generated invoice. Valid without signature.", small_style))
-    story.append(Paragraph(f"Generated: {now().strftime('%d-%m-%Y %H:%M')}", small_style))
+    story.append(Paragraph(f"Generated: {now().strftime('%d-%m-%Y %I:%M %p')}", small_style))
     
     # ========================================== #
     # BUILD PDF                                  #
@@ -963,7 +969,7 @@ def vendor_create(request):
             address = request.POST.get('address', '')
             group_id = request.POST.get('group') or None
             
-            # ✅ FIX: opening_balance save karo (YEH LINE ADD KARO)
+            # ✅ FIX: save opening_balance (ADD THIS LINE)
             opening_balance = Decimal(request.POST.get('opening_balance', 0))
             
             if not name:
@@ -975,14 +981,14 @@ def vendor_create(request):
                 messages.error(request, f'Vendor code "{vendor_code}" already exists!')
                 return redirect('vendor_create')
             
-            # ✅ FIX: opening_balance field add karo (YEH LINE ADD KARO)
+            # ✅ FIX: add the opening_balance field (ADD THIS LINE)
             vendor = Vendor(
                 name=name,
                 vendor_code=vendor_code if vendor_code else None,
                 contact_number=contact_number,
                 address=address,
                 group_id=group_id,
-                opening_balance=opening_balance  # ✅ YEH LINE ADD KARO
+                opening_balance=opening_balance  # ✅ ADD THIS LINE
             )
             vendor.save()
             
@@ -1030,6 +1036,7 @@ def purchase_order_list(request):
     if status:
         orders = orders.filter(status=status)
     
+    orders = _sa.hide_other_stores(request.user, orders, 'warehouse')
     warehouse_id = request.GET.get('warehouse', '')
     if warehouse_id:
         orders = orders.filter(warehouse_id=warehouse_id)
@@ -1061,7 +1068,7 @@ def purchase_order_list(request):
         'search': search,
         'selected_status': status,
         'selected_warehouse': warehouse_id,
-        'warehouses': Warehouse.objects.all(),
+        'warehouses': _sa.hide_other_stores(request.user, Warehouse.objects.all()),
         'total_orders': total_orders,
         'pending_count': pending_count,
         'confirmed_count': confirmed_count,
@@ -1086,6 +1093,9 @@ def purchase_order_create(request):
             
             if not vendor_id or not warehouse_id:
                 messages.error(request, 'Vendor and Warehouse required!')
+                return redirect('purchase_order_create')
+            if not _sr.can_receive(request.user, warehouse_id):
+                messages.error(request, '❌ You cannot create an order for this store (you are not a keeper/manager of that store team).')
                 return redirect('purchase_order_create')
             
             product_ids = request.POST.getlist('product_id[]')
@@ -1127,7 +1137,7 @@ def purchase_order_create(request):
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'vendors': Vendor.objects.all().order_by('vendor_code'),
-        'warehouses': Warehouse.objects.all(),
+        'warehouses': _sr.receivable_warehouses(request.user),
         'products': Product.objects.all().order_by('name')[:50],
     }
     return render(request, 'orders/purchase_order_create.html', context)
@@ -1183,6 +1193,9 @@ def purchase_order_quick_status(request, pk, status):
 def purchase_order_create_grn(request, pk):
     """Create GRN from Purchase Order"""
     order = get_object_or_404(PurchaseOrder, pk=pk)
+    if not _sr.can_receive(request.user, order.warehouse_id):
+        messages.error(request, '❌ You do not have the right to receive goods in this store.')
+        return redirect('purchase_order_detail', pk=order.pk)
     
     if order.status not in ['confirmed', 'processing', 'shipped', 'partially_received']:
         messages.error(request, '❌ Order must be Confirmed to create GRN!')
@@ -1227,78 +1240,154 @@ def purchase_order_create_grn(request, pk):
 @login_required
 def purchase_list(request):
     """
-    Purchase list with totals — OPTIMIZED (30x faster)
-    Before: 600 queries | After: 3 queries
+    Purchases list: search, filters (status / vendor / warehouse / payment type / dates), sorting,
+    KPI cards, aging (overdue) and Excel / PDF / CSV export.
+    Total, paid and due come from ONE annotated query (no per-row queries).
     """
-    from django.db.models import Sum, Count, Q, F, Value, DecimalField
-    from django.db.models.functions import Coalesce
-    
-    # ✅ Base queryset
+    from django.db.models import ExpressionWrapper
+    from .. import store_exports as _ex
+
+    money = DecimalField(max_digits=20, decimal_places=2)
     purchases = Purchase.objects.select_related(
-        'vendor', 'warehouse', 'created_by', 'vendor__group', 'monthly_purchase'
-    ).prefetch_related(
-        'purchaseitem_set__product'
+        'vendor', 'warehouse', 'created_by'
     ).annotate(
-        cached_total=Coalesce(
-            Sum(
-                'purchaseitem__total_amt',
-                output_field=DecimalField(max_digits=20, decimal_places=2)
-            ),
-            Value(Decimal('0.00')),
-            output_field=DecimalField(max_digits=20, decimal_places=2)
-        ),
+        cached_total=Coalesce(Sum('purchaseitem__total_amt', output_field=money),
+                              Value(Decimal('0.00'), output_field=money), output_field=money),
         item_count=Count('purchaseitem', distinct=True),
-    ).order_by('-pur_date')
-    
-    # ✅ Search
-    search = request.GET.get('search', '')
+    ).annotate(
+        due=ExpressionWrapper(F('cached_total') - F('paid'), output_field=money),
+    )
+
+    # --- store-wise access + filters -------------------------------------------------
+    purchases = _sa.hide_other_stores(request.user, purchases, 'warehouse')
+
+    search = (request.GET.get('search') or '').strip()
     if search:
         purchases = purchases.filter(
-            Q(bill_no__icontains=search) |
-            Q(vendor__name__icontains=search) |
+            Q(bill_no__icontains=search) | Q(vendor__name__icontains=search) |
             Q(vendor__vendor_code__icontains=search)
         )
-    
-    # ✅ Warehouse filter
+
     warehouse_id = request.GET.get('warehouse', '')
-    if warehouse_id:
-        purchases = purchases.filter(warehouse_id=warehouse_id)
-    
-    # ✅ Status filter (AFTER annotation)
+    if warehouse_id.isdigit():
+        purchases = purchases.filter(warehouse_id=int(warehouse_id))
+
+    vendor_id = request.GET.get('vendor', '')
+    if vendor_id.isdigit():
+        purchases = purchases.filter(vendor_id=int(vendor_id))
+
+    ptype = request.GET.get('ptype', '')
+    if ptype in ('cash', 'credit', 'mixed'):
+        purchases = purchases.filter(payment_type=ptype)
+
+    def _day(value):
+        try:
+            return datetime.strptime((value or '').strip(), '%Y-%m-%d').date()
+        except ValueError:
+            return None
+
+    date_from, date_to = _day(request.GET.get('from')), _day(request.GET.get('to'))
+    if date_from:
+        purchases = purchases.filter(pur_date__date__gte=date_from)
+    if date_to:
+        purchases = purchases.filter(pur_date__date__lte=date_to)
+
+    # status: paid | partial | credit (nothing paid) | pending (anything still due, old name)
     status = request.GET.get('status', '')
     if status == 'paid':
-        purchases = purchases.filter(paid__gte=F('cached_total'))
-    elif status == 'pending':
-        purchases = purchases.filter(paid__lt=F('cached_total'))
-    
-    # ✅ Aggregated totals
-    totals = purchases.aggregate(
-        total_amount=Coalesce(Sum('purchaseitem__total_amt'), Value(Decimal('0.00'))),
-        total_paid=Coalesce(Sum('paid'), Value(Decimal('0.00'))),
-        total_count=Count('id', distinct=True),
-    )
-    
-    total_amount = totals['total_amount']
-    total_paid = totals['total_paid']
-    total_outstanding = total_amount - total_paid
-    total_count = totals['total_count']
-    
-    # ✅ Pagination
-    paginator = Paginator(purchases, 25)
-    page = request.GET.get('page', 1)
-    page_obj = paginator.get_page(page)
-    
+        purchases = purchases.filter(due__lte=0)
+    elif status == 'partial':
+        purchases = purchases.filter(due__gt=0, paid__gt=0)
+    elif status == 'credit':
+        purchases = purchases.filter(due__gt=0, paid__lte=0)
+    elif status in ('pending', 'due'):
+        purchases = purchases.filter(due__gt=0)
+    elif status == 'overdue':
+        purchases = purchases.filter(due__gt=0, pur_date__lt=now() - timedelta(days=30))
+
+    sorts = {
+        'date_desc': ('-pur_date', '-id'), 'date_asc': ('pur_date', 'id'),
+        'amount_desc': ('-cached_total', '-id'), 'due_desc': ('-due', '-id'),
+        'vendor': ('vendor__name', '-pur_date'),
+    }
+    sort = request.GET.get('sort', 'date_desc')
+    if sort not in sorts:
+        sort = 'date_desc'
+    purchases = purchases.order_by(*sorts[sort])
+
+    # --- KPI totals: computed once in Python from the same filtered query -------------
+    cutoff = now() - timedelta(days=30)
+    total_amount = total_paid = total_due = Decimal('0.00')
+    overdue_amount, overdue_count, total_count = Decimal('0.00'), 0, 0
+    for amt, paid, due, pur_date in purchases.values_list('cached_total', 'paid', 'due', 'pur_date'):
+        total_count += 1
+        total_amount += amt or 0
+        total_paid += paid or 0
+        if due and due > 0:
+            total_due += due
+            if pur_date and pur_date < cutoff:
+                overdue_amount += due
+                overdue_count += 1
+
+    # --- Export (all filtered rows, not just the page) --------------------------------
+    fmt = request.GET.get('export', '')
+    if fmt in ('xlsx', 'pdf', 'csv'):
+        rows = []
+        for p in purchases[:5000]:
+            rows.append([
+                p.pur_date.strftime('%Y-%m-%d'), p.bill_no or 'Pending', p.vendor.name,
+                p.warehouse.name if p.warehouse else '', p.item_count, float(p.cached_total),
+                float(p.paid), float(p.due), {'cash': 'Cash', 'credit': 'Credit', 'mixed': 'Mixed'}.get(p.payment_type, p.payment_type),
+                'Paid' if p.due <= 0 else ('Partial' if p.paid > 0 else 'Unpaid'),
+            ])
+        return _ex.export_response(
+            fmt, f'purchases_{date.today()}', 'Purchases',
+            ['Date', 'Bill No', 'Vendor', 'Warehouse', 'Items', 'Total', 'Paid', 'Due', 'Type', 'Status'], rows,
+            totals=['TOTAL', '', '', '', '', float(total_amount), float(total_paid), float(total_due), '', ''],
+            subtitle=f'{total_count} purchases', number_cols=(4, 5, 6, 7))
+
+    # --- Pagination + per-row display values ------------------------------------------
+    try:
+        per_page = int(request.GET.get('per_page', 25))
+    except ValueError:
+        per_page = 25
+    per_page = per_page if per_page in (10, 25, 50, 100) else 25
+    page_obj = Paginator(purchases, per_page).get_page(request.GET.get('page', 1))
+    for p in page_obj:
+        p.total_value = p.cached_total
+        p.due_value = max(p.due, Decimal('0.00'))
+        p.pay_state = 'paid' if p.due <= 0 else ('partial' if p.paid > 0 else 'credit')
+        p.age_days = (now() - p.pur_date).days if p.pur_date else 0
+        p.is_overdue = p.due > 0 and p.age_days > 30
+        p.paid_percent = int(min(100, (p.paid / p.cached_total) * 100)) if p.cached_total else 0
+
+    filters_active = any([search, warehouse_id, vendor_id, ptype, date_from, date_to, status])
+    keep = request.GET.copy()
+    keep.pop('page', None)
+    keep.pop('export', None)
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'page_obj': page_obj,
         'search': search,
-        'warehouses': Warehouse.objects.all(),
+        'warehouses': _sa.hide_other_stores(request.user, Warehouse.objects.all()),
+        'vendors': Vendor.objects.order_by('name').only('id', 'name', 'vendor_code'),
         'selected_warehouse': warehouse_id,
+        'selected_vendor': vendor_id,
+        'selected_ptype': ptype,
         'selected_status': status,
+        'selected_sort': sort,
+        'selected_per_page': per_page,
+        'date_from': date_from.isoformat() if date_from else '',
+        'date_to': date_to.isoformat() if date_to else '',
+        'filters_active': filters_active,
+        'qs': keep.urlencode(),
         'total_count': total_count,
         'total_amount': total_amount,
         'total_paid': total_paid,
-        'total_outstanding': total_outstanding,
+        'total_outstanding': total_due,
+        'overdue_amount': overdue_amount,
+        'overdue_count': overdue_count,
+        'paid_percent': int(min(100, (total_paid / total_amount) * 100)) if total_amount else 0,
     }
     return render(request, 'purchases/list.html', context)
 
@@ -1332,6 +1421,7 @@ def grn_list(request):
         grns = grns.filter(converted_to_purchase=False)
     
     # Warehouse filter
+    grns = _sa.hide_other_stores(request.user, grns, 'warehouse')
     selected_warehouse = request.GET.get('warehouse', '')
     if selected_warehouse:
         grns = grns.filter(warehouse_id=selected_warehouse)
@@ -1355,7 +1445,7 @@ def grn_list(request):
         'search': search,
         'selected_status': selected_status,
         'selected_warehouse': selected_warehouse,
-        'warehouses': Warehouse.objects.all(),
+        'warehouses': _sa.hide_other_stores(request.user, Warehouse.objects.all()),
         'total_grns': total_grns,
         'converted_count': converted_count,
         'pending_count': pending_count,
@@ -1399,18 +1489,18 @@ def vendor_pricing_report(request):
     from django.db.models import Min, Max, Avg, Q, Sum
     from decimal import Decimal
     
-    # ✅ STEP 1: Ek query mein vendors
+    # ✅ STEP 1: Vendors in one query
     vendors = list(Vendor.objects.filter(
         purchase__purchaseitem__isnull=False
     ).distinct().order_by('name'))
     
-    # ✅ STEP 2: Ek query mein products
+    # ✅ STEP 2: Products in one query
     products = list(Product.objects.filter(
         purchaseitem__isnull=False
     ).distinct().select_related('unit').order_by('name'))
     
-    # ✅ STEP 3: ✅ CRITICAL FIX - Ek query mein SAARA price data fetch karo
-    # Latest purchase per (product, vendor) get karo
+    # ✅ STEP 3: ✅ CRITICAL FIX - Fetch ALL the price data in one query
+    # Get the latest purchase per (product, vendor)
     all_purchase_items = PurchaseItem.objects.filter(
         product__in=products,
         purchase__vendor__in=vendors
@@ -1533,7 +1623,7 @@ def vendor_pricing_report_export(request):
     ws['A1'].alignment = Alignment(horizontal='center')
     
     ws.merge_cells('A2:E2')
-    ws['A2'] = f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}"
+    ws['A2'] = f"Generated: {datetime.now().strftime('%d-%m-%Y %I:%M %p')}"
     ws['A2'].alignment = Alignment(horizontal='center')
     
     # Row 4: Headers
@@ -1932,7 +2022,7 @@ def vendor_ledger_pdf(request, pk):
     
     story.append(table)
     story.append(Spacer(1, 0.2*inch))
-    story.append(Paragraph(f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}", styles['Normal']))
+    story.append(Paragraph(f"Generated: {datetime.now().strftime('%d-%m-%Y %I:%M %p')}", styles['Normal']))
     
     doc.build(story)
     buffer.seek(0)
@@ -2244,7 +2334,7 @@ def vendor_purchase_product_pdf(request):
     
     story.append(table)
     story.append(Spacer(1, 0.2*inch))
-    story.append(Paragraph(f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}", styles['Normal']))
+    story.append(Paragraph(f"Generated: {datetime.now().strftime('%d-%m-%Y %I:%M %p')}", styles['Normal']))
     story.append(Paragraph(f"Total Items: {purchase_items.count()} | Total Quantity: {total_qty:,.2f} | Total Amount: Rs. {total_amount:,.2f}", styles['Normal']))
     
     doc.build(story)
@@ -2532,7 +2622,8 @@ def monthly_purchase_planner(request):
     # ✅ GET PLANS FOR SELECTED MONTH            #
     # ========================================== #
     plans_this_month = MonthlyPurchasePlan.objects.filter(
-        month=selected_month
+        month=selected_month,
+        batch__isnull=True          # multi-product plan lines are shown separately
     ).order_by('-version')
     
     latest_plan = plans_this_month.filter(is_latest=True).first()
@@ -2633,7 +2724,7 @@ def monthly_purchase_planner(request):
             # FORMULA: Purchase Qty = Expected Sales - Available Stock
             purchase_quantity = expected_sales_quantity - available_stock
             
-            # Negative nahi ho sakta
+            # Cannot be negative
             if purchase_quantity < 0:
                 purchase_quantity = 0
             
@@ -2791,7 +2882,7 @@ def monthly_purchase_planner(request):
     # ========================================== #
     
     # Get all plans for history
-    all_plans = MonthlyPurchasePlan.objects.all().order_by('-month', '-version')
+    all_plans = MonthlyPurchasePlan.objects.select_related('batch').order_by('-month', '-version')
     
     status_filter = request.GET.get('status', '')
     if status_filter:
@@ -2817,12 +2908,18 @@ def monthly_purchase_planner(request):
         status__in=['draft', 'approved', 'in_progress']
     ).count()
     
+    # Multi-product plans of the selected month, each with its grand totals
+    multi_plans = list(MonthlyPlanBatch.objects.filter(month=selected_month).select_related('warehouse'))
+    for _b in multi_plans:
+        _b.totals = _b.get_totals()
+    
     # ========================================== #
     # ✅ CONTEXT                                 #
     # ========================================== #
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'latest_plan': latest_plan,
+        'multi_plans': multi_plans,
         'plans_this_month': plans_this_month,
         'selected_month': selected_month,
         'month_str': month_str,
@@ -2913,72 +3010,154 @@ def check_stock_for_plan(request):
         return JsonResponse({'success': False, 'message': str(e)})
 
 
+# ============================================================ #
+# PLAN -> PURCHASE ORDER (one click, vendor picked automatically)  #
+# ============================================================ #
+
+def _plan_auto_vendor(product):
+    """
+    Pick the vendor for a product automatically.
+    1) the vendor of the latest Purchase of this product
+    2) the vendor of the latest (not cancelled) Purchase Order of this product
+    3) the only vendor, if the system has just one
+    Returns (vendor, source_text). vendor is None when nothing can be picked.
+    """
+    if not product:
+        return None, ''
+    item = (PurchaseItem.objects.filter(product=product)
+            .select_related('purchase__vendor')
+            .order_by('-purchase__pur_date', '-id').first())
+    if item and item.purchase and item.purchase.vendor_id:
+        return item.purchase.vendor, 'last purchase'
+    po_item = (PurchaseOrderItem.objects.filter(product=product)
+               .exclude(order__status='cancelled')
+               .select_related('order__vendor')
+               .order_by('-order__order_date', '-id').first())
+    if po_item:
+        return po_item.order.vendor, 'last purchase order'
+    if Vendor.objects.count() == 1:
+        return Vendor.objects.first(), 'only vendor'
+    return None, ''
+
+
+def _plan_po_problem(plan):
+    """Why a Purchase Order cannot be made from this plan line (None = it can be made)."""
+    if plan.status not in ['approved', 'in_progress']:
+        return 'The plan must be approved first.'
+    if plan.purchase_order_id:
+        return f'A Purchase Order already exists: {plan.purchase_order.order_no}.'
+    if plan.stock_to_purchase <= 0:
+        return 'Stock is sufficient. No purchase is needed.'
+    return None
+
+
+def _create_po_from_plans(plans, vendor, user, note):
+    """Make ONE Purchase Order (status pending) with one item per plan line and link each line to it."""
+    po = PurchaseOrder.objects.create(
+        vendor=vendor,
+        warehouse=plans[0].warehouse,
+        order_date=now(),
+        status='pending',
+        notes=note,
+        created_by=user,
+    )
+    for plan in plans:
+        PurchaseOrderItem.objects.create(
+            order=po,
+            product=plan.product,
+            qty=plan.stock_to_purchase,
+            price=plan.purchase_price_per_unit,
+        )
+        plan.purchase_order = po
+        plan.save()
+        MonthlyPlanHistory.objects.create(
+            plan=plan,
+            action='updated',
+            performed_by=user,
+            notes=f'Purchase Order {po.order_no} created (vendor: {vendor.name})'
+        )
+    return po
+
+
 @login_required
 def generate_purchase_order_from_plan(request, pk):
-    """Generate Purchase Order from Monthly Plan"""
-    
+    """Review page: choose or change the vendor, then create the Purchase Order from a Monthly Plan."""
+
     if not request.user.is_superuser and not request.user.is_staff:
         messages.error(request, '❌ Access denied!')
         return redirect('dashboard')
-    
+
     plan = get_object_or_404(MonthlyPurchasePlan, pk=pk)
-    
-    # ✅ Check if plan is approved
-    if plan.status not in ['approved', 'in_progress']:
-        messages.error(request, '❌ Plan must be approved first!')
+
+    problem = _plan_po_problem(plan)
+    if problem:
+        messages.warning(request, f'⚠️ {problem}')
         return redirect('monthly_plan_detail', pk=pk)
-    
-    # ✅ Check if PO already exists
-    if plan.purchase_order:
-        messages.warning(request, f'⚠️ Purchase Order already exists: {plan.purchase_order.order_no}')
-        return redirect('monthly_plan_detail', pk=pk)
-    
-    # ✅ Check if stock is sufficient
-    if plan.stock_to_purchase <= 0:
-        messages.info(request, '✅ Stock is sufficient! No purchase needed.')
-        return redirect('monthly_plan_detail', pk=pk)
-    
+
     if request.method == 'POST':
+        vendor_id = request.POST.get('vendor') or ''
+        vendor = Vendor.objects.filter(pk=vendor_id).first() if vendor_id.isdigit() else None
+        if not vendor:
+            messages.error(request, '❌ Please select a vendor!')
+            return redirect('generate_purchase_order_from_plan', pk=pk)
         try:
             with transaction.atomic():
-                # Create Purchase Order
-                po = PurchaseOrder.objects.create(
-                    vendor_id=request.POST.get('vendor') or None,
-                    warehouse=plan.warehouse,
-                    order_date=now(),
-                    status='pending',
-                    notes=f"Auto-generated from Monthly Plan {plan.plan_no}",
-                    created_by=request.user
+                po = _create_po_from_plans(
+                    [plan], vendor, request.user,
+                    f"Auto-generated from Monthly Plan {plan.plan_no}"
                 )
-                
-                # Add item
-                PurchaseOrderItem.objects.create(
-                    order=po,
-                    product=plan.product,
-                    qty=plan.stock_to_purchase,
-                    price=plan.purchase_price_per_unit
-                )
-                
-                # Link PO to plan
-                plan.purchase_order = po
-                plan.save()
-                
-                messages.success(request, f'✅ Purchase Order {po.order_no} generated!')
-                return redirect('purchase_order_detail', pk=po.pk)
-                
+            messages.success(request, f'✅ Purchase Order {po.order_no} generated!')
+            return redirect('purchase_order_detail', pk=po.pk)
         except Exception as e:
             messages.error(request, f'❌ Error: {str(e)}')
             return redirect('monthly_plan_detail', pk=pk)
-    
-    # GET request - show form
-    vendors = Vendor.objects.all()
-    
+
+    # GET request - show form (vendor is already selected when we can find it)
+    auto_vendor, auto_source = _plan_auto_vendor(plan.product)
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'plan': plan,
-        'vendors': vendors,
+        'vendors': Vendor.objects.all().order_by('name'),
+        'auto_vendor': auto_vendor,
+        'auto_source': auto_source,
     }
     return render(request, 'shareholders/generate_po_from_plan.html', context)
+
+
+@login_required
+@require_POST
+def generate_po_quick(request, pk):
+    """One click: create the Purchase Order from a Monthly Plan with the vendor picked automatically."""
+
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+
+    plan = get_object_or_404(MonthlyPurchasePlan, pk=pk)
+
+    problem = _plan_po_problem(plan)
+    if problem:
+        messages.warning(request, f'⚠️ {problem}')
+        return redirect('monthly_plan_detail', pk=pk)
+
+    vendor, source = _plan_auto_vendor(plan.product)
+    if not vendor:
+        messages.warning(request, '⚠️ No vendor could be found for this product. Please choose a vendor.')
+        return redirect('generate_purchase_order_from_plan', pk=pk)
+
+    try:
+        with transaction.atomic():
+            po = _create_po_from_plans(
+                [plan], vendor, request.user,
+                f"Auto-generated from Monthly Plan {plan.plan_no}"
+            )
+    except Exception as e:
+        logger.exception('Quick PO from plan failed')
+        messages.error(request, f'❌ Error: {str(e)}')
+        return redirect('monthly_plan_detail', pk=pk)
+
+    messages.success(request, f'✅ Purchase Order {po.order_no} created for {vendor.name} ({source}).')
+    return redirect('purchase_order_detail', pk=po.pk)
 
 
 @login_required
@@ -2991,12 +3170,16 @@ def monthly_plan_detail(request, pk):
     
     plan = get_object_or_404(MonthlyPurchasePlan, pk=pk)
     history = plan.history.all().order_by('-performed_at')
+    investor_balance, available_cash = _mp_money_context()
     
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'plan': plan,
         'history': history,
+        'budget': _mp_budget(plan.total_purchase_amount, investor_balance, available_cash),
     }
+    if plan.status in ['approved', 'in_progress'] and not plan.purchase_order_id and plan.stock_to_purchase > 0:
+        context['po_vendor'], context['po_vendor_source'] = _plan_auto_vendor(plan.product)
     return render(request, 'shareholders/monthly_plan_detail.html', context)
 
 
@@ -3396,7 +3579,7 @@ def monthly_plan_delete(request, pk):
     # ========================================== #
     # ✅ RESTRICTION 3: TRANSACTION CHECK       #
     # ========================================== #
-    # Agar koi purchase/sale linked hai toh delete na karo
+    # If a purchase/sale is linked, do not delete
     # Example:
     # if plan.actual_purchase_quantity > 0 or plan.actual_sales_quantity > 0:
     #     messages.error(request, '❌ Cannot delete! Actual transactions exist for this plan.')
@@ -3422,7 +3605,7 @@ def monthly_plan_delete(request, pk):
         # If this was the latest plan, mark previous as latest
         if plan.is_latest:
             previous = MonthlyPurchasePlan.objects.filter(
-                month=month
+                month=month, batch=plan.batch
             ).exclude(pk=pk).order_by('-version').first()
             if previous:
                 previous.is_latest = True
@@ -3514,6 +3697,10 @@ def grn_convert_to_purchase(request, pk):
     if not request.user.is_superuser and not request.user.is_staff:
         messages.error(request, '❌ Access denied! Only admins can convert GRN.')
         return redirect('grn_detail', pk=grn.pk)
+
+    if not _sr.can_receive(request.user, grn.warehouse_id):
+        messages.error(request, f'❌ You do not have the right to add stock to {grn.warehouse.name} (you are not a keeper/manager of that store team).')
+        return redirect('grn_detail', pk=grn.pk)
     
     try:
         with db_transaction.atomic():
@@ -3584,7 +3771,7 @@ def grn_convert_to_purchase(request, pk):
                     link=f"/purchases/{purchase.pk}/"
                 )
             except Exception:
-                pass  # Notification fail ho toh bhi kaam chalein
+                pass  # Keep working even if the notification fails
             
             # ========================================== #
             # STEP 6: Success message                   #
@@ -3710,7 +3897,7 @@ def grn_pdf(request, pk):
     # Signatures
     story.append(Paragraph("Received by: _________________    Checked by: _________________", styles['Normal']))
     story.append(Spacer(1, 0.2*inch))
-    story.append(Paragraph(f"Generated: {now().strftime('%d-%m-%Y %H:%M')}", styles['Normal']))
+    story.append(Paragraph(f"Generated: {now().strftime('%d-%m-%Y %I:%M %p')}", styles['Normal']))
     
     doc.build(story)
     buffer.seek(0)
@@ -3765,7 +3952,7 @@ def monthly_plan_history(request):
         return redirect('dashboard')
     
     # Get all plans
-    plans = MonthlyPurchasePlan.objects.all().order_by('-month', '-version')
+    plans = MonthlyPurchasePlan.objects.select_related('batch').order_by('-month', '-version')
     
     # Filters
     selected_month = request.GET.get('month', '')
@@ -3833,7 +4020,7 @@ def grn_reset_conversion(request, pk):
         messages.success(
             request, 
             f'✅ GRN {grn.grn_no} reset to Pending!\n'
-            f'Ab aap isse dobara convert kar sakte ho.'
+            f'You can convert it again now.'
         )
         return redirect('grn_detail', pk=pk)
     
@@ -4004,3 +4191,451 @@ def api_create_vendor(request):
             return JsonResponse({'success': False, 'message': str(e)})
     
     return JsonResponse({'success': False, 'message': 'Invalid request'})
+
+
+# ============================================================ #
+# MULTI-PRODUCT MONTHLY PLAN                                   #
+# One plan for a month with many products and one grand total. #
+# Every line is a normal MonthlyPurchasePlan (linked by batch). #
+# ============================================================ #
+
+def _mp_safe_decimal(value, default='0'):
+    try:
+        cleaned = str(value if value is not None else '').replace(',', '').replace(' ', '').replace('Rs.', '').strip()
+        return Decimal(cleaned) if cleaned else Decimal(default)
+    except Exception:
+        return Decimal(default)
+
+
+def _mp_safe_int(value, default=0):
+    try:
+        cleaned = str(value if value is not None else '').replace(',', '').replace(' ', '').strip()
+        return int(float(cleaned)) if cleaned else default
+    except Exception:
+        return default
+
+
+def _mp_money_context():
+    """Investor balance + available cash (used to compare with the grand total)."""
+    investor_balance = Decimal('0.00')
+    for sh in Shareholder.objects.filter(status='active'):
+        bal = sh.get_balance()
+        if bal:
+            investor_balance += Decimal(str(bal))
+    return investor_balance, CashBalance.get_balance()
+
+
+def _mp_budget(plan_amount, investor_balance, available_cash):
+    """
+    Budget vs Plan: compare a plan amount with the investor balance and the available cash.
+
+    Budget limit = investor balance + available cash.
+      level 'ok'   : plan is inside the investor balance
+      level 'warn' : plan is above the investor balance (available cash will be needed)
+      level 'over' : plan is above the limit  -> red warning
+    (The same rules are repeated in budgetUpdate() in monthly_plan_multi_form.html.)
+    """
+    def D(v):
+        try:
+            return max(Decimal('0'), Decimal(str(v or 0)))
+        except Exception:
+            return Decimal('0')
+
+    plan, inv, cash = D(plan_amount), D(investor_balance), D(available_cash)
+    limit = inv + cash
+
+    if plan <= 0:
+        level = 'empty'
+    elif plan <= inv:
+        level = 'ok'
+    elif plan <= limit:
+        level = 'warn'
+    else:
+        level = 'over'
+
+    def pct(a, b, cap=None):
+        if b > 0:
+            v = float(a / b * 100)
+        else:
+            v = 100.0 if a > 0 else 0.0
+        return min(v, cap) if cap else v
+
+    fill_pct = 0.0 if plan <= 0 else pct(plan, limit, 100)
+    marker_pct = pct(inv, limit, 100) if limit > 0 else 0.0
+    inv_pct, cash_pct = pct(plan, inv), pct(plan, cash)
+
+    over_by = plan - limit if plan > limit else Decimal('0')
+    above_inv = plan - inv if plan > inv else Decimal('0')
+    left = limit - plan if plan <= limit else Decimal('0')
+
+    def rs(v):
+        return f'Rs. {v:,.0f}'
+
+    if level == 'empty':
+        badge, message = 'No plan yet', 'Add products to see how the plan compares with your budget.'
+    elif level == 'ok':
+        badge = 'Within budget'
+        message = f'The plan is inside the investor balance. {rs(inv - plan)} of investor balance will be left.'
+    elif level == 'warn':
+        badge = 'Uses cash'
+        message = (f'The plan is {rs(above_inv)} more than the investor balance. '
+                   f'Available cash will be needed for the rest.')
+    else:
+        badge = 'OVER BUDGET'
+        message = (f'OVER BUDGET by {rs(over_by)}! The plan is more than the investor balance '
+                   f'and available cash together.')
+
+    return {
+        'plan': plan, 'investor': inv, 'cash': cash, 'limit': limit,
+        'level': level, 'badge': badge, 'message': message,
+        'fill_pct': fill_pct, 'marker_pct': marker_pct,
+        'inv_pct': inv_pct, 'cash_pct': cash_pct,
+        'inv_width': min(inv_pct, 100.0), 'cash_width': min(cash_pct, 100.0),
+        'over_by': over_by, 'above_investor': above_inv,
+        'left_label': 'Over by' if level == 'over' else 'Left in budget',
+        'left_value': over_by if level == 'over' else left,
+    }
+
+
+@login_required
+def monthly_plan_multi_create(request):
+    """Create a multi-product plan: many products in one monthly plan, with a grand total."""
+
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied! Only admins can access this page.')
+        return redirect('dashboard')
+
+    month_str = request.GET.get('month') or request.POST.get('month') or date.today().strftime('%Y-%m')
+    try:
+        selected_month = datetime.strptime(month_str[:7] + '-01', '%Y-%m-%d').date()
+    except ValueError:
+        selected_month = date.today().replace(day=1)
+    month_str = selected_month.strftime('%Y-%m')
+
+    warehouses = Warehouse.objects.all().order_by('name')
+    posted_rows = []
+    posted = {'warehouse': '', 'title': '', 'notes': ''}
+
+    if request.method == 'POST':
+        warehouse_id = request.POST.get('warehouse') or ''
+        title = (request.POST.get('title') or '').strip()[:200]
+        notes = (request.POST.get('notes') or '').strip()
+        posted = {'warehouse': warehouse_id, 'title': title, 'notes': notes}
+
+        product_ids = request.POST.getlist('product')
+        sale_qtys = request.POST.getlist('sale_qty')
+        unit_prices = request.POST.getlist('unit_price')
+        sell_prices = request.POST.getlist('sell_price')
+
+        errors = []
+        lines = []
+        seen = set()
+        warehouse = Warehouse.objects.filter(pk=warehouse_id).first() if warehouse_id.isdigit() else None
+        if not warehouse:
+            errors.append('Please select a warehouse!')
+
+        for i, pid in enumerate(product_ids):
+            sale_raw = sale_qtys[i] if i < len(sale_qtys) else ''
+            price_raw = unit_prices[i] if i < len(unit_prices) else ''
+            sell_raw = sell_prices[i] if i < len(sell_prices) else ''
+            posted_rows.append({'product': pid, 'sale_qty': sale_raw, 'unit_price': price_raw, 'sell_price': sell_raw})
+            if not pid:
+                continue                      # empty row, ignore
+            row_no = i + 1
+            if not pid.isdigit():
+                errors.append(f'Row {row_no}: invalid product.')
+                continue
+            if pid in seen:
+                errors.append(f'Row {row_no}: the same product is added twice.')
+                continue
+            seen.add(pid)
+            qty = _mp_safe_int(sale_raw)
+            price = _mp_safe_decimal(price_raw)
+            sell = _mp_safe_decimal(sell_raw)
+            if qty <= 0:
+                errors.append(f'Row {row_no}: Sale Qty must be greater than zero.')
+            if price <= 0:
+                errors.append(f'Row {row_no}: Unit price must be greater than zero.')
+            if sell < 0:
+                errors.append(f'Row {row_no}: Selling price cannot be negative.')
+            lines.append((pid, qty, price, sell))
+
+        if not lines:
+            errors.append('Add at least one product.')
+
+        products_by_id = {str(pr.pk): pr for pr in Product.objects.filter(pk__in=[l[0] for l in lines])}
+        for pid, qty, price, sell in lines:
+            if pid not in products_by_id:
+                errors.append('One of the selected products was not found.')
+                break
+
+        if not errors:
+            try:
+                with transaction.atomic():
+                    batch = MonthlyPlanBatch.objects.create(
+                        month=selected_month,
+                        warehouse=warehouse,
+                        title=title,
+                        notes=notes,
+                        created_by=request.user,
+                    )
+                    stock_map = {
+                        str(inv.product_id): inv
+                        for inv in Inventory.objects.filter(warehouse=warehouse, product_id__in=[l[0] for l in lines])
+                    }
+                    investors = Shareholder.objects.filter(status='active').count()
+                    for pid, qty, price, sell in lines:
+                        inv = stock_map.get(pid)
+                        current = float(inv.stock) if inv else 0.0
+                        reserved = float(inv.reserved_stock) if inv else 0.0
+                        available = current - reserved
+                        # Purchase Qty = Sale Qty - Available Stock (never below zero)
+                        buy_qty = max(0, int(round(qty - available)))
+                        plan = MonthlyPurchasePlan.objects.create(
+                            month=selected_month,
+                            version=1,
+                            is_latest=True,
+                            batch=batch,
+                            product_id=pid,
+                            warehouse=warehouse,
+                            purchase_quantity=buy_qty,
+                            purchase_price_per_unit=price,
+                            expected_sales_quantity=qty,
+                            expected_sales_amount=Decimal(qty) * sell,
+                            current_stock=current,
+                            reserved_stock=reserved,
+                            available_stock=available,
+                            existing_investment=Decimal('0.00'),   # funding is checked on the grand total
+                            current_investors=investors,
+                            notes=notes,
+                            created_by=request.user,
+                            status='draft',
+                        )
+                        MonthlyPlanHistory.objects.create(
+                            plan=plan,
+                            action='created',
+                            performed_by=request.user,
+                            notes=f'Created in multi-product plan {batch.batch_no}. '
+                                  f'Auto Qty: {qty} - {available:g} = {buy_qty}'
+                        )
+                totals = batch.get_totals()
+                messages.success(
+                    request,
+                    f'✅ Multi-product plan {batch.batch_no} created for {selected_month.strftime("%B %Y")}: '
+                    f'{totals["products"]} products, grand total Rs. {totals["purchase_amount"]:,.2f}'
+                )
+                _inv, _cash = _mp_money_context()
+                _b = _mp_budget(totals['purchase_amount'], _inv, _cash)
+                if _b['level'] == 'over':
+                    messages.warning(request, f'⚠️ {_b["message"]}')
+                return redirect('monthly_plan_multi_detail', pk=batch.pk)
+            except Exception as e:
+                logger.exception('Multi-product plan create failed')
+                errors.append(f'Could not save the plan: {e}')
+
+        for err in errors:
+            messages.error(request, f'❌ {err}')
+
+    investor_balance, available_cash = _mp_money_context()
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'budget': _mp_budget(0, investor_balance, available_cash),
+        'selected_month': selected_month,
+        'month_str': month_str,
+        'warehouses': warehouses,
+        'products': list(Product.objects.filter(is_active=True).order_by('name').values('id', 'name')),
+        'posted': posted,
+        'posted_rows': posted_rows,
+        'investor_balance': investor_balance,
+        'available_cash': available_cash,
+    }
+    return render(request, 'shareholders/monthly_plan_multi_form.html', context)
+
+
+@login_required
+def monthly_plan_multi_product_info(request):
+    """AJAX: stock, cost price and selling price of one product (used by the multi-product form)."""
+
+    if not request.user.is_superuser and not request.user.is_staff:
+        return JsonResponse({'success': False, 'message': 'Access denied!'})
+
+    product_id = request.GET.get('product_id')
+    warehouse_id = request.GET.get('warehouse_id')
+    product = Product.objects.filter(pk=product_id).first() if (product_id or '').isdigit() else None
+    if not product:
+        return JsonResponse({'success': False, 'message': 'Product not found.'})
+
+    available = 0.0
+    if warehouse_id:
+        inv = Inventory.objects.filter(product=product, warehouse_id=warehouse_id).first() if warehouse_id.isdigit() else None
+        if inv:
+            available = float(inv.stock) - float(inv.reserved_stock)
+
+    cost = float(product.price or 0)
+    last_batch = StockBatch.objects.filter(product=product).order_by('-id').first()
+    if cost <= 0 and last_batch:
+        cost = float(last_batch.price)
+    sell_batch = StockBatch.objects.filter(product=product, selling_price__gt=0).order_by('-id').first()
+    selling = float(sell_batch.selling_price) if sell_batch else 0.0
+
+    return JsonResponse({
+        'success': True,
+        'available_stock': available,
+        'cost_price': cost,
+        'selling_price': selling,
+    })
+
+
+@login_required
+def monthly_plan_multi_detail(request, pk):
+    """One multi-product plan: all its products and the grand total at the bottom."""
+
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+
+    batch = get_object_or_404(MonthlyPlanBatch.objects.select_related('warehouse', 'created_by'), pk=pk)
+    lines = list(batch.lines.select_related('product', 'warehouse', 'purchase_order').order_by('id'))
+    totals = batch.get_totals()
+    investor_balance, available_cash = _mp_money_context()
+
+    po_ready = po_no_vendor = 0
+    for l in lines:
+        l.po_vendor, l.po_source = None, ''
+        if l.purchase_order_id or _plan_po_problem(l):
+            continue                                  # already has a PO / not ready / no purchase needed
+        l.po_vendor, l.po_source = _plan_auto_vendor(l.product)
+        if l.po_vendor:
+            po_ready += 1
+        else:
+            po_no_vendor += 1
+
+    grand = totals['purchase_amount']
+    context = {
+        'po_ready': po_ready,
+        'po_no_vendor': po_no_vendor,
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'batch': batch,
+        'lines': lines,
+        'totals': totals,
+        'expected_gap': totals['sales_amount'] - grand,
+        'investor_balance': investor_balance,
+        'available_cash': available_cash,
+        'budget': _mp_budget(grand, investor_balance, available_cash),
+        'funding_gap': max(Decimal('0.00'), grand - investor_balance),
+        'draft_count': sum(1 for l in lines if l.status == 'draft'),
+        'can_delete': request.user.is_superuser and all(l.status == 'draft' and not l.purchase_order_id for l in lines),
+    }
+    return render(request, 'shareholders/monthly_plan_multi_detail.html', context)
+
+
+@login_required
+@require_POST
+def monthly_plan_multi_approve(request, pk):
+    """Approve every draft line of a multi-product plan in one click."""
+
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+
+    batch = get_object_or_404(MonthlyPlanBatch, pk=pk)
+    count = 0
+    with transaction.atomic():
+        for plan in batch.lines.filter(status='draft'):
+            plan.approve(request.user)
+            MonthlyPlanHistory.objects.create(
+                plan=plan,
+                action='approved',
+                performed_by=request.user,
+                notes=f'Approved with multi-product plan {batch.batch_no}'
+            )
+            count += 1
+
+    if count:
+        messages.success(request, f'✅ {count} product line(s) of {batch.batch_no} approved!')
+        _inv, _cash = _mp_money_context()
+        _b = _mp_budget(batch.get_totals()['purchase_amount'], _inv, _cash)
+        if _b['level'] == 'over':
+            messages.warning(request, f'⚠️ {_b["message"]}')
+    else:
+        messages.warning(request, '⚠️ There are no draft lines to approve.')
+    return redirect('monthly_plan_multi_detail', pk=pk)
+
+
+@login_required
+@require_POST
+def monthly_plan_multi_delete(request, pk):
+    """Delete a multi-product plan (superuser only, and only while every line is still a draft)."""
+
+    if not request.user.is_superuser:
+        messages.error(request, '❌ Access denied! Only superuser can delete plans.')
+        return redirect('monthly_plan_multi_detail', pk=pk)
+
+    batch = get_object_or_404(MonthlyPlanBatch, pk=pk)
+    lines = list(batch.lines.all())
+    if any(l.status != 'draft' or l.purchase_order_id for l in lines):
+        messages.error(request, '❌ Cannot delete! Some lines are already approved or have a Purchase Order.')
+        return redirect('monthly_plan_multi_detail', pk=pk)
+
+    batch_no = batch.batch_no
+    month = batch.month.strftime('%Y-%m')
+    with transaction.atomic():
+        batch.delete()            # its draft lines (and their history) are deleted with it
+    messages.success(request, f'🗑️ Multi-product plan {batch_no} deleted.')
+    return redirect(f"{reverse('monthly_purchase_planner')}?month={month}")
+
+
+@login_required
+@require_POST
+def monthly_plan_multi_generate_po(request, pk):
+    """
+    One click: Purchase Orders for a multi-product plan.
+    Ready lines are grouped by their auto-picked vendor, so each vendor gets ONE Purchase Order
+    with all of its products.
+    """
+
+    if not request.user.is_superuser and not request.user.is_staff:
+        messages.error(request, '❌ Access denied!')
+        return redirect('dashboard')
+
+    batch = get_object_or_404(MonthlyPlanBatch, pk=pk)
+
+    groups = {}                 # (vendor_id, warehouse_id) -> {'vendor':..., 'lines': [...]}
+    no_vendor, not_ready = [], 0
+    for plan in batch.lines.select_related('product', 'warehouse', 'purchase_order').order_by('id'):
+        if plan.purchase_order_id or _plan_po_problem(plan):
+            not_ready += 1
+            continue
+        vendor, _src = _plan_auto_vendor(plan.product)
+        if not vendor:
+            no_vendor.append(plan.product_name or str(plan.product))
+            continue
+        groups.setdefault((vendor.pk, plan.warehouse_id), {'vendor': vendor, 'lines': []})['lines'].append(plan)
+
+    if not groups:
+        if no_vendor:
+            messages.warning(request, '⚠️ No vendor found for: ' + ', '.join(no_vendor) +
+                             '. Open each product line and choose a vendor.')
+        else:
+            messages.info(request, 'ℹ️ There is nothing to order. Lines must be approved, without a PO, and need stock.')
+        return redirect('monthly_plan_multi_detail', pk=pk)
+
+    made = []
+    try:
+        with transaction.atomic():
+            for g in groups.values():
+                po = _create_po_from_plans(
+                    g['lines'], g['vendor'], request.user,
+                    f"Auto-generated from multi-product plan {batch.batch_no}"
+                )
+                made.append(f'{po.order_no} ({g["vendor"].name}, {len(g["lines"])} item(s))')
+    except Exception as e:
+        logger.exception('Multi-product PO generation failed')
+        messages.error(request, f'❌ Error: {str(e)}. No Purchase Order was created.')
+        return redirect('monthly_plan_multi_detail', pk=pk)
+
+    messages.success(request, f'✅ {len(made)} Purchase Order(s) created: ' + '; '.join(made))
+    if no_vendor:
+        messages.warning(request, '⚠️ No vendor found for: ' + ', '.join(no_vendor) +
+                         '. Open each of these lines and choose a vendor.')
+    return redirect('monthly_plan_multi_detail', pk=pk)

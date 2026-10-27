@@ -1,0 +1,188 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Multi-Product Plan - {{ batch.batch_no }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .mp-head {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: #fff;
+        border-radius: 15px;
+        padding: 22px 26px;
+        margin-bottom: 22px;
+    }
+    .mp-card { border: none; border-radius: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); margin-bottom: 20px; }
+    .mp-card .card-header { background: #1a1a2e; color: #fff; border-radius: 14px 14px 0 0; font-weight: 600; }
+    .mp-table thead th {
+        background: #f8f9fc; font-size: 0.78rem; text-transform: uppercase;
+        letter-spacing: .4px; white-space: nowrap; vertical-align: middle;
+    }
+    .mp-table td { vertical-align: middle; }
+    .mp-table tfoot td { background: #1a1a2e; color: #fff; font-weight: 700; font-size: 1.02rem; border: none; }
+    .grand-box { border-radius: 12px; padding: 16px 18px; background: #f8f9fc; height: 100%; }
+    .grand-box small { color: #6c757d; text-transform: uppercase; letter-spacing: .4px; font-size: .72rem; }
+    .grand-box h4 { margin: 4px 0 0; font-weight: 700; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <div class="mp-head">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+            <div>
+                <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
+                    <h3 class="mb-0">{{ batch.batch_no }}</h3>
+                    <span class="badge bg-{{ batch.overall_status_color }}">{{ batch.overall_status_display }}</span>
+                    <span class="badge bg-light text-dark"><i class="bi bi-collection me-1"></i>Multi-Product Plan</span>
+                </div>
+                {% if batch.title %}<div class="fs-5">{{ batch.title }}</div>{% endif %}
+                <div class="opacity-75 small mt-1">
+                    <i class="bi bi-calendar3 me-1"></i>{{ batch.month|date:"F Y" }}
+                    <span class="mx-2">|</span>
+                    <i class="bi bi-building me-1"></i>{{ batch.warehouse.name|default:"N/A" }}
+                    <span class="mx-2">|</span>
+                    <i class="bi bi-person me-1"></i>{{ batch.created_by.username|default:"-" }}, {{ batch.created_at|date:"d M Y" }}
+                </div>
+                {% if batch.notes %}<div class="small mt-2"><i class="bi bi-sticky me-1"></i>{{ batch.notes }}</div>{% endif %}
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                {% if draft_count %}
+                <form method="post" action="{% url 'monthly_plan_multi_approve' batch.pk %}"
+                      onsubmit="return confirm('Approve all {{ draft_count }} draft line(s)?');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-light"><i class="bi bi-check-circle me-1"></i> Approve All ({{ draft_count }})</button>
+                </form>
+                {% endif %}
+                {% if can_delete %}
+                <form method="post" action="{% url 'monthly_plan_multi_delete' batch.pk %}"
+                      onsubmit="return confirm('Delete {{ batch.batch_no }} and all its lines? This cannot be undone.');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-light"><i class="bi bi-trash me-1"></i> Delete</button>
+                </form>
+                {% endif %}
+                <a href="{% url 'monthly_purchase_planner' %}?month={{ batch.month|date:'Y-m' }}" class="btn btn-outline-light">
+                    <i class="bi bi-arrow-left me-1"></i> Back
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- GRAND TOTAL CARDS -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6"><div class="grand-box"><small>Products</small><h4>{{ totals.products }}</h4></div></div>
+        <div class="col-md-3 col-6"><div class="grand-box"><small>Total Purchase Qty</small><h4>{{ totals.buy_qty|intcomma }}</h4><small class="text-muted">for {{ totals.sale_qty|intcomma }} units of expected sales</small></div></div>
+        <div class="col-md-3 col-6"><div class="grand-box"><small>Grand Total (purchase)</small><h4 class="text-danger">Rs. {{ totals.purchase_amount|floatformat:0|intcomma }}</h4></div></div>
+        <div class="col-md-3 col-6"><div class="grand-box"><small>Expected Sales Value</small><h4 class="text-success">{% if totals.sales_amount %}Rs. {{ totals.sales_amount|floatformat:0|intcomma }}{% else %}-{% endif %}</h4>{% if totals.sales_amount %}<small class="text-muted">sales − purchase: Rs. {{ expected_gap|floatformat:0|intcomma }}</small>{% endif %}</div></div>
+    </div>
+
+    <!-- BUDGET VS PLAN -->
+    <div class="card mp-card">
+        <div class="card-header"><i class="bi bi-speedometer2 me-2"></i>Budget vs Plan</div>
+        <div class="card-body">
+            {% include 'shareholders/_budget_bar.html' with budget=budget %}
+        </div>
+    </div>
+
+    <!-- PURCHASE ORDERS -->
+    <div class="card mp-card">
+        <div class="card-header"><i class="bi bi-cart-plus me-2"></i>Purchase Orders</div>
+        <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div class="small">
+                {% if po_ready %}
+                    <strong>{{ po_ready }}</strong> line(s) are ready. One Purchase Order is made for each vendor, and the vendor is picked from the last purchase of each product.
+                {% elif draft_count %}
+                    Approve the plan lines first, then create the Purchase Orders from here.
+                {% else %}
+                    No line is ready for a Purchase Order (already ordered, or the stock is enough).
+                {% endif %}
+                {% if po_no_vendor %}
+                <div class="text-danger mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ po_no_vendor }} line(s) have no vendor yet. Open the line and choose a vendor.</div>
+                {% endif %}
+            </div>
+            {% if po_ready %}
+            <form method="post" action="{% url 'monthly_plan_multi_generate_po' batch.pk %}"
+                  onsubmit="return confirm('Create Purchase Orders for {{ po_ready }} line(s)?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-warning btn-lg"><i class="bi bi-cart-plus me-1"></i> Create Purchase Orders ({{ po_ready }})</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- LINES -->
+    <div class="card mp-card">
+        <div class="card-header"><i class="bi bi-box-seam me-2"></i>Products in this plan</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mp-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Product</th>
+                            <th class="text-end">Available Stock</th>
+                            <th class="text-end">Sale Qty</th>
+                            <th class="text-end">Buy Qty</th>
+                            <th class="text-end">Unit Price</th>
+                            <th class="text-end">Line Total</th>
+                            <th>Stock</th>
+                            <th>Status</th>
+                            <th>Vendor / PO</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for l in lines %}
+                        <tr {% if l.status == 'cancelled' %}class="text-decoration-line-through text-muted"{% endif %}>
+                            <td>{{ forloop.counter }}</td>
+                            <td>
+                                <strong>{{ l.product_name|default:l.product.name }}</strong><br>
+                                <small class="text-muted">{{ l.plan_no }}</small>
+                            </td>
+                            <td class="text-end">{{ l.available_stock|floatformat:0|intcomma }}</td>
+                            <td class="text-end">{{ l.expected_sales_quantity|intcomma }}</td>
+                            <td class="text-end fw-bold">{{ l.purchase_quantity|intcomma }}</td>
+                            <td class="text-end">{{ l.purchase_price_per_unit|floatformat:2|intcomma }}</td>
+                            <td class="text-end fw-bold">{{ l.total_purchase_amount|floatformat:0|intcomma }}</td>
+                            <td>{{ l.stock_status_badge|safe }}</td>
+                            <td>{{ l.status_badge|safe }}</td>
+                            <td>
+                                {% if l.purchase_order %}
+                                    <a href="{% url 'purchase_order_detail' l.purchase_order.pk %}" class="badge bg-success text-decoration-none">{{ l.purchase_order.order_no }}</a>
+                                {% elif l.po_vendor %}
+                                    <small>{{ l.po_vendor.name }}<br><span class="text-muted">{{ l.po_source }}</span></small>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <a href="{% url 'monthly_plan_detail' l.pk %}" class="btn btn-sm btn-outline-primary" title="Open this line">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="11" class="text-center text-muted py-4">No products in this plan.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3" class="text-end">GRAND TOTAL</td>
+                            <td class="text-end">{{ totals.sale_qty|intcomma }}</td>
+                            <td class="text-end">{{ totals.buy_qty|intcomma }}</td>
+                            <td></td>
+                            <td class="text-end">Rs. {{ totals.purchase_amount|floatformat:0|intcomma }}</td>
+                            <td colspan="4"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer bg-white small text-muted">
+            Cancelled lines are not counted in the grand total. Each line can be approved, edited or completed on its own page.
+        </div>
+    </div>
+</div>
+{% endblock %}

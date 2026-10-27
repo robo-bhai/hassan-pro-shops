@@ -2,6 +2,7 @@
 from django.utils.timezone import localdate
 from django.db.models.functions import Coalesce
 from django.db.models import ExpressionWrapper
+from .. import store_access as _sa      # store-wise: dusre store ka stock chhupao
 from ..models import *
 import json
 import calendar
@@ -170,9 +171,9 @@ def reports_dashboard(request):
     total_vendor_outstanding = (vendor_agg['total_amt'] - vendor_agg['total_paid']) + opening_balance_total
     
     # Low Stock Count
-    low_stock_count = Inventory.objects.filter(
+    low_stock_count = _sa.hide_other_stores(request.user, Inventory.objects.filter(
         stock__lt=F('product__low_stock_threshold')
-    ).count()
+    ), 'warehouse').count()
     
     # Top 5 Products
     top_products = SaleItem.objects.filter(
@@ -247,7 +248,7 @@ def business_health(request):
     outstanding_percentage = float((total_customer_outstanding / total_sales * 100)) if total_sales > 0 else 0
     
     # ✅ Inventory value with ExpressionWrapper
-    inventory_value = Inventory.objects.aggregate(
+    inventory_value = _sa.hide_other_stores(request.user, Inventory.objects.all(), 'warehouse').aggregate(
         total=Coalesce(
             Sum(
                 ExpressionWrapper(
@@ -821,7 +822,7 @@ def accounts_receivable_aging(request):
 @login_required
 def inventory_status_report(request):
     """Inventory Status Report"""
-    items = Inventory.objects.select_related('product', 'warehouse').order_by('product__name')
+    items = _sa.hide_other_stores(request.user, Inventory.objects.select_related('product', 'warehouse').order_by('product__name'), 'warehouse')
     
     total_products = items.count()
     total_stock_value = sum(item.stock_value() for item in items)
@@ -842,7 +843,7 @@ def inventory_status_report(request):
 # ✅ NEW CODE
 @login_required
 def low_stock_report(request):
-    low_stock_items = Inventory.objects.select_related(
+    low_stock_items = _sa.hide_other_stores(request.user, Inventory.objects.select_related(
         'product',
         'warehouse',
         'product__unit',
@@ -850,7 +851,7 @@ def low_stock_report(request):
         'product__brand'
     ).filter(
         stock__lt=F('product__low_stock_threshold')
-    ).order_by('product__name')
+    ).order_by('product__name'), 'warehouse')
     
     for item in low_stock_items:
         if item.product.low_stock_threshold > 0:
@@ -871,7 +872,7 @@ def inventory_aging_report(request):
     """Inventory Aging Report"""
     from decimal import Decimal
     
-    warehouses = Warehouse.objects.all()
+    warehouses = _sa.hide_other_stores(request.user, Warehouse.objects.all())
     aging_data = []
     total_value = Decimal('0.0')
     
@@ -882,7 +883,7 @@ def inventory_aging_report(request):
         ).order_by('id')
         
         for batch in batches:
-            # ✅ FIX: float ko Decimal mein convert
+            # ✅ FIX: convert float to Decimal
             qty_decimal = Decimal(str(batch.remaining_qty))
             value = qty_decimal * batch.price
             total_value += value
@@ -908,7 +909,7 @@ def stock_aging_report(request):
     """Stock Aging Report"""
     stock_data = []
     
-    batches = StockBatch.objects.filter(remaining_qty__gt=0).select_related('product', 'warehouse')
+    batches = _sa.hide_other_stores(request.user, StockBatch.objects.filter(remaining_qty__gt=0).select_related('product', 'warehouse'), 'warehouse')
     
     for batch in batches:
         value = batch.remaining_qty * batch.price
@@ -1554,7 +1555,7 @@ def export_report_excel(request, report_name):
         headers = ['Product', 'Current Stock', 'Threshold', 'Status']
         ws.append(headers)
         
-        low_stock = Inventory.objects.filter(stock__lt=F('product__low_stock_threshold'))
+        low_stock = _sa.hide_other_stores(request.user, Inventory.objects.filter(stock__lt=F('product__low_stock_threshold')), 'warehouse')
         for item in low_stock:
             ws.append([
                 item.product.name,
@@ -1798,7 +1799,7 @@ def generate_sales_report_pdf(sales, date_from, date_to, total_amount, total_pro
     
     story.append(table)
     story.append(Spacer(1, 20))
-    story.append(Paragraph(f"Generated: {now().strftime('%d-%m-%Y %H:%M')}", styles['Normal']))
+    story.append(Paragraph(f"Generated: {now().strftime('%d-%m-%Y %I:%M %p')}", styles['Normal']))
     
     doc.build(story)
     buffer.seek(0)
@@ -1875,7 +1876,7 @@ def generate_products_detail_pdf(sales, date_from, date_to, total_amount, total_
     
     story.append(table)
     story.append(Spacer(1, 20))
-    story.append(Paragraph(f"Generated: {now().strftime('%d-%m-%Y %H:%M')}", styles['Normal']))
+    story.append(Paragraph(f"Generated: {now().strftime('%d-%m-%Y %I:%M %p')}", styles['Normal']))
     
     doc.build(story)
     buffer.seek(0)
@@ -1915,7 +1916,7 @@ def batch_sale_report(request, pk):
     
     batch = get_object_or_404(StockBatch, pk=pk)
     
-    # ✅ Is batch se saari sales
+    # ✅ All sales from this batch
     sales_items = SaleItem.objects.filter(
         batches_used=batch
     ).select_related('sale', 'sale__customer', 'product').order_by('-sale__sale_date')

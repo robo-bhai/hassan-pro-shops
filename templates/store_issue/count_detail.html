@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}{{ c.count_no }} - {{ company_name }}{% endblock %}
+{% block extra_css %}{% include 'store_issue/_styles.html' %}{% include 'store_issue/_styles_ops.html' %}{% endblock %}
+{% block content %}
+<div class="container-fluid px-4 py-4 si-page">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <div><h1 class="h3 mb-1"><i class="bi bi-clipboard-check text-primary me-2"></i>{{ c.count_no }} <span class="si-badge {{ c.status }} ms-2">{{ c.get_status_display }}</span></h1>
+      <p class="text-muted small mb-0">{{ c.warehouse.name }} &middot; {{ c.count_date|date:"d M Y h:i A" }}{% if c.notes %} &middot; {{ c.notes }}{% endif %}</p></div>
+    <a href="{% url 'store_count_list' %}" class="btn btn-outline-secondary rounded-pill px-3">Back</a>
+  </div>
+
+  {% if can_edit %}<div class="alert alert-info border-0 small">Enter the actual count of each item (0 if there is none). "Save" saves your work, "Submit" sends it to the manager for review.</div>{% endif %}
+  {% if review %}
+    {% if changed_count %}<div class="alert alert-warning border-0 small">The system stock of <b>{{ changed_count }} item</b> has changed since the count started (purchase / issue / transfer). The difference will be calculated from the current system stock.</div>{% endif %}
+    {% if self_block %}<div class="alert alert-info border-0 small">You submitted this count, so another manager must post it.</div>{% endif %}
+  {% endif %}
+  {% if c.status == 'posted' %}<div class="alert alert-success border-0">Post by {{ c.posted_by.get_username|default:"-" }} {{ c.posted_at|date:"d M Y h:i A" }}. Kam (loss): <b>Rs. {{ c.loss_value|floatformat:2 }}</b>, Zyada (gain): <b>Rs. {{ c.gain_value|floatformat:2 }}</b></div>{% endif %}
+
+  <form method="post" id="cf">{% csrf_token %}
+  <div class="si-card"><div class="table-responsive"><table class="table si-table align-middle mb-0">
+    <thead><tr><th>#</th><th>Item</th><th class="si-num">System (shuru)</th>
+      {% if review %}<th class="si-num">System (ab)</th>{% endif %}<th style="width:140px" class="si-num">Asal ginti</th>
+      {% if review or c.status == 'posted' %}<th class="si-num">Farq</th>{% endif %}
+      {% if review %}<th style="width:120px">Unit cost</th>{% endif %}
+      {% if c.status == 'posted' %}<th class="si-num">Value</th>{% endif %}
+      {% if review or c.status == 'posted' or can_edit %}<th>Reason for difference</th>{% endif %}</tr></thead>
+    <tbody>
+    {% for l in lines %}
+      <tr><td>{{ forloop.counter }}</td><td class="fw-semibold">{{ l.product.name }} <span class="text-muted small">{{ l.product.unit.name|default:"" }}</span></td>
+        <td class="si-num">{{ l.system_qty|floatformat:"-3" }}</td>
+        {% if review %}<td class="si-num {% if l.changed %}text-warning fw-semibold{% endif %}">{{ l.current|floatformat:"-3" }}</td>{% endif %}
+        <td class="si-num">{% if can_edit %}<input type="number" step="any" min="0" name="cnt_{{ l.pk }}" value="{% if l.counted_qty is not None %}{{ l.counted_qty }}{% endif %}" class="form-control form-control-sm text-end">{% else %}{{ l.counted_qty|floatformat:"-3" }}{% endif %}</td>
+        {% if review %}<td class="si-num {% if l.diff < 0 %}si-diff-neg{% elif l.diff > 0 %}si-diff-pos{% endif %}">{{ l.diff|floatformat:"-3" }}</td>
+          <td>{% if l.diff > 0 %}<input type="number" step="0.01" min="0" name="cost_{{ l.pk }}" value="{{ l.est_cost|default_if_none:''|floatformat:2 }}" class="form-control form-control-sm" placeholder="cost">{% endif %}</td>
+        {% elif c.status == 'posted' %}<td class="si-num {% if l.diff_qty < 0 %}si-diff-neg{% elif l.diff_qty > 0 %}si-diff-pos{% endif %}">{{ l.diff_qty|floatformat:"-3" }}</td><td class="si-num">{{ l.diff_value|floatformat:2 }}</td>{% endif %}
+        {% if can_edit or review %}<td><input name="rsn_{{ l.pk }}" value="{{ l.reason }}" maxlength="200" class="form-control form-control-sm" placeholder="{% if review %}Required if there is a difference{% else %}Reason if there is a difference{% endif %}"></td>
+        {% elif c.status == 'posted' %}<td class="small text-muted">{{ l.reason }}</td>{% endif %}</tr>
+    {% endfor %}
+    </tbody></table></div>
+
+    <div class="p-3 border-top d-flex flex-wrap gap-2 justify-content-between align-items-center">
+      <div class="d-flex gap-2 flex-wrap">
+        {% if can_edit %}
+        <button class="btn btn-outline-primary" formaction="{% url 'store_count_save' c.pk %}">Save</button>
+        <button class="btn btn-primary" formaction="{% url 'store_count_save' c.pk %}" name="submit" value="1" onclick="return confirm('Have you entered the count for all items? The count cannot be changed after Submit.')">Submit (for review)</button>
+        {% endif %}
+        {% if can_post %}<button class="btn btn-success" formaction="{% url 'store_count_post' c.pk %}" onclick="return confirm('The difference will be applied to stock and cannot be undone. Post it?')"><i class="bi bi-check2-circle me-1"></i>Post (correct the stock)</button>{% endif %}
+      </div>
+      {% if can_cancel %}<button class="btn btn-outline-danger" formaction="{% url 'store_count_cancel' c.pk %}" onclick="return confirm('Cancel the count? There will be no change in stock.')">Cancel count</button>{% endif %}
+    </div>
+  </div>
+  </form>
+  {% if review %}<div class="small text-muted mt-2">For the difference ({{ diff_count }} item), missing goods are taken out at FIFO cost, and extra goods come in as a new batch at average cost.</div>{% endif %}
+</div>
+{% endblock %}

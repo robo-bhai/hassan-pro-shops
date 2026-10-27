@@ -59,9 +59,9 @@ def risk_assessment_api(request):
                 'recommendation': {
                     'action': 'SKIP',
                     'title': '✅ NO PURCHASE NEEDED',
-                    'message': 'Available stock kaafi hai. Kuch kharidne ki zaroorat nahi.',
+                    'message': 'Available stock is enough. There is no need to buy anything.',
                     'suggested_qty': 0,
-                    'steps': ['Stock sufficient hai', 'Monitor karte raho'],
+                    'steps': ['Stock is sufficient', 'Keep monitoring'],
                 },
             })
         
@@ -1679,7 +1679,7 @@ def ai_purchase_planner_dashboard(request):
     
     urgent_items = []
     for analysis in all_analyses:
-        # Python mein check karo
+        # Check in Python
         risk_factors = analysis.risk_factors or []
         if 'urgent' in risk_factors or analysis.risk_level == 'danger':
             urgent_items.append(analysis)
@@ -1714,10 +1714,43 @@ def ai_purchase_planner_dashboard(request):
         is_resolved=False
     ).order_by('-impact_score')[:10]
     
+    # --- Decision queue: suggestions that nobody has accepted or rejected yet ---------------
+    from django.db.models import Sum as _Sum
+    pending_qs = AIPurchaseAnalysis.objects.filter(user_accepted__isnull=True)
+    pending_total = pending_qs.count()
+    pending_cost = pending_qs.aggregate(t=_Sum('estimated_cost'))['t'] or 0
+    risk_rank = {'danger': 0, 'warning': 1, 'safe': 2}
+    pending_items = sorted(
+        pending_qs.select_related('product', 'warehouse').order_by('-created_at')[:80],
+        key=lambda a: (risk_rank.get(a.risk_level, 3), -(a.confidence_score or 0))
+    )[:25]
+    accepted_count = AIPurchaseAnalysis.objects.filter(user_accepted=True).count()
+    rejected_count = AIPurchaseAnalysis.objects.filter(user_accepted=False).count()
+    decided = accepted_count + rejected_count
+    total = stats['total_analyses'] or 0
+
+    def _pct(n):
+        return int(round(n * 100 / total)) if total else 0
+
+    stats.update({
+        'pending_total': pending_total,
+        'pending_cost': pending_cost,
+        'accepted_count': accepted_count,
+        'rejected_count': rejected_count,
+        'accept_rate': int(round(accepted_count * 100 / decided)) if decided else 0,
+        'danger_pct': _pct(stats['danger_risk']),
+        'warning_pct': _pct(stats['warning_risk']),
+        'safe_pct': _pct(stats['safe_risk']),
+        'high_pct': _pct(stats['high_confidence']),
+        'medium_pct': _pct(stats['medium_confidence']),
+        'low_pct': _pct(stats['low_confidence']),
+    })
+
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'recent_analyses': recent_analyses,
         'urgent_items': urgent_items,
+        'pending_items': pending_items,
         'stats': stats,
         'insights': insights,
         'now': now(),
@@ -1763,6 +1796,9 @@ def ai_reject_suggestion(request, pk):
     if not request.user.is_superuser and not request.user.is_staff:
         return JsonResponse({'success': False, 'message': 'Access denied!'})
     
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'POST required'})
+
     analysis = get_object_or_404(AIPurchaseAnalysis, pk=pk)
     analysis.user_accepted = False
     analysis.save()
@@ -2331,13 +2367,13 @@ def ai_board_room_dashboard(request):
     # ==========================================
     base_alerts = AIBoardAlert.objects.filter(is_resolved=False)
     
-    # ✅ Stats from FULL queryset (slice se PEHLE)
+    # ✅ Stats from the FULL queryset (BEFORE the slice)
     total_alerts = base_alerts.count()
     critical_alerts = base_alerts.filter(severity='critical').count()
     high_alerts = base_alerts.filter(severity='high').count()
     medium_alerts = base_alerts.filter(severity='medium').count()
     
-    # ✅ Ab slice karo display ke liye
+    # ✅ Now slice for display
     alerts = base_alerts.order_by('-created_at')[:15]
     
     # KPI history
@@ -2731,7 +2767,7 @@ def ai_cso_tech_system(request):
     health_records = AISystemHealth.objects.order_by('-date')[:60]
     
     # Chart data
-    labels = [h.date.strftime('%d-%b %H:%M') for h in reversed(list(health_records))]
+    labels = [h.date.strftime('%d-%b %I:%M %p') for h in reversed(list(health_records))]
     scores = [h.health_score for h in reversed(list(health_records))]
     memory = [float(h.memory_usage) for h in reversed(list(health_records))]
     disk = [float(h.disk_usage) for h in reversed(list(health_records))]
@@ -3285,7 +3321,7 @@ def emergency_fund_dashboard(request):
     # Fund nikalo
     fund = EmergencyFund.get_active_fund()
     
-    # Agar nahi hai to banao
+    # If it does not exist, create it
     if not fund:
         if request.method == 'POST':
             # Create new fund
@@ -3351,7 +3387,7 @@ def emergency_fund_dashboard(request):
 @login_required
 @require_POST
 def emergency_fund_add(request):
-    """Emergency Fund mein paisa daalo"""
+    """Add money to the Emergency Fund"""
     
     from ..models import EmergencyFund, EmergencyFundTransaction
     
@@ -3360,7 +3396,7 @@ def emergency_fund_add(request):
     description = request.POST.get('description', '')
     
     if amount <= 0:
-        messages.error(request, '❌ Amount 0 se zyada hona chahiye')
+        messages.error(request, '❌ Amount must be greater than 0')
         return redirect('emergency_fund_dashboard')
     
     try:
@@ -3385,7 +3421,7 @@ def emergency_fund_add(request):
             
             messages.success(
                 request, 
-                f'✅ Rs. {amount:,.2f} Emergency Fund mein add ho gaya!\n'
+                f'✅ Rs. {amount:,.2f} added to the Emergency Fund!\n'
                 f'💰 New Balance: Rs. {new_balance:,.2f}'
             )
     
@@ -3407,7 +3443,7 @@ def emergency_fund_withdraw(request):
     reason = request.POST.get('reason', '')
     
     if amount <= 0:
-        messages.error(request, '❌ Amount 0 se zyada hona chahiye')
+        messages.error(request, '❌ Amount must be greater than 0')
         return redirect('emergency_fund_dashboard')
     
     try:
@@ -3429,7 +3465,7 @@ def emergency_fund_withdraw(request):
             
             messages.success(
                 request, 
-                f'💸 Rs. {amount:,.2f} Emergency Fund se nikala gaya\n'
+                f'💸 Rs. {amount:,.2f} withdrawn from the Emergency Fund\n'
                 f'💰 Remaining: Rs. {new_balance:,.2f}'
             )
     
@@ -3457,7 +3493,7 @@ def emergency_fund_settings(request):
             fund.auto_deduct = request.POST.get('auto_deduct') == 'on'
             fund.save()
             
-            messages.success(request, '✅ Settings update ho gayi!')
+            messages.success(request, '✅ Settings updated!')
         else:
             # Create new
             fund = EmergencyFund.objects.create(

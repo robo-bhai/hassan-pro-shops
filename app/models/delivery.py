@@ -117,13 +117,13 @@ class DeliveryInfo(models.Model):
         default='local_rider'
     )
     
-    # Rider Info (agar local_rider ho)
+    # Rider Info (if local_rider)
     rider_name = models.CharField(max_length=100, blank=True, null=True)
     rider_contact = models.CharField(max_length=20, blank=True, null=True)
     rider_vehicle = models.CharField(max_length=50, blank=True, null=True)
     rider_cnic = models.CharField(max_length=20, blank=True, null=True)
     
-    # Pickup Info (agar customer_pickup ho)
+    # Pickup Info (if customer_pickup)
     pickup_location = models.TextField(blank=True, null=True)
     pickup_ready_at = models.DateTimeField(null=True, blank=True)
     pickup_notes = models.CharField(max_length=255, blank=True, null=True)
@@ -204,7 +204,7 @@ class DeliveryInfo(models.Model):
 
 
 class OrderTracking(models.Model):
-    """Order ki har movement ka record (Timeline)"""
+    """Record of every movement of the order (Timeline)"""
     
     STATUS_CHOICES = [
         ('confirmed', '✅ Confirmed'),

@@ -18,7 +18,7 @@ from django.template.loader import render_to_string
 from django.db import models
 from decimal import Decimal
 from django.shortcuts import redirect
-from ..barcode_utils import generate_barcode_image, generate_multiple_labels
+from ..store.barcode_utils import generate_barcode_image, generate_multiple_labels
 from ..models import Expense
 
 
@@ -112,7 +112,7 @@ class ProductAdmin(ImportExportModelAdmin, admin.ModelAdmin):
     change_list_template = "admin/button.html"
     actions = ['generate_barcodes', 'print_barcode_labels', 'print_selected_labels', 'print_single_labels', 'scan_supplier_barcode']
     
-    # Fieldsets - price hataya gaya kyunke editable=False hai
+    # Fieldsets - price removed because editable=False
     fieldsets = (
         ('Basic Information', {
             'fields': ('serial_no', 'name', 'description', 'used')
@@ -128,9 +128,12 @@ class ProductAdmin(ImportExportModelAdmin, admin.ModelAdmin):
             'fields': ('low_stock_threshold',),
             'description': 'Set minimum stock level for alerts.'
         }),
+        ('Agri details', {      # [agri-edition:admin-product]
+            'fields': ('active_ingredient', 'registration_no', 'pack_size', 'target_crops'),
+        }),
     )
     
-    # Price ko readonly_fields mein add karein
+    # Add price to readonly_fields
     readonly_fields = ('price',)
     
     def get_readonly_fields(self, request, obj=None):
@@ -424,7 +427,7 @@ class InventoryAdmin(admin.ModelAdmin):
         
         table = Table(table_data, repeatRows=1, colWidths=[2*inch, 1.2*inch, 0.8*inch, 1*inch, 1.2*inch, 1*inch])
         
-        # Pehle base style apply karein
+        # First apply the base style
         table_style = [
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -438,7 +441,7 @@ class InventoryAdmin(admin.ModelAdmin):
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
         ]
         
-        # Low stock rows ko highlight karein
+        # Highlight rows with low stock
         row_idx = 1
         for inv in queryset:
             if inv.check_low_stock():
@@ -467,7 +470,7 @@ class StockBatchAdmin(admin.ModelAdmin):
     list_display = ('product', 'warehouse', 'qty', 'price', 'selling_price', 
                     'profit_display', 'profit_percent_display', 'remaining_qty', 
                     'batch_value_display', 'selling_value_display',
-                    'get_purchase_bill_no', 'get_sale_bill_no')
+                    'get_purchase_bill_no', 'get_sale_bill_no', 'batch_no', 'expiry_date')  # [agri-edition:admin-list]
     list_editable = ('selling_price',)
     search_fields = (
         'product__name', 'purchase_item__purchase__bill_no', 
@@ -477,7 +480,7 @@ class StockBatchAdmin(admin.ModelAdmin):
     list_filter = ('warehouse',)
     change_list_template = "admin/button.html"
     
-    fields = ('product', 'warehouse', 'qty', 'price', 'selling_price', 'remaining_qty', 'purchase_item')
+    fields = ('product', 'warehouse', 'qty', 'price', 'selling_price', 'remaining_qty', 'purchase_item', 'batch_no', 'expiry_date')  # [agri-edition:admin-fields]
     readonly_fields = ('product', 'warehouse', 'qty', 'price', 'remaining_qty', 'purchase_item')
 
     def has_add_permission(self, request):

@@ -1,0 +1,228 @@
+"""
+posting_core.py - pure ledger rules (no Django). Easy to unit-test.
+
+Rules
+-----
+* every entry needs at least two lines
+* a line has an account key, a side ('D' or 'C') and an amount > 0
+* total debit must equal total credit, to the paisa
+* a running balance follows the nature of the account (debit-nature: assets/expenses, credit-nature: the rest)
+"""
+from dataclasses import dataclass
+from decimal import Decimal, ROUND_HALF_UP
+
+DEBIT_NATURE = ('asset', 'expense')
+
+
+class PostingError(Exception):
+    """Raised when an entry cannot be posted (unbalanced, unmapped account, bad amount...)."""
+
+
+def q2(value):
+    return Decimal(str(value or 0)).quantize(Decimal('0.01'), ROUND_HALF_UP)
+
+
+@dataclass
+class Line:
+    account: object          # an Account instance, or any key in tests
+    side: str                # 'D' or 'C'
+    amount: Decimal
+    memo: str = ''
+    party: str = ''          # Step 4: 'C12' = customer 12, 'V3' = vendor 3 ('' = no party)
+
+
+def party_key(kind, pk):
+    """'C' (customer) or 'V' (vendor) + id, e.g. party_key('C', 12) -> 'C12'. Empty when there is no party."""
+    if not pk:
+        return ''
+    if kind not in ('C', 'V'):
+        raise PostingError(f'Bad party kind {kind!r} (use C or V).')
+    return f'{kind}{int(pk)}'
+
+
+def split_party(key):
+    """'C12' -> ('C', 12).  '' -> (None, None)."""
+    key = (key or '').strip()
+    if not key:
+        return None, None
+    return key[0], int(key[1:])
+
+
+def D(account, amount, memo='', party=''):
+    return Line(account, 'D', q2(amount), memo, party or '')
+
+
+def C(account, amount, memo='', party=''):
+    return Line(account, 'C', q2(amount), memo, party or '')
+
+
+def clean_lines(lines):
+    """Round, drop zero lines, merge nothing. Raises PostingError on bad data."""
+    out = []
+    for ln in lines:
+        if ln.side not in ('D', 'C'):
+            raise PostingError(f'Bad side {ln.side!r} (use D or C).')
+        amt = q2(ln.amount)
+        if amt < 0:
+            raise PostingError('Negative amount. Post the opposite side instead.')
+        if amt == 0:
+            continue
+        out.append(Line(ln.account, ln.side, amt, ln.memo, getattr(ln, 'party', '') or ''))
+    if len(out) < 2:
+        raise PostingError('An entry needs at least two lines with an amount.')
+    return out
+
+
+def totals(lines):
+    debit = sum((ln.amount for ln in lines if ln.side == 'D'), Decimal('0.00'))
+    credit = sum((ln.amount for ln in lines if ln.side == 'C'), Decimal('0.00'))
+    return debit, credit
+
+
+def check_balanced(lines):
+    debit, credit = totals(lines)
+    if debit != credit:
+        raise PostingError(f'Entry is not balanced: debit {debit} / credit {credit}.')
+    return debit
+
+
+def next_balance(previous, debit, credit, account_class):
+    """Running balance after one more ledger row."""
+    previous, debit, credit = q2(previous), q2(debit), q2(credit)
+    if account_class in DEBIT_NATURE:
+        return previous + debit - credit
+    return previous + credit - debit
+
+
+def line_signature(lines):
+    """Comparable form of an entry: sorted [(account id/key, side, amount, party)]. Used to skip no-change re-posts.
+    The party is part of it: moving a bill to another customer must re-post, even when the amounts are the same."""
+    out = []
+    for ln in lines:
+        acc = getattr(ln.account, 'pk', ln.account)
+        out.append((acc, ln.side, q2(ln.amount), getattr(ln, 'party', '') or ''))
+    return sorted(out, key=lambda t: (str(t[0]), t[1], t[2], t[3]))
+
+
+def prorate(total_cost, total_qty, qty):
+    """Cost of `qty` units out of a document line that cost `total_cost` for `total_qty` units (to the paisa).
+    Used for returns: a returned unit goes back into stock at the cost it left at, not at its selling price."""
+    total_cost, total_qty, qty = Decimal(str(total_cost or 0)), Decimal(str(total_qty or 0)), Decimal(str(qty or 0))
+    if total_qty <= 0 or qty <= 0 or total_cost <= 0:
+        return Decimal('0.00')
+    qty = min(qty, total_qty)               # never give back more than was sold
+    return q2(total_cost * qty / total_qty)
+
+
+def paid_gap(rows, unlinked=0):
+    """
+    Money written on bills (`paid`) that has no payment record.
+    rows      = [(paid_on_bill, recorded_payments_for_that_bill), ...]
+    unlinked  = payments of the same party that are not tied to one bill (ledger screen); they were spread over the bills
+    A bill with MORE records than `paid` (e.g. EMI receipts) never hides the gap of another bill.
+    """
+    gap = sum((max(Decimal('0'), Decimal(str(p or 0)) - Decimal(str(r or 0))) for p, r in rows), Decimal('0'))
+    return max(Decimal('0.00'), q2(gap - Decimal(str(unlinked or 0))))
+
+
+def split_vendor_gap(rows, unlinked=0):
+    """
+    Who paid the vendor money that has no payment record?  rows = [(paid, recorded, cash_used, shareholder_funded), ...]
+    Returns (cash, shareholder, other):  cash = the cash the bill says was used, shareholder = the rest of a bill
+    that was deducted from shareholders, other = everything else (bank / unknown -> mapped by the 'bill_paid' rule).
+    `unlinked` vendor payments are taken off 'other' first, then cash, then shareholder.
+    """
+    cash = share = other = Decimal('0')
+    for paid, recorded, cash_used, sh in rows:
+        paid, recorded, cash_used = Decimal(str(paid or 0)), Decimal(str(recorded or 0)), Decimal(str(cash_used or 0))
+        gap = max(Decimal('0'), paid - recorded)
+        c = min(gap, max(Decimal('0'), cash_used))
+        s = min(gap - c, max(Decimal('0'), paid - cash_used)) if sh else Decimal('0')
+        cash, share, other = cash + c, share + s, other + (gap - c - s)
+    parts = {'other': other, 'cash': cash, 'share': share}
+    left = Decimal(str(unlinked or 0))
+    for name in ('other', 'cash', 'share'):
+        take = min(left, parts[name])
+        parts[name] -= take
+        left -= take
+    cash, share, other = parts['cash'], parts['share'], parts['other']
+    return q2(cash), q2(share), q2(other)
+
+
+# ---------------------------------------------------------------------------
+# Step 4: customer / vendor sub-ledger rules (pure, no Django)
+# ---------------------------------------------------------------------------
+AGING_BUCKETS = ('0-30', '31-60', '61-90', '91+')
+
+
+def bucket_for(days):
+    """Age in days -> bucket label (same labels the old aging reports use)."""
+    if days <= 30:
+        return '0-30'
+    if days <= 60:
+        return '31-60'
+    if days <= 90:
+        return '61-90'
+    return '91+'
+
+
+def statement_rows(opening, rows, credit_nature=False):
+    """
+    Running balance for one party.
+    opening        balance before the first row (already in the party's own nature)
+    rows           [(date, debit, credit, ...anything)] in date order; extra items are carried along
+    credit_nature  False for customers (receivable: debit raises the balance), True for vendors (payable: credit raises it)
+    Returns [(*row, balance)] and the closing balance.
+    """
+    running = q2(opening)
+    out = []
+    for row in rows:
+        debit, credit = q2(row[1]), q2(row[2])
+        running += (credit - debit) if credit_nature else (debit - credit)
+        out.append((*row, running))
+    return out, running
+
+
+def age_open_items(opening, rows, as_of, credit_nature=False):
+    """
+    Ageing straight from the ledger, without matching a payment to a bill:
+    every credit (customer paid / vendor was paid / return) is applied to the OLDEST open charge first (FIFO).
+    What is left of the charges is aged by the date of the charge.
+
+    opening  balance before `rows` (an old balance counts as the oldest charge, aged from `opening_date` if rows[0] is later)
+    rows     [(date, debit, credit)] in date order
+    as_of    the day the age is counted to
+    Returns  (buckets, unapplied)   buckets = {'0-30': Decimal, ...}   unapplied = money paid in advance
+             (a customer who paid more than they owe, a vendor we paid more than we owe). Never negative.
+    """
+    charges = []                       # [[date, remaining]]
+    unapplied = Decimal('0.00')
+    opening = q2(opening)
+    first_date = rows[0][0] if rows else as_of
+    if opening > 0:
+        charges.append([first_date, opening])
+    elif opening < 0:
+        unapplied = -opening
+    for row in rows:
+        day = row[0]
+        debit, credit = q2(row[1]), q2(row[2])
+        charge, settle = (credit, debit) if credit_nature else (debit, credit)
+        if charge > 0:
+            use = min(unapplied, charge)         # an earlier advance covers the new charge first
+            unapplied -= use
+            if charge - use > 0:
+                charges.append([day, charge - use])
+        if settle > 0:
+            left = settle
+            for c in charges:
+                if left <= 0:
+                    break
+                take = min(c[1], left)
+                c[1] -= take
+                left -= take
+            unapplied += left
+    buckets = {b: Decimal('0.00') for b in AGING_BUCKETS}
+    for day, remaining in charges:
+        if remaining > 0:
+            buckets[bucket_for(max((as_of - day).days, 0))] += remaining
+    return buckets, q2(unapplied)

@@ -77,13 +77,13 @@ def _status_file() -> Path:
     return backup_dir() / ".status.json"
 
 
-# Retention (page se badli ja sakti hai). Haddein: (kam se kam, zyada se zyada)
+# Retention (can be changed from the page). Limits: (minimum, maximum)
 RETENTION_LIMITS = {"daily": (1, 60), "weekly": (0, 52), "monthly": (0, 60), "recent_hours": (1, 168)}
 _RET_KEYS = {k: f"backup_keep_{k}" for k in RETENTION_LIMITS}
 
 
 def retention():
-    """Tarteeb: code ke defaults -> settings.BACKUP_KEEP -> page se save ki hui values."""
+    """Order: code defaults -> settings.BACKUP_KEEP -> values saved from the page."""
     r = {"daily": 7, "weekly": 4, "monthly": 12, "recent_hours": 24}
     r.update(_cfg("BACKUP_KEEP", {}) or {})
     try:
@@ -99,7 +99,7 @@ def retention():
 
 
 def set_retention(values, user=None):
-    """values: {'daily': 7, ...}. Galat/hadd se bahar value par BackupError. Nayi retention wapas deta hai."""
+    """values: {'daily': 7, ...}. Raises BackupError for an invalid or out-of-range value. Returns the new retention."""
     from .models import SystemSetting
     clean = {}
     for k, (lo, hi) in RETENTION_LIMITS.items():
@@ -118,15 +118,15 @@ def set_retention(values, user=None):
 
 
 def preview_prune():
-    """Naam jo agli safai par hatenge (abhi kuch delete nahi hota)."""
+    """Names that will be removed in the next cleanup (nothing is deleted now)."""
     entries = [(p.name, _stamp(p.name)) for p in backup_dir().iterdir()
                if p.is_file() and _is_main(p.name) and _stamp(p.name)]
     return select_to_delete(entries)
 
 
 # --------------------------------------------------------------------------
-# History (kisne kya kiya). DB me nahi, backup folder me .history.jsonl:
-# restore se database purana ho jaye to bhi history mehfooz rehti hai.
+# History (who did what). Not in the DB, in the backup folder as .history.jsonl:
+# so the history stays safe even if a restore makes the database older.
 # --------------------------------------------------------------------------
 _HIST_LOCK = threading.Lock()
 
@@ -136,7 +136,7 @@ def _history_file() -> Path:
 
 
 def log_event(action, file="", status="ok", detail="", user="", ip=""):
-    """status: ok | warning | failed. Kabhi exception nahi uthata."""
+    """status: ok | warning | failed. Never raises an exception."""
     rec = {"time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "action": action,
            "file": file or "", "status": status, "detail": str(detail or "")[:300],
            "user": user or "system", "ip": ip or ""}
@@ -145,7 +145,7 @@ def log_event(action, file="", status="ok", detail="", user="", ip=""):
             path = _history_file()
             with open(path, "a", encoding="utf-8") as fh:
                 fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
-            if path.stat().st_size > 512 * 1024:  # bohat bari ho jaye to aakhri 1500 entries
+            if path.stat().st_size > 512 * 1024:  # if it gets very large, keep only the last 1500 entries
                 lines = path.read_text(encoding="utf-8").splitlines()[-1500:]
                 path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     except Exception as e:
@@ -153,7 +153,7 @@ def log_event(action, file="", status="ok", detail="", user="", ip=""):
 
 
 def read_history(limit=100):
-    """Sab se nayi entries pehle."""
+    """Newest entries first."""
     try:
         lines = _history_file().read_text(encoding="utf-8").splitlines()
     except Exception:
@@ -413,8 +413,8 @@ def _open_to_raw(path: Path, workdir: Path) -> Path:
 # --------------------------------------------------------------------------
 # Listing / retention
 # --------------------------------------------------------------------------
-# Naya naam : Farrukh_2026-10-16_Fri_07-30PM_Manual.sqlite3.gz
-# Purana naam: backup_20260802_101447.sqlite3.gz   (ab bhi chalta hai)
+# New name : Farrukh_2026-10-16_Fri_07-30PM_Manual.sqlite3.gz
+# Old name: backup_20260802_101447.sqlite3.gz   (still works)
 _MAIN_EXT = (".sqlite3.gz", ".sql.gz", ".sqlite3")
 _DOW = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 _NEW_RE = re.compile(
@@ -451,13 +451,13 @@ def _stamp(name: str):
 
 
 def _base(name: str) -> str:
-    """Backup ka base naam (extension ke baghair). Saath ki .json / .media.tar.gz files isi se judti hain."""
+    """Base name of the backup (without extension). The accompanying .json / .media.tar.gz files are linked to it."""
     parsed = _parse(name)
     return parsed[0] if parsed else name
 
 
 def _name_prefix() -> str:
-    """settings.BACKUP_NAME_PREFIX, warna company ke naam ka pehla lafz, warna 'Backup'."""
+    """settings.BACKUP_NAME_PREFIX, otherwise the first word of the company name, otherwise 'Backup'."""
     raw = _cfg("BACKUP_NAME_PREFIX", None)
     if not raw:
         try:
@@ -489,7 +489,7 @@ def _pretty_base(kind: str, now=None) -> str:
 
 
 def _unique_base(base: str, directory: Path) -> str:
-    """Ek hi minute me do backup hon to doosre ke aakhir me -2, -3 lag jata hai."""
+    """If two backups happen in the same minute, -2, -3 is added at the end of the second."""
     cand, n = base, 1
     while any(p.name.startswith(cand + ".") for p in directory.iterdir()):
         n += 1
@@ -498,7 +498,7 @@ def _unique_base(base: str, directory: Path) -> str:
 
 
 def make_base(kind: str = "Manual") -> str:
-    """Naye backup ka base naam, backup folder me unique."""
+    """Base name of the new backup, unique in the backup folder."""
     return _unique_base(_pretty_base(kind), backup_dir())
 
 

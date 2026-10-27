@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}Nayi ginti - {{ company_name }}{% endblock %}
+{% block extra_css %}{% include 'store_issue/_styles.html' %}{% endblock %}
+{% block content %}
+<div class="container-fluid px-4 py-4 si-page" style="max-width:720px">
+  <h1 class="h3 mb-3"><i class="bi bi-clipboard-plus text-primary me-2"></i>New count</h1>
+  <form method="post" class="si-card p-3">{% csrf_token %}
+    <label class="form-label fw-semibold">Store <span class="text-danger">*</span></label>
+    <select name="warehouse" class="form-select mb-3" required><option value="">Select...</option>
+      {% for s in stores %}<option value="{{ s.pk }}" {% if sel == s.pk|stringformat:"s" %}selected{% endif %}>{% if s.store_profile %}[{{ s.store_profile.code }}] {% endif %}{{ s.name }}</option>{% endfor %}</select>
+    <label class="form-label fw-semibold">Note</label>
+    <input name="notes" maxlength="255" class="form-control mb-3" placeholder="E.g.: monthly count, year-end count">
+    <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="include_zero" id="iz"><label class="form-check-label" for="iz">Include items whose stock is 0 too</label></div>
+    <div class="alert alert-info border-0 small">As soon as the count starts, the current system stock is recorded. Do not purchase, issue or transfer in that store during the count, or the difference will come out wrong.</div>
+    <div class="d-flex gap-2 justify-content-end"><a href="{% url 'store_count_list' %}" class="btn btn-light px-4">Cancel</a><button class="btn btn-primary px-4">Start count</button></div>
+  </form>
+</div>
+{% endblock %}

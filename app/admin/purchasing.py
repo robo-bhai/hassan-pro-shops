@@ -641,7 +641,7 @@ class PurchaseAdmin(admin.ModelAdmin):
     generate_html_report.short_description = 'Generate HTML Report'
     
     def generate_purchase_pdf(self, request, queryset):
-        """ReportLab use karke Purchase ka PDF report generate karein"""
+        """Generate the Purchase PDF report using ReportLab"""
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.5*inch, bottomMargin=0.5*inch)
         styles = getSampleStyleSheet()

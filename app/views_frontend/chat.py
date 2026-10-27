@@ -15,7 +15,7 @@ from ..models import CompanyInfo, ChatConversation, ChatMessage, ChatTypingStatu
 
 
 def _is_chat_admin(user):
-    """Check karo user chat admin hai ya nahi"""
+    """Check whether the user is a chat admin or not"""
     if user.is_superuser:
         return True
     if user.is_staff:
@@ -169,7 +169,7 @@ def admin_chat_detail(request, pk):
     
     chat_messages = conversation.messages.all().order_by('created_at')
     
-    # Admin ke unread messages ko read mark karo
+    # Mark the admin's unread messages as read
     unread_admin_msgs = chat_messages.filter(sender_type='customer', is_read=False)
     if unread_admin_msgs.exists():
         unread_admin_msgs.update(is_read=True, read_at=now())
@@ -227,7 +227,7 @@ def admin_chat_send(request):
             return JsonResponse({'success': False, 'message': 'Conversation ID required'})
         
         if not message_text:
-            return JsonResponse({'success': False, 'message': 'Message khali hai'})
+            return JsonResponse({'success': False, 'message': 'Message is empty'})
         
         if len(message_text) > 2000:
             return JsonResponse({'success': False, 'message': 'Message bohot lamba (max 2000 chars)'})
@@ -286,7 +286,7 @@ def admin_chat_send(request):
 
 @login_required
 def admin_chat_messages_api(request, pk):
-    """AJAX: Admin ke liye naye messages fetch karo (polling) — FIXED"""
+    """AJAX: Fetch new messages for the admin (polling) — FIXED"""
     
     if not _is_chat_admin(request.user):
         return JsonResponse({'success': False, 'messages': []})
@@ -318,7 +318,7 @@ def admin_chat_messages_api(request, pk):
                 'created_at': msg.created_at.strftime('%I:%M %p'),
             })
             
-            # ✅ Sirf customer messages jo unread hain
+            # ✅ Only customer messages that are unread
             if msg.sender_type == 'customer' and not msg.is_read:
                 unread_ids.append(msg.id)
         

@@ -36,8 +36,8 @@ class Vendor(models.Model):
     vendor_code = models.CharField(
         max_length=50, 
         unique=True, 
-        null=True,          # ✅ Migration ke liye temporarily null allow
-        blank=True,         # ✅ Form mein temporarily blank allow
+        null=True,          # ✅ Temporarily allow null for the migration
+        blank=True,         # ✅ Temporarily allow blank in the form
         verbose_name=_("Vendor Code"),
         help_text="Enter unique vendor code manually (e.g., VEN-001, SUP-001)"
     )
@@ -84,7 +84,7 @@ class Vendor(models.Model):
         return self.opening_balance + total_purchases - total_paid - purchase_returns
 
     def save(self, *args, **kwargs):
-        # ✅ Agar vendor_code empty hai to auto-generate karo
+        # ✅ If vendor_code is empty, auto-generate it
         if not self.vendor_code:
             last_vendor = Vendor.objects.exclude(
                 vendor_code__isnull=True
@@ -138,7 +138,7 @@ class PurchaseOrder(models.Model):
     blank=True,
     null=True,
     verbose_name="Vendor SO Number",
-    help_text="Vendor ke system ka Sale Order number"
+    help_text="Sale Order number in the vendor system"
 )
     converted_to_purchase = models.ForeignKey('Purchase', on_delete=models.SET_NULL, null=True, blank=True, related_name='converted_from_order')
     
@@ -580,6 +580,9 @@ class Purchase(models.Model):
         
         # Set default warehouse
         if not self.warehouse:
+            from django.conf import settings as _settings
+            if getattr(_settings, 'PURCHASE_REQUIRE_WAREHOUSE', False):
+                raise ValidationError("Selecting a Store (warehouse) is required, so the stock goes into the right store.")
             self.warehouse = Warehouse.objects.first()
         
         # Set monthly closing
@@ -887,7 +890,7 @@ class PurchaseRetrn(models.Model):
             
             history.append({
                 'return_id': ret.id,
-                'date': ret.purchase_return_date.strftime('%d-%m-%Y %H:%M'),
+                'date': ret.purchase_return_date.strftime('%d-%m-%Y %I:%M %p'),
                 'reason': ret.get_return_reason_display(),
                 'bill_no': ret.bill_no or 'N/A',
                 'items': items,
@@ -1069,7 +1072,7 @@ class PurchaseRetrn(models.Model):
     @property
     def formatted_date(self):
         """Formatted return date"""
-        return self.purchase_return_date.strftime('%d-%m-%Y %H:%M')
+        return self.purchase_return_date.strftime('%d-%m-%Y %I:%M %p')
     
     @property
     def vendor_name(self):
@@ -1342,8 +1345,8 @@ class PurchaseRetrnItem(models.Model):
 
             if qty_diff != 0:
                 try:
-                    self.adjust_batches(qty_diff, warehouse)  # ✅ Decimal pass ho raha hai
-                    Inventory.update_stock(self.product, -float(qty_diff), warehouse)  # ✅ float mein convert
+                    self.adjust_batches(qty_diff, warehouse)  # ✅ Decimal is being passed
+                    Inventory.update_stock(self.product, -float(qty_diff), warehouse)  # ✅ convert to float
                 except Exception as e:
                     raise ValidationError(f"Cannot update return: {str(e)}")
         else:
@@ -1361,7 +1364,7 @@ class PurchaseRetrnItem(models.Model):
         Adjust stock batches with warehouse
         qty_diff: Decimal
         """
-        # ✅ qty_diff ko float mein convert karo for calculations
+        # ✅ Convert qty_diff to float for calculations
         qty_diff_float = float(qty_diff)
         remaining_qty_to_adjust = abs(qty_diff_float)
         
@@ -1429,7 +1432,7 @@ class PurchaseRetrnItem(models.Model):
                 f"Price mismatch: Purchase price is {purchase_item.price}, but return price is {self.price}."
             )
 
-        if self.qty > purchase_item.qty:
+        if self.qty > Decimal(str(purchase_item.qty)) + Decimal('0.005'):
             raise ValidationError(
                 f"Quantity exceeds purchase limit: Purchased quantity is {purchase_item.qty}, but return quantity is {self.qty}."
             )
@@ -1560,6 +1563,105 @@ class VendorPayment(models.Model):
         return f"{self.vendor.name} - Rs. {self.amount:,.2f} - {self.payment_date.strftime('%d-%m-%Y')}"
 
 
+class MonthlyPlanBatch(models.Model):
+    """
+    Multi-product monthly plan.
+
+    One plan for a month that holds many products (its lines) and shows one grand total.
+    Every line is a normal MonthlyPurchasePlan row linked through `batch`, so approve, edit,
+    complete, Purchase Order and history keep working for each line exactly as before.
+    """
+    batch_no = models.CharField(max_length=20, unique=True, editable=False, default='')
+    title = models.CharField(max_length=200, blank=True, default='')
+    month = models.DateField(help_text="First day of the month")
+    warehouse = models.ForeignKey(
+        'Warehouse',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='plan_batches',
+        help_text="Warehouse used for all lines"
+    )
+    notes = models.TextField(blank=True, null=True)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='created_plan_batches'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = "📦 Multi-Product Monthly Plans"
+        ordering = ['-month', '-id']
+
+    def __str__(self):
+        return f"{self.batch_no} - {self.month.strftime('%B %Y')}"
+
+    def save(self, *args, **kwargs):
+        if not self.batch_no:
+            last = MonthlyPlanBatch.objects.order_by('-id').first()
+            try:
+                num = int(last.batch_no.split('-')[1]) + 1 if last and last.batch_no else 1
+            except (ValueError, IndexError):
+                num = 1
+            self.batch_no = f'MB-{str(num).zfill(4)}'
+        super().save(*args, **kwargs)
+
+    # ---------------- totals ---------------- #
+    def get_totals(self):
+        """Grand totals of all lines that are not cancelled."""
+        from django.db.models import Count
+        agg = self.lines.exclude(status='cancelled').aggregate(
+            products=Count('id'),
+            sale_qty=Sum('expected_sales_quantity'),
+            buy_qty=Sum('purchase_quantity'),
+            sales_amount=Sum('expected_sales_amount'),
+            purchase_amount=Sum('total_purchase_amount'),
+        )
+        return {
+            'products': agg['products'] or 0,
+            'sale_qty': agg['sale_qty'] or 0,
+            'buy_qty': agg['buy_qty'] or 0,
+            'sales_amount': agg['sales_amount'] or Decimal('0.00'),
+            'purchase_amount': agg['purchase_amount'] or Decimal('0.00'),
+        }
+
+    @property
+    def overall_status(self):
+        """One status for the whole plan, worked out from its lines."""
+        statuses = list(self.lines.values_list('status', flat=True))
+        active = [s for s in statuses if s != 'cancelled']
+        if not statuses:
+            return 'draft'
+        if not active:
+            return 'cancelled'
+        if all(s == 'completed' for s in active):
+            return 'completed'
+        if any(s == 'in_progress' for s in active):
+            return 'in_progress'
+        if all(s == 'approved' for s in active):
+            return 'approved'
+        if any(s == 'draft' for s in active):
+            return 'draft'
+        return 'in_progress'
+
+    @property
+    def overall_status_display(self):
+        return dict(MonthlyPurchasePlan.STATUS_CHOICES).get(self.overall_status, self.overall_status)
+
+    @property
+    def overall_status_color(self):
+        return {
+            'draft': 'secondary',
+            'approved': 'primary',
+            'in_progress': 'warning',
+            'completed': 'success',
+            'cancelled': 'danger',
+        }.get(self.overall_status, 'secondary')
+
+
 class MonthlyPurchasePlan(models.Model):
     """
     Monthly Purchase Plan - Complete with Version Tracking, Inventory Integration & Safe Conversion
@@ -1599,6 +1701,14 @@ class MonthlyPurchasePlan(models.Model):
         blank=True, 
         related_name='improved_plans',
         help_text="Previous plan that was improved"
+    )
+    batch = models.ForeignKey(
+        'MonthlyPlanBatch',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='lines',
+        help_text="Multi-product plan this line belongs to"
     )
     
     # ========================================== #
@@ -2086,12 +2196,12 @@ class MonthlyPurchasePlan(models.Model):
     @classmethod
     def get_latest_plan(cls, month):
         """Get latest plan for a month"""
-        return cls.objects.filter(month=month, is_latest=True).first()
+        return cls.objects.filter(month=month, is_latest=True, batch__isnull=True).first()
     
     @classmethod
     def get_all_plans_for_month(cls, month):
         """Get all plans for a month"""
-        return cls.objects.filter(month=month).order_by('-version')
+        return cls.objects.filter(month=month, batch__isnull=True).order_by('-version')
     
     @classmethod
     def create_new_version(cls, month, user, **kwargs):
@@ -2100,10 +2210,10 @@ class MonthlyPurchasePlan(models.Model):
         
         with transaction.atomic():
             # Mark all existing as not latest
-            cls.objects.filter(month=month).update(is_latest=False)
+            cls.objects.filter(month=month, batch__isnull=True).update(is_latest=False)
             
             # Get last version
-            last_plan = cls.objects.filter(month=month).order_by('-version').first()
+            last_plan = cls.objects.filter(month=month, batch__isnull=True).order_by('-version').first()
             new_version = (last_plan.version + 1) if last_plan else 1
             
             # Create new plan

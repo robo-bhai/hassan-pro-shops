@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block title %}Shift #{{ shift.pk }} - {{ company_name }}{% endblock %}
+{% block extra_css %}<style>@media print{.no-print,.sidebar,nav,header{display:none!important}.card{border:0!important}body{background:#fff!important}}</style>{% endblock %}
+{% block content %}
+<div class="container-fluid px-2 px-md-4 py-3" style="max-width:760px">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 no-print">
+    <h1 class="h4 mb-0">Shift #{{ shift.pk }} report</h1>
+    <div class="d-flex gap-2"><a href="{% url 'shift_list' %}" class="btn btn-outline-secondary btn-sm">&larr; Shifts</a>
+      <button class="btn btn-primary btn-sm" onclick="window.print()"><i class="bi bi-printer"></i> Print</button></div>
+  </div>
+  {% for m in messages %}<div class="alert alert-{{ m.tags|default:'info' }} py-2 no-print">{{ m }}</div>{% endfor %}
+  <div class="card"><div class="card-body">
+    <div class="text-center mb-3"><div class="h5 mb-0">{{ company_name }}</div><div class="small text-muted">{{ shift.warehouse.name }} &middot; Shift / Day-close report</div></div>
+    <div class="row small mb-3">
+      <div class="col-6">Cashier: <b>{{ shift.user.get_username }}</b><br>Started: {{ shift.opened_at|date:"d M Y h:i A" }}</div>
+      <div class="col-6 text-end">{% if shift.status == 'closed' %}Closed: {{ shift.closed_at|date:"d M Y h:i A" }}<br>Closed by: {{ shift.closed_by.get_username|default:"-" }}{% else %}<span class="badge bg-success">Currently open</span>{% endif %}</div>
+    </div>
+    <table class="table table-sm">
+      <tr><td>Bills</td><td class="text-end">{{ t.sales_count }}</td></tr>
+      <tr><td>Total sales</td><td class="text-end fw-semibold">{{ t.total_sales|floatformat:2 }}</td></tr>
+      <tr><td class="ps-3 text-muted">Discount</td><td class="text-end text-muted">{{ t.discount_total|floatformat:2 }}</td></tr>
+      <tr><td class="ps-3 text-muted">Credit</td><td class="text-end text-muted">{{ t.credit_given|floatformat:2 }}</td></tr>
+      <tr><td>Cash</td><td class="text-end">{{ t.cash_sales|floatformat:2 }}</td></tr>
+      <tr><td>Bank transfer</td><td class="text-end">{{ t.bank_sales|floatformat:2 }}</td></tr>
+      {% if t.other_sales %}<tr><td class="text-muted">Other (older payments)</td><td class="text-end text-muted">{{ t.other_sales|floatformat:2 }}</td></tr>{% endif %}
+      <tr><td>Opening cash</td><td class="text-end">{{ shift.opening_cash|floatformat:2 }}</td></tr>
+      <tr><td>Cash in / out</td><td class="text-end">+{{ t.cash_in|floatformat:2 }} / -{{ t.cash_out|floatformat:2 }}</td></tr>
+      <tr class="table-light"><th>Expected in drawer</th><th class="text-end">{{ t.expected_cash|floatformat:2 }}</th></tr>
+      {% if shift.status == 'closed' %}
+      <tr><th>Counted cash</th><th class="text-end">{{ t.counted_cash|floatformat:2 }}</th></tr>
+      <tr class="{% if t.difference < 0 %}table-danger{% elif t.difference > 0 %}table-warning{% else %}table-success{% endif %}">
+        <th>Difference {% if t.difference < 0 %}(short){% elif t.difference > 0 %}(over){% endif %}</th><th class="text-end">{{ t.difference|floatformat:2 }}</th></tr>
+      {% endif %}
+    </table>
+    {% if movements %}<div class="small"><b>Cash in/out:</b>{% for m in movements %}<div>{{ m.created_at|date:"h:i A" }} &middot; {{ m.get_kind_display }} {{ m.amount|floatformat:2 }} &middot; {{ m.reason }} <span class="text-muted">({{ m.created_by.get_username|default:"-" }})</span></div>{% endfor %}</div>{% endif %}
+    {% if shift.notes %}<div class="small mt-2"><b>Note:</b> {{ shift.notes }}</div>{% endif %}
+    <div class="row mt-5 small text-center"><div class="col-6"><div class="border-top pt-1">Cashier</div></div><div class="col-6"><div class="border-top pt-1">Manager</div></div></div>
+  </div></div>
+</div>
+{% if print %}<script>window.addEventListener('load',function(){window.print();});</script>{% endif %}
+{% endblock %}

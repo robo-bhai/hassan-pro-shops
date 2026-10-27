@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Shifts - {{ company_name }}{% endblock %}
+{% block content %}
+<div class="container-fluid px-2 px-md-4 py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div><h1 class="h4 mb-0"><i class="bi bi-clock-history text-primary me-2"></i>Shifts &amp; Day close</h1>
+      <div class="text-muted small">Each cashier shift, drawer totals and the daily summary</div></div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a href="{% url 'pos_screen' %}" class="btn btn-primary btn-sm"><i class="bi bi-lightning-charge"></i> POS</a>
+      {% if my_open %}<a href="{% url 'shift_close' %}" class="btn btn-outline-danger btn-sm">Close my shift (#{{ my_open.pk }})</a>{% endif %}
+    </div>
+  </div>
+  {% for m in messages %}<div class="alert alert-{{ m.tags|default:'info' }} py-2">{{ m }}</div>{% endfor %}
+
+  <form method="get" class="card card-body mb-3"><div class="row g-2 align-items-end">
+    <div class="col-6 col-md-2"><label class="form-label small mb-1">From</label><input type="date" name="from" value="{{ from }}" class="form-control"></div>
+    <div class="col-6 col-md-2"><label class="form-label small mb-1">To</label><input type="date" name="to" value="{{ to }}" class="form-control"></div>
+    <div class="col-6 col-md-3"><label class="form-label small mb-1">Store</label><select name="store" class="form-select"><option value="">All</option>
+      {% for s in stores %}<option value="{{ s.pk }}" {% if store == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>{% endfor %}</select></div>
+    {% if cashiers %}<div class="col-6 col-md-2"><label class="form-label small mb-1">Cashier</label><select name="cashier" class="form-select"><option value="">All</option>
+      {% for u in cashiers %}<option value="{{ u.pk }}" {% if cashier == u.pk|stringformat:"s" %}selected{% endif %}>{{ u.username }}</option>{% endfor %}</select></div>{% endif %}
+    <div class="col-12 col-md-3 d-flex gap-2"><button class="btn btn-primary flex-fill">Show</button>
+      <button name="export" value="csv" class="btn btn-outline-success" title="CSV"><i class="bi bi-download"></i></button></div>
+  </div></form>
+
+  <h2 class="h6 text-muted">Daily summary (Day close)</h2>
+  <div class="card mb-4"><div class="table-responsive"><table class="table table-sm align-middle mb-0">
+    <thead><tr><th>Date</th><th class="text-end">Shifts</th><th class="text-end">Bills</th><th class="text-end">Sales</th><th class="text-end">Cash</th><th class="text-end">Bank/Other</th><th class="text-end">Expected</th><th class="text-end">Counted</th><th class="text-end">Difference</th></tr></thead>
+    <tbody>{% for d in days %}<tr><td>{{ d.date|date:"d M Y" }}{% if d.open %} <span class="badge bg-success">{{ d.open }} open</span>{% endif %}</td>
+      <td class="text-end">{{ d.shifts }}</td><td class="text-end">{{ d.sales }}</td><td class="text-end fw-semibold">{{ d.total|floatformat:2 }}</td>
+      <td class="text-end">{{ d.cash|floatformat:2 }}</td><td class="text-end">{{ d.other|floatformat:2 }}</td><td class="text-end">{{ d.expected|floatformat:2 }}</td>
+      <td class="text-end">{{ d.counted|floatformat:2 }}</td><td class="text-end {% if d.diff < 0 %}text-danger{% elif d.diff > 0 %}text-warning{% endif %}">{{ d.diff|floatformat:2 }}</td></tr>
+    {% empty %}<tr><td colspan="9" class="text-center text-muted py-3">No shifts in this period.</td></tr>{% endfor %}</tbody></table></div></div>
+
+  <h2 class="h6 text-muted">Shifts</h2>
+  <div class="card"><div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+    <thead><tr><th>#</th><th>Cashier</th><th>Store</th><th>Started</th><th>Status</th><th class="text-end">Sales</th><th class="text-end">Expected</th><th class="text-end">Difference</th><th></th></tr></thead>
+    <tbody>{% for r in rows %}<tr>
+      <td>{{ r.s.pk }}</td><td>{{ r.s.user.get_username }}</td><td>{{ r.s.warehouse.name }}</td><td class="text-nowrap small">{{ r.s.opened_at|date:"d M h:i A" }}</td>
+      <td>{% if r.s.status == 'open' %}<span class="badge bg-success">Open</span>{% else %}<span class="badge bg-secondary">Closed</span>{% endif %}</td>
+      <td class="text-end">{{ r.t.total_sales|floatformat:2 }}</td><td class="text-end">{{ r.t.expected_cash|floatformat:2 }}</td>
+      <td class="text-end {% if r.t.difference and r.t.difference < 0 %}text-danger fw-semibold{% elif r.t.difference and r.t.difference > 0 %}text-warning{% endif %}">{% if r.t.difference is not None %}{{ r.t.difference|floatformat:2 }}{% else %}-{% endif %}</td>
+      <td class="text-end text-nowrap">{% if r.s.status == 'open' %}<a href="{% url 'shift_close_pk' r.s.pk %}" class="btn btn-sm btn-outline-danger">Close</a>{% endif %}
+        <a href="{% url 'shift_report' r.s.pk %}" class="btn btn-sm btn-outline-primary">Report</a></td></tr>
+    {% empty %}<tr><td colspan="9" class="text-center text-muted py-3">No shifts found.</td></tr>{% endfor %}</tbody></table></div></div>
+</div>
+{% endblock %}

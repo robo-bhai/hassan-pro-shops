@@ -1,0 +1,78 @@
+{% load humanize %}
+{% comment %}
+    Budget vs Plan bar.
+    Needs: budget  (dict made by _mp_budget() in views_frontend/purchasing.py)
+    Budget limit = investor balance + available cash.
+      green  = plan is inside the investor balance
+      amber  = plan is above the investor balance (available cash will be needed)
+      red    = plan is above the limit (OVER BUDGET)
+    The form page updates the same element ids live with JavaScript (budgetUpdate).
+{% endcomment %}
+<style>
+    .bvp-top { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+    .bvp-title { font-weight:700; font-size:1.02rem; }
+    .bvp-badge { padding:4px 12px; border-radius:20px; font-size:.78rem; font-weight:700; color:#fff; letter-spacing:.3px; }
+    .bvp-badge.bvp-empty { background:#6c757d; }
+    .bvp-badge.bvp-ok    { background:#198754; }
+    .bvp-badge.bvp-warn  { background:#f59e0b; color:#212529; }
+    .bvp-badge.bvp-over  { background:#dc3545; animation:bvpPulse 1.2s infinite; }
+    .bvp-track { position:relative; height:26px; background:#e9ecef; border-radius:13px; overflow:visible; }
+    .bvp-fill { height:100%; border-radius:13px; transition:width .35s ease, background .35s; min-width:0; }
+    .bvp-fill.bvp-empty { background:#adb5bd; }
+    .bvp-fill.bvp-ok    { background:linear-gradient(90deg,#20c997,#198754); }
+    .bvp-fill.bvp-warn  { background:linear-gradient(90deg,#ffc107,#f59e0b); }
+    .bvp-fill.bvp-over  { background:repeating-linear-gradient(45deg,#dc3545,#dc3545 10px,#b02a37 10px,#b02a37 20px); }
+    .bvp-mark { position:absolute; top:-5px; bottom:-5px; width:3px; background:#1a1a2e; border-radius:2px; transition:left .35s ease; }
+    .bvp-mark span { position:absolute; top:-18px; left:50%; transform:translateX(-50%); font-size:.62rem; font-weight:700; color:#1a1a2e; white-space:nowrap; }
+    .bvp-scale { display:flex; justify-content:space-between; font-size:.72rem; color:#6c757d; margin-top:6px; }
+    .bvp-stat { background:#f8f9fc; border-radius:10px; padding:10px 12px; height:100%; }
+    .bvp-stat small { display:block; color:#6c757d; text-transform:uppercase; letter-spacing:.3px; font-size:.66rem; }
+    .bvp-stat b { font-size:1.02rem; }
+    .bvp-meter { height:9px; background:#e9ecef; border-radius:5px; overflow:hidden; margin-top:4px; }
+    .bvp-meter > div { height:100%; border-radius:5px; transition:width .35s ease; background:#198754; }
+    .bvp-meter > div.bvp-bad { background:#dc3545; }
+    .bvp-msg { margin-top:14px; padding:11px 14px; border-radius:10px; font-size:.9rem; border-left:5px solid; }
+    .bvp-msg.bvp-empty { background:#f1f3f5; border-color:#adb5bd; color:#495057; }
+    .bvp-msg.bvp-ok    { background:#e8f7ef; border-color:#198754; color:#0f5132; }
+    .bvp-msg.bvp-warn  { background:#fff4d6; border-color:#f59e0b; color:#664d03; }
+    .bvp-msg.bvp-over  { background:#fdecea; border-color:#dc3545; color:#842029; font-weight:600; }
+    @keyframes bvpPulse { 0%,100% { box-shadow:0 0 0 0 rgba(220,53,69,.55); } 50% { box-shadow:0 0 0 7px rgba(220,53,69,0); } }
+</style>
+
+<div id="bvp" data-investor="{{ budget.investor|stringformat:'f' }}" data-cash="{{ budget.cash|stringformat:'f' }}">
+    <div class="bvp-top">
+        <div class="bvp-title"><i class="bi bi-speedometer2 me-1"></i> Plan vs Budget</div>
+        <span class="bvp-badge bvp-{{ budget.level }}" id="bvpBadge">{{ budget.badge }}</span>
+    </div>
+
+    <div style="padding-top:16px;">
+        <div class="bvp-track">
+            <div class="bvp-fill bvp-{{ budget.level }}" id="bvpFill" style="width:{{ budget.fill_pct|stringformat:'.1f' }}%"></div>
+            <div class="bvp-mark" id="bvpMark" style="left:{{ budget.marker_pct|stringformat:'.1f' }}%" {% if not budget.investor %}hidden{% endif %}><span>Investor balance</span></div>
+        </div>
+    </div>
+    <div class="bvp-scale">
+        <span>Rs. 0</span>
+        <span id="bvpLimitLbl">Budget limit: Rs. {{ budget.limit|floatformat:0|intcomma }}</span>
+    </div>
+
+    <div class="row g-2 mt-2">
+        <div class="col-6 col-md-3"><div class="bvp-stat"><small>Plan amount</small><b id="bvpPlan">Rs. {{ budget.plan|floatformat:0|intcomma }}</b></div></div>
+        <div class="col-6 col-md-3"><div class="bvp-stat"><small>Investor balance</small><b class="text-success">Rs. {{ budget.investor|floatformat:0|intcomma }}</b></div></div>
+        <div class="col-6 col-md-3"><div class="bvp-stat"><small>Available cash</small><b class="text-info">Rs. {{ budget.cash|floatformat:0|intcomma }}</b></div></div>
+        <div class="col-6 col-md-3"><div class="bvp-stat"><small id="bvpLeftLbl">{{ budget.left_label }}</small><b id="bvpLeft" class="{% if budget.level == 'over' %}text-danger{% endif %}">Rs. {{ budget.left_value|floatformat:0|intcomma }}</b></div></div>
+    </div>
+
+    <div class="row g-3 mt-1">
+        <div class="col-md-6">
+            <div class="d-flex justify-content-between small"><span>Plan vs investor balance</span><b id="bvpInvPct">{{ budget.inv_pct|floatformat:0 }}%</b></div>
+            <div class="bvp-meter"><div id="bvpInvFill" class="{% if budget.inv_pct > 100 %}bvp-bad{% endif %}" style="width:{{ budget.inv_width|stringformat:'.1f' }}%"></div></div>
+        </div>
+        <div class="col-md-6">
+            <div class="d-flex justify-content-between small"><span>Plan vs available cash</span><b id="bvpCashPct">{{ budget.cash_pct|floatformat:0 }}%</b></div>
+            <div class="bvp-meter"><div id="bvpCashFill" class="{% if budget.cash_pct > 100 %}bvp-bad{% endif %}" style="width:{{ budget.cash_width|stringformat:'.1f' }}%"></div></div>
+        </div>
+    </div>
+
+    <div class="bvp-msg bvp-{{ budget.level }}" id="bvpMsg" role="alert">{{ budget.message }}</div>
+</div>

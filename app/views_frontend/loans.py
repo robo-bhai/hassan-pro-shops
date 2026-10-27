@@ -845,7 +845,7 @@ def loan_export_report(request):
     ws1['A2'].alignment = Alignment(horizontal='center')
     
     ws1.merge_cells('A3:H3')
-    ws1['A3'] = f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}"
+    ws1['A3'] = f"Generated: {datetime.now().strftime('%d-%m-%Y %I:%M %p')}"
     ws1['A3'].alignment = Alignment(horizontal='center')
     
     # Headers
@@ -1027,7 +1027,7 @@ def loan_export_pdf(request):
     
     story.append(Paragraph(company_name, title_style))
     story.append(Paragraph("LOAN MANAGEMENT REPORT", title_style))
-    story.append(Paragraph(f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}", styles['Normal']))
+    story.append(Paragraph(f"Generated: {datetime.now().strftime('%d-%m-%Y %I:%M %p')}", styles['Normal']))
     story.append(Spacer(1, 0.2*inch))
     
     # Summary Stats
@@ -1100,7 +1100,7 @@ def loan_export_pdf(request):
     
     # Footer
     story.append(Paragraph("This is a computer generated report.", styles['Normal']))
-    story.append(Paragraph(f"Generated on: {datetime.now().strftime('%d-%m-%Y %H:%M')}", styles['Normal']))
+    story.append(Paragraph(f"Generated on: {datetime.now().strftime('%d-%m-%Y %I:%M %p')}", styles['Normal']))
     
     doc.build(story)
     buffer.seek(0)

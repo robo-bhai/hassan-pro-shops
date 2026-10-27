@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block title %}Agri Edition{% endblock %}
+{% block extra_css %}{% include 'agri/_css.html' %}{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+      <h4 class="mb-0">🌾 Agri Edition <span class="agri-ur">/ زرعی ایڈیشن</span></h4>
+      <div class="text-muted small">Expiry control aur kisan ka udhaar, ek nazar mein</div>
+    </div>
+    <div class="d-flex gap-2">
+      <a class="btn btn-sm btn-outline-danger" href="{% url 'agri_expiry' %}?f=expired">⏰ Expiry Manager</a>
+      <a class="btn btn-sm btn-outline-primary" href="{% url 'agri_credit' %}">💰 Kisan Udhaar</a>
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'agri_writeoffs' %}">📋 Write-off</a>
+    </div>
+  </div>
+
+  <h6 class="text-muted mb-2">⏰ Maal ki expiry <span class="agri-ur">/ میعاد</span></h6>
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-4 col-xl"><a class="agri-stat agri-red" href="{% url 'agri_expiry' %}?f=expired">
+      <div class="n">{{ buckets.expired.count }}</div><div class="l">Expire ho chuka</div><div class="v">Rs. {{ buckets.expired.value|floatformat:"0g" }}</div></a></div>
+    <div class="col-6 col-md-4 col-xl"><a class="agri-stat agri-orange" href="{% url 'agri_expiry' %}?f=30">
+      <div class="n">{{ buckets.d30.count }}</div><div class="l">30 din mein expire</div><div class="v">Rs. {{ buckets.d30.value|floatformat:"0g" }}</div></a></div>
+    <div class="col-6 col-md-4 col-xl"><a class="agri-stat agri-yellow" href="{% url 'agri_expiry' %}?f=60">
+      <div class="n">{{ buckets.d60.count }}</div><div class="l">31 - 60 din</div><div class="v">Rs. {{ buckets.d60.value|floatformat:"0g" }}</div></a></div>
+    <div class="col-6 col-md-4 col-xl"><a class="agri-stat agri-green" href="{% url 'agri_expiry' %}?f=90">
+      <div class="n">{{ buckets.d90.count }}</div><div class="l">61 - 90 din</div><div class="v">Rs. {{ buckets.d90.value|floatformat:"0g" }}</div></a></div>
+    <div class="col-12 col-md-4 col-xl"><a class="agri-stat agri-grey" href="{% url 'agri_expiry' %}?f=missing">
+      <div class="n">{{ buckets.missing.count }}</div><div class="l">Expiry date nahi daali</div><div class="v">Rs. {{ buckets.missing.value|floatformat:"0g" }}</div></a></div>
+  </div>
+
+  <h6 class="text-muted mb-2">💰 Kisan ka udhaar <span class="agri-ur">/ کسان کا ادھار</span></h6>
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3"><a class="agri-stat agri-blue" href="{% url 'agri_credit' %}">
+      <div class="n">Rs. {{ summary.total|floatformat:"0g" }}</div><div class="l">Kul baqaya ({{ summary.farmers }} kisan)</div></a></div>
+    <div class="col-6 col-md-3"><a class="agri-stat agri-red" href="{% url 'agri_credit' %}?f=overdue">
+      <div class="n">Rs. {{ summary.overdue_total|floatformat:"0g" }}</div><div class="l">Tareekh guzar gayi ({{ summary.overdue_farmers }} kisan)</div></a></div>
+    <div class="col-6 col-md-3"><a class="agri-stat agri-yellow" href="{% url 'agri_credit' %}?f=week">
+      <div class="n">{{ summary.week_farmers }}</div><div class="l">Is hafte wapsi wale kisan</div></a></div>
+    <div class="col-6 col-md-3"><a class="agri-stat agri-grey" href="{% url 'agri_credit' %}?f=nodate">
+      <div class="n">{{ summary.nodate_farmers }}</div><div class="l">Wapsi ki tareekh nahi lagi</div></a></div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-6">
+      <div class="card h-100"><div class="card-header fw-semibold">⏰ Jald expire hone wala maal</div>
+        <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+          <thead><tr><th>Product</th><th>Batch</th><th>Expiry</th><th class="text-end">Qty</th></tr></thead>
+          <tbody>
+          {% for r in soon_rows %}
+            <tr class="{% if r.status == 'expired' %}table-danger{% elif r.status == 'd30' %}table-warning{% endif %}">
+              <td>{{ r.b.product.name }}</td><td>{{ r.b.batch_no|default:"-" }}</td>
+              <td>{{ r.b.expiry_date|date:"d-m-Y" }}<div class="small text-muted">{% if r.days < 0 %}{{ r.days_abs }} din pehle{% else %}{{ r.days }} din baaqi{% endif %}</div></td>
+              <td class="text-end">{{ r.b.remaining_qty|floatformat:"-2" }}</td></tr>
+          {% empty %}
+            <tr><td colspan="4" class="text-center text-muted py-3">Koi maal 60 din mein expire nahi ho raha (ya expiry date abhi nahi daali).</td></tr>
+          {% endfor %}
+          </tbody></table></div></div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card h-100"><div class="card-header fw-semibold">🚨 Tareekh guzar chuki wapsi</div>
+        <div class="card-body">
+          {% for r in late_rows %}
+            <div class="d-flex justify-content-between align-items-center border-bottom py-2 gap-2">
+              <div><a href="{% url 'agri_farmer' r.customer.pk %}" class="fw-semibold text-decoration-none">{{ r.customer.name }}</a>
+                <div class="small text-muted">{{ r.customer.village|default:"" }} · {{ r.days_abs }} din late</div></div>
+              <div class="text-end"><div class="fw-bold">Rs. {{ r.balance|floatformat:"0g" }}</div>
+                {% if r.wa %}<a class="btn btn-sm btn-success py-0" target="_blank" rel="noopener" href="{{ r.wa }}">WhatsApp</a>{% endif %}</div>
+            </div>
+          {% empty %}
+            <div class="text-muted text-center py-3">Koi udhaar late nahi. Bills par wapsi ki tareekh lagayen taake yahan nazar aaye.</div>
+          {% endfor %}
+        </div></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

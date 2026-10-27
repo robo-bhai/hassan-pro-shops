@@ -4,7 +4,7 @@ from .models import SystemSetting, Purchase, ShareholderDepositRequest, Sharehol
 
 
 def _company_branding():
-    """Company ka naam aur logo (sidebar wagera ke liye)."""
+    """Company name and logo (for the sidebar etc.)."""
     company = CompanyInfo.objects.only("name", "logo").first()
     logo_url = None
     if company and company.logo:
@@ -21,36 +21,37 @@ def _company_branding():
 
 # ----------------------------------------------------------------------------
 # MODULE VISIBILITY (per business unit)
-# Har module ke liye 2 switch hain: Shop aur Factory.
-#   mode = shop    -> sirf Shop wale switch dekhe jate hain
-#   mode = factory -> sirf Factory wale switch dekhe jate hain
-#   mode = both    -> module tab dikhta hai jab Shop YA Factory me on ho
-# Jab tak aap switch off na karein, koi module hidden nahi hota (koi fixed rule nahi).
+# Each module has 2 switches: Shop and Factory.
+#   mode = shop    -> only the Shop switches are considered
+#   mode = factory -> only the Factory switches are considered
+#   mode = both    -> the module shows when it is ON in Shop OR Factory
+# No module is hidden until you turn its switch off (there is no fixed rule).
 # ----------------------------------------------------------------------------
-from .module_catalog import MODULE_CATALOG
+from .module_catalog import MODULE_CATALOG, get_module_catalog, get_module_keys
+from .i18n.i18n_lang import LANGUAGES, get_language
 
 MODULES = [m['key'] for m in MODULE_CATALOG]
 
-# Save se pehle ke defaults (catalog me likhe): sab modules on. Sirf wohi hide hote hain jinka switch off ho.
+# Defaults before the first save (written in the catalog): all modules ON. Only those whose switch is off get hidden.
 _BUILTIN_DEFAULTS = {m['key']: {'shop': m['shop'], 'factory': m['factory']} for m in MODULE_CATALOG}
 
 
 def unit_enabled(module, unit):
-    """Kya 'module' is unit ('shop' ya 'factory') ke liye on hai?"""
+    """Is the 'module' ON for this unit ('shop' or 'factory')?"""
     master = SystemSetting.get_bool('show_%s_module' % module, True)   # purana global switch
     default = _BUILTIN_DEFAULTS.get(module, {}).get(unit, True) and master
     return SystemSetting.get_bool('mode_%s_%s' % (unit, module), default)
 
 
 def module_visibility():
-    """{module: True/False, '_mode': mode} - 60 second cache, save par foran clear hota hai."""
+    """{module: True/False, '_mode': mode} - 60 second cache, cleared immediately on save."""
     data = cache.get('module_visibility')
     if data is None:
         mode = SystemSetting.get_value('business_mode', 'both')
         if mode not in ('shop', 'factory', 'both'):
             mode = 'both'
         data = {'_mode': mode}
-        for m in MODULES:
+        for m in get_module_keys():
             shop, fac = unit_enabled(m, 'shop'), unit_enabled(m, 'factory')
             data[m] = shop if mode == 'shop' else fac if mode == 'factory' else (shop or fac)
         cache.set('module_visibility', data, 60)
@@ -59,8 +60,21 @@ def module_visibility():
 
 def system_settings(request):
     """Context processor to make system settings available in all templates"""
-    vis = module_visibility()
-    
+    from .store.store_access import module_scope, restrict_visibility
+    user = getattr(request, 'user', None)
+    store_scope = module_scope(user)                 # None = no restriction
+    _lang = get_language(request)
+    _i18n_ver = ''
+    if _lang['code'] != 'en':
+        try:
+            from django.core.cache import cache as _cache
+            from .i18n import i18n_service as _i18n
+            _i18n_ver = _cache.get_or_set('i18n_ver', _i18n.get_version, 30)
+        except Exception:
+            _i18n_ver = ''
+    _i18n_collect = bool(getattr(user, 'is_authenticated', False) and (user.is_superuser or user.is_staff))
+    vis = restrict_visibility(user, module_visibility())
+
     # Cache counts for 5 minutes to improve performance
     cache_key = 'sidebar_counts'
     counts = cache.get(cache_key)
@@ -104,8 +118,17 @@ def system_settings(request):
         # MODULE SETTINGS                            #
         # ========================================== #
         'BUSINESS_MODE': vis['_mode'],
+        # ===== LANGUAGE (en / ur / ar) =====
+        'LANG_CODE': _lang['code'], 'LANG_DIR': _lang['dir'], 'LANG_LABEL': _lang['native'],
+        'LANGUAGES': LANGUAGES,
+        'I18N_VERSION': _i18n_ver, 'I18N_COLLECT': _i18n_collect,
+        # True = this user is a member of a store's team: the sidebar shows only that store's modules
+        'STORE_RESTRICTED': store_scope is not None,
         # templates me: {% if MODULE_VISIBLE.loans %} ya {% if SHOW_LOANS_MODULE %}
         'MODULE_VISIBLE': {k: v for k, v in vis.items() if k != '_mode'},
+        # Sidebar links for newly auto-detected modules (the ones that are ON)
+        'AUTO_MODULES': [m for m in get_module_catalog()
+                         if m.get('auto') and vis.get(m['key'], True) and not store_scope],
         **{'SHOW_%s_MODULE' % k.upper(): v for k, v in vis.items() if k != '_mode'},
 
         # ========================================== #

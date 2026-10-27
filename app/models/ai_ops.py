@@ -3414,13 +3414,13 @@ class StrategyAllocation(models.Model):
 
 class EmergencyFund(models.Model):
     """
-    Emergency Fund - Bure waqt ke liye alag bachat
+    Emergency Fund - separate savings for hard times
     
     Features:
     - Target amount set karo
-    - Har mahine paisa jama karo
+    - Deposit money every month
     - Progress track karo
-    - Kitne mahine ka fund hai
+    - How many months the fund covers
     """
     
     FUND_TYPES = [
@@ -3455,14 +3455,14 @@ class EmergencyFund(models.Model):
         decimal_places=2,
         default=0,
         verbose_name="Target Amount",
-        help_text="Kitna paisa chahiye (3-6 mahine ka kharcha)"
+        help_text="How much money is needed (3-6 months of expenses)"
     )
     current_amount = models.DecimalField(
         max_digits=15, 
         decimal_places=2,
         default=0,
         verbose_name="Current Amount",
-        help_text="Kitna jama ho gaya"
+        help_text="How much has been saved"
     )
     monthly_contribution = models.DecimalField(
         max_digits=15,
@@ -3492,7 +3492,7 @@ class EmergencyFund(models.Model):
         null=True, 
         blank=True,
         verbose_name="Target Date",
-        help_text="Kab tak mukammal karna hai"
+        help_text="By when it should be completed"
     )
     
     # System Fields
@@ -3526,17 +3526,17 @@ class EmergencyFund(models.Model):
     
     @property
     def remaining_amount(self):
-        """Kitna paisa abhi bhi chahiye"""
+        """How much money is still needed"""
         return max(0, self.target_amount - self.current_amount)
     
     @property
     def is_completed(self):
-        """Kya fund mukammal hua"""
+        """Is the fund complete"""
         return self.current_amount >= self.target_amount
     
     @property
     def months_covered(self):
-        """Kitne mahine ka fund hai"""
+        """How many months the fund covers"""
         from . import Expense
         from datetime import date, timedelta
         
@@ -3552,7 +3552,7 @@ class EmergencyFund(models.Model):
     
     @property
     def months_remaining(self):
-        """Kitne mahine mein mukammal hoga"""
+        """In how many months it will be complete"""
         if self.monthly_contribution > 0:
             return float(self.remaining_amount / self.monthly_contribution)
         return 0
@@ -3576,13 +3576,13 @@ class EmergencyFund(models.Model):
     # ==========================================
     
     def add_money(self, amount, user=None, description=""):
-        """Fund mein paisa daalo"""
+        """Add money to the fund"""
         from decimal import Decimal
         
         amount = Decimal(str(amount))
         
         if amount <= 0:
-            raise ValidationError("Amount 0 se zyada hona chahiye")
+            raise ValidationError("Amount must be greater than 0")
         
         self.current_amount += amount
         self.save(update_fields=['current_amount', 'updated_at'])
@@ -3599,16 +3599,16 @@ class EmergencyFund(models.Model):
         return self.current_amount
     
     def withdraw_money(self, amount, user=None, reason=""):
-        """Bure waqt mein paisa nikalo"""
+        """Withdraw money in hard times"""
         from decimal import Decimal
         
         amount = Decimal(str(amount))
         
         if amount <= 0:
-            raise ValidationError("Amount 0 se zyada hona chahiye")
+            raise ValidationError("Amount must be greater than 0")
         
         if amount > self.current_amount:
-            raise ValidationError(f"Sirf Rs. {self.current_amount} available hai")
+            raise ValidationError(f"Only Rs. {self.current_amount} is available")
         
         self.current_amount -= amount
         self.save(update_fields=['current_amount', 'updated_at'])

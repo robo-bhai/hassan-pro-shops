@@ -280,7 +280,7 @@ class Shareholder(models.Model):
     def deduct_purchase_equally(cls, purchase_amount, purchase_obj=None, user=None):
         """
         ✅ Deduct purchase amount equally from all shareholders
-        Jis ka balance zyada ho ya kam, sab se barabar deduction
+        Equal deduction from everyone, whether the balance is high or low
         ✅ FIXED: NO main cash deduction - only shareholder balances
         """
         from decimal import Decimal
@@ -367,9 +367,9 @@ class Shareholder(models.Model):
     def deduct_purchase_proportionally_by_balance(cls, purchase_amount, purchase_obj=None, user=None):
         """
         ✅ Deduct purchase amount proportionally by shareholder balance
-        Jis ka balance zyada, us ki deduction zyada
-        Jis ka balance kam, us ki deduction kam
-        Zero balance walo se kuch nahi kata
+        The higher the balance, the higher the deduction
+        The lower the balance, the lower the deduction
+        Nothing is deducted from those with zero balance
         ✅ FIXED: NO main cash deduction - only shareholder balances
         ✅ FIXED: Proper Decimal handling for withdrawal
         """
@@ -1889,7 +1889,7 @@ class DividendPayment(models.Model):
     # ============================================
     def mark_paid(self, payment_method=None, reference_no=None, processed_by=None):
         """
-        Mark dividend as paid - Shareholder ko paisa MILTA hai
+        Mark dividend as paid - the Shareholder RECEIVES the money
         ✅ FIXED: Complete double-payment protection
         """
         from decimal import Decimal
@@ -2722,7 +2722,7 @@ class MeetingAttendance(models.Model):
 
 
 class ShareholderCashBalance(models.Model):
-    """Har shareholder ka apna cash balance"""
+    """The cash balance of each shareholder"""
     
     shareholder = models.OneToOneField(
         'Shareholder', 
@@ -5581,12 +5581,12 @@ class ShareholderLoginRequest(models.Model):
     
     @property
     def formatted_date(self):
-        return self.requested_at.strftime('%d-%m-%Y %H:%M')
+        return self.requested_at.strftime('%d-%m-%Y %I:%M %p')
     
     @property
     def formatted_reviewed_date(self):
         if self.reviewed_at:
-            return self.reviewed_at.strftime('%d-%m-%Y %H:%M')
+            return self.reviewed_at.strftime('%d-%m-%Y %I:%M %p')
         return '-'
 
 

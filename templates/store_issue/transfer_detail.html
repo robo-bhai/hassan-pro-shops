@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block title %}{{ t.transfer_no }} - {{ company_name }}{% endblock %}
+{% block extra_css %}{% include 'store_issue/_styles.html' %}
+<style>.si-badge.in_transit{background:rgba(217,119,6,.14);color:#b45309}.si-badge.received{background:rgba(5,150,105,.12);color:#047857}</style>{% endblock %}
+{% block content %}
+<div class="container-fluid px-4 py-4 si-page">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+    <div><h1 class="h3 mb-1"><i class="bi bi-arrow-left-right text-primary me-2"></i>{{ t.transfer_no }}
+        <span class="si-badge {{ t.status }} ms-2">{{ t.get_status_display }}</span></h1>
+      <p class="text-muted small mb-0">{{ t.transfer_date|date:"d M Y, h:i A" }} &middot; {{ t.get_purpose_display }}</p></div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a href="{% url 'store_transfer_list' %}" class="btn btn-outline-secondary rounded-pill px-3"><i class="bi bi-arrow-left me-1"></i>Back</a>
+      <a href="{% url 'store_transfer_print' t.pk %}" target="_blank" class="btn btn-outline-primary rounded-pill px-3"><i class="bi bi-printer me-1"></i>Print</a>
+      {% if can_cancel %}<button class="btn btn-outline-danger rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#cancelModal"><i class="bi bi-x-circle me-1"></i>Cancel transfer</button>{% endif %}
+    </div>
+  </div>
+
+  {% if t.status == 'in_transit' %}
+  <div class="alert alert-warning border-0"><b>Goods are in transit.</b> It has left {{ t.from_warehouse.name }}, but has not reached {{ t.to_warehouse.name }} yet.
+    {% if can_receive %}Neeche quantity check karke Receive dabayein.{% else %}{{ t.to_warehouse.name }} ki team receive karegi.{% endif %}</div>
+  {% elif t.status == 'cancelled' %}
+  <div class="alert alert-danger border-0"><b>Cancelled</b> {{ t.cancelled_at|date:"d M Y h:i A" }} by {{ t.cancelled_by.get_username|default:"-" }}. Reason: {{ t.cancel_reason }}. The goods are back in {{ t.from_warehouse.name }}.</div>
+  {% else %}
+  <div class="alert alert-success border-0"><b>Received</b> {{ t.received_at|date:"d M Y h:i A" }} by {{ t.received_by.get_username|default:"-" }}.{% if t.receive_notes %} {{ t.receive_notes }}{% endif %}</div>
+  {% endif %}
+
+  <div class="row g-3 mb-3">
+    <div class="col-lg-8"><div class="si-card p-3 h-100"><div class="row g-3">
+      <div class="col-sm-6"><div class="si-stat">From<b>{{ t.from_warehouse.name }}</b></div></div>
+      <div class="col-sm-6"><div class="si-stat">To<b>{{ t.to_warehouse.name }}</b></div></div>
+      <div class="col-sm-6"><div class="si-stat">Bheja<b>{{ t.created_by.get_username|default:"-" }}</b></div></div>
+      <div class="col-sm-6"><div class="si-stat">Production order<b>{{ t.production_order.order_no|default:"-" }}</b></div></div>
+      <div class="col-12"><div class="si-stat">Notes<b class="fw-normal">{{ t.notes|default:"-"|linebreaksbr }}</b></div></div>
+    </div></div></div>
+    <div class="col-lg-4"><div class="si-card si-kpi h-100"><div class="ico bg-warning bg-opacity-10 text-warning"><i class="bi bi-cash-stack"></i></div>
+      <div><div class="lbl">Cost (FIFO)</div><div class="val">Rs. {{ t.total_cost|floatformat:2 }}</div></div></div></div>
+  </div>
+
+  <form method="post" action="{% url 'store_transfer_receive' t.pk %}">{% csrf_token %}
+  <div class="si-card"><div class="table-responsive">
+    <table class="table si-table align-middle mb-0">
+      <thead><tr><th>#</th><th>Item</th><th class="si-num">Bheja</th>
+        {% if can_receive %}<th style="width:150px">Received</th><th>Reason for shortage</th>{% elif t.status == 'received' %}<th class="si-num">Received</th><th class="si-num">Short</th><th>Reason</th>{% endif %}
+        <th class="si-num">Unit cost</th><th class="si-num">Total</th></tr></thead>
+      <tbody>
+      {% for it in items %}
+        <tr><td>{{ forloop.counter }}</td><td class="fw-semibold">{{ it.product.name }}</td>
+          <td class="si-num">{{ it.qty_sent|floatformat:"-3" }} {{ it.product.unit.name|default:"" }}</td>
+          {% if can_receive %}
+          <td><input type="number" step="any" min="0" max="{{ it.qty_sent }}" name="recv_{{ it.pk }}" value="{{ it.qty_sent }}" class="form-control form-control-sm recv-input" data-sent="{{ it.qty_sent }}"></td>
+          <td><input type="text" name="reason_{{ it.pk }}" maxlength="200" class="form-control form-control-sm" placeholder="Write only if less was received"></td>
+          {% elif t.status == 'received' %}
+          <td class="si-num">{{ it.qty_received|floatformat:"-3" }}</td>
+          <td class="si-num {% if it.qty_short %}text-danger fw-semibold{% endif %}">{{ it.qty_short|floatformat:"-3" }}</td>
+          <td class="small text-muted">{{ it.short_reason }}</td>
+          {% endif %}
+          <td class="si-num">{{ it.unit_cost|floatformat:2 }}</td><td class="si-num">{{ it.total_cost|floatformat:2 }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% if can_receive %}
+    <div class="p-3 border-top d-flex flex-wrap gap-2 align-items-center justify-content-between">
+      <input type="text" name="notes" maxlength="255" class="form-control" style="max-width:420px" placeholder="Receive ka note (optional)">
+      <button class="btn btn-success px-4"><i class="bi bi-box-arrow-in-down me-1"></i>Receive</button>
+    </div>
+    <div class="px-3 pb-3 small text-muted">If less was received, enter the lower quantity and write the reason. The short quantity will go back to the sending store.</div>
+    {% endif %}
+  </div>
+  </form>
+</div>
+
+{% if can_cancel %}
+<div class="modal fade" id="cancelModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered">
+  <form method="post" action="{% url 'store_transfer_cancel' t.pk %}" class="modal-content">{% csrf_token %}
+    <div class="modal-header"><h5 class="modal-title">Cancel {{ t.transfer_no }}?</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body"><p class="small text-muted">All the goods will come back to {{ t.from_warehouse.name }}.</p>
+      <label class="form-label">Wajah (zaroori)</label><input name="reason" class="form-control" maxlength="255" required></div>
+    <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button><button class="btn btn-danger">Cancel transfer</button></div>
+  </form></div></div>
+{% endif %}
+{% endblock %}

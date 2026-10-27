@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Stock Register - {{ company_name }}{% endblock %}
+{% block content %}
+<div class="container-fluid px-2 px-md-4 py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div><h1 class="h4 mb-0"><i class="bi bi-journal-text text-primary me-2"></i>Stock Register</h1>
+      <div class="text-muted small">Every stock in and out: purchases, sales, returns, transfers and adjustments</div></div>
+    <div class="d-flex gap-2"><a href="{% url 'pos_screen' %}" class="btn btn-primary btn-sm"><i class="bi bi-lightning-charge"></i> POS</a></div>
+  </div>
+
+  <form method="get" class="card card-body mb-3"><div class="row g-2 align-items-end">
+    <div class="col-6 col-md-2"><label class="form-label small mb-1">From</label><input type="date" name="from" value="{{ from }}" class="form-control"></div>
+    <div class="col-6 col-md-2"><label class="form-label small mb-1">To</label><input type="date" name="to" value="{{ to }}" class="form-control"></div>
+    <div class="col-12 col-md-3"><label class="form-label small mb-1">Product (name or barcode)</label><input name="q" value="{{ q }}" class="form-control" placeholder="All products"></div>
+    <div class="col-6 col-md-2"><label class="form-label small mb-1">Store</label><select name="store" class="form-select"><option value="">All</option>
+      {% for s in stores %}<option value="{{ s.pk }}" {% if store == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>{% endfor %}</select></div>
+    <div class="col-6 col-md-2"><label class="form-label small mb-1">Type</label><select name="type" class="form-select"><option value="">All</option>
+      {% for t in types %}<option value="{{ t }}" {% if type == t %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+    <div class="col-12 col-md-1 d-flex gap-2"><button class="btn btn-primary flex-fill">Show</button>
+      <button name="export" value="csv" class="btn btn-outline-success" title="Download CSV"><i class="bi bi-download"></i></button></div>
+  </div></form>
+
+  <div class="row g-2 mb-3 text-center">
+    <div class="col-4"><div class="card card-body py-2"><div class="small text-muted">Total in</div><div class="fs-5 fw-semibold text-success">{{ tot_in }}</div></div></div>
+    <div class="col-4"><div class="card card-body py-2"><div class="small text-muted">Total out</div><div class="fs-5 fw-semibold text-danger">{{ tot_out }}</div></div></div>
+    <div class="col-4"><div class="card card-body py-2"><div class="small text-muted">Net change</div><div class="fs-5 fw-semibold">{{ net }}</div></div></div>
+  </div>
+
+  <div class="card"><div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+    <thead><tr><th>Date</th><th>Product</th><th>Store</th><th>Type</th><th>Reference</th><th class="text-end">In</th><th class="text-end">Out</th><th>Party / Note</th></tr></thead>
+    <tbody>{% for r in rows %}<tr>
+      <td class="text-nowrap small">{{ r.date|date:"d M Y h:i A" }}</td><td>{{ r.product }}</td><td>{{ r.warehouse }}</td>
+      <td><span class="badge {% if r.qty_in %}bg-success-subtle text-success-emphasis{% else %}bg-danger-subtle text-danger-emphasis{% endif %}">{{ r.type }}</span></td>
+      <td>{{ r.ref }}</td><td class="text-end">{% if r.qty_in %}{{ r.qty_in }}{% endif %}</td><td class="text-end">{% if r.qty_out %}{{ r.qty_out }}{% endif %}</td>
+      <td class="small text-muted">{{ r.party }}{% if r.party and r.note %} &middot; {% endif %}{{ r.note }}</td></tr>
+    {% empty %}<tr><td colspan="8" class="text-center text-muted py-4">No stock movement in this period.</td></tr>{% endfor %}</tbody></table></div></div>
+  {% if truncated %}<div class="small text-muted mt-2">Showing the latest 1000 of {{ count }} lines. Narrow the dates or download the CSV.</div>{% endif %}
+</div>
+{% endblock %}

@@ -45,7 +45,7 @@ def subscription_plan_create(request):
     
     if request.method == 'POST':
         try:
-            # ✅ Saare 27 modules ka dict banao
+            # ✅ Build a dict of all 27 modules
             enabled_modules = {
                 'hr': request.POST.get('module_hr') == 'on',
                 'production': request.POST.get('module_production') == 'on',
@@ -114,7 +114,7 @@ def subscription_plan_edit(request, pk):
     
     if request.method == 'POST':
         try:
-            # ✅ Saare 27 modules ka dict banao
+            # ✅ Build a dict of all 27 modules
             enabled_modules = {
                 'hr': request.POST.get('module_hr') == 'on',
                 'production': request.POST.get('module_production') == 'on',

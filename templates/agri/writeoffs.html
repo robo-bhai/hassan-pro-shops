@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}Agri Write-off{% endblock %}
+{% block extra_css %}{% include 'agri/_css.html' %}{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+      <h4 class="mb-0">📋 Write-off record <span class="agri-ur">/ ضائع شدہ مال</span></h4>
+      <div class="text-muted small">Expired ya kharab maal jo stock se nikala gaya. Kul nuqsan: <b>Rs. {{ total|floatformat:"0g" }}</b></div>
+    </div>
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'agri_expiry' %}">← Expiry Manager</a>
+  </div>
+  <form method="get" class="row g-2 mb-3">
+    <div class="col-8 col-md-4"><input type="text" name="q" value="{{ q }}" class="form-control form-control-sm" placeholder="Product ya batch no"></div>
+    <div class="col-4 col-md-2"><button class="btn btn-sm btn-primary w-100">Talash</button></div>
+  </form>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead><tr><th>Tareekh</th><th>Product</th><th>Batch</th><th>Expiry</th><th class="text-end">Miqdar</th><th class="text-end">Cost</th><th class="text-end">Nuqsan</th><th>Wajah</th><th>Store</th><th>Kis ne</th></tr></thead>
+      <tbody>
+      {% for w in page %}
+        <tr>
+          <td>{{ w.created_at|date:"d-m-Y H:i" }}</td>
+          <td class="fw-semibold">{{ w.product.name }}</td>
+          <td>{{ w.batch_no|default:"—" }}</td>
+          <td>{{ w.expiry_date|date:"d-m-Y"|default:"—" }}</td>
+          <td class="text-end">{{ w.qty|floatformat:"-2" }}</td>
+          <td class="text-end">{{ w.unit_cost|floatformat:2 }}</td>
+          <td class="text-end">Rs. {{ w.value|floatformat:"0g" }}</td>
+          <td>{{ w.get_reason_display }}{% if w.note %}<br><small class="text-muted">{{ w.note }}</small>{% endif %}</td>
+          <td>{{ w.warehouse.name }}</td>
+          <td>{{ w.created_by.get_username|default:"—" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="10" class="text-center text-muted py-4">Abhi tak koi write-off nahi hua.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if page.paginator.num_pages > 1 %}
+  <nav class="mt-3"><ul class="pagination pagination-sm flex-wrap">
+    {% if page.has_previous %}<li class="page-item"><a class="page-link" href="?q={{ q|urlencode }}&page={{ page.previous_page_number }}">‹</a></li>{% endif %}
+    <li class="page-item disabled"><span class="page-link">{{ page.number }} / {{ page.paginator.num_pages }}</span></li>
+    {% if page.has_next %}<li class="page-item"><a class="page-link" href="?q={{ q|urlencode }}&page={{ page.next_page_number }}">›</a></li>{% endif %}
+  </ul></nav>
+  {% endif %}
+</div>
+{% endblock %}

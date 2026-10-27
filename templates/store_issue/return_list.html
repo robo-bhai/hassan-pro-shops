@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}Returns - {{ company_name }}{% endblock %}
+{% block extra_css %}{% include 'store_issue/_styles.html' %}{% endblock %}
+{% block content %}
+<div class="container-fluid px-4 py-4 si-page">
+  <h1 class="h3 mb-3"><i class="bi bi-arrow-return-left text-success me-2"></i>Returns to store</h1>
+  <div class="si-card"><div class="table-responsive"><table class="table table-hover si-table align-middle mb-0">
+    <thead><tr><th>Return #</th><th>Date</th><th>Issue</th><th>Store</th><th>Returned by</th><th class="si-num">Cost</th></tr></thead><tbody>
+    {% for r in page_obj %}<tr><td><a class="fw-semibold text-decoration-none" href="{% url 'store_return_detail' r.pk %}">{{ r.return_no }}</a></td>
+      <td class="small text-nowrap">{{ r.return_date|date:"d M Y h:i A" }}</td><td><a class="text-decoration-none" href="{% url 'store_issue_detail' r.issue_id %}">{{ r.issue.issue_no }}</a></td>
+      <td>{{ r.issue.from_warehouse.name }}</td><td>{{ r.returned_by|default:"-" }}</td><td class="si-num">{{ r.total_cost|floatformat:2 }}</td></tr>
+    {% empty %}<tr><td colspan="6"><div class="si-empty"><i class="bi bi-inbox"></i>No returns</div></td></tr>{% endfor %}
+    </tbody></table></div>
+    {% if page_obj.has_other_pages %}<div class="d-flex justify-content-between p-3 border-top"><span class="small text-muted">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+      <div class="btn-group">{% if page_obj.has_previous %}<a class="btn btn-sm btn-outline-secondary" href="?page={{ page_obj.previous_page_number }}">Prev</a>{% endif %}{% if page_obj.has_next %}<a class="btn btn-sm btn-outline-secondary" href="?page={{ page_obj.next_page_number }}">Next</a>{% endif %}</div></div>{% endif %}
+  </div>
+</div>
+{% endblock %}

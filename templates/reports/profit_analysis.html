@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block title %}Profit Analysis - {{ company_name }}{% endblock %}
+{% block extra_css %}{% include 'store_issue/_styles.html' %}
+<style>.pa-pos{color:#047857}.pa-neg{color:#b91c1c;font-weight:700}.pa-bar{height:6px;border-radius:4px;background:rgba(100,116,139,.15);overflow:hidden;min-width:60px}.pa-bar i{display:block;height:100%;background:#059669}.pa-bar.neg i{background:#dc2626}</style>{% endblock %}
+{% block content %}
+<div class="container-fluid px-2 px-md-4 py-3 py-md-4 si-page">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 si-head">
+    <div><h1 class="h3 mb-1"><i class="bi bi-graph-up-arrow text-primary me-2"></i>Profit Analysis</h1>
+      <p class="text-muted small mb-0">Item, customer, category, brand ya mahine ke hisaab se profit aur margin</p></div>
+    <div class="si-toolbar">
+      <a href="{% url 'profit_loss_report' %}" class="btn btn-outline-secondary rounded-pill"><i class="bi bi-file-earmark-text me-1"></i>Profit &amp; Loss</a>
+    </div>
+  </div>
+
+  <form method="get" class="si-card p-3 mb-3 si-filter">
+    {% for k, v in sel.items %}{% if v %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}{% endfor %}
+    <div class="row g-2 align-items-end">
+      <div class="col-md-2 col-6"><label class="form-label small mb-1">Group by</label>
+        <select name="group" class="form-select">{% for k,l in groups %}<option value="{{ k }}" {% if group == k %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="col-md-2 col-6"><label class="form-label small mb-1">Sort</label>
+        <select name="sort" class="form-select">{% for k,l in sorts %}<option value="{{ k }}" {% if sort == k %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="col-md-2 col-6"><label class="form-label small mb-1">From</label><input type="date" name="from" value="{{ from }}" class="form-control"></div>
+      <div class="col-md-2 col-6"><label class="form-label small mb-1">To</label><input type="date" name="to" value="{{ to }}" class="form-control"></div>
+      <div class="col-md-2 col-12"><label class="form-label small mb-1">Search</label><input type="search" name="q" value="{{ q }}" class="form-control" placeholder="Naam..."></div>
+      <div class="col-md-2 col-12 d-flex gap-2"><button class="btn btn-primary flex-fill">Show</button>
+        <button name="export" value="xlsx" class="btn btn-outline-success" title="Excel"><i class="bi bi-file-earmark-excel"></i></button>
+        <button name="export" value="pdf" class="btn btn-outline-danger" title="PDF"><i class="bi bi-file-earmark-pdf"></i></button>
+        <button name="export" value="csv" class="btn btn-outline-secondary" title="CSV"><i class="bi bi-filetype-csv"></i></button></div>
+    </div>
+    {% if flt %}<div class="small mt-2 text-muted"><i class="bi bi-funnel me-1"></i>A filter is applied
+      {% for c in customers %}&middot; Customer: <b>{{ c.name }}</b>{% endfor %}{% for p in products %}&middot; Item: <b>{{ p.name }}</b>{% endfor %}
+      {% if sel.category %}&middot; Category #{{ sel.category }}{% endif %}{% if sel.brand %}&middot; Brand #{{ sel.brand }}{% endif %}
+      <a href="?group={{ group }}&from={{ from }}&to={{ to }}" class="ms-2">Hatayein</a></div>{% endif %}
+  </form>
+
+  <div class="row g-2 g-md-3 mb-3">
+    <div class="col-6 col-md-3"><div class="si-card si-kpi"><div class="ico bg-primary bg-opacity-10 text-primary"><i class="bi bi-cart-check"></i></div><div><div class="lbl">Sale (net)</div><div class="val">Rs. {{ tot.revenue|floatformat:0 }}</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="si-card si-kpi"><div class="ico bg-secondary bg-opacity-10 text-secondary"><i class="bi bi-box-seam"></i></div><div><div class="lbl">Cost</div><div class="val">Rs. {{ tot.cost|floatformat:0 }}</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="si-card si-kpi"><div class="ico bg-success bg-opacity-10 text-success"><i class="bi bi-cash-coin"></i></div><div><div class="lbl">Profit</div><div class="val {% if tot.profit < 0 %}pa-neg{% else %}pa-pos{% endif %}">Rs. {{ tot.profit|floatformat:0 }}</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="si-card si-kpi"><div class="ico bg-warning bg-opacity-10 text-warning"><i class="bi bi-percent"></i></div><div><div class="lbl">Margin</div><div class="val">{{ tot.margin|floatformat:1 }}%</div>{% if tot.loss_count %}<div class="small pa-neg">{{ tot.loss_count }} nuqsan wali line</div>{% endif %}</div></div></div>
+  </div>
+
+  <div class="si-card">
+    <table class="table si-table si-stack align-middle mb-0">
+      <thead><tr><th>{{ group_label }}</th><th class="si-num">Bills</th><th class="si-num">Qty</th><th class="si-num">Sale</th><th class="si-num">Cost</th><th class="si-num">Profit</th><th class="si-num">Margin</th></tr></thead>
+      <tbody>
+      {% for r in rows %}
+        <tr>
+          <td data-label="{{ group_label }}" class="fw-semibold si-first">{% if r.drill %}<a href="?{{ drill_qs }}&{{ drill_param }}={{ r.key }}" class="text-decoration-none">{{ r.label }} <i class="bi bi-chevron-right small"></i></a>{% else %}{{ r.label }}{% endif %}</td>
+          <td data-label="Bills" class="si-num">{{ r.bills }}</td>
+          <td data-label="Qty" class="si-num">{{ r.sold_qty|floatformat:"-2" }}</td>
+          <td data-label="Sale" class="si-num">{{ r.revenue|floatformat:2 }}</td>
+          <td data-label="Cost" class="si-num">{{ r.cost|floatformat:2 }}</td>
+          <td data-label="Profit" class="si-num {% if r.profit < 0 %}pa-neg{% else %}pa-pos{% endif %}">{{ r.profit|floatformat:2 }}</td>
+          <td data-label="Margin" class="si-num {% if r.margin < 0 %}pa-neg{% endif %}">{{ r.margin|floatformat:1 }}%</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7"><div class="si-empty"><i class="bi bi-inbox"></i>No sales in this period</div></td></tr>
+      {% endfor %}
+      </tbody>
+      <tfoot><tr><th data-label="Total">TOTAL</th><th class="si-num" data-label=""></th><th class="si-num" data-label="Qty">{{ tot.qty|floatformat:"-2" }}</th><th class="si-num" data-label="Sale">{{ tot.revenue|floatformat:2 }}</th><th class="si-num" data-label="Cost">{{ tot.cost|floatformat:2 }}</th><th class="si-num" data-label="Profit">{{ tot.profit|floatformat:2 }}</th><th class="si-num" data-label="Margin">{{ tot.margin|floatformat:1 }}%</th></tr></tfoot>
+    </table>
+  </div>
+  <p class="small text-muted mt-3 mb-0">Profit = the stored profit of the sale minus that bill's share of the discount (as on the dashboard). Sale returns and expenses are not included; see the Profit &amp; Loss report for those.</p>
+</div>
+{% endblock %}

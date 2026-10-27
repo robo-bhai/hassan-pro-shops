@@ -644,7 +644,7 @@ class BusinessRatios:
     
     def dupont_analysis(self, from_date, to_date):
         """
-        DuPont Analysis - ROE ko 3 hisson mein todta hai
+        DuPont Analysis - breaks ROE into 3 parts
         
         ROE = Net Profit Margin × Asset Turnover × Equity Multiplier
         """
@@ -784,32 +784,32 @@ class BusinessRatios:
         if net_profit_margin < 10:
             recommendations.append({
                 'icon': '💰',
-                'title': 'Profit Margin Kam Hai',
-                'message': f'Net margin {net_profit_margin:.1f}% hai. Price barhao ya expense kam karo.',
+                'title': 'Profit Margin Is Low',
+                'message': f'Net margin {net_profit_margin:.1f}%. Raise the price or reduce expenses.',
                 'priority': 'high',
             })
         
         if asset_turnover < 1:
             recommendations.append({
                 'icon': '⚙️',
-                'title': 'Assets Ka Use Kam Hai',
-                'message': f'Asset turnover {asset_turnover:.2f} hai. Stock aur receivables tez karo.',
+                'title': 'Assets Are Used Too Little',
+                'message': f'Asset turnover {asset_turnover:.2f}. Speed up stock and receivables.',
                 'priority': 'high',
             })
         
         if equity_multiplier > 3:
             recommendations.append({
                 'icon': '⚠️',
-                'title': 'Qarz Zyada Hai',
-                'message': f'Equity multiplier {equity_multiplier:.2f} hai. Qarz kam karo.',
+                'title': 'Debt Is High',
+                'message': f'Equity multiplier {equity_multiplier:.2f}. Reduce debt.',
                 'priority': 'high',
             })
         
         if roe_direct >= 20:
             recommendations.append({
                 'icon': '✅',
-                'title': 'ROE Excellent Hai!',
-                'message': f'ROE {roe_direct:.1f}% hai. Isi tarah chalta raho.',
+                'title': 'ROE Is Excellent!',
+                'message': f'ROE is {roe_direct:.1f}%. Keep it up.',
                 'priority': 'info',
             })
         
@@ -817,7 +817,7 @@ class BusinessRatios:
             'net_profit_margin': {
                 'value': round(net_profit_margin, 2),
                 'formula': '(Net Profit / Sales) x 100',
-                'description': 'Munafa kitna bach raha hai',
+                'description': 'How much profit is left',
                 'benchmark': '> 15% is excellent',
                 'status': margin_color,
                 'label': margin_status,
@@ -826,7 +826,7 @@ class BusinessRatios:
             'asset_turnover': {
                 'value': round(asset_turnover, 2),
                 'formula': 'Sales / Total Assets',
-                'description': 'Assets kitne tez chal rahe hain',
+                'description': 'How fast the assets are turning',
                 'benchmark': '> 2.0 is excellent',
                 'status': turnover_color,
                 'label': turnover_status,
@@ -835,7 +835,7 @@ class BusinessRatios:
             'equity_multiplier': {
                 'value': round(equity_multiplier, 2),
                 'formula': 'Total Assets / Equity',
-                'description': 'Qarz kitna hai',
+                'description': 'How much debt there is',
                 'benchmark': '< 1.5 is safe',
                 'status': multiplier_color,
                 'label': multiplier_status,
@@ -876,25 +876,25 @@ class BusinessRatios:
         if roe >= 25:
             return {
                 'title': '🟢 Excellent ROE',
-                'message': f'ROE {roe:.1f}% hai — bohot acha! Profit margin {margin:.1f}%, Assets {turnover:.2f}x chal rahe, Qarz {multiplier:.2f}x.',
+                'message': f'ROE is {roe:.1f}% — very good! Profit margin {margin:.1f}%, Assets turning {turnover:.2f}x, Debt {multiplier:.2f}x.',
                 'color': 'success',
             }
         elif roe >= 15:
             return {
                 'title': '🟡 Good ROE',
-                'message': f'ROE {roe:.1f}% hai — theek hai. Improve karo: margin {margin:.1f}% barhao.',
+                'message': f'ROE is {roe:.1f}% — okay. To improve: increase the margin (now {margin:.1f}%).',
                 'color': 'info',
             }
         elif roe >= 8:
             return {
                 'title': '🟠 Moderate ROE',
-                'message': f'ROE {roe:.1f}% hai — kam hai. Focus: profit margin aur asset turnover.',
+                'message': f'ROE is {roe:.1f}% — low. Focus on: profit margin and asset turnover.',
                 'color': 'warning',
             }
         else:
             return {
                 'title': '🔴 Poor ROE',
-                'message': f'ROE {roe:.1f}% hai — kaafi kam. Fauran improve karo: margin {margin:.1f}%, turnover {turnover:.2f}x, qarz {multiplier:.2f}x.',
+                'message': f'ROE is {roe:.1f}% — very low. Improve immediately: margin {margin:.1f}%, turnover {turnover:.2f}x, debt {multiplier:.2f}x.',
                 'color': 'danger',
             }
     

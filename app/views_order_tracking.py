@@ -251,7 +251,7 @@ def order_assign_rider(request, order_id):
         if not rider_name or not rider_contact:
             return JsonResponse({
                 'success': False,
-                'message': 'Rider name aur contact zaroori hai!'
+                'message': 'Rider name and contact are required!'
             })
         
         delivery_info.delivery_type = 'local_rider'
@@ -479,17 +479,17 @@ def track_order_public(request):
     error = None
     search_order_no = request.GET.get('order_no', '').strip().upper()[:50]
     search_phone = ''
-    NOT_FOUND = '❌ Order nahi mila ya phone number match nahi kar raha'
+    NOT_FOUND = '❌ Order not found or the phone number does not match'
 
     if request.method == 'POST':
         search_order_no = request.POST.get('order_no', '').strip().upper()[:50]
         search_phone = request.POST.get('phone', '').strip()[:20]
 
         if not search_order_no or not search_phone:
-            error = '❌ Order number aur phone number dono zaroori hain'
+            error = '❌ Both order number and phone number are required'
         elif (blocked(request, 'track_ip', limit=15)
               or blocked(request, 'track_order', limit=5, extra=search_order_no, per_ip=False)):
-            error = '⚠️ Bohot zyada koshishein. Thori der baad dobara try karein.'
+            error = '⚠️ Too many attempts. Please try again after a while.'
         else:
             try:
                 candidate = SaleOrder.objects.filter(
@@ -542,7 +542,7 @@ def track_order_public(request):
 
 @login_required
 def customer_order_tracking(request, order_id):
-    """Customer ke liye tracking page (login required)"""
+    """Tracking page for a customer (login required)"""
     
     if not hasattr(request.user, 'customer_profile'):
         messages.error(request, 'Access denied!')
@@ -553,7 +553,7 @@ def customer_order_tracking(request, order_id):
     try:
         order = SaleOrder.objects.get(id=order_id, customer=customer)
     except SaleOrder.DoesNotExist:
-        messages.error(request, 'Order nahi mila!')
+        messages.error(request, 'Order not found!')
         return redirect('my_orders')
     
     tracking_history = order.tracking_history.all().order_by('timestamp')

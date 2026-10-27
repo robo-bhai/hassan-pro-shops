@@ -438,8 +438,8 @@ def quick_view_user(request, user_id):
             'full_name': user.get_full_name(),
             'email': user.email,
             'is_active': user.is_active,
-            'last_login': user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else 'Never',
-            'date_joined': user.date_joined.strftime('%Y-%m-%d %H:%M'),
+            'last_login': user.last_login.strftime('%Y-%m-%d %I:%M %p') if user.last_login else 'Never',
+            'date_joined': user.date_joined.strftime('%Y-%m-%d %I:%M %p'),
             'role': role,
             'role_display': role_display,
             'avatar_color': avatar_color,
@@ -520,8 +520,8 @@ def export_users(request):
             user.email or '',
             role,
             'Yes' if user.is_active else 'No',
-            user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else '',
-            user.date_joined.strftime('%Y-%m-%d %H:%M'),
+            user.last_login.strftime('%Y-%m-%d %I:%M %p') if user.last_login else '',
+            user.date_joined.strftime('%Y-%m-%d %I:%M %p'),
         ])
     
     return response

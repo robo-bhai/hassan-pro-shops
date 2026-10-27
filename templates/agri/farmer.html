@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block title %}{{ customer.name }} - Udhaar{% endblock %}
+{% block extra_css %}{% include 'agri/_css.html' %}{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+      <h4 class="mb-0">👨‍🌾 {{ customer.name }}</h4>
+      <div class="text-muted small">{% if customer.village %}📍 {{ customer.village }} · {% endif %}{% if customer.main_crop %}🌱 {{ customer.main_crop }} · {% endif %}{{ customer.contact_number|default:"mobile nahi" }}</div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'agri_credit' %}">← Kisan Udhaar</a>
+      {% if pay_url %}<a class="btn btn-sm btn-success" href="{{ pay_url }}">💵 Payment wusool karen</a>{% endif %}
+      {% if ledger_url %}<a class="btn btn-sm btn-outline-primary" href="{{ ledger_url }}">Poora ledger</a>{% endif %}
+    </div>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-md-3"><div class="agri-stat agri-blue"><div class="n">Rs. {{ total|floatformat:"0g" }}</div><div class="l">Kul baqaya</div>
+      {% if returned %}<div class="v">(Rs. {{ returned|floatformat:"0g" }} return minus ho chuka)</div>{% endif %}</div></div>
+    <div class="col-6 col-md-3"><div class="agri-stat {% if over_limit %}agri-red{% else %}agri-green{% endif %}"><div class="n">{% if limit %}Rs. {{ limit|floatformat:"0g" }}{% else %}-{% endif %}</div><div class="l">Credit limit{% if over_limit %} (limit se zyada!){% endif %}</div></div></div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-4">
+      <div class="card"><div class="card-header fw-semibold">Kisan ki maloomat</div>
+        <div class="card-body">
+          <form method="post" action="{% url 'agri_farmer_profile' customer.pk %}">
+            {% csrf_token %}<input type="hidden" name="next" value="{{ next }}">
+            <label class="form-label small mb-0">Gaon / Village</label>
+            <input class="form-control form-control-sm mb-2" name="village" value="{{ customer.village|default:'' }}" maxlength="100">
+            <label class="form-label small mb-0">Mukhya fasal (gandum, kapas, chawal...)</label>
+            <input class="form-control form-control-sm mb-2" name="main_crop" value="{{ customer.main_crop|default:'' }}" maxlength="100">
+            <label class="form-label small mb-0">Credit limit (Rs.) - 0 matlab limit nahi</label>
+            <input class="form-control form-control-sm mb-3" type="number" min="0" step="any" name="credit_limit" value="{{ customer.credit_limit|default:0 }}">
+            <button class="btn btn-sm btn-primary w-100">Save</button>
+          </form>
+        </div></div>
+      <div class="card mt-3"><div class="card-header fw-semibold">Sab bills par ek tareekh lagayen</div>
+        <div class="card-body">
+          <form method="post" action="{% url 'agri_farmer_due' customer.pk %}">
+            {% csrf_token %}<input type="hidden" name="next" value="{{ next }}">
+            <label class="form-label small mb-0">Wapsi (fasal) ki tareekh</label>
+            <input class="form-control form-control-sm mb-2" type="date" name="harvest_due_date" required>
+            <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="only_missing" value="1" id="onlyMissing" checked>
+              <label class="form-check-label small" for="onlyMissing">Sirf wahan jahan tareekh nahi lagi</label></div>
+            <button class="btn btn-sm btn-warning w-100">Tareekh lagayen</button>
+          </form>
+        </div></div>
+    </div>
+
+    <div class="col-lg-8">
+      <div class="card"><div class="card-header fw-semibold">Baqaya bills</div>
+        <div class="table-responsive"><table class="table table-sm align-middle agri-table mb-0">
+          <thead><tr><th>Bill</th><th>Tareekh</th><th class="text-end">Baqaya</th><th>Wapsi ki tareekh</th><th>Note</th><th></th></tr></thead>
+          <tbody>
+          {% for s in sales %}
+            <tr class="{% if s.days != None and s.days < 0 %}table-danger{% endif %}">
+              <td>#{{ s.bill_no }}</td>
+              <td>{{ s.sale_date|date:"d-m-Y" }}</td>
+              <td class="text-end fw-semibold">Rs. {{ s.balance|floatformat:"0g" }}</td>
+              <td><input type="date" form="due{{ s.pk }}" class="form-control form-control-sm" name="harvest_due_date" value="{{ s.harvest_due_date|date:'Y-m-d' }}">
+                {% if s.days != None %}<div class="small {% if s.days < 0 %}text-danger{% else %}text-muted{% endif %}">{% if s.days < 0 %}{{ s.days_abs }} din late{% else %}{{ s.days }} din baaqi{% endif %}</div>{% endif %}</td>
+              <td><input type="text" form="due{{ s.pk }}" class="form-control form-control-sm" name="harvest_note" value="{{ s.harvest_note }}" maxlength="200" placeholder="Jaise: gandum par"></td>
+              <td>
+                <form id="due{{ s.pk }}" method="post" action="{% url 'agri_sale_due' s.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ next }}">
+                  <button class="btn btn-sm btn-outline-success">Save</button></form>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6" class="text-center text-muted py-4">Is kisan ka koi baqaya bill nahi.</td></tr>
+          {% endfor %}
+          </tbody></table></div></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

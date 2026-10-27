@@ -123,10 +123,10 @@ def otp_detail(request, pk):
     
     message = (
         f"🔐 *Verification Code*\n\n"
-        f"Aapka OTP code hai:\n\n"
+        f"Your OTP code is:\n\n"
         f"*{otp.otp_code}*\n\n"
-        f"⏱️ Yeh 5 minute mein expire ho jayega.\n"
-        f"Kisi ke saath share na karein."
+        f"⏱️ This will expire in 5 minutes.\n"
+        f"Do not share it with anyone."
     )
     
     whatsapp_link = f"https://wa.me/{clean_phone}?text={quote(message)}"

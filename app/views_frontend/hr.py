@@ -125,7 +125,7 @@ def print_salary_slip_html(request, pk):
         'tax_deduction': tax_deduction,
         'total_deductions': total_deductions,
         'net_salary': net_salary,
-        'current_date': datetime.now().strftime('%d-%m-%Y %H:%M:%S'),
+        'current_date': datetime.now().strftime('%d-%m-%Y %I:%M:%S %p'),
     }
     return render(request, 'hr/salary_slip_print.html', context)
 
@@ -894,7 +894,7 @@ def payslip_generate(request, pk):
     # Footer
     story.append(Spacer(1, 0.5*inch))
     story.append(Paragraph("This is a computer generated payslip.", styles['Normal']))
-    story.append(Paragraph(f"Generated on: {now().strftime('%d-%m-%Y %H:%M')}", styles['Normal']))
+    story.append(Paragraph(f"Generated on: {now().strftime('%d-%m-%Y %I:%M %p')}", styles['Normal']))
     
     doc.build(story)
     buffer.seek(0)

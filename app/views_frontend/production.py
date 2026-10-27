@@ -458,7 +458,7 @@ def production_produce_stock(request, pk):
             
             target_warehouse = order.target_warehouse or order.source_warehouse
             
-            # FIX: produced_qty ko float mein convert karo
+            # FIX: convert produced_qty to float
             produced_qty_float = float(produced_qty)
             
             # Update stock in target warehouse
@@ -678,7 +678,7 @@ def production_report_pdf(request, pk):
     from reportlab.lib.enums import TA_CENTER, TA_RIGHT
     from io import BytesIO
     from django.http import HttpResponse
-    from decimal import Decimal   # ✅ YEH IMPORT ADD KARO
+    from decimal import Decimal   # ✅ ADD THIS IMPORT
     
     order = get_object_or_404(ProductionOrder, pk=pk)
     

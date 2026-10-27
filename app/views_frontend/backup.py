@@ -64,7 +64,7 @@ def _audit(request, what):
 
 
 def _hist(request, action, file="", status="ok", detail=""):
-    """History table (page par dikhti hai) me ek entry."""
+    """One entry in the History table (shown on the page)."""
     bs.log_event(action, file=file, status=status, detail=detail,
                  user=str(getattr(request, "user", "") or ""),
                  ip=request.META.get("REMOTE_ADDR", ""))
@@ -163,7 +163,7 @@ def _save_upload(f):
     if f.size > MAX_UPLOAD_MB * 1024 * 1024:
         raise bs.BackupError(f"File too large (max {MAX_UPLOAD_MB} MB).")
     ext = next(e for e in sorted(ALLOWED_UPLOAD_EXT, key=len, reverse=True) if name.endswith(e))
-    # naya naam: <Company>_<date>_<din>_<waqt>_Uploaded  (retention/listing isay samajhte hain)
+    # new name: <Company>_<date>_<day>_<time>_Uploaded  (retention/listing understands this)
     dest = bs.backup_dir() / (bs.make_base("Uploaded") + ext)
     with open(dest, "wb") as out:
         for chunk in f.chunks():
@@ -252,13 +252,13 @@ def get_cloud_files(request):
 def get_drive_account(remote_name):
     """Google Drive account (email / name).
 
-    Is rclone version me `rclone config userinfo` Drive par kaam nahi karta, is liye:
-      1. `rclone about` chalate hain taake rclone token refresh kar de,
-      2. config se access token lete hain,
-      3. Google Drive API (about?fields=user) se email/naam poochte hain.
-    Token sirf memory me rehta hai, kahin save ya log nahi hota.
-    Fallback: settings.py me GDRIVE_ACCOUNT_EMAIL likha ho to wahi dikhaya jata hai.
-    Kamyab result 10 minute cache hota hai.
+    In this rclone version `rclone config userinfo` does not work on Drive, so:
+      1. `rclone about` is run so that rclone refreshes the token,
+      2. the access token is taken from the config,
+      3. the email/name is asked from the Google Drive API (about?fields=user).
+    The token stays only in memory, it is not saved or logged anywhere.
+    Fallback: if GDRIVE_ACCOUNT_EMAIL is set in settings.py, that is shown.
+    A successful result is cached for 10 minutes.
     """
     key = "drive_account_" + str(remote_name)
     cached = cache.get(key)

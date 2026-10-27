@@ -256,7 +256,7 @@ def target_dashboard(request):
         end_date__gte=today
     ).first()
     
-    # 🆕 TARGET HISTORY - YEH ADD KARO
+    # 🆕 TARGET HISTORY - ADD THIS
     target_history = SalesTarget.objects.filter(
         target_type='monthly',
         end_date__lt=today
@@ -318,7 +318,7 @@ def target_dashboard(request):
     context = {
         'company_name': company_name,
         'company_target': company_target,
-        'target_history': target_history,  # ✅ YEH ADD KARO
+        'target_history': target_history,  # ✅ ADD THIS
         'month_progress': month_progress,
         'today_sales': today_sales,
         'salesman_performance': salesman_performance,
@@ -469,12 +469,12 @@ def sale_create(request):
                     )
             
             # ✅ ============================================
-            # ✅ CASH BALANCE UPDATE - YEH ADD KARO
+            # ✅ CASH BALANCE UPDATE - ADD THIS
             # ✅ ============================================
             total_amount = sale.total_amount()  # Total sale amount
             
             # Calculate cash received (paid amount)
-            cash_received = sale.paid  # jo bhi cash customer ne diya
+            cash_received = sale.paid  # whatever cash the customer gave
             
             # Cash method payment record create karo
             cash_method, _ = PaymentMethod.objects.get_or_create(
@@ -708,10 +708,10 @@ def customer_create(request):
             
             # ✅ Name required
             if not name:
-                messages.error(request, '❌ Customer name zaroori hai!')
+                messages.error(request, '❌ Customer name is required!')
                 return redirect('customer_create')
             
-            # ✅ Email validation (agar diya ho)
+            # ✅ Email validation (if given)
             if email:
                 from django.core.validators import validate_email
                 from django.core.exceptions import ValidationError
@@ -727,13 +727,13 @@ def customer_create(request):
                     existing = Customer.objects.filter(email=email).first()
                     messages.error(
                         request, 
-                        f'⚠️ Yeh email "{email}" pehle se "{existing.name}" ke saath registered hai!'
+                        f'⚠️ This email "{email}" is already registered with "{existing.name}"!'
                     )
                     return redirect('customer_create')
             
             # ✅ Duplicate customer code check
             if customer_code and Customer.objects.filter(customer_code=customer_code).exists():
-                messages.error(request, f'⚠️ Customer code "{customer_code}" pehle se mojood hai!')
+                messages.error(request, f'⚠️ Customer code "{customer_code}" already exists!')
                 return redirect('customer_create')
             
             # ✅ Duplicate contact number check
@@ -741,8 +741,8 @@ def customer_create(request):
                 existing = Customer.objects.filter(contact_number=contact_number).first()
                 messages.warning(
                     request, 
-                    f'⚠️ Yeh number "{contact_number}" pehle se "{existing.name}" ke saath registered hai. '
-                    f'Phir bhi customer create ho raha hai.'
+                    f'⚠️ This number "{contact_number}" is already registered with "{existing.name}". '
+                    f'The customer is still being created.'
                 )
             
             # ========================================== #
@@ -810,10 +810,10 @@ def customer_update(request, pk):
             
             # ✅ Name required
             if not name:
-                messages.error(request, '❌ Customer name zaroori hai!')
+                messages.error(request, '❌ Customer name is required!')
                 return redirect('customer_update', pk=pk)
             
-            # ✅ Email validation (agar diya ho)
+            # ✅ Email validation (if given)
             if email:
                 from django.core.validators import validate_email
                 from django.core.exceptions import ValidationError
@@ -829,7 +829,7 @@ def customer_update(request, pk):
                 if duplicate_email:
                     messages.error(
                         request, 
-                        f'⚠️ Yeh email "{email}" pehle se "{duplicate_email.name}" ke saath registered hai!'
+                        f'⚠️ This email "{email}" is already registered with "{duplicate_email.name}"!'
                     )
                     return redirect('customer_update', pk=pk)
             
@@ -841,7 +841,7 @@ def customer_update(request, pk):
                 if duplicate_code:
                     messages.error(
                         request, 
-                        f'⚠️ Customer code "{customer_code}" pehle se "{duplicate_code.name}" ke saath registered hai!'
+                        f'⚠️ Customer code "{customer_code}" is already registered with "{duplicate_code.name}"!'
                     )
                     return redirect('customer_update', pk=pk)
             
@@ -1840,7 +1840,7 @@ def challan_pdf(request, pk):
         alignment=TA_CENTER
     )
     story.append(Paragraph(
-        f"Generated: {now().strftime('%d-%m-%Y %H:%M')} | {company_name}",
+        f"Generated: {now().strftime('%d-%m-%Y %I:%M %p')} | {company_name}",
         footer_style
     ))
     story.append(Paragraph("This is a computer generated document.", footer_style))

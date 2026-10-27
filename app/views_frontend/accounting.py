@@ -1096,7 +1096,7 @@ def export_accounts_report(request):
     ws1['A2'].alignment = Alignment(horizontal='center')
     
     ws1.merge_cells('A3:D3')
-    ws1['A3'] = f"Generated: {date.today().strftime('%d-%m-%Y %H:%M')}"
+    ws1['A3'] = f"Generated: {date.today().strftime('%d-%m-%Y %I:%M %p')}"
     ws1['A3'].alignment = Alignment(horizontal='center')
     
     # Account Type Summary

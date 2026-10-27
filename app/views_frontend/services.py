@@ -671,7 +671,7 @@ def service_appointment_calendar(request):
             calendar_data[date_str] = []
         calendar_data[date_str].append({
             'id': app.id,
-            'time': app.start_time.strftime('%H:%M') if app.start_time else 'TBD',
+            'time': app.start_time.strftime('%I:%M %p') if app.start_time else 'TBD',
             'technician': app.technician.name,
             'customer': app.service_request.customer.name,
             'service': app.service_request.service.name,
@@ -867,8 +867,8 @@ def get_technician_schedule(request):
                 'request_no': app.service_request.request_no,
                 'customer': app.service_request.customer.name,
                 'service': app.service_request.service.name,
-                'start_time': app.start_time.strftime('%H:%M') if app.start_time else 'TBD',
-                'end_time': app.end_time.strftime('%H:%M') if app.end_time else 'TBD',
+                'start_time': app.start_time.strftime('%I:%M %p') if app.start_time else 'TBD',
+                'end_time': app.end_time.strftime('%I:%M %p') if app.end_time else 'TBD',
                 'status': app.status,
             })
         

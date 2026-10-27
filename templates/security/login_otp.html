@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block title %}Verify sign-in{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    .otp-input { letter-spacing: .5em; font-variant-numeric: tabular-nums; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-4">
+            <div class="card">
+                <div class="card-body p-4">
+                    <h1 class="h4 mb-1">Verify your sign-in</h1>
+                    <p class="text-muted mb-4">We sent a 6-digit code to {{ masked_email }}. It expires in 5 minutes.</p>
+
+                    <form method="POST" class="mb-3">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="otp_code" class="form-label">Verification code</label>
+                            <input type="text" id="otp_code" name="otp_code" class="form-control form-control-lg text-center otp-input"
+                                   inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"
+                                   placeholder="000000" autofocus required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Verify</button>
+                    </form>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <form method="POST">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="resend">
+                            <button type="submit" class="btn btn-link btn-sm p-0">Send a new code</button>
+                        </form>
+                        <form method="POST" action="/logout/">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-link btn-sm p-0 text-secondary">Sign out</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

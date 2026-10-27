@@ -442,11 +442,45 @@
             display: none;
         }
     }
+
+    /* ===== Professional print layout (Print button / Ctrl+P) ===== */
+    .print-letterhead { display:none; }
+    .pd-progress { height:8px; background:#e5e7eb; border-radius:99px; overflow:hidden; margin-top:6px; }
+    .pd-progress > i { display:block; height:100%; background:#059669; border-radius:99px; }
+    @media print {
+        @page { size: A4; margin: 12mm; }
+        body { background:#fff !important; }
+        .sidebar, .topbar, .navbar, header, nav, footer, .header-actions, .btn, .modal, #toastContainer,
+        .no-print, .page-header .header-actions { display:none !important; }
+        .main-content, .content-wrapper, .container-fluid { margin:0 !important; padding:0 !important; width:100% !important; max-width:100% !important; }
+        .print-letterhead { display:flex !important; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #111827;
+                            padding-bottom:10px; margin-bottom:14px; }
+        .print-letterhead h2 { margin:0; font-size:20pt; font-weight:800; }
+        .print-letterhead .doc { text-align:right; font-size:10pt; }
+        .print-letterhead .doc strong { font-size:14pt; display:block; letter-spacing:.08em; }
+        * { box-shadow:none !important; }
+        table { page-break-inside:auto; } tr { page-break-inside:avoid; } thead { display:table-header-group; }
+        a { color:inherit !important; text-decoration:none !important; }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid px-2 px-md-4 py-3 py-md-4">
+
+    <!-- Print-only letterhead -->
+    <div class="print-letterhead">
+        <div>
+            <h2>{{ company_name }}</h2>
+            <div>Warehouse: {{ purchase.warehouse.name|default:"-" }}</div>
+        </div>
+        <div class="doc">
+            <strong>PURCHASE BILL</strong>
+            Bill No: {{ purchase.bill_no|default:"Pending" }}<br>
+            Date: {{ purchase.pur_date|date:"d M Y" }}<br>
+            Vendor: {{ purchase.vendor.name }}{% if purchase.vendor.vendor_code %} ({{ purchase.vendor.vendor_code }}){% endif %}
+        </div>
+    </div>
 
     <!-- ========== HEADER ========== -->
     <div class="page-header">
@@ -463,7 +497,7 @@
                 <span class="mx-2">•</span>
                 <span class="status-badge-lg {% if purchase.outstanding_balance <= 0 %}paid{% else %}pending{% endif %}">
                     <span class="dot"></span>
-                    <span class="text">{% if purchase.outstanding_balance <= 0 %}Paid{% else %}Pending{% endif %}</span>
+                    <span class="text">{% if purchase.outstanding_balance <= 0 %}Paid{% elif purchase.paid > 0 %}Partially paid{% else %}Unpaid{% endif %}</span>
                 </span>
             </div>
         </div>
@@ -491,6 +525,9 @@
             <a href="{% url 'purchase_pdf' purchase.pk %}" target="_blank" class="btn btn-pdf">
                 <i class="bi bi-file-pdf"></i> <span>PDF</span>
             </a>
+            <button type="button" class="btn btn-back" onclick="window.print()">
+                <i class="bi bi-printer"></i> <span>Print</span>
+            </button>
         </div>
     </div>
 

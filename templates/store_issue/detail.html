@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block title %}{{ issue.issue_no }} - {{ company_name }}{% endblock %}
+{% block extra_css %}{% include 'store_issue/_styles.html' %}{% endblock %}
+{% block content %}
+<div class="container-fluid px-4 py-4 si-page">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+    <div>
+      <h1 class="h3 mb-1"><i class="bi bi-receipt text-primary me-2"></i>{{ issue.issue_no }}
+        <span class="si-badge {{ issue.status }} ms-2">{{ issue.get_status_display }}</span></h1>
+      <p class="text-muted small mb-0">{{ issue.issue_date|date:"d M Y, h:i A" }} &middot; {{ issue.get_issue_type_display }}</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a href="{% url 'store_issue_list' %}" class="btn btn-outline-secondary rounded-pill px-3"><i class="bi bi-arrow-left me-1"></i>Back</a>
+      <a href="{% url 'store_issue_print' issue.pk %}" target="_blank" class="btn btn-outline-primary rounded-pill px-3"><i class="bi bi-printer me-1"></i>Print</a>
+      {% if issue.status == 'issued' %}<a href="{% url 'store_return_create' issue.pk %}" class="btn btn-outline-success rounded-pill px-3"><i class="bi bi-arrow-return-left me-1"></i>Return to store</a>{% endif %}
+      {% if can_cancel %}<button class="btn btn-outline-danger rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#cancelModal"><i class="bi bi-x-circle me-1"></i>Cancel issue</button>{% endif %}
+    </div>
+  </div>
+
+  {% if issue.is_cancelled %}
+  <div class="alert alert-danger border-0">
+    <b>Cancelled</b> {{ issue.cancelled_at|date:"d M Y h:i A" }} by {{ issue.cancelled_by.get_username|default:"-" }}.
+    Reason: {{ issue.cancel_reason }}. The stock has gone back to the store.
+  </div>
+  {% endif %}
+
+  <div class="row g-3 mb-3">
+    <div class="col-lg-8"><div class="si-card p-3 h-100"><div class="row g-3">
+      <div class="col-sm-6"><div class="si-stat">From store<b>{{ issue.from_warehouse.name }}</b></div></div>
+      <div class="col-sm-6"><div class="si-stat">Department<b>{{ issue.department.name|default:"-" }}</b></div></div>
+      <div class="col-sm-6"><div class="si-stat">Received by<b>{{ issue.received_by|default:"-" }}</b></div></div>
+      <div class="col-sm-6"><div class="si-stat">Production order<b>{{ issue.production_order.order_no|default:"-" }}</b></div></div>
+      <div class="col-sm-6"><div class="si-stat">Issued by<b>{{ issue.created_by.get_username|default:"-" }}</b></div></div>
+      <div class="col-12"><div class="si-stat">Purpose / notes<b class="fw-normal">{{ issue.purpose|default:"-"|linebreaksbr }}</b></div></div>
+    </div></div></div>
+    <div class="col-lg-4"><div class="si-card si-kpi h-100"><div class="ico bg-warning bg-opacity-10 text-warning"><i class="bi bi-cash-stack"></i></div>
+      <div><div class="lbl">Total cost (FIFO)</div><div class="val">Rs. {{ issue.total_cost|floatformat:2 }}</div></div></div></div>
+  </div>
+
+  <div class="si-card">
+    <div class="table-responsive">
+      <table class="table si-table align-middle mb-0">
+        <thead><tr><th>#</th><th>Item</th><th class="si-num">Qty</th><th>Unit</th><th class="si-num">Unit cost</th><th class="si-num">Total</th><th>Remarks</th></tr></thead>
+        <tbody>
+        {% for it in items %}
+          <tr><td>{{ forloop.counter }}</td><td class="fw-semibold">{{ it.product.name }}</td>
+            <td class="si-num">{{ it.qty|floatformat:"-3" }}</td><td>{{ it.product.unit.name|default:"" }}</td>
+            <td class="si-num">{{ it.unit_cost|floatformat:2 }}</td><td class="si-num">{{ it.total_cost|floatformat:2 }}</td>
+            <td class="small text-muted">{{ it.remarks }}</td></tr>
+        {% endfor %}
+        </tbody>
+        <tfoot><tr><th colspan="5" class="si-num">Total</th><th class="si-num">{{ issue.total_cost|floatformat:2 }}</th><th></th></tr></tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% if can_cancel %}
+<div class="modal fade" id="cancelModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered"><form method="post" action="{% url 'store_issue_cancel' issue.pk %}" class="modal-content">
+    {% csrf_token %}
+    <div class="modal-header"><h5 class="modal-title">Cancel {{ issue.issue_no }}?</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <p class="small text-muted">All the stock will go back to the store in the same batch.</p>
+      <label class="form-label">Wajah (zaroori)</label>
+      <input name="reason" class="form-control" maxlength="255" required>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button><button class="btn btn-danger">Cancel issue</button></div>
+  </form></div>
+</div>
+{% endif %}
+{% endblock %}

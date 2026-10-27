@@ -392,7 +392,7 @@ class OTPAuditLog(models.Model):
         ]
     
     def __str__(self):
-        return f"{self.phone} - {self.action} - {self.created_at.strftime('%d-%m-%Y %H:%M')}"
+        return f"{self.phone} - {self.action} - {self.created_at.strftime('%d-%m-%Y %I:%M %p')}"
 
 
 class CustomerProfile(models.Model):
@@ -430,7 +430,7 @@ class CustomerProfile(models.Model):
     is_trusted = models.BooleanField(
         default=False,
         verbose_name="Trusted Customer",
-        help_text="Trusted customers ko order par OTP nahi chahiye"
+        help_text="Trusted customers do not need an OTP for orders"
     )
     successful_orders = models.PositiveIntegerField(
         default=0,
@@ -814,7 +814,7 @@ class RecentlyViewed(models.Model):
                 request.session.create()
             session_key = request.session.session_key
         
-        # Existing entry delete karo (taake dobara top par aaye)
+        # Delete the existing entry (so it comes back at the top)
         cls.objects.filter(
             customer=customer,
             session_key=session_key,
@@ -867,8 +867,8 @@ class LiveVisitor(models.Model):
     Track live visitors on the customer shop
     
     Features:
-    - Har visitor 60 second tak "active" rehta hai
-    - Har 30 second mein count update hota hai
+    - Each visitor stays "active" for 60 seconds
+    - The count updates every 30 seconds
     - 5 minute purane visitors auto-delete
     - Session-based tracking (same user ek hi count hoga)
     """
@@ -915,7 +915,7 @@ class LiveVisitor(models.Model):
     
     # ✅ String Representation
     def __str__(self):
-        return f"{self.session_key[:8]}... - {self.last_seen.strftime('%d-%m-%Y %H:%M:%S')}"
+        return f"{self.session_key[:8]}... - {self.last_seen.strftime('%d-%m-%Y %I:%M:%S %p')}"
     
     # ==========================================
     # ✅ CLASS METHODS
@@ -924,10 +924,10 @@ class LiveVisitor(models.Model):
     @classmethod
     def get_active_count(cls, seconds=60):
         """
-        Kitne log abhi active hain (last N seconds)
+        How many people are active now (last N seconds)
         
         Args:
-            seconds: Kitne seconds ke andar active visitors count karne hain
+            seconds: Within how many seconds to count active visitors
         
         Returns:
             int: Active visitors count
@@ -941,7 +941,7 @@ class LiveVisitor(models.Model):
     @classmethod
     def track_visitor(cls, request):
         """
-        Current visitor ko track karo
+        Track the current visitor
         
         Args:
             request: Django request object
@@ -951,7 +951,7 @@ class LiveVisitor(models.Model):
         """
         from django.utils.timezone import now
         
-        # ✅ Session key nikalo (agar nahi hai to banao)
+        # ✅ Get the session key (create one if there is none)
         if not request.session.session_key:
             request.session.create()
         session_key = request.session.session_key
@@ -979,7 +979,7 @@ class LiveVisitor(models.Model):
             }
         )
         
-        # ✅ Purane visitors clean karo (5 minute se purane)
+        # ✅ Clean up old visitors (older than 5 minutes)
         cls.cleanup_old_visitors(minutes=5)
         
         return visitor
@@ -990,7 +990,7 @@ class LiveVisitor(models.Model):
         Purane visitors delete karo
         
         Args:
-            minutes: Kitne minute se purane visitors delete karne hain
+            minutes: Delete visitors older than how many minutes
         """
         from django.utils.timezone import now
         from datetime import timedelta
@@ -1022,7 +1022,7 @@ class ChatConversation(models.Model):
         blank=True, 
         null=True,
         db_index=True,
-        help_text="Guest user ke liye session key"
+        help_text="Session key for a guest user"
     )
     guest_name = models.CharField(max_length=100, blank=True, null=True)
     guest_phone = models.CharField(max_length=20, blank=True, null=True)
@@ -1075,7 +1075,7 @@ class ChatMessage(models.Model):
     SENDER_TYPES = [
         ('customer', '👤 Customer'),
         ('admin', '👨‍💼 Admin'),
-        ('system', '🤖 System'),  # ✅ IMPORTANT — AI ke liye
+        ('system', '🤖 System'),  # ✅ IMPORTANT — for AI
     ]
     
     conversation = models.ForeignKey(
@@ -1144,11 +1144,11 @@ class ChatTypingStatus(models.Model):
 
 class AdminPresence(models.Model):
     """
-    Admin ki REAL-TIME presence track karo
+    Track the REAL-TIME presence of the admin
     
-    Yeh last_login se alag hai:
-    - last_login = Kab login kiya (kabhi kabhi purana ho jata hai)
-    - last_activity = Abhi kya kaam kar raha hai (real-time)
+    This is different from last_login:
+    - last_login = When they logged in (sometimes becomes old)
+    - last_activity = What they are doing right now (real-time)
     """
     
     user = models.OneToOneField(
@@ -1171,7 +1171,7 @@ class AdminPresence(models.Model):
         return f"{self.user.username} - {status}"
     
     def is_really_online(self, seconds=60):
-        """Agar 60 second mein activity hui hai to online hai"""
+        """Online if there was activity in 60 seconds"""
         from django.utils.timezone import now
         from datetime import timedelta
         if not self.is_online:
@@ -1181,7 +1181,7 @@ class AdminPresence(models.Model):
     
     @classmethod
     def mark_activity(cls, user, page=None):
-        """Admin ki activity mark karo (har page load pe)"""
+        """Mark the admin activity (on every page load)"""
         presence, _ = cls.objects.get_or_create(user=user)
         presence.is_online = True
         if page:
@@ -1196,13 +1196,13 @@ class AdminPresence(models.Model):
     @classmethod
     def is_any_admin_live(cls, seconds=60):
         """
-        Koi bhi admin LIVE hai kya?
+        Is any admin LIVE?
         
         Args:
-            seconds: Kitne second mein activity hui ho (default 60)
+            seconds: Within how many seconds there was activity (default 60)
         
         Returns:
-            True agar koi admin live ho, warna False
+            True if any admin is live, otherwise False
         """
         from django.utils.timezone import now
         from datetime import timedelta
@@ -1216,7 +1216,7 @@ class AdminPresence(models.Model):
     
     @classmethod
     def get_live_admins(cls, seconds=60):
-        """Saare live admins ki list"""
+        """List of all live admins"""
         from django.utils.timezone import now
         from datetime import timedelta
         threshold = now() - timedelta(seconds=seconds)

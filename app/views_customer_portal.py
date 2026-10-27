@@ -95,7 +95,7 @@ DEFAULT_DELIVERY = {
 def get_delivery_settings():
     """
     ✅ Delivery settings get karo — admin configurable
-    Cache karo 5 minute ke liye
+    Cache for 5 minutes
     """
     cache_key = 'delivery_settings'
     settings = cache.get(cache_key)
@@ -129,7 +129,7 @@ def get_delivery_settings():
 
 
 def extract_city_from_address(address):
-    """Address se city extract karo"""
+    """Extract the city from the address"""
     if not address:
         return 'other'
     
@@ -920,7 +920,7 @@ def buy_now(request, product_id):
         )['total'] or 0
         
         if total_stock <= 0:
-            messages.error(request, f'{product.name} out of stock hai!')
+            messages.error(request, f'{product.name} is out of stock!')
             return redirect('shop_product_detail', pk=product.id)
         
         final_price = get_product_final_price(product)
@@ -947,7 +947,7 @@ def buy_now(request, product_id):
     
     except Exception as e:
         logger.error(f"Buy Now error: {e}")
-        messages.error(request, 'Kuch masla hua. Dobara try karein.')
+        messages.error(request, 'Something went wrong. Please try again.')
         return redirect('shop_home')
 
 
@@ -977,10 +977,10 @@ def add_to_cart(request):
             quantity = 1
         
         if quantity < 1:
-            return JsonResponse({'success': False, 'message': 'Quantity kam se kam 1 honi chahiye'})
+            return JsonResponse({'success': False, 'message': 'Quantity must be at least 1'})
         
         if quantity > 1000:
-            return JsonResponse({'success': False, 'message': 'Quantity zyada hai (max 1000)'})
+            return JsonResponse({'success': False, 'message': 'Quantity is too high (max 1000)'})
         
         product = get_object_or_404(Product, id=product_id, is_active=True)
         
@@ -989,7 +989,7 @@ def add_to_cart(request):
         )['total'] or 0
         
         if total_stock <= 0:
-            return JsonResponse({'success': False, 'message': 'Yeh product out of stock hai'})
+            return JsonResponse({'success': False, 'message': 'This product is out of stock'})
         
         final_price = get_product_final_price(product)
         
@@ -1001,7 +1001,7 @@ def add_to_cart(request):
             if new_qty > total_stock:
                 return JsonResponse({
                     'success': False,
-                    'message': f'Sirf {int(total_stock)} units available hain'
+                    'message': f'Only {int(total_stock)} units are available'
                 })
             cart[product_key]['quantity'] = new_qty
             cart[product_key]['price'] = float(final_price)
@@ -1009,7 +1009,7 @@ def add_to_cart(request):
             if quantity > total_stock:
                 return JsonResponse({
                     'success': False,
-                    'message': f'Sirf {int(total_stock)} units available hain'
+                    'message': f'Only {int(total_stock)} units are available'
                 })
             cart[product_key] = {
                 'product_id': product.id,
@@ -1026,12 +1026,12 @@ def add_to_cart(request):
         
         return JsonResponse({
             'success': True,
-            'message': f'{product.name} cart mein add ho gaya!',
+            'message': f'{product.name} was added to the cart!',
             'cart_count': cart_count,
         })
     except Exception as e:
         logger.error(f"Add to cart error: {e}")
-        return JsonResponse({'success': False, 'message': 'Kuch masla hua'})
+        return JsonResponse({'success': False, 'message': 'Something went wrong'})
 
 
 # ============================================
@@ -1118,7 +1118,7 @@ def update_cart(request):
                 if quantity > total_stock:
                     return JsonResponse({
                         'success': False,
-                        'message': f'Sirf {int(total_stock)} units available hain'
+                        'message': f'Only {int(total_stock)} units are available'
                     })
         
         cart = request.session.get('cart', {})
@@ -1234,7 +1234,7 @@ def checkout(request):
     """Checkout page — with delivery options"""
     cart = request.session.get('cart', {})
     if not cart:
-        messages.warning(request, 'Cart khali hai!')
+        messages.warning(request, 'Cart is empty!')
         return redirect('shop_home')
     
     profile = None
@@ -1341,17 +1341,17 @@ def place_order(request):
                     pk=request.user.customer_profile.pk
                 )
             except CustomerProfile.DoesNotExist:
-                messages.error(request, '❌ Customer profile nahi mila')
+                messages.error(request, '❌ Customer profile not found')
                 return redirect('checkout')
         
         if not profile:
-            messages.error(request, '❌ Customer profile nahi mila')
+            messages.error(request, '❌ Customer profile not found')
             return redirect('checkout')
         
         if not profile.should_skip_order_otp():
             otp_verified = check_otp_verified(request)
             if not otp_verified:
-                messages.error(request, '❌ Pehle OTP verify karein')
+                messages.error(request, '❌ Verify the OTP first')
                 return redirect('checkout')
         
         customer = profile.customer
@@ -1368,12 +1368,12 @@ def place_order(request):
         
         cart = request.session.get('cart', {})
         if not cart:
-            messages.error(request, 'Cart khali hai!')
+            messages.error(request, 'Cart is empty!')
             return redirect('shop_home')
         
         warehouse = Warehouse.objects.first()
         if not warehouse:
-            messages.error(request, 'Koi warehouse nahi hai!')
+            messages.error(request, 'There is no warehouse!')
             return redirect('shop_home')
         
         product_ids = [item['product_id'] for item in cart.values()]
@@ -1382,7 +1382,7 @@ def place_order(request):
         for key, item in cart.items():
             product = products.get(item['product_id'])
             if not product:
-                messages.error(request, f'Product nahi mila: {item["name"]}')
+                messages.error(request, f'Product not found: {item["name"]}')
                 return redirect('cart_view')
             
             stock = Inventory.objects.filter(
@@ -1392,7 +1392,7 @@ def place_order(request):
             if stock < item['quantity']:
                 messages.error(
                     request,
-                    f'{product.name} ka stock kam hai. Available: {int(stock)}'
+                    f'Not enough stock for {product.name}. Available: {int(stock)}'
                 )
                 return redirect('cart_view')
         
@@ -1405,7 +1405,7 @@ def place_order(request):
         if recent_order:
             messages.warning(
                 request,
-                f'Aapka order #{recent_order.order_no} pehle hi place ho chuka hai!'
+                f'Your order #{recent_order.order_no} has already been placed!'
             )
             return redirect('my_orders')
         
@@ -1570,7 +1570,7 @@ def place_order(request):
         logger.error(f"Order placement error: {e}")
         import traceback
         traceback.print_exc()
-        messages.error(request, 'Order mein masla hua. Please dobara try karein.')
+        messages.error(request, 'There was a problem with the order. Please try again.')
         return redirect('cart_view')
 
 
@@ -1646,7 +1646,7 @@ def my_orders(request):
     from django.core.paginator import Paginator
     
     if not hasattr(request.user, 'customer_profile'):
-        messages.error(request, 'Yeh page sirf customers ke liye hai')
+        messages.error(request, 'This page is for customers only')
         return redirect('shop_home')
     
     customer = request.user.customer_profile.customer
@@ -1754,13 +1754,13 @@ def cancel_order_customer(request, order_id):
             id=order_id, customer=customer
         )
     except SaleOrder.DoesNotExist:
-        return JsonResponse({'success': False, 'message': 'Order nahi mila'})
+        return JsonResponse({'success': False, 'message': 'Order not found'})
     
     cancellable_statuses = ['pending', 'confirmed']
     if order.status not in cancellable_statuses:
         return JsonResponse({
             'success': False,
-            'message': f'Order cancel nahi ho sakta (status: {order.get_status_display()})'
+            'message': f'The order cannot be cancelled (status: {order.get_status_display()})'
         })
     
     try:
@@ -1790,7 +1790,7 @@ def cancel_order_customer(request, order_id):
         
         return JsonResponse({
             'success': True,
-            'message': f'Order #{order.order_no} cancel ho gaya',
+            'message': f'Order #{order.order_no} cancelled',
         })
     except Exception as e:
         logger.error(f"Cancel order error: {e}")
@@ -1811,7 +1811,7 @@ def order_success_page(request, order_id):
     try:
         order = SaleOrder.objects.get(id=order_id, customer=customer)
     except SaleOrder.DoesNotExist:
-        messages.error(request, 'Order nahi mila')
+        messages.error(request, 'Order not found')
         return redirect('my_orders')
     
     items = order.items.all().select_related('product')
@@ -1855,13 +1855,13 @@ def update_delivery_address(request):
         landmark = data.get('landmark', '').strip()
         
         if not full_name:
-            return JsonResponse({'success': False, 'message': 'Full name zaroori hai'})
+            return JsonResponse({'success': False, 'message': 'Full name is required'})
         if not phone:
-            return JsonResponse({'success': False, 'message': 'Phone number zaroori hai'})
+            return JsonResponse({'success': False, 'message': 'Phone number is required'})
         if not address_line_1:
-            return JsonResponse({'success': False, 'message': 'Address zaroori hai'})
+            return JsonResponse({'success': False, 'message': 'Address is required'})
         if not city:
-            return JsonResponse({'success': False, 'message': 'City zaroori hai'})
+            return JsonResponse({'success': False, 'message': 'City is required'})
         
         import re
         phone_clean = phone.replace(' ', '').replace('-', '')
@@ -1904,7 +1904,7 @@ def update_delivery_address(request):
         
         return JsonResponse({
             'success': True,
-            'message': '✅ Address update ho gaya!',
+            'message': '✅ Address updated!',
             'address': {
                 'full_name': full_name,
                 'phone': phone,
@@ -1928,7 +1928,7 @@ def update_delivery_address(request):
 
 def _get_or_create_conversation(request, force_new=False):
     """
-    Customer ya guest ke liye conversation get/create karo
+    Get/create a conversation for a customer or guest
     """
     fresh_threshold = timedelta(minutes=FRESH_CHAT_THRESHOLD_MINUTES)
     cutoff_time = now() - fresh_threshold
@@ -2078,7 +2078,7 @@ def chat_send_message(request):
         guest_phone = data.get('guest_phone', '').strip()
         
         if not message_text:
-            return JsonResponse({'success': False, 'message': 'Message khali hai'})
+            return JsonResponse({'success': False, 'message': 'Message is empty'})
         
         if len(message_text) > 2000:
             return JsonResponse({'success': False, 'message': 'Message bohot lamba (max 2000 chars)'})
@@ -2090,7 +2090,7 @@ def chat_send_message(request):
         if message_count >= 10:
             return JsonResponse({
                 'success': False, 
-                'message': '⚠️ Bohot zyada messages! 1 minute ruk kar try karein.'
+                'message': '⚠️ Too many messages! Wait 1 minute and try again.'
             })
         
         cache.set(rate_key, message_count + 1, 60)
@@ -2179,8 +2179,8 @@ def chat_send_message(request):
                         conversation=conversation,
                         sender_type='system',
                         message=(
-                            f"👋 Shukriya! Aapka message mil gaya.\n\n"
-                            f"Hamara team abhi offline hai. Usually 1 hour mein reply karte hain.\n\n"
+                            f"👋 Thank you! We have received your message.\n\n"
+                            f"Our team is offline right now. We usually reply within 1 hour.\n\n"
                             f"⏰ Support Hours: 9 AM - 10 PM\n"
                             f"📞 Urgent? Contact: {contact_info}"
                         )
@@ -2358,7 +2358,7 @@ def chat_new(request):
         return JsonResponse({
             'success': True,
             'conversation_id': conversation.id,
-            'message': '✅ Nayi chat shuru ho gayi!'
+            'message': '✅ New chat started!'
         })
         
     except Exception as e:
@@ -2410,7 +2410,7 @@ def chat_close(request):
         
         return JsonResponse({
             'success': True,
-            'message': 'Chat band kar diya gaya.'
+            'message': 'The chat has been closed.'
         })
     except Exception as e:
         return JsonResponse({'success': False, 'message': safe_error(e)})
@@ -2420,7 +2420,7 @@ def chat_close(request):
 # ============================================
 
 def track_order_public(request):
-    """Public tracking page - Order # daal kar track karein"""
+    """Public tracking page - track by entering the Order #"""
     from .models import OrderTracking, DeliveryInfo
     
     order = None
@@ -2433,7 +2433,7 @@ def track_order_public(request):
         phone = request.POST.get('phone', '').strip()
         
         if not order_no:
-            error = '❌ Order number zaroori hai'
+            error = '❌ Order number is required'
         else:
             try:
                 # Try CustomerOrder first
@@ -2451,14 +2451,14 @@ def track_order_public(request):
                     # Verify phone if provided
                     if phone:
                         if order.customer.contact_number != phone:
-                            error = '❌ Phone number match nahi kar raha'
+                            error = '❌ Phone number does not match'
                             order = None
                     else:
                         # Show order if no phone required
                         pass
                 
                 if not order and not error:
-                    error = f'❌ Order "{order_no}" nahi mila'
+                    error = f'❌ Order "{order_no}" not found'
                 
                 if order:
                     # Get tracking history
@@ -2502,7 +2502,7 @@ def customer_order_tracking(request, order_id):
     try:
         order = SaleOrder.objects.get(id=order_id, customer=customer)
     except SaleOrder.DoesNotExist:
-        messages.error(request, 'Order nahi mila!')
+        messages.error(request, 'Order not found!')
         return redirect('my_orders')
     
     tracking_history = order.tracking_history.all().order_by('timestamp')

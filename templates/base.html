@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ LANG_CODE|default:'en' }}" dir="{{ LANG_DIR|default:'ltr' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
@@ -10,7 +10,7 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏢</text></svg>">
     
     <!-- Bootstrap 5 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    {% if LANG_DIR == 'rtl' %}<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">{% else %}<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">{% endif %}
     <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <!-- Chart.js -->
@@ -1076,9 +1076,32 @@
         .content-area { padding: 16px 14px 24px; }
         .topbar { padding: 9px 14px; }
     }
+    /* ---------- Live clock in the top bar ---------- */
+    .nav-clock { display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.15; min-width:0;
+                 padding:2px 14px; border-radius:12px; font-variant-numeric:tabular-nums; user-select:none; }
+    .nav-clock .nc-date { font-size:.72rem; font-weight:600; color:var(--text-muted); letter-spacing:.02em; white-space:nowrap; }
+    .nav-clock .nc-time { font-size:1.02rem; font-weight:800; color:var(--text-primary); white-space:nowrap; }
+    .nav-clock .nc-s { font-size:.72rem; font-weight:700; color:var(--text-muted); }
+    .nav-clock .nc-ap { font-size:.7rem; font-weight:800; color:#5b6cff; margin-left:3px; }
+    .topbar { flex-wrap:nowrap; gap:8px; }
+    .topbar > div { min-width:0; }
+
+    /* ---------- Top bar on phones ---------- */
+    @media (max-width: 575px) {
+        .topbar { padding:8px 10px; }
+        .topbar .user-menu { gap:6px !important; }
+        .nav-clock { padding:0 4px; }
+        .nav-clock .nc-date, .nav-clock .nc-s { display:none; }
+        .nav-clock .nc-time { font-size:.95rem; }
+        .topbar .dropdown > .btn { padding:6px !important; min-width:36px; min-height:36px; }
+        .topbar .dropdown-toggle::after { display:none; }
+        .main-wrapper { min-width:0; overflow-x:hidden; }
+    }
+    @media (min-width: 576px) and (max-width: 991px) { .nav-clock .nc-s { display:none; } }
     @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation-duration: .001ms !important; } }
     </style>
     
+    {% include 'components/i18n.html' %}
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -1097,8 +1120,25 @@
                         <i class="bi bi-list"></i>
                     </button>
                 </div>
+                <!-- 🕒 LIVE CLOCK (12-hour AM/PM, device time) -->
+                <div class="nav-clock" id="navClock" data-no-i18n aria-label="Current date and time" title="Current date and time">
+                    <span class="nc-date" id="ncDate"></span>
+                    <span class="nc-time"><span id="ncHm"></span><span class="nc-s" id="ncS"></span><span class="nc-ap" id="ncAp"></span></span>
+                </div>
                 <div class="d-flex align-items-center gap-3 user-menu">
                     
+                    <!-- 🌐 LANGUAGE SWITCH -->
+                    <div class="dropdown" data-no-i18n>
+                        <button class="btn btn-link text-dark p-0 dropdown-toggle" data-bs-toggle="dropdown" title="Language" style="text-decoration:none;">
+                            <i class="bi bi-translate"></i> <span class="d-none d-md-inline">{{ LANG_LABEL|default:'English' }}</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                            {% for l in LANGUAGES %}
+                            <li><a class="dropdown-item {% if l.code == LANG_CODE %}active{% endif %}" href="{% url 'set_language' l.code %}?next={{ request.get_full_path|urlencode }}">{{ l.native }}</a></li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+
                     <!-- 🤖 CHATBOT BUTTON -->
                     <button class="chatbot-topbar-btn" id="chatbotTopbarBtn" title="Business Assistant">
                         <i class="bi bi-chat-dots-fill"></i>
@@ -1127,20 +1167,20 @@
                     <!-- ========================================== -->
                     <div class="dropdown">
                         <button class="btn btn-link text-dark p-0 dropdown-toggle" data-bs-toggle="dropdown" style="text-decoration: none;">
-                            <i class="bi bi-person-circle"></i> {{ request.user.username|default:'User' }}
+                            <i class="bi bi-person-circle"></i> <span class="d-none d-sm-inline">{{ request.user.username|default:'User' }}</span>
                             
                             {% if request.user.groups.filter.name == 'CEO' %}
-                                <span class="badge bg-primary ms-1" style="font-size:0.6rem; padding:2px 6px;">👑 CEO</span>
+                                <span class="badge d-none d-md-inline-block bg-primary ms-1" style="font-size:0.6rem; padding:2px 6px;">👑 CEO</span>
                             {% elif request.user.groups.filter.name == 'MD' or request.user.groups.filter.name == 'Managing Director' %}
-                                <span class="badge bg-success ms-1" style="font-size:0.6rem; padding:2px 6px;">👔 MD</span>
+                                <span class="badge d-none d-md-inline-block bg-success ms-1" style="font-size:0.6rem; padding:2px 6px;">👔 MD</span>
                             {% elif request.user.groups.filter.name == 'CTO' or request.user.groups.filter.name == 'Chief Technology Officer' %}
-                                <span class="badge ms-1" style="font-size:0.6rem; padding:2px 6px; background: linear-gradient(135deg, #6366f1, #4f46e5); color: white;">💻 CTO</span>
+                                <span class="badge d-none d-md-inline-block ms-1" style="font-size:0.6rem; padding:2px 6px; background: linear-gradient(135deg, #6366f1, #4f46e5); color: white;">💻 CTO</span>
                             {% elif request.user.is_superuser %}
-                                <span class="badge bg-dark ms-1" style="font-size:0.6rem; padding:2px 6px;">⚙️ Admin</span>
+                                <span class="badge d-none d-md-inline-block bg-dark ms-1" style="font-size:0.6rem; padding:2px 6px;">⚙️ Admin</span>
                             {% elif request.user.groups.filter.name == 'Owner' %}
-                                <span class="badge bg-success ms-1" style="font-size:0.6rem; padding:2px 6px;">🏢 Owner</span>
+                                <span class="badge d-none d-md-inline-block bg-success ms-1" style="font-size:0.6rem; padding:2px 6px;">🏢 Owner</span>
                             {% elif request.user.groups.filter.name == 'Store Manager' %}
-                                <span class="badge bg-warning ms-1" style="font-size:0.6rem; padding:2px 6px; color:#222;">👔 Manager</span>
+                                <span class="badge d-none d-md-inline-block bg-warning ms-1" style="font-size:0.6rem; padding:2px 6px; color:#222;">👔 Manager</span>
                             {% endif %}
                         </button>
                         
@@ -1633,5 +1673,28 @@
     {% include 'chatbot/widget.html' %}
     
     {% block extra_js %}{% endblock %}
+<script>
+/* Live clock: 12-hour AM/PM using the device time */
+(function () {
+    var elDate = document.getElementById('ncDate'), elHm = document.getElementById('ncHm'),
+        elS = document.getElementById('ncS'), elAp = document.getElementById('ncAp');
+    if (!elHm) return;
+    var DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    function two(n) { return n < 10 ? '0' + n : '' + n; }
+    function tick() {
+        if (document.hidden) return;
+        var d = new Date(), h = d.getHours(), ap = h >= 12 ? 'PM' : 'AM';
+        h = h % 12; if (h === 0) h = 12;
+        elHm.textContent = h + ':' + two(d.getMinutes());
+        elS.textContent = ':' + two(d.getSeconds());
+        elAp.textContent = ap;
+        elDate.textContent = DAYS[d.getDay()] + ', ' + d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+    }
+    tick();
+    setInterval(tick, 1000);
+    document.addEventListener('visibilitychange', tick);
+})();
+</script>
 </body>
 </html>

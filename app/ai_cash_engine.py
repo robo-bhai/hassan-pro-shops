@@ -261,7 +261,7 @@ class AICashEngine:
             status__in=['approved', 'paid']
         ).aggregate(total=Sum('amount'))['total'] or Decimal('100')
         
-        # ✅ FIX: Pehle float mein convert karo
+        # ✅ FIX: Convert to float first
         current_balance_float = float(current_balance)
         monthly_expenses_float = float(monthly_expenses)
         liquidity_days = (current_balance_float / monthly_expenses_float * 30) if monthly_expenses_float > 0 else 999
@@ -301,7 +301,7 @@ class AICashEngine:
         else:
             # Total cash use karo (default)
             buffer_amount = float(current_balance)
-            # ✅ FIX: Pehle float mein convert karo
+            # ✅ FIX: Convert to float first
             buffer_months = (current_balance_float / avg_monthly_expense) if avg_monthly_expense > 0 else 0
             buffer_source = 'total_cash'
         
@@ -466,7 +466,7 @@ class AICashEngine:
                     'max': 25,
                     'status': buffer_status,
                     'value': f'{buffer_months:.1f} mahine' if buffer_months > 0 else '0 mahine',
-                    'description': 'Bure waqt ke liye bachat',
+                    'description': 'Savings for hard times',
                     'source': buffer_source,
                     'current_amount': buffer_amount,
                 },
@@ -651,7 +651,7 @@ class AICashEngine:
                     'description': f'{trans.amount / avg_transaction:.1f}x higher than average ({avg_transaction:,.2f})',
                     'transaction_id': trans.id,
                     'amount': float(trans.amount),
-                    'date': trans.date.strftime('%d-%b-%Y %H:%M'),
+                    'date': trans.date.strftime('%d-%b-%Y %I:%M %p'),
                 })
         
         # ==========================================

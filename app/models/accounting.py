@@ -97,7 +97,7 @@ class DailyClosingExpense(models.Model):
 
 
 class CashTransaction(models.Model):
-    """Cash generate aur use track karne ke liye"""
+    """To track cash generated and used"""
     
     TRANSACTION_TYPES = [
         ('deposit', '💰 Cash Deposit (Add)'),
@@ -229,7 +229,7 @@ class CashTransaction(models.Model):
 
 
 class CashBalance(models.Model):
-    """Current cash balance track karne ke liye"""
+    """To track the current cash balance"""
     
     balance = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     last_updated = models.DateTimeField(auto_now=True)
@@ -601,6 +601,10 @@ class JournalEntryItem(models.Model):
     is_debit = models.BooleanField(help_text="True for Debit, False for Credit")
     amount = models.DecimalField(max_digits=15, decimal_places=2)
     description = models.CharField(max_length=255, blank=True, null=True)
+    # Step 4 - sub-ledger party: every line on the Receivable account names its customer,
+    # every line on the Payable account names its vendor.
+    customer = models.ForeignKey('Customer', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    vendor = models.ForeignKey('Vendor', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
     
     class Meta:
         verbose_name_plural = "Journal Entry Items"
@@ -623,6 +627,9 @@ class LedgerEntry(models.Model):
     credit = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     balance = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     created_at = models.DateTimeField(auto_now_add=True)
+    # Step 4 - copied from the journal line, so a customer / vendor statement is one indexed query
+    customer = models.ForeignKey('Customer', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    vendor = models.ForeignKey('Vendor', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
     
     class Meta:
         verbose_name_plural = "Ledger Entries"
@@ -630,6 +637,8 @@ class LedgerEntry(models.Model):
         indexes = [
             models.Index(fields=['account', 'date']),
             models.Index(fields=['journal_entry']),
+            models.Index(fields=['customer', 'date'], name='ledger_customer_date_idx'),
+            models.Index(fields=['vendor', 'date'], name='ledger_vendor_date_idx'),
         ]
     
     def __str__(self):
@@ -942,7 +951,7 @@ class Loan(models.Model):
 
 
 class LoanGiven(models.Model):
-    """Loan Given to someone (Aap ne kisi ko paisa diya)"""
+    """Loan Given to someone (you gave money to someone)"""
     
     LOAN_TYPES = [
         ('personal', '👤 Personal Loan'),
@@ -1038,7 +1047,7 @@ class LoanGiven(models.Model):
         super().save(*args, **kwargs)
     
     def process_loan_given(self, user):
-        """✅ Cash OUTFLOW - Aap ne paisa diya"""
+        """✅ Cash OUTFLOW - you gave money"""
         from decimal import Decimal
         
         try:

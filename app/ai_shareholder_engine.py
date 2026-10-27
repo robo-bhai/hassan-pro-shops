@@ -861,14 +861,14 @@ class AIShareholderEngine:
         
         message = f"""Assalam-o-Alaikum {shareholder.name}!
 
-🌟 Aapka {shareholder.shareholder_code} account ke liye shukriya!
+🌟 Thank you for your {shareholder.shareholder_code} account!
 
 📊 Aapki current position:
 • Shares: {shares:,}
 • Cash Balance: Rs. {balance:,.2f}
 • Total Investment: Rs. {shareholder.total_investment():,.2f}
 
-💡 Hum aapko kuch special offers dena chahte hain:
+💡 We would like to give you some special offers:
 ✅ Bonus dividend eligibility
 ✅ Priority support
 ✅ Free account review
@@ -892,16 +892,16 @@ Regards,
         
         message = f"""🌟 Assalam-o-Alaikum {shareholder.name}!
 
-🎉 Aapko {years:.0f} saal ki loyalty ke liye special thanks!
+🎉 Special thanks for your {years:.0f} years of loyalty!
 
 📊 Aapki journey:
 • {years:.1f} years with us
 • {shareholder.total_shares():,} shares
 • Rs. {shareholder.total_investment():,.2f} investment
 
-💐 Aap humare top shareholders mein se hain!
+💐 You are one of our top shareholders!
 
-🎁 Aap 15% bonus return ke haqdar hain!
+🎁 You are entitled to a 15% bonus return!
 
 Regards,
 [Business Name]"""

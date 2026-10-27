@@ -115,7 +115,7 @@ class CustomAdminSite(admin.AdminSite):
             return []
 
     def set_backup_dir(self, request):
-        """AJAX: User se folder path lo aur session mein save karo"""
+        """AJAX: Get the folder path from the user and save it in the session"""
         from django.http import JsonResponse
         import json
         

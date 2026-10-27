@@ -40,8 +40,8 @@ class Customer(models.Model):
     customer_code = models.CharField(
         max_length=50, 
         unique=True, 
-        null=True,          # ✅ Migration ke liye temporarily null allow
-        blank=True,         # ✅ Form mein temporarily blank allow
+        null=True,          # ✅ Temporarily allow null for the migration
+        blank=True,         # ✅ Temporarily allow blank in the form
         verbose_name=_("Customer Code"),
         help_text="Enter unique customer code manually (e.g., CUS-001, WALKIN)"
     )
@@ -49,7 +49,7 @@ class Customer(models.Model):
     contact_number = models.CharField(max_length=15, null=True, blank=True)
     
     
-    # ✅ YEH LINE ADD KARO
+    # ✅ ADD THIS LINE
     email = models.EmailField(max_length=100, blank=True, null=True, verbose_name="Email")
    
     ref_name_1 = models.CharField(max_length=100, null=True, blank=True)
@@ -101,7 +101,7 @@ class Customer(models.Model):
         return adjusted_balance
 
     def save(self, *args, **kwargs):
-        # ✅ Agar customer_code empty hai to auto-generate karo
+        # ✅ If customer_code is empty, auto-generate it
         if not self.customer_code:
             last_customer = Customer.objects.exclude(
                 customer_code__isnull=True
@@ -248,7 +248,7 @@ class Sale(models.Model):
                         description=f"Sale #{self.bill_no} - {self.customer.name}"
                     )
             except Exception as e:
-                # Agar cash update fail ho to sirf log karo, sale rukni nahi chahiye
+                # If the cash update fails, only log it; the sale must not stop
                 import logging
                 logging.getLogger(__name__).warning(f"Cash update failed for sale {self.bill_no}: {e}")
 
@@ -265,7 +265,7 @@ class Sale(models.Model):
                         self.total_amount()
                     )
             except Exception:
-                pass  # Agar WhatsApp fail ho to sale rukni nahi chahiye
+                pass  # If WhatsApp fails, the sale must not stop
 
 
 class SaleItem(models.Model):
@@ -278,6 +278,9 @@ class SaleItem(models.Model):
     balance = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.0'), editable=False)
     discount = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'))
     batches_used = models.ManyToManyField('StockBatch', blank=True, related_name='sale_items')
+    # FIFO cost of the goods at the moment of sale (Step 3: this is what the ledger books as Cost of Goods Sold).
+    # NULL = old sale that has no saved cost yet -> run `manage.py post_ledger --backfill-cost`.
+    cost_amount = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, editable=False)
 
     class Meta:
         verbose_name_plural = '5.1. Sale Items'
@@ -322,7 +325,7 @@ class SaleItem(models.Model):
         if not warehouse:
             raise ValidationError(f"Warehouse must be specified for sale {self.sale.bill_no}.")
         
-        # ✅ Pehle check karo available stock
+        # ✅ First check the available stock
         current_stock = Inventory.get_stock(self.product, warehouse)
         if self.qty > current_stock:
             raise ValidationError(
@@ -364,7 +367,7 @@ class SaleItem(models.Model):
         return self.total_amt - total_cost
 
     # ============================================
-    # ✅ SAVE METHOD (FIXED - FIFO pehle, stock baad mein)
+    # ✅ SAVE METHOD (FIXED - FIFO first, stock after)
     # ============================================
     @transaction.atomic
     def save(self, *args, **kwargs):
@@ -379,18 +382,19 @@ class SaleItem(models.Model):
         if not warehouse:
             raise ValidationError(f"Warehouse is not set for sale {self.sale.bill_no}.")
 
-        # ✅ STEP 1: Pehle FIFO price calculate karo (stock consume karne se pehle)
+        # ✅ STEP 1: First calculate the FIFO price (before consuming stock)
         fifo_price = self.get_fifo_price()
         recommended_price = self.calculate_sale_price(fifo_price)
         
-        # ✅ STEP 2: Ab price set karo
+        # ✅ STEP 2: Now set the price
         if self.price and Decimal(self.price) > 0:
             self.price = Decimal(self.price)
         else:
             self.price = recommended_price
 
-        # ✅ STEP 3: Ab stock validate aur update karo
+        # ✅ STEP 3: Now validate and update the stock
         total_cost, used_batches = self.validate_and_update_stock()
+        self.cost_amount = Decimal(total_cost).quantize(Decimal('0.01'))
         
         # ✅ STEP 4: Batch selling price validation
         if used_batches:
@@ -399,7 +403,7 @@ class SaleItem(models.Model):
                     if self.price < batch.selling_price:
                         raise ValidationError(
                             f"Sale price (Rs. {self.price:,.2f}) for {self.product.name} "
-                            f"batch selling price (Rs. {batch.selling_price:,.2f}) se kam nahi ho sakti!"
+                            f"cannot be lower than the batch selling price (Rs. {batch.selling_price:,.2f})!"
                         )
 
         # ✅ STEP 5: Calculate totals
@@ -457,11 +461,11 @@ class SaleOrder(models.Model):
     blank=True,
     null=True,
     verbose_name="Customer PO Number",
-    help_text="Customer ke system ka Purchase Order number"
+    help_text="Purchase Order number in the customer system"
 )
     converted_to_sale = models.ForeignKey('Sale', on_delete=models.SET_NULL, null=True, blank=True, related_name='converted_from_order')
     
-    # ✅ NAYA field: Client IP (duplicate detect karne ke liye)
+    # ✅ NEW field: Client IP (to detect duplicates)
     client_ip = models.GenericIPAddressField(
         null=True, 
         blank=True,
@@ -879,15 +883,26 @@ class SaleRetrnItem(models.Model):
             # ✅ Removing return - DECREASE stock
             self._decrease_stock(abs(qty), warehouse)
     
+    def _original_unit_cost(self):
+        """Unit cost the goods left stock at (saved on the sale item). None for old sales without a saved cost."""
+        sale = self.sale_return.sale if self.sale_return_id else None
+        if not sale:
+            return None
+        agg = SaleItem.objects.filter(sale=sale, product=self.product).aggregate(c=Sum('cost_amount'), q=Sum('qty'))
+        if agg['c'] and agg['q']:
+            return (Decimal(str(agg['c'])) / Decimal(str(agg['q']))).quantize(Decimal('0.01'))
+        return None
+
     def _increase_stock(self, qty, warehouse):
-        """Increase stock in batches"""
+        """Increase stock in batches - at the ORIGINAL COST (Step 3b), so stock value matches the ledger"""
         remaining = qty
+        cost = self._original_unit_cost() or self.price      # old sale without a saved cost: previous behaviour
         
-        # Try to find existing batch with same price
+        # Try to find existing batch with same cost
         existing_batch = StockBatch.objects.filter(
             product=self.product,
             warehouse=warehouse,
-            price=self.price,
+            price=cost,
             remaining_qty__gt=0
         ).order_by('id').first()
         
@@ -902,7 +917,7 @@ class SaleRetrnItem(models.Model):
                 warehouse=warehouse,
                 qty=remaining,
                 remaining_qty=remaining,
-                price=self.price
+                price=cost
             )
     
     def _decrease_stock(self, qty, warehouse):
@@ -946,9 +961,9 @@ class SaleRetrnItem(models.Model):
             product=self.product
         ).exclude(pk=self.pk).aggregate(total=Sum('qty'))['total'] or 0
         
-        if self.qty + already_returned > sale_item.qty:
+        if self.qty + Decimal(str(already_returned)) > Decimal(str(sale_item.qty)) + Decimal('0.005'):
             raise ValidationError(
-                f"Quantity exceeds sale: Available {sale_item.qty - already_returned}, "
+                f"Quantity exceeds sale: Available {Decimal(str(sale_item.qty)) - Decimal(str(already_returned))}, "
                 f"Requested {self.qty}"
             )
     

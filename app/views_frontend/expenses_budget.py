@@ -2454,7 +2454,7 @@ def self_expense_report_pdf(request):
     # ========================================== #
     story.append(Spacer(1, 0.3*inch))
     story.append(Paragraph(
-        f"Generated: {now().strftime('%d-%m-%Y %H:%M')}",
+        f"Generated: {now().strftime('%d-%m-%Y %I:%M %p')}",
         ParagraphStyle('Footer', parent=styles['Normal'], fontSize=8, alignment=TA_CENTER)
     ))
     story.append(Paragraph(

@@ -19,7 +19,8 @@ def warehouse_performance_report(request):
     from_date_obj = datetime.strptime(from_date, '%Y-%m-%d').date()
     to_date_obj = datetime.strptime(to_date, '%Y-%m-%d').date()
     
-    warehouses = Warehouse.objects.all()
+    from .. import store_access as _sa
+    warehouses = _sa.hide_other_stores(request.user, Warehouse.objects.all())
     warehouse_data = []
     
     for warehouse in warehouses:
@@ -58,7 +59,8 @@ def warehouse_performance_report(request):
 @login_required
 def warehouse_list(request):
     """List all warehouses with stats"""
-    warehouses = Warehouse.objects.select_related('location').all()
+    from .. import store_access as _sa
+    warehouses = _sa.hide_other_stores(request.user, Warehouse.objects.select_related('location').all())
     
     search = request.GET.get('search', '')
     if search:
@@ -132,6 +134,10 @@ def warehouse_create(request):
 def warehouse_update(request, pk):
     """Update warehouse"""
     warehouse = get_object_or_404(Warehouse, pk=pk)
+    from .. import store_access as _sa
+    if not _sa.can_view_warehouse(request.user, warehouse.pk):
+        messages.error(request, 'Access denied! This store does not belong to your team.')
+        return redirect('warehouse_list')
     
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
@@ -175,6 +181,10 @@ def warehouse_inventory(request, pk):
     from decimal import Decimal  # ✅ Ensure Decimal is imported
     
     warehouse = get_object_or_404(Warehouse, pk=pk)
+    from .. import store_access as _sa
+    if not _sa.can_view_warehouse(request.user, warehouse.pk):
+        messages.error(request, 'Access denied! This store does not belong to your team.')
+        return redirect('warehouse_list')
     inventory_items = Inventory.objects.filter(warehouse=warehouse).select_related('product', 'product__unit')
     
     total_products = inventory_items.count()
@@ -250,7 +260,8 @@ def warehouse_create_frontend(request):
 @login_required
 def warehouse_list_frontend(request):
     """List all warehouses"""
-    warehouses = Warehouse.objects.select_related('location').all().order_by('name')
+    from .. import store_access as _sa
+    warehouses = _sa.hide_other_stores(request.user, Warehouse.objects.select_related('location').all().order_by('name'))
     
     search = request.GET.get('search', '')
     if search:
@@ -289,6 +300,10 @@ def warehouse_list_frontend(request):
 def warehouse_update_frontend(request, pk):
     """Update warehouse"""
     warehouse = get_object_or_404(Warehouse, pk=pk)
+    from .. import store_access as _sa
+    if not _sa.can_view_warehouse(request.user, warehouse.pk):
+        messages.error(request, 'Access denied! This store does not belong to your team.')
+        return redirect('warehouse_list')
     
     if request.method == 'POST':
         try:

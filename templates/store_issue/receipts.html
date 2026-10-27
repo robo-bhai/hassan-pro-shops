@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block title %}Store Receipts - {{ company_name }}{% endblock %}
+{% block extra_css %}{% include 'store_issue/_styles.html' %}{% endblock %}
+{% block content %}
+<div class="container-fluid px-4 py-4 si-page">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+    <div><h1 class="h3 mb-1"><i class="bi bi-box-arrow-in-down text-primary me-2"></i>Store Receipts</h1>
+      <p class="text-muted small mb-0">Which store the Purchase and GRN goods went to, and what is still to arrive in the store</p></div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a href="{% url 'store_transfer_list' %}" class="btn btn-outline-secondary rounded-pill px-3"><i class="bi bi-arrow-left-right me-1"></i>Transfers</a>
+      <a href="{% url 'store_dashboard' %}" class="btn btn-outline-secondary rounded-pill px-3"><i class="bi bi-buildings me-1"></i>Stores</a>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-md-4"><div class="si-card si-kpi"><div class="ico bg-primary bg-opacity-10 text-primary"><i class="bi bi-cash-stack"></i></div>
+      <div><div class="lbl">Muddat ka maal (value)</div><div class="val">Rs. {{ total_value|floatformat:0 }}</div></div></div></div>
+    <div class="col-md-4"><a href="?pending=1&from={{ f.from }}&to={{ f.to }}" class="text-decoration-none text-reset"><div class="si-card si-kpi">
+      <div class="ico bg-warning bg-opacity-10 text-warning"><i class="bi bi-hourglass-split"></i></div>
+      <div><div class="lbl">GRN: stock not in the store yet</div><div class="val">{{ pending_grn_count }}</div></div></div></a></div>
+    <div class="col-md-4"><a href="{% url 'store_transfer_list' %}?status=in_transit" class="text-decoration-none text-reset"><div class="si-card si-kpi">
+      <div class="ico bg-success bg-opacity-10 text-success"><i class="bi bi-truck"></i></div>
+      <div><div class="lbl">Transfers still to be received</div><div class="val">{{ incoming_count }}</div></div></div></a></div>
+  </div>
+
+  {% if incoming_count %}
+  <div class="si-card mb-3"><div class="p-3 border-bottom fw-semibold"><i class="bi bi-truck me-2"></i>On the way for you</div>
+    <div class="table-responsive"><table class="table si-table align-middle mb-0"><tbody>
+      {% for t in incoming %}<tr><td><a class="fw-semibold text-decoration-none" href="{% url 'store_transfer_detail' t.pk %}">{{ t.transfer_no }}</a></td>
+        <td>{{ t.from_warehouse.name }} <i class="bi bi-arrow-right text-muted"></i> {{ t.to_warehouse.name }}</td>
+        <td class="small text-muted">{{ t.transfer_date|date:"d M h:i A" }}</td>
+        <td class="text-end"><a href="{% url 'store_transfer_detail' t.pk %}" class="btn btn-sm btn-success rounded-pill px-3">Receive</a></td></tr>{% endfor %}
+    </tbody></table></div></div>
+  {% endif %}
+
+  <form method="get" class="si-card p-3 mb-3"><div class="row g-2 align-items-end">
+    <div class="col-lg-3 col-md-6"><label class="form-label small mb-1">Store</label>
+      <select name="store" class="form-select"><option value="">Sab (mere stores)</option>
+        {% for s in stores %}<option value="{{ s.pk }}" {% if f.store == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>{% endfor %}</select></div>
+    <div class="col-lg-2 col-md-6"><label class="form-label small mb-1">Qism</label>
+      <select name="kind" class="form-select"><option value="">GRN + Purchase</option>
+        <option value="grn" {% if f.kind == 'grn' %}selected{% endif %}>Sirf GRN</option>
+        <option value="purchase" {% if f.kind == 'purchase' %}selected{% endif %}>Sirf Purchase</option></select></div>
+    <div class="col-lg-2 col-6"><label class="form-label small mb-1">From</label><input type="date" name="from" value="{{ f.from }}" class="form-control"></div>
+    <div class="col-lg-2 col-6"><label class="form-label small mb-1">To</label><input type="date" name="to" value="{{ f.to }}" class="form-control"></div>
+    <div class="col-lg-3 d-flex gap-2 align-items-center">
+      <div class="form-check"><input class="form-check-input" type="checkbox" name="pending" value="1" id="pend" {% if f.pending %}checked{% endif %}><label class="form-check-label small" for="pend">Only pending (GRN)</label></div>
+      <button class="btn btn-primary btn-sm px-3 ms-auto">Filter</button></div>
+  </div></form>
+
+  <div class="si-card"><div class="table-responsive">
+    <table class="table table-hover si-table align-middle mb-0">
+      <thead><tr><th>Qism</th><th>Number</th><th>Date</th><th>Vendor</th><th>Store</th><th class="si-num">Qty</th><th class="si-num">Value</th><th>Stock ki halat</th></tr></thead>
+      <tbody>
+      {% for r in page_obj %}
+        <tr>
+          <td><span class="badge text-bg-{% if r.kind == 'GRN' %}info{% else %}secondary{% endif %}">{{ r.kind }}</span></td>
+          <td>{% if r.url_name == 'grn_detail' %}<a class="fw-semibold text-decoration-none" href="{% url 'grn_detail' r.pk %}">{{ r.no }}</a>{% else %}<a class="fw-semibold text-decoration-none" href="{% url 'purchase_detail' r.pk %}">{{ r.no }}</a>{% endif %}</td>
+          <td class="small text-nowrap">{{ r.date|date:"d M Y" }}</td><td>{{ r.vendor }}</td>
+          <td>{% if r.store.store_profile %}<span class="si-code {{ r.store.store_profile.store_type }}">{{ r.store.store_profile.code }}</span> {% endif %}{{ r.store.name }}</td>
+          <td class="si-num">{{ r.qty|floatformat:"-2" }}</td><td class="si-num">{{ r.value|floatformat:2 }}</td>
+          <td class="small {% if not r.posted %}text-warning fw-semibold{% else %}text-success{% endif %}">{{ r.status }}</td>
+        </tr>
+      {% empty %}<tr><td colspan="8"><div class="si-empty"><i class="bi bi-inbox"></i>No receipts in this period</div></td></tr>{% endfor %}
+      </tbody>
+    </table></div>
+    {% if page_obj.has_other_pages %}
+    <div class="d-flex justify-content-between align-items-center p-3 border-top"><span class="small text-muted">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+      <div class="btn-group">
+        {% if page_obj.has_previous %}<a class="btn btn-sm btn-outline-secondary" href="?{{ qs }}{% if qs %}&{% endif %}page={{ page_obj.previous_page_number }}">Prev</a>{% endif %}
+        {% if page_obj.has_next %}<a class="btn btn-sm btn-outline-secondary" href="?{{ qs }}{% if qs %}&{% endif %}page={{ page_obj.next_page_number }}">Next</a>{% endif %}
+      </div></div>{% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -43,3 +43,11 @@ def humanize_key(v):
 @register.filter
 def mul(a, b):
     return _num(a) * _num(b)
+
+
+@register.filter
+def can(user, keys):
+    """Permission-matrix check in templates:  {% if request.user|can:"view_sales" %}
+    Several keys separated by commas mean "any of them":  {% if user|can:"edit_sales,manage_orders" %}"""
+    from app.security.permissions import has_matrix_perm
+    return has_matrix_perm(user, *[k.strip() for k in str(keys).split(',') if k.strip()])

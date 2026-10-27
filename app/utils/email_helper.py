@@ -132,7 +132,7 @@ def get_html_template(title, content, action_link=None, button_text="View Detail
 
 def send_notification_email(recipient_email, subject, body_html, body_text=None, action_link=None, button_text="View Details"):
     """
-    System notifications bhejta hai (info@uqn88.store se).
+    Sends system notifications (from info@uqn88.store).
     """
     sender_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'info@uqn88.store')
     from_header = f"UQN88 Store <{sender_email}>"
@@ -176,7 +176,7 @@ def send_notification_email(recipient_email, subject, body_html, body_text=None,
 
 def send_custom_user_email(username, recipient_email, subject, body_html, body_text=None, action_link=None):
     """
-    User-composed emails ke liye (username@uqn88.store se).
+    For user-composed emails (from username@uqn88.store).
     """
     sender_email = f"{username.lower()}@uqn88.store"
     from_header = f"{username} <{sender_email}>"
@@ -223,7 +223,7 @@ def send_custom_user_email(username, recipient_email, subject, body_html, body_t
 
 def send_otp_email(recipient_email, otp_code, customer_name="Customer", purpose="verification", verify_url=None):
     """
-    Customer ko OTP email + Instant Verification Link bhejta hai.
+    Sends the customer an OTP email + Instant Verification Link.
     """
     subject = f"🔐 Your OTP Code - {otp_code}"
     
@@ -270,7 +270,7 @@ def send_otp_email(recipient_email, otp_code, customer_name="Customer", purpose=
         </p>
         
         <p style="font-size: 14px; color: #4b5563; margin-top: 0; margin-bottom: 20px;">
-            Aap ka <strong>{purpose_text}</strong> ke liye One-Time Password (OTP) neeche diya gaya hai:
+            Your One-Time Password (OTP) for <strong>{purpose_text}</strong> is given below:
         </p>
         
         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 24px 0;">
@@ -296,7 +296,7 @@ def send_otp_email(recipient_email, otp_code, customer_name="Customer", purpose=
         {verify_button_html}
         
         <p style="font-size: 13px; color: #6b7280; margin-bottom: 24px; text-align: center;">
-            Agar aap ne OTP request nahi ki, to is email ko ignore karein.
+            If you did not request an OTP, please ignore this email.
         </p>
         
         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #fffbe3; border-left: 4px solid #ffb703; border-radius: 0 6px 6px 0;">
@@ -304,7 +304,7 @@ def send_otp_email(recipient_email, otp_code, customer_name="Customer", purpose=
                 <td style="padding: 12px 16px;">
                     <p style="font-size: 12px; color: #78350f; margin: 0; line-height: 1.5;">
                         <strong>⚠️ Security Warning:</strong> 
-                        Yeh OTP kisi ke saath share na karein. uqn88 Store aap se kabhi bhi OTP nahi maangega.
+                        Do not share this OTP with anyone. uqn88 Store will never ask you for an OTP.
                     </p>
                 </td>
             </tr>
@@ -325,7 +325,7 @@ def send_otp_email(recipient_email, otp_code, customer_name="Customer", purpose=
 
 def send_customer_order_email(recipient_email, order_no, customer_name, order_summary, total_amount, payment_method="COD", address="N/A"):
     """
-    Customer ko Order Confirmation Email bhejta hai with detailed Itemized Breakdown.
+    Sends the customer an Order Confirmation Email with a detailed Itemized Breakdown.
     """
     subject = f"🛍️ Order Confirmed #{order_no} - uqn88 Store"
 
@@ -345,7 +345,7 @@ def send_customer_order_email(recipient_email, order_no, customer_name, order_su
         Assalam o Alaikum <strong>{customer_name}</strong>,
     </p>
     <p style="font-size: 14px; color: #4b5563;">
-        Shukriya! Aap ka order <strong>#{order_no}</strong> successfully receive ho gaya hai. Hum jald hi isse dispatch karenge.
+        Thank you! Your order <strong>#{order_no}</strong> has been received successfully. We will dispatch it soon.
     </p>
 
     <!-- Order Info Card -->
@@ -392,14 +392,14 @@ def send_customer_order_email(recipient_email, order_no, customer_name, order_su
 
 def send_admin_order_notification(admin_emails, order_no, customer_name, customer_phone, total_amount, items_count, payment_method="COD", order_link=None):
     """
-    Admin ko naye order placement par instant alert Email bhejta hai.
+    Sends the admin an instant alert Email on a new order placement.
     """
     subject = f"🚨 NEW ORDER #{order_no} - Rs. {total_amount:,.2f}"
 
     content = f"""
     <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 14px 16px; border-radius: 0 6px 6px 0; margin-bottom: 20px;">
         <p style="margin: 0; color: #991b1b; font-weight: 700; font-size: 15px;">
-            🛒 Web Store par Naya Order Aaya Hai!
+            🛒 A New Order Has Come In on the Web Store!
         </p>
     </div>
 
@@ -452,7 +452,7 @@ def send_order_status_update_email(recipient_email, order_no, customer_name, new
         Assalam o Alaikum <strong>{customer_name}</strong>,
     </p>
     <p style="font-size: 14px; color: #4b5563;">
-        Aap ke Order <strong>#{order_no}</strong> ka status update kar diya gaya hai:
+        The status of your Order <strong>#{order_no}</strong> has been updated:
     </p>
 
     <div style="text-align: center; margin: 24px 0;">

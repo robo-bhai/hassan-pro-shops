@@ -186,6 +186,13 @@
                     <span class="mx-2">|</span>
                     <i class="bi bi-building me-1"></i> {{ plan.warehouse.name|default:"N/A" }}
                 </p>
+                {% if plan.batch %}
+                <p class="mb-0 mt-2">
+                    <a href="{% url 'monthly_plan_multi_detail' plan.batch.pk %}" class="badge bg-light text-dark text-decoration-none">
+                        <i class="bi bi-collection me-1"></i> Part of multi-product plan {{ plan.batch.batch_no }}
+                    </a>
+                </p>
+                {% endif %}
             </div>
             <div class="col-md-4 text-md-end">
                 <div class="d-flex gap-2 justify-content-md-end">
@@ -204,7 +211,7 @@
                             <i class="bi bi-pencil me-1"></i> Edit
                         </a>
                     {% endif %}
-                    <a href="{% url 'monthly_purchase_planner' %}?month={{ plan.month|date:'Y-m' }}" class="btn btn-outline-light">
+                    <a href="{% if plan.batch %}{% url 'monthly_plan_multi_detail' plan.batch.pk %}{% else %}{% url 'monthly_purchase_planner' %}?month={{ plan.month|date:'Y-m' }}{% endif %}" class="btn btn-outline-light">
                         <i class="bi bi-arrow-left me-1"></i> Back
                     </a>
                 </div>
@@ -318,6 +325,15 @@
                 </div>
             </div>
 
+            <!-- Budget vs Plan (only while the plan is still open) -->
+            {% if plan.status != 'completed' and plan.status != 'cancelled' %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    {% include 'shareholders/_budget_bar.html' with budget=budget %}
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Investor Requirements -->
             <div class="info-card">
                 <h5 class="info-card-title">
@@ -371,7 +387,7 @@
                     {% for item in history %}
                     <div class="timeline-item {{ item.action }}">
                         <div class="timeline-date">
-                            {{ item.performed_at|date:"d M Y, H:i" }}
+                            {{ item.performed_at|date:"d M Y, h:i A" }}
                         </div>
                         <div class="timeline-content">
                             <strong>{{ item.get_action_display }}</strong>
@@ -519,10 +535,28 @@
                         <a href="{% url 'purchase_order_detail' plan.purchase_order.pk %}" class="btn btn-success">
                             <i class="bi bi-cart-check me-1"></i> View Purchase Order
                         </a>
-                    {% elif plan.status == 'approved' and plan.stock_to_purchase > 0 %}
-                        <a href="{% url 'generate_purchase_order_from_plan' plan.pk %}" class="btn btn-warning">
-                            <i class="bi bi-cart-plus me-1"></i> Generate Purchase Order
-                        </a>
+                    {% elif plan.status == 'approved' or plan.status == 'in_progress' %}
+                        {% if plan.stock_to_purchase > 0 %}
+                            {% if po_vendor %}
+                            <form method="post" action="{% url 'generate_po_quick' plan.pk %}"
+                                  onsubmit="return confirm('Create a Purchase Order for {{ plan.stock_to_purchase|floatformat:0 }} units from {{ po_vendor.name|escapejs }}?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-warning w-100">
+                                    <i class="bi bi-cart-plus me-1"></i> Create Purchase Order
+                                </button>
+                                <div class="small text-muted mt-1">
+                                    <i class="bi bi-building me-1"></i>Vendor: <strong>{{ po_vendor.name }}</strong>
+                                    ({{ po_vendor_source }}) &middot;
+                                    <a href="{% url 'generate_purchase_order_from_plan' plan.pk %}">change vendor</a>
+                                </div>
+                            </form>
+                            {% else %}
+                            <a href="{% url 'generate_purchase_order_from_plan' plan.pk %}" class="btn btn-warning">
+                                <i class="bi bi-cart-plus me-1"></i> Choose Vendor &amp; Create PO
+                            </a>
+                            <div class="small text-muted">No vendor could be picked automatically for this product.</div>
+                            {% endif %}
+                        {% endif %}
                     {% endif %}
                     
                     {% if plan.status == 'draft' %}

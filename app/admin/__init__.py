@@ -19,6 +19,9 @@ _MODULES = [
     "sales",
     "services",
     "shareholders",
+    "store_issue",
+    "store_transfer",
+    "store_ops",
     "registrations",
 ]
 

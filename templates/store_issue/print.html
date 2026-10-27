@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>{{ issue.issue_no }}</title>
+<style>
+body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:24px;font-size:13px}
+h1{font-size:20px;margin:0}.muted{color:#555}
+.top{display:flex;justify-content:space-between;border-bottom:2px solid #111;padding-bottom:10px;margin-bottom:14px}
+table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #444;padding:6px 8px;text-align:left}
+th{background:#eee}.r{text-align:right}.meta td{border:0;padding:3px 0}
+.sign{display:flex;gap:24px;margin-top:70px}.sign div{flex:1;border-top:1px solid #111;text-align:center;padding-top:4px}
+.cancelled{color:#b91c1c;font-weight:700;border:2px solid #b91c1c;display:inline-block;padding:2px 10px;margin-top:6px}
+@media print{.noprint{display:none}body{margin:8mm}}
+</style></head><body>
+<div class="noprint" style="margin-bottom:10px"><button onclick="window.print()">Print</button></div>
+<div class="top"><div><h1>{{ company_name }}</h1><div class="muted">{{ company.address|default:"" }} {{ company.phone|default:"" }}</div></div>
+<div style="text-align:right"><h1>STORE ISSUE NOTE</h1><div><b>{{ issue.issue_no }}</b></div>
+{% if issue.is_cancelled %}<div class="cancelled">CANCELLED</div>{% endif %}</div></div>
+<table class="meta"><tr><td><b>Date:</b> {{ issue.issue_date|date:"d M Y h:i A" }}</td><td><b>From store:</b> {{ issue.from_warehouse.name }}</td></tr>
+<tr><td><b>Type:</b> {{ issue.get_issue_type_display }}</td><td><b>Department:</b> {{ issue.department.name|default:"-" }}</td></tr>
+<tr><td><b>Received by:</b> {{ issue.received_by|default:"-" }}</td><td><b>Production order:</b> {{ issue.production_order.order_no|default:"-" }}</td></tr>
+<tr><td colspan="2"><b>Purpose:</b> {{ issue.purpose|default:"-" }}</td></tr></table>
+<table><thead><tr><th>#</th><th>Item</th><th class="r">Qty</th><th>Unit</th><th class="r">Unit cost</th><th class="r">Total</th><th>Remarks</th></tr></thead><tbody>
+{% for it in items %}<tr><td>{{ forloop.counter }}</td><td>{{ it.product.name }}</td><td class="r">{{ it.qty|floatformat:"-3" }}</td><td>{{ it.product.unit.name|default:"" }}</td><td class="r">{{ it.unit_cost|floatformat:2 }}</td><td class="r">{{ it.total_cost|floatformat:2 }}</td><td>{{ it.remarks }}</td></tr>{% endfor %}
+</tbody><tfoot><tr><th colspan="5" class="r">Total</th><th class="r">{{ issue.total_cost|floatformat:2 }}</th><th></th></tr></tfoot></table>
+<div class="sign"><div>Issued by (Store keeper)<br><span class="muted">{{ issue.created_by.get_username|default:"" }}</span></div><div>Received by</div><div>Approved by</div></div>
+</body></html>

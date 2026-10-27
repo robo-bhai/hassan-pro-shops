@@ -1,77 +1,77 @@
 # app/settings_catalog.py
 """
-PROJECT KI SAARI SETTINGS KI EK HI LIST (single source of truth).
+ONE SINGLE LIST OF ALL PROJECT SETTINGS (single source of truth).
 
-Settings Center (/settings/center/) isi list se tabs aur form fields banata hai.
-Nayi setting add karni ho to sirf yahan ek field likhein, view/template badalne ki zaroorat nahi.
+Settings Center (/settings/center/) builds tabs and form fields from this list.
+To add a new setting, just write one field here; no need to change the view/template.
 
 Tab keys:
   key, label, icon, desc : tab ka naam aur tafseel
   access   : 'superuser' | 'admin' (superuser ya staff) | 'owner' (superuser, Owner ya CEO)
-  store    : data kahan save hota hai ('system' | 'security' | 'delivery' | 'company' | None)
+  store    : where the data is saved ('system' | 'security' | 'delivery' | 'company' | None)
   fields   : generic fields (neeche)
-  special  : khaas hissa jo generic form se nahi banta ('modules' | 'city_charges' | 'logo' | 'voice')
+  special  : a special part that is not built by the generic form ('modules' | 'city_charges' | 'logo' | 'voice')
   links    : [(label, url_name)] - tab ke neeche quick buttons
 
 Field keys:
   name, label, type, default, help, group
   type   : bool | int | decimal | text | textarea | email | url | select
-  min/max: int/decimal ke liye hadd
-  choices: select ke liye [(value, label), ...]
+  min/max: limits for int/decimal
+  choices: for select [(value, label), ...]
   prefix/suffix: input ke aage/peeche ka text (Rs., %, Days ...)
-  required: True ho to khali nahi ho sakta
+  required: if True it cannot be empty
 
-NOTE ('system' store): SystemSetting.set_value value ko lowercase kar deta hai, is liye is store
-me sirf bool / number / select (lowercase values) rakhein. Free text ke liye dedicated model use karein.
+NOTE ('system' store): SystemSetting.set_value lowercases the value, so in this store
+keep only bool / number / select (lowercase values). Use a dedicated model for free text.
 """
 
 TABS = [
     # ------------------------------------------------------------------ Modules
     {
         'key': 'modules', 'label': 'Modules', 'icon': 'bi-toggles',
-        'desc': 'Business mode aur har module ka Shop / Factory switch',
+        'desc': 'Business mode and the Shop / Factory switch for each module',
         'access': 'superuser', 'store': 'system', 'special': 'modules',
         'fields': [
             {'name': 'business_mode', 'label': 'Business Mode', 'type': 'select', 'default': 'both',
              'choices': [('both', 'Both (Shop + Factory)'), ('shop', 'Shop only'), ('factory', 'Factory only')],
-             'help': 'Shop mode me Shop wale switch, Factory mode me Factory wale, Both me koi bhi on ho to module dikhega.',
+             'help': 'In Shop mode the Shop switches apply, in Factory mode the Factory ones, and in Both the module shows if any is ON.',
              'group': 'Business Mode'},
         ],
     },
     # ------------------------------------------------------- Shareholders / Dividends
     {
         'key': 'shareholders', 'label': 'Shareholders', 'icon': 'bi-people',
-        'desc': 'Purchase deduction aur dividend ke qawaid',
+        'desc': 'Purchase deduction and dividend rules',
         'access': 'superuser', 'store': 'system',
         'links': [('Bulk Process Deductions', 'bulk_process_deductions'),
                   ('Deduction Report', 'shareholder_deduction_report')],
         'fields': [
             {'name': 'enable_shareholder_purchase_deduction', 'label': 'Purchase par shareholder deduction', 'type': 'bool',
              'default': True, 'group': 'Purchase Deduction',
-             'help': 'On ho to purchase ki raqam shareholders ke cash balance se kati jati hai.'},
+             'help': 'If ON, the purchase amount is deducted from the shareholders cash balance.'},
             {'name': 'shareholder_deduction_type', 'label': 'Deduction Type', 'type': 'select', 'default': 'proportional',
-             'choices': [('proportional', 'Proportional (balance ke hisaab se)'), ('equal', 'Equal (sab se barabar)')],
+             'choices': [('proportional', 'Proportional (by balance)'), ('equal', 'Equal (same for everyone)')],
              'group': 'Purchase Deduction',
-             'help': 'Proportional: jis ka balance zyada, deduction zyada. Equal: sab se barabar.'},
+             'help': 'Proportional: the higher the balance, the higher the deduction. Equal: same for everyone.'},
 
             {'name': 'enable_balance_dividend', 'label': 'Balance-based dividend', 'type': 'bool',
              'default': True, 'group': 'Dividends',
-             'help': 'Off karne par balance-based dividend ke options band ho jate hain.'},
+             'help': 'When turned OFF, the balance-based dividend options are disabled.'},
             {'name': 'default_dividend_type', 'label': 'Default Dividend Type', 'type': 'select', 'default': 'both',
              'choices': [('share', 'Share-based'), ('balance', 'Balance-based'), ('both', 'Both (admin chune)')],
              'group': 'Dividends'},
             {'name': 'default_dividend_percentage', 'label': 'Default Dividend Percentage', 'type': 'decimal',
              'default': '50', 'min': 1, 'max': 100, 'suffix': '%', 'group': 'Dividends',
-             'help': 'Profit ka kitna hissa dividend mein banta jaye.'},
+             'help': 'How much of the profit goes into the dividend.'},
             {'name': 'min_balance_for_dividend', 'label': 'Minimum Balance Used', 'type': 'decimal',
              'default': '0', 'min': 0, 'prefix': 'Rs.', 'group': 'Eligibility',
              'help': '0 = sab shareholders eligible.'},
             {'name': 'min_holding_months', 'label': 'Minimum Holding Period', 'type': 'int',
              'default': '0', 'min': 0, 'max': 60, 'suffix': 'Months', 'group': 'Eligibility',
-             'help': '0 = koi shart nahi.'},
+             'help': '0 = no condition.'},
             {'name': 'auto_process_days', 'label': 'Auto-Process After', 'type': 'int',
              'default': '7', 'min': 0, 'max': 30, 'suffix': 'Days', 'group': 'Eligibility',
-             'help': 'Declare ke itne din baad dividend khud process ho (0 = sirf manual).'},
+             'help': 'The dividend is processed automatically this many days after declaring (0 = manual only).'},
         ],
     },
     # ------------------------------------------------------------------ Company
@@ -116,7 +116,7 @@ TABS = [
             {'name': 'store_pickup_enabled', 'label': 'Store Pickup on', 'type': 'bool', 'default': True, 'group': 'Pickup & Free Delivery'},
             {'name': 'free_delivery_enabled', 'label': 'Free Delivery on', 'type': 'bool', 'default': True, 'group': 'Pickup & Free Delivery'},
             {'name': 'free_delivery_threshold', 'label': 'Free Delivery Threshold', 'type': 'decimal', 'default': '1000.00', 'min': 0,
-             'prefix': 'Rs.', 'group': 'Pickup & Free Delivery', 'help': 'Is raqam se zyada order par delivery free.'},
+             'prefix': 'Rs.', 'group': 'Pickup & Free Delivery', 'help': 'Delivery is free on orders above this amount.'},
         ],
     },
     # ----------------------------------------------------------------- Security
@@ -132,13 +132,13 @@ TABS = [
             {'name': 'session_timeout', 'label': 'Session Timeout', 'type': 'int', 'default': '60', 'min': 1, 'max': 1440, 'suffix': 'Min', 'group': 'Login & Session'},
 
             {'name': 'min_password_length', 'label': 'Min Password Length', 'type': 'int', 'default': '8', 'min': 4, 'max': 64, 'group': 'Password Policy'},
-            {'name': 'password_expiry_days', 'label': 'Password Expiry', 'type': 'int', 'default': '90', 'min': 0, 'max': 730, 'suffix': 'Days', 'group': 'Password Policy', 'help': '0 = kabhi expire nahi.'},
+            {'name': 'password_expiry_days', 'label': 'Password Expiry', 'type': 'int', 'default': '90', 'min': 0, 'max': 730, 'suffix': 'Days', 'group': 'Password Policy', 'help': '0 = never expires.'},
             {'name': 'password_history_count', 'label': 'Password History', 'type': 'int', 'default': '5', 'min': 0, 'max': 24, 'group': 'Password Policy'},
             {'name': 'require_uppercase', 'label': 'Uppercase zaroori', 'type': 'bool', 'default': True, 'group': 'Password Policy'},
             {'name': 'require_lowercase', 'label': 'Lowercase zaroori', 'type': 'bool', 'default': True, 'group': 'Password Policy'},
             {'name': 'require_numbers', 'label': 'Number zaroori', 'type': 'bool', 'default': True, 'group': 'Password Policy'},
             {'name': 'require_special_chars', 'label': 'Special character zaroori', 'type': 'bool', 'default': True, 'group': 'Password Policy'},
-            {'name': 'prevent_password_reuse', 'label': 'Purana password dobara na lag sake', 'type': 'bool', 'default': True, 'group': 'Password Policy'},
+            {'name': 'prevent_password_reuse', 'label': 'Prevent reusing an old password', 'type': 'bool', 'default': True, 'group': 'Password Policy'},
 
             {'name': 'enable_ip_whitelist', 'label': 'IP Whitelist', 'type': 'bool', 'default': False, 'group': 'Access Control'},
             {'name': 'enable_ip_blacklist', 'label': 'IP Blacklist', 'type': 'bool', 'default': True, 'group': 'Access Control'},

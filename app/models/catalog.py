@@ -121,7 +121,7 @@ class Product(models.Model):
         help_text="Original price before discount"
     )
     
-    # ✅ YEH FIELD ADD KARO - Product Active/Inactive Status
+    # ✅ ADD THIS FIELD - Product Active/Inactive Status
     is_active = models.BooleanField(default=True, verbose_name=_("Is Active"), help_text="Uncheck to deactivate product")
     
     # Timestamps
@@ -159,21 +159,21 @@ class Product(models.Model):
         # ✅ DISCOUNT PRICE AUTO-CALCULATE            #
         # ========================================== #
         if self.discount_percentage and self.discount_percentage > 0:
-            # Agar original_price set nahi hai to current price ko original maan lo
+            # If original_price is not set, treat the current price as the original
             if not self.original_price or self.original_price <= 0:
                 self.original_price = self.price if self.price else Decimal('0.00')
             
-            # ✅ Discount ke baad wali price calculate karo
+            # ✅ Calculate the price after the discount
             if self.original_price and self.original_price > 0:
                 discount_amount = self.original_price * (self.discount_percentage / Decimal('100'))
                 self.price = self.original_price - discount_amount
         else:
-            # Agar discount nahi hai to original_price ko reset karo
+            # If there is no discount, reset original_price
             self.discount_percentage = Decimal('0.00')
             if self.original_price and self.original_price > 0:
                 self.price = self.original_price
         
-        # ✅ Agar use_custom_barcode True hai ya barcode already set hai to auto-generate NA karein
+        # ✅ If use_custom_barcode is True or a barcode is already set, do NOT auto-generate
         if not self.use_custom_barcode and not self.barcode:
             self.barcode = self.generate_barcode()
             
@@ -190,7 +190,7 @@ class Product(models.Model):
                 if api_result:
                     img = Image.open(BytesIO(api_result))
                 else:
-                    # Agar API fail/limit reach ho to original image processing par fall back karein
+                    # If the API fails or the limit is reached, fall back to the original image processing
                     img = Image.open(BytesIO(image_bytes))
 
                 # 2. Transparent RGBA format conversion
@@ -206,11 +206,11 @@ class Product(models.Model):
                 img.save(buffer, format='WEBP', optimize=True, quality=80)
                 buffer.seek(0)
 
-                # 5. File extension .webp par update karein
+                # 5. Update the file extension to .webp
                 base_name = os.path.splitext(os.path.basename(self.image.name))[0]
                 new_filename = f"{base_name}.webp"
 
-                # Infinite loop prevent karne ke liye flag set karein
+                # Set a flag to prevent an infinite loop
                 self._image_processed = True
 
                 # 6. Processed file attach karein (Cloudinary Storage automatically handles this upload)
@@ -485,7 +485,7 @@ class StockBatch(models.Model):
         decimal_places=2, 
         default=Decimal('0.00'),
         verbose_name="Selling Price",
-        help_text="Purchase price se kam nahi ho sakti. 0 means auto-calculate"
+        help_text="Cannot be lower than the purchase price. 0 means auto-calculate"
     )
 
     class Meta:
@@ -501,15 +501,15 @@ class StockBatch(models.Model):
     # ✅ VALIDATION
     # ============================================
     def clean(self):
-        """Selling price purchase price se kam nahi ho sakti"""
+        """Selling price cannot be lower than the purchase price"""
         if self.selling_price > 0:
             if self.selling_price < self.price:
                 raise ValidationError({
-                    'selling_price': f'Selling price (Rs. {self.selling_price:,.2f}) purchase price (Rs. {self.price:,.2f}) se kam nahi ho sakti! Minimum Rs. {self.price:,.2f} hona chahiye.'
+                    'selling_price': f'Selling price (Rs. {self.selling_price:,.2f}) cannot be lower than the purchase price (Rs. {self.price:,.2f})! It must be at least Rs. {self.price:,.2f}.'
                 })
     
     def save(self, *args, **kwargs):
-        """Save se pehle validation run karo"""
+        """Run validation before saving"""
         self.clean()
         super().save(*args, **kwargs)
 
@@ -517,7 +517,7 @@ class StockBatch(models.Model):
     # ✅ PROFIT CALCULATIONS
     # ============================================
     def profit_per_unit(self):
-        """Profit per unit agar selling price set hai"""
+        """Profit per unit if the selling price is set"""
         if self.selling_price > 0:
             return self.selling_price - self.price
         return Decimal('0.00')
@@ -871,7 +871,7 @@ class StockAuditItem(models.Model):
         # Calculate variance
         if self.physical_qty is not None:
             self.variance = self.physical_qty - self.system_qty
-            # ✅ FIX: abs() hataya - variance_value ab signed hai
+            # ✅ FIX: abs() removed - variance_value is now signed
             self.variance_value = Decimal(str(self.variance)) * self.price
         
         super().save(*args, **kwargs)
@@ -888,7 +888,7 @@ class ProductAlias(models.Model):
     
     class Meta:
         verbose_name_plural = 'Product Aliases (Voice Search)'
-        unique_together = ('product', 'alias')  # Same product ke liye duplicate alias nahi ho sakta
+        unique_together = ('product', 'alias')  # The same product cannot have a duplicate alias
         ordering = ['alias']
     
     def __str__(self):

@@ -200,7 +200,7 @@ def _iter_urls(patterns, prefix=""):
 
 
 def _clean_route(route):
-    # re_path patterns (jaise django-pwa ka ^manifest\.json$) ko saaf URL banao: ^ $ aur backslash escapes hata do
+    # Turn re_path patterns (like django-pwa's ^manifest\\.json$) into clean URLs: remove ^ $ and backslash escapes
     route = route.replace("^", "").replace("$", "")
     return re.sub(r"\\(.)", r"\1", route)
 

@@ -305,7 +305,7 @@ class SaleOrderAdmin(admin.ModelAdmin):
     # WHATSAPP - SEND ORDER STATUS
     # ============================================
     def send_order_status_whatsapp(self, request, queryset):
-        """Orders ka status WhatsApp pe bhejo"""
+        """Send the order status on WhatsApp"""
         from ..whatsapp_utils import WhatsAppSender
         
         count = 0
@@ -335,7 +335,7 @@ class SaleOrderAdmin(admin.ModelAdmin):
                 msg += f"<br><a href='{links[0]['url']}' target='_blank' style='background:#25D366; color:white; padding:8px 15px; border-radius:5px; text-decoration:none;'>📱 Send First Update</a>"
             self.message_user(request, format_html(msg))
         else:
-            self.message_user(request, "❌ Selected orders ke customers ke paas phone number nahi hai!", level=messages.WARNING)
+            self.message_user(request, "❌ The customers of the selected orders have no phone number!", level=messages.WARNING)
     
     send_order_status_whatsapp.short_description = "📱 Send Order Status on WhatsApp"
 
@@ -670,6 +670,9 @@ class CustomerAdmin(admin.ModelAdmin):
             'fields': ('contact_number', 
                        ('ref_name_1', 'ref_contact_number_1'),
                        ('ref_name_2', 'ref_contact_number_2'))
+        }),
+        ('Farmer (Agri)', {      # [agri-edition:admin-customer]
+            'fields': ('village', 'main_crop', 'credit_limit'),
         }),
     )
 
@@ -1021,7 +1024,7 @@ class SaleAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
     
     def generate_sale_pdf(self, request, queryset):
-        """Sale ka PDF report generate karein"""
+        """Generate the Sale PDF report"""
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.5*inch, bottomMargin=0.5*inch)
         styles = getSampleStyleSheet()
@@ -1089,7 +1092,7 @@ class SaleAdmin(admin.ModelAdmin):
     # WHATSAPP - TEXT INVOICE
     # ============================================
     def send_whatsapp_invoice(self, request, queryset):
-        """Selected sales ka TEXT invoice WhatsApp pe bhejo"""
+        """Send the TEXT invoice of the selected sales on WhatsApp"""
         from ..whatsapp_utils import WhatsAppSender
         
         count = 0
@@ -1128,7 +1131,7 @@ class SaleAdmin(admin.ModelAdmin):
     # WHATSAPP - PDF INVOICE
     # ============================================
     def send_pdf_invoice_whatsapp(self, request, queryset):
-        """Selected sales ka PDF invoice WhatsApp pe bhejo"""
+        """Send the PDF invoice of the selected sales on WhatsApp"""
         from ..whatsapp_utils import WhatsAppSender
         
         count = 0
@@ -1161,7 +1164,7 @@ class SaleAdmin(admin.ModelAdmin):
     # WHATSAPP - PAYMENT REMINDERS
     # ============================================
     def send_payment_reminders(self, request, queryset):
-        """Outstanding customers ko reminder bhejo"""
+        """Send a reminder to outstanding customers"""
         from ..whatsapp_utils import WhatsAppBulkSender
         
         links = WhatsAppBulkSender.generate_reminder_links()
@@ -1321,7 +1324,7 @@ class SalesTargetAdmin(admin.ModelAdmin):
                     'current_progress_display', 'achieved_display', 'is_active', 'status_badge')
     list_filter = ('target_type', 'is_active', 'start_date')
     search_fields = ('salesman__username', 'product__name')
-    list_editable = ('is_active',)  # ✅ Ab yeh sahi hai kyunke is_active list_display mein hai
+    list_editable = ('is_active',)  # ✅ This is correct now because is_active is in list_display
     
     fieldsets = (
         ('Basic Information', {

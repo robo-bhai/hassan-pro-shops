@@ -116,7 +116,7 @@ def get_customer_data(days=30):
     
     total_customers = Customer.objects.count()
     
-    # ✅ FIX: Customer model mein created_at nahi hai
+    # ✅ FIX: the Customer model has no created_at
     # Simple count of all customers as new for now
     new_customers = 0
     

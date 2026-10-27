@@ -231,7 +231,7 @@ def shareholder_create(request):
     # Check permission
     if not request.user.is_superuser and not request.user.is_staff:
         messages.error(request, 'Access denied! Only administrators can create shareholders.')
-        return redirect('dashboard')  # ✅ Yeh return hona chahiye
+        return redirect('dashboard')  # ✅ This must be returned
     
     if request.method == 'POST':
         try:
@@ -293,7 +293,7 @@ def shareholder_create(request):
                             existing_user.is_active = True
                             existing_user.save()
                         
-                        # ✅ Form wala password set karo
+                        # ✅ Set the password from the form
                         existing_user.set_password(password)
                         existing_user.save()
                         login_password = password
@@ -399,7 +399,7 @@ def shareholder_create(request):
             return redirect('shareholder_create')
     
     # ============================================
-    # ✅ IMPORTANT: GET REQUEST - YEH RETURN HONA CHAHIYE
+    # ✅ IMPORTANT: GET REQUEST - THIS MUST BE RETURNED
     # ============================================
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
@@ -407,7 +407,7 @@ def shareholder_create(request):
         'status_choices': Shareholder.STATUS_CHOICES,
         'main_balance': CashBalance.get_balance(),
     }
-    return render(request, 'shareholders/create.html', context)  # ✅ YEH HONA CHAHIYE
+    return render(request, 'shareholders/create.html', context)  # ✅ THIS MUST BE THERE
 
 
 def check_username_availability(request):
@@ -990,7 +990,7 @@ def shareholder_report_pdf(request):
     
     story.append(Paragraph(company_name, styles['Heading1']))
     story.append(Paragraph("Shareholder Report", styles['Heading2']))
-    story.append(Paragraph(f"Generated: {now().strftime('%d-%m-%Y %H:%M')}", styles['Normal']))
+    story.append(Paragraph(f"Generated: {now().strftime('%d-%m-%Y %I:%M %p')}", styles['Normal']))
     story.append(Spacer(1, 0.2*inch))
     
     data = [['Code', 'Name', 'Type', 'Shares', 'Investment', 'Dividend', 'Value']]
@@ -1512,7 +1512,7 @@ def terms_acceptance_detail(request, pk):
         'shareholder': shareholder,
         'acceptance': acceptance,
         'terms': terms,
-        'now': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'now': datetime.now().strftime('%Y-%m-%d %I:%M:%S %p'),
     }
     return render(request, 'terms/admin_acceptance_detail.html', context)
 
@@ -1598,7 +1598,7 @@ def terms_acceptance_export(request):
                 shareholder.phone or '',
                 'Accepted',
                 acceptance.terms_version,
-                acceptance.accepted_at.strftime('%Y-%m-%d %H:%M:%S'),
+                acceptance.accepted_at.strftime('%Y-%m-%d %I:%M:%S %p'),
                 acceptance.ip_address or '',
                 acceptance.user_agent or '',
             ])
@@ -1674,7 +1674,7 @@ def terms_acceptance_stats_api(request):
 
 def shareholder_register(request):
     """
-    Public page - Shareholder apni details bhar kar request send kare
+    Public page - the Shareholder fills in their details and sends a request
     """
     
     if request.method == 'POST':
@@ -1736,7 +1736,7 @@ def shareholder_register(request):
             except:
                 pass
             
-            # ✅ YEH CHANGE - Success page par redirect
+            # ✅ THIS CHANGE - Redirect to the success page
             return redirect('shareholder_register_success')
             
         except Exception as e:

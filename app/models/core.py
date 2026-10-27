@@ -176,7 +176,7 @@ class Notification(models.Model):
         ]
     
     def __str__(self):
-        return f"{self.title} - {self.created_at.strftime('%d-%m-%Y %H:%M')}"
+        return f"{self.title} - {self.created_at.strftime('%d-%m-%Y %I:%M %p')}"
     
     @classmethod
     def send(cls, user, title, message, notification_type='info', category='all', link=None):

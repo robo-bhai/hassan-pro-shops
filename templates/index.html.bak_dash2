@@ -1,0 +1,647 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dp { --dp-gap: 16px; --dp-radius: 18px; display: block; }
+    .dp * { box-sizing: border-box; }
+
+    /* ---------- loading overlay ---------- */
+    .loading-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 9999; display: none;
+        justify-content: center; align-items: center; flex-direction: column; backdrop-filter: blur(3px); }
+    .loading-overlay.show { display: flex; }
+    .spinner { width: 56px; height: 56px; border: 4px solid rgba(255,255,255,.2); border-top-color: #5b6cff;
+        border-right-color: #f0a500; border-radius: 50%; animation: dpspin .8s linear infinite; }
+    @keyframes dpspin { to { transform: rotate(360deg); } }
+    .spinner-text { color: #fff; margin-top: 14px; font-size: .9rem; font-weight: 500; }
+
+    /* ---------- header ---------- */
+    .dp-hero { position: relative; overflow: hidden; display: flex; justify-content: space-between; align-items: center;
+        flex-wrap: wrap; gap: 14px; padding: 22px 26px; margin-bottom: var(--dp-gap); border-radius: 22px; color: #fff;
+        background: radial-gradient(420px 220px at 100% 0%, rgba(139,92,246,.45), transparent 70%),
+                    radial-gradient(360px 220px at 0% 100%, rgba(91,108,255,.40), transparent 70%),
+                    linear-gradient(135deg, #10143a 0%, #1b1f4d 55%, #2a2468 100%);
+        box-shadow: 0 26px 50px -30px rgba(10,12,40,.7); }
+    .dp-hero .who { display: flex; align-items: center; gap: 14px; min-width: 0; }
+    .dp-hero .logo { height: 50px; max-width: 130px; object-fit: contain; background: #fff; border-radius: 12px; padding: 5px; flex-shrink: 0; }
+    .dp-hero h1 { font-size: 1.25rem; font-weight: 800; letter-spacing: -.01em; margin: 0; }
+    .dp-hero p { margin: 3px 0 0; font-size: .85rem; opacity: .8; }
+    .dp-role { display: inline-flex; align-items: center; gap: 6px; font-size: .7rem; font-weight: 700; letter-spacing: .06em;
+        text-transform: uppercase; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.14); margin-bottom: 8px; }
+    .dp-hero .right { display: flex; align-items: center; gap: 14px; }
+    .dp-date { text-align: right; line-height: 1.15; }
+    .dp-date b { display: block; font-size: 1.5rem; font-weight: 800; }
+    .dp-date span { font-size: .78rem; opacity: .7; }
+    #dashVoiceBtn { width: 44px; height: 44px; border-radius: 12px; border: 1px solid rgba(255,255,255,.2);
+        background: rgba(255,255,255,.12); color: #fff; font-size: 1.1rem; cursor: pointer; transition: background .2s, transform .15s;
+        display: flex; align-items: center; justify-content: center; }
+    #dashVoiceBtn:hover { background: rgba(255,255,255,.22); transform: scale(1.05); }
+    #dashVoiceBtn.listening { animation: dpPulse 1.5s infinite; background: #ef4444; }
+    @keyframes dpPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,.5); } 50% { box-shadow: 0 0 0 14px rgba(239,68,68,0); } }
+    #dashVoiceStatus { background: rgba(15,17,35,.96); border-radius: 14px; padding: 12px 16px; margin-bottom: var(--dp-gap);
+        color: #fff; border: 1px solid rgba(255,255,255,.08); }
+    .dash-wave-bar { display: inline-block; width: 3px; height: 10px; background: #6366f1; border-radius: 2px; animation: dpWave .8s ease-in-out infinite; }
+    .dash-wave-bar:nth-child(2) { animation-delay: .1s; } .dash-wave-bar:nth-child(3) { animation-delay: .2s; }
+    .dash-wave-bar:nth-child(4) { animation-delay: .3s; } .dash-wave-bar:nth-child(5) { animation-delay: .4s; }
+    @keyframes dpWave { 0%,100% { height: 5px; } 50% { height: 18px; } }
+
+    /* ---------- KPI cards ---------- */
+    .dp-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--dp-gap); margin-bottom: var(--dp-gap); }
+    .dp-kpi { position: relative; display: flex; gap: 14px; align-items: flex-start; padding: 18px; border-radius: var(--dp-radius);
+        background: var(--bg-card); border: 1px solid var(--border-color); color: inherit; text-decoration: none;
+        box-shadow: 0 1px 2px var(--shadow-color), 0 10px 28px -20px var(--shadow-color); transition: transform .15s, border-color .2s, box-shadow .2s; }
+    a.dp-kpi:hover { transform: translateY(-2px); border-color: rgba(91,108,255,.4); box-shadow: 0 18px 34px -22px rgba(22,26,51,.35); color: inherit; }
+    .dp-ico { width: 46px; height: 46px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; }
+    .tone-blue   { background: rgba(91,108,255,.14);  color: #5b6cff; }
+    .tone-teal   { background: rgba(20,184,166,.15);  color: #0d9488; }
+    .tone-green  { background: rgba(34,197,94,.15);   color: #16a34a; }
+    .tone-amber  { background: rgba(245,158,11,.17);  color: #d97706; }
+    .tone-red    { background: rgba(239,68,68,.15);   color: #dc2626; }
+    .tone-violet { background: rgba(139,92,246,.16);  color: #7c3aed; }
+    .tone-pink   { background: rgba(236,72,153,.14);  color: #db2777; }
+    .dp-kpi .body { min-width: 0; flex: 1; }
+    .dp-kpi .lbl { font-size: .7rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); }
+    .dp-kpi .val { font-size: clamp(1.15rem, 1.6vw, 1.5rem); font-weight: 800; letter-spacing: -.02em; line-height: 1.2; margin-top: 3px; color: var(--text-primary); white-space: nowrap; }
+    .dp-kpi .val.neg { color: #dc2626; }
+    .dp-kpi .sub { font-size: .75rem; color: var(--text-muted); margin-top: 3px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .dp-chip { font-size: .68rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+    .dp-chip.up { background: rgba(34,197,94,.15); color: #16a34a; }
+    .dp-chip.down { background: rgba(239,68,68,.15); color: #dc2626; }
+    .dp-chip.flat { background: var(--badge-bg); color: var(--text-secondary); }
+    .dp-kpi.alert-on { border-left: 4px solid #ef4444; }
+
+    /* ---------- generic cards ---------- */
+    .dp-row { display: grid; gap: var(--dp-gap); margin-bottom: var(--dp-gap); }
+    .dp-row.c-2-1 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+    .dp-row.c-1-1 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .dp-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--dp-radius); overflow: hidden;
+        box-shadow: 0 1px 2px var(--shadow-color), 0 10px 28px -20px var(--shadow-color); min-width: 0; }
+    .dp-card > .hd { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 14px 20px; border-bottom: 1px solid var(--border-color); }
+    .dp-card > .hd h2 { margin: 0; font-size: .95rem; font-weight: 700; letter-spacing: -.005em; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+    .dp-card > .hd h2 i { color: var(--primary); }
+    .dp-link { font-size: .72rem; font-weight: 700; padding: 5px 12px; border-radius: 999px; text-decoration: none;
+        background: var(--primary-soft, rgba(13,110,253,.1)); color: var(--primary); transition: background .2s, color .2s; white-space: nowrap; }
+    .dp-link:hover { background: var(--primary); color: #fff; }
+    .dp-card > .bd { padding: 18px 20px; }
+    .dp-card > .bd.flush { padding: 0; }
+    .dp-empty { text-align: center; padding: 28px 16px; color: var(--text-muted); font-size: .85rem; }
+    .dp-empty i { display: block; font-size: 2rem; opacity: .4; margin-bottom: 6px; }
+
+    /* ---------- 7 day chart ---------- */
+    .dp-chart { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; align-items: end; height: 190px; padding-top: 8px; }
+    .dp-bar { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 6px; min-width: 0; }
+    .dp-bar .fill { width: 100%; max-width: 46px; border-radius: 10px 10px 4px 4px; background: linear-gradient(180deg, #8b5cf6, #5b6cff); opacity: .55; transition: opacity .2s; }
+    .dp-bar.today .fill { opacity: 1; box-shadow: 0 10px 20px -10px rgba(91,108,255,.9); }
+    .dp-bar:hover .fill { opacity: 1; }
+    .dp-bar .amt { font-size: .66rem; font-weight: 700; color: var(--text-secondary); white-space: nowrap; }
+    .dp-bar .day { font-size: .72rem; color: var(--text-muted); font-weight: 600; }
+    .dp-bar.today .day { color: var(--primary); }
+    .dp-total { font-size: .8rem; color: var(--text-secondary); }
+    .dp-total b { color: var(--text-primary); font-size: 1.05rem; }
+
+    /* ---------- quick actions ---------- */
+    .dp-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .dp-act { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 14px; text-decoration: none; font-weight: 600; font-size: .84rem;
+        background: var(--bg-hover); border: 1px solid var(--border-color); color: var(--text-primary); transition: all .18s; min-width: 0; }
+    .dp-act i { font-size: 1.15rem; color: var(--primary); flex-shrink: 0; }
+    .dp-act span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dp-act:hover { transform: translateY(-2px); border-color: rgba(91,108,255,.5); color: var(--primary); box-shadow: 0 14px 26px -18px rgba(22,26,51,.4); }
+    .dp-act.primary { background: linear-gradient(135deg, #5b6cff, #7c5cf6); color: #fff; border-color: transparent; grid-column: 1 / -1; justify-content: center; padding: 14px; font-size: .95rem; }
+    .dp-act.primary i { color: #fff; }
+    .dp-act.primary:hover { color: #fff; box-shadow: 0 16px 30px -14px rgba(91,108,255,.9); }
+
+    /* ---------- role panel ---------- */
+    .dp-role-panel .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+    .dp-stat { padding: 14px; border-radius: 14px; background: var(--bg-hover); border: 1px solid var(--border-color); }
+    .dp-stat .v { font-size: 1.25rem; font-weight: 800; letter-spacing: -.01em; color: var(--text-primary); }
+    .dp-stat .l { font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); margin-top: 3px; display: flex; align-items: center; gap: 5px; }
+    .dp-sub-title { font-size: .72rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); margin: 18px 0 10px; }
+    .dp-meter { margin-bottom: 12px; }
+    .dp-meter .top { display: flex; justify-content: space-between; font-size: .78rem; color: var(--text-secondary); margin-bottom: 5px; }
+    .dp-meter .track { height: 8px; border-radius: 999px; background: var(--progress-bg); overflow: hidden; }
+    .dp-meter .fill { height: 100%; border-radius: 999px; transition: width .5s; }
+    .dp-note { margin-top: 14px; padding: 10px 14px; border-radius: 12px; font-size: .8rem; display: flex; gap: 8px; align-items: center; }
+    .dp-note.ok { background: rgba(34,197,94,.12); color: #15803d; }
+    .dp-note.bad { background: rgba(239,68,68,.12); color: #b91c1c; }
+
+    /* ---------- lists ---------- */
+    .dp-list { list-style: none; margin: 0; padding: 0; }
+    .dp-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 11px 20px; border-bottom: 1px solid var(--border-color); font-size: .85rem; }
+    .dp-list li:last-child { border-bottom: 0; }
+    .dp-list .nm { font-weight: 600; color: var(--text-primary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dp-list .mt { font-size: .72rem; color: var(--text-muted); font-weight: 500; }
+    .dp-pill { font-size: .7rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+    .dp-pill.red { background: rgba(239,68,68,.14); color: #dc2626; }
+    .dp-pill.amber { background: rgba(245,158,11,.16); color: #b45309; }
+    .dp-pill.green { background: rgba(34,197,94,.15); color: #15803d; }
+    .dp-top { padding: 12px 20px; border-bottom: 1px solid var(--border-color); }
+    .dp-top:last-child { border-bottom: 0; }
+    .dp-top .line { display: flex; justify-content: space-between; gap: 10px; font-size: .85rem; margin-bottom: 6px; }
+    .dp-top .line b { font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dp-top .line span { font-weight: 700; color: var(--primary); white-space: nowrap; }
+    .dp-top .track { height: 6px; border-radius: 999px; background: var(--progress-bg); overflow: hidden; }
+    .dp-top .track i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #5b6cff, #8b5cf6); }
+    .dp-top .mt { font-size: .7rem; color: var(--text-muted); margin-top: 4px; }
+    .dp-table { width: 100%; border-collapse: collapse; }
+    .dp-table th { padding: 10px 16px; font-size: .67rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); background: var(--table-header-bg); border-bottom: 1px solid var(--border-color); white-space: nowrap; text-align: left; }
+    .dp-table td { padding: 11px 16px; border-bottom: 1px solid var(--border-color); font-size: .83rem; color: var(--text-primary); vertical-align: middle; }
+    .dp-table tbody tr { cursor: pointer; }
+    .dp-table tbody tr:hover { background: var(--bg-hover); }
+    .dp-table tbody tr:last-child td { border-bottom: 0; }
+    .dp-table .r { text-align: right; }
+    .dp-table a { color: var(--primary); font-weight: 700; text-decoration: none; }
+    .dp-table .mt { font-size: .68rem; color: var(--text-muted); }
+
+    @media (max-width: 1100px) { .dp-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 900px) { .dp-row.c-2-1, .dp-row.c-1-1 { grid-template-columns: minmax(0, 1fr); } }
+    @media (max-width: 575px) {
+        .dp-hero { padding: 18px; border-radius: 18px; }
+        .dp-date b { font-size: 1.2rem; }
+        .dp-kpis { gap: 10px; }
+        .dp-kpi { padding: 14px; gap: 10px; }
+        .dp-ico { width: 40px; height: 40px; font-size: 1.1rem; border-radius: 12px; }
+        .dp-kpi .val { font-size: 1.1rem; }
+        .dp-chart { gap: 6px; height: 160px; }
+        .dp-bar .amt { display: none; }
+        .dp-list li, .dp-top { padding-left: 14px; padding-right: 14px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% now "G" as dp_hour %}
+<div class="dp">
+
+<!-- Loading overlay (used by voice commands) -->
+<div id="loadingOverlay" class="loading-overlay">
+    <div class="spinner"></div>
+    <div class="spinner-text" id="loadingText">Loading...</div>
+</div>
+
+<!-- ================= HEADER ================= -->
+<section class="dp-hero">
+    <div class="who">
+        {% if company_logo %}<img src="{{ company_logo }}" alt="{{ company_name|default:'Logo' }}" class="logo">{% endif %}
+        <div>
+            <div class="dp-role"><i class="bi bi-person-circle"></i>
+                {% if is_superuser %}System Administrator{% elif is_ceo %}Chief Executive Officer{% elif is_md %}Managing Director{% elif is_cto %}Chief Technical Officer{% else %}{{ company_name|default:"Business" }}{% endif %}
+            </div>
+            <h1>{% if dp_hour|add:0 < 12 %}Good morning{% elif dp_hour|add:0 < 17 %}Good afternoon{% else %}Good evening{% endif %}, {{ user.get_full_name|default:user.username|title }}</h1>
+            <p>Here is how your business is doing today.</p>
+        </div>
+    </div>
+    <div class="right">
+        <button onclick="startDashboardVoice()" id="dashVoiceBtn" title="Voice command (Ctrl+Space)" aria-label="Voice command"><i class="bi bi-mic-fill"></i></button>
+        <div class="dp-date"><b>{% now "d M" %}</b><span>{% now "Y | l" %}</span></div>
+    </div>
+</section>
+
+<div id="dashVoiceStatus" style="display:none;">
+    <div style="display:flex; align-items:center; gap:12px;">
+        <i class="bi bi-mic-fill" style="font-size:1.2rem;"></i>
+        <div style="flex:1; min-width:0;">
+            <div style="font-weight:700; font-size:.85rem;" id="dashVoiceText">Listening...</div>
+            <div id="dashVoiceCommand" style="font-size:.72rem; color:#a0a5c0; margin-top:2px;"></div>
+        </div>
+        <div style="display:flex; gap:2px; align-items:center;">
+            <span class="dash-wave-bar"></span><span class="dash-wave-bar"></span><span class="dash-wave-bar"></span><span class="dash-wave-bar"></span><span class="dash-wave-bar"></span>
+        </div>
+        <button onclick="stopDashboardVoice()" style="background:rgba(255,255,255,.1); color:#fff; border:none; border-radius:8px; padding:5px 12px; font-size:.75rem; cursor:pointer; font-weight:600;">Stop</button>
+    </div>
+</div>
+
+<!-- ================= KPI ROW 1: TODAY ================= -->
+<section class="dp-kpis">
+    <a class="dp-kpi" href="{% url 'sale_list' %}">
+        <div class="dp-ico tone-blue"><i class="bi bi-cart-check"></i></div>
+        <div class="body">
+            <div class="lbl">Today's sales</div>
+            <div class="val">Rs. {{ today_sales|floatformat:"0g"|default:"0" }}</div>
+            <div class="sub">{{ today_sales_count|default:"0" }} bills
+                {% if dash_delta is not None %}<span class="dp-chip {% if dash_delta > 0 %}up{% elif dash_delta < 0 %}down{% else %}flat{% endif %}">{% if dash_delta > 0 %}+{% endif %}{{ dash_delta }}% vs yesterday</span>{% endif %}
+            </div>
+        </div>
+    </a>
+    <a class="dp-kpi" href="{% url 'purchase_list' %}">
+        <div class="dp-ico tone-teal"><i class="bi bi-box-arrow-in-down"></i></div>
+        <div class="body">
+            <div class="lbl">Today's purchases</div>
+            <div class="val">Rs. {{ today_purchases_amount|floatformat:"0g"|default:"0" }}</div>
+            <div class="sub">{{ today_purchase_count|default:"0" }} bills</div>
+        </div>
+    </a>
+    <div class="dp-kpi">
+        <div class="dp-ico tone-green"><i class="bi bi-graph-up-arrow"></i></div>
+        <div class="body">
+            <div class="lbl">Today's profit</div>
+            <div class="val {% if today_profit < 0 %}neg{% endif %}">Rs. {{ today_profit|floatformat:"0g"|default:"0" }}</div>
+            <div class="sub">After discounts</div>
+        </div>
+    </div>
+    <a class="dp-kpi {% if low_stock_count|default:0 > 0 %}alert-on{% endif %}" href="{% url 'inventory_list' %}">
+        <div class="dp-ico {% if low_stock_count|default:0 > 0 %}tone-red{% else %}tone-amber{% endif %}"><i class="bi bi-exclamation-triangle"></i></div>
+        <div class="body">
+            <div class="lbl">Low stock items</div>
+            <div class="val {% if low_stock_count|default:0 > 0 %}neg{% endif %}">{{ low_stock_count|default:"0" }}</div>
+            <div class="sub">{% if low_stock_count|default:0 > 0 %}Needs reordering{% else %}All stock is healthy{% endif %}</div>
+        </div>
+    </a>
+</section>
+
+<!-- ================= KPI ROW 2: THIS MONTH ================= -->
+<section class="dp-kpis">
+    <div class="dp-kpi">
+        <div class="dp-ico tone-violet"><i class="bi bi-calendar3"></i></div>
+        <div class="body"><div class="lbl">Sales this month</div><div class="val">Rs. {{ monthly_sales|floatformat:"0g"|default:"0" }}</div></div>
+    </div>
+    <div class="dp-kpi">
+        <div class="dp-ico tone-amber"><i class="bi bi-bag"></i></div>
+        <div class="body"><div class="lbl">Purchases this month</div><div class="val">Rs. {{ monthly_purchases|floatformat:"0g"|default:"0" }}</div></div>
+    </div>
+    <div class="dp-kpi">
+        <div class="dp-ico tone-green"><i class="bi bi-cash-stack"></i></div>
+        <div class="body"><div class="lbl">Profit this month</div><div class="val {% if monthly_profit < 0 %}neg{% endif %}">Rs. {{ monthly_profit|floatformat:"0g"|default:"0" }}</div></div>
+    </div>
+    {% if is_superuser or is_ceo or is_md %}
+    <div class="dp-kpi">
+        <div class="dp-ico tone-blue"><i class="bi bi-wallet2"></i></div>
+        <div class="body">
+            <div class="lbl">Cash balance</div>
+            <div class="val">{% if dash_cash is not None %}Rs. {{ dash_cash|floatformat:"0g" }}{% else %}-{% endif %}</div>
+            <div class="sub">Stock value Rs. {{ total_stock_value|floatformat:"0g"|default:"0" }}</div>
+        </div>
+    </div>
+    {% else %}
+    <div class="dp-kpi">
+        <div class="dp-ico tone-blue"><i class="bi bi-boxes"></i></div>
+        <div class="body"><div class="lbl">Stock value</div><div class="val">Rs. {{ total_stock_value|floatformat:"0g"|default:"0" }}</div></div>
+    </div>
+    {% endif %}
+</section>
+
+<!-- ================= CHART + QUICK ACTIONS ================= -->
+<section class="dp-row c-2-1">
+    <div class="dp-card">
+        <div class="hd"><h2><i class="bi bi-bar-chart-line"></i> Sales, last 7 days</h2>
+            <span class="dp-total">Total <b>Rs. {{ dash_week_total|floatformat:"0g"|default:"0" }}</b></span></div>
+        <div class="bd">
+            {% if dash_week %}
+            <div class="dp-chart">
+                {% for d in dash_week %}
+                <div class="dp-bar {% if d.today %}today{% endif %}" title="{{ d.date }}: Rs. {{ d.value|floatformat:'0g' }}">
+                    <span class="amt">{{ d.value|floatformat:"0g" }}</span>
+                    <div class="fill" style="height: {{ d.pct }}%"></div>
+                    <span class="day">{{ d.label }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="dp-empty"><i class="bi bi-bar-chart"></i>No sales data yet</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="dp-card">
+        <div class="hd"><h2><i class="bi bi-lightning-charge"></i> Quick actions</h2></div>
+        <div class="bd">
+            <div class="dp-actions">
+                <a href="{% url 'pos_screen' %}" class="dp-act primary"><i class="bi bi-lightning-charge-fill"></i><span>Open Fast Sale (POS)</span></a>
+                {% for action in quick_actions %}
+                <a href="{{ action.url }}" class="dp-act"><i class="bi {{ action.icon }}"></i><span>{{ action.name }}</span></a>
+                {% empty %}
+                <a href="{% url 'sale_create' %}" class="dp-act"><i class="bi bi-cart-plus"></i><span>New sale</span></a>
+                <a href="{% url 'purchase_create' %}" class="dp-act"><i class="bi bi-box-arrow-in-down"></i><span>New purchase</span></a>
+                <a href="{% url 'inventory_list' %}" class="dp-act"><i class="bi bi-box"></i><span>Inventory</span></a>
+                <a href="{% url 'reports_dashboard' %}" class="dp-act"><i class="bi bi-graph-up"></i><span>Reports</span></a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================= ROLE OVERVIEW ================= -->
+{% if is_superuser or is_ceo or is_md or is_cto %}
+<section class="dp-card dp-role-panel" style="margin-bottom: var(--dp-gap);">
+    <div class="hd"><h2>
+        {% if is_superuser %}<i class="bi bi-shield-check"></i> System overview{% elif is_ceo %}<i class="bi bi-building"></i> Company overview{% elif is_md %}<i class="bi bi-person-badge"></i> Daily operations{% else %}<i class="bi bi-cpu"></i> System health{% endif %}
+    </h2></div>
+    <div class="bd">
+    {% if is_superuser %}
+        <div class="stats">
+            <div class="dp-stat"><div class="v">{{ admin_stats.total_users|default:0 }}</div><div class="l"><i class="bi bi-people"></i> Users</div></div>
+            <div class="dp-stat"><div class="v">{{ admin_stats.total_products|default:0 }}</div><div class="l"><i class="bi bi-box"></i> Products</div></div>
+            <div class="dp-stat"><div class="v">{{ admin_stats.total_customers|default:0 }}</div><div class="l"><i class="bi bi-person-check"></i> Customers</div></div>
+            <div class="dp-stat"><div class="v">{{ admin_stats.total_vendors|default:0 }}</div><div class="l"><i class="bi bi-shop"></i> Vendors</div></div>
+            <div class="dp-stat"><div class="v">Rs. {{ admin_stats.today_sales|floatformat:"0g"|default:0 }}</div><div class="l"><i class="bi bi-cart"></i> Today sales</div></div>
+            <div class="dp-stat"><div class="v">Rs. {{ admin_stats.monthly_profit|floatformat:"0g"|default:0 }}</div><div class="l"><i class="bi bi-currency-rupee"></i> Monthly profit</div></div>
+        </div>
+        <div class="dp-sub-title">Administration</div>
+        <div class="dp-actions" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+            <a href="{% url 'user_list' %}" class="dp-act"><i class="bi bi-people"></i><span>Users</span></a>
+            <a href="{% url 'module_settings' %}" class="dp-act"><i class="bi bi-gear"></i><span>Settings</span></a>
+            <a href="{% url 'database_backup' %}" class="dp-act"><i class="bi bi-hdd-stack"></i><span>Backup</span></a>
+            <a href="{% url 'security_dashboard' %}" class="dp-act"><i class="bi bi-shield-lock"></i><span>Security</span></a>
+            <a href="{% url 'reports_dashboard' %}" class="dp-act"><i class="bi bi-graph-up"></i><span>Reports</span></a>
+            <a href="/admin/" target="_blank" class="dp-act"><i class="bi bi-shield-check"></i><span>Django admin</span></a>
+        </div>
+    {% elif is_ceo %}
+        <div class="stats">
+            <div class="dp-stat"><div class="v">{{ ceo_stats.total_users|default:0 }}</div><div class="l"><i class="bi bi-people"></i> Users</div></div>
+            <div class="dp-stat"><div class="v">{{ ceo_stats.total_employees|default:0 }}</div><div class="l"><i class="bi bi-person-badge"></i> Employees</div></div>
+            <div class="dp-stat"><div class="v">{{ ceo_stats.total_shareholders|default:0 }}</div><div class="l"><i class="bi bi-building"></i> Shareholders</div></div>
+            <div class="dp-stat"><div class="v">{{ ceo_stats.total_products|default:0 }}</div><div class="l"><i class="bi bi-box"></i> Products</div></div>
+            <div class="dp-stat"><div class="v">{{ ceo_stats.pending_purchases|add:ceo_stats.pending_orders|default:0 }}</div><div class="l"><i class="bi bi-clock-history"></i> Pending</div></div>
+            <div class="dp-stat"><div class="v">Rs. {{ ceo_stats.total_profit|floatformat:"0g"|default:0 }}</div><div class="l"><i class="bi bi-currency-rupee"></i> Net profit</div></div>
+        </div>
+        <div class="dp-sub-title">Financial summary, this month</div>
+        <div class="stats">
+            <div class="dp-stat"><div class="v">Rs. {{ ceo_stats.monthly_revenue|floatformat:"0g"|default:0 }}</div><div class="l">Revenue</div></div>
+            <div class="dp-stat"><div class="v">Rs. {{ ceo_stats.monthly_expenses|floatformat:"0g"|default:0 }}</div><div class="l">Expenses</div></div>
+            <div class="dp-stat"><div class="v">Rs. {{ ceo_stats.monthly_profit|floatformat:"0g"|default:0 }}</div><div class="l">Profit</div></div>
+            <div class="dp-stat"><div class="v">{{ ceo_stats.gross_margin|default:0 }}%</div><div class="l">Margin</div></div>
+        </div>
+        <div class="dp-sub-title">Go to</div>
+        <div class="dp-actions" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+            <a href="{% url 'user_list' %}" class="dp-act"><i class="bi bi-people"></i><span>Users</span></a>
+            <a href="{% url 'employee_list' %}" class="dp-act"><i class="bi bi-person-badge"></i><span>HR</span></a>
+            <a href="{% url 'shareholder_list' %}" class="dp-act"><i class="bi bi-building"></i><span>Shareholders</span></a>
+            <a href="{% url 'reports_dashboard' %}" class="dp-act"><i class="bi bi-graph-up"></i><span>Reports</span></a>
+            <a href="{% url 'module_settings' %}" class="dp-act"><i class="bi bi-gear"></i><span>Settings</span></a>
+            <a href="{% url 'database_backup' %}" class="dp-act"><i class="bi bi-hdd-stack"></i><span>Backup</span></a>
+            <a href="{% url 'dividend_list' %}" class="dp-act"><i class="bi bi-coin"></i><span>Dividends</span></a>
+            <a href="{% url 'shareholder_balance_dashboard' %}" class="dp-act"><i class="bi bi-wallet2"></i><span>Balances</span></a>
+        </div>
+    {% elif is_md %}
+        <div class="stats">
+            <div class="dp-stat"><div class="v">{{ md_stats.today_orders|default:0 }}</div><div class="l"><i class="bi bi-cart-check"></i> Today orders</div></div>
+            <div class="dp-stat"><div class="v">{{ md_stats.pending_deliveries|default:0 }}</div><div class="l"><i class="bi bi-truck"></i> Pending delivery</div></div>
+            <div class="dp-stat"><div class="v">{{ md_stats.today_present|default:0 }}</div><div class="l"><i class="bi bi-person-check"></i> Staff present</div></div>
+            <div class="dp-stat"><div class="v">{{ md_stats.total_stock_items|default:0 }}</div><div class="l"><i class="bi bi-box"></i> Stock items</div></div>
+            <div class="dp-stat"><div class="v">{{ md_stats.pending_receipts|default:0 }}</div><div class="l"><i class="bi bi-clock-history"></i> Pending receipts</div></div>
+            <div class="dp-stat"><div class="v">Rs. {{ md_stats.today_profit|floatformat:"0g"|default:0 }}</div><div class="l"><i class="bi bi-currency-rupee"></i> Today profit</div></div>
+        </div>
+        <div class="dp-sub-title">Today's summary</div>
+        <div class="stats">
+            <div class="dp-stat"><div class="v">Rs. {{ md_stats.today_sales|floatformat:"0g"|default:0 }}</div><div class="l">Sales</div></div>
+            <div class="dp-stat"><div class="v">Rs. {{ md_stats.today_purchases|floatformat:"0g"|default:0 }}</div><div class="l">Purchases</div></div>
+            <div class="dp-stat"><div class="v">{{ md_stats.today_sales_count|default:0 }}</div><div class="l">Transactions</div></div>
+            <div class="dp-stat"><div class="v">Rs. {{ md_stats.today_avg_sale|floatformat:"0g"|default:0 }}</div><div class="l">Average sale</div></div>
+        </div>
+        <div class="dp-sub-title">Go to</div>
+        <div class="dp-actions" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+            <a href="{% url 'sale_create' %}" class="dp-act"><i class="bi bi-cart-plus"></i><span>New sale</span></a>
+            <a href="{% url 'purchase_create' %}" class="dp-act"><i class="bi bi-box-arrow-in-down"></i><span>New purchase</span></a>
+            <a href="{% url 'sale_order_list' %}" class="dp-act"><i class="bi bi-cart-check"></i><span>Orders</span></a>
+            <a href="{% url 'purchase_order_list' %}" class="dp-act"><i class="bi bi-clipboard-check"></i><span>Purchase orders</span></a>
+            <a href="{% url 'inventory_list' %}" class="dp-act"><i class="bi bi-box"></i><span>Inventory</span></a>
+            <a href="{% url 'employee_list' %}" class="dp-act"><i class="bi bi-people"></i><span>Staff</span></a>
+            <a href="{% url 'reports_dashboard' %}" class="dp-act"><i class="bi bi-graph-up"></i><span>Reports</span></a>
+        </div>
+    {% elif is_cto %}
+        <div class="stats">
+            <div class="dp-stat"><div class="v">{{ cto_stats.users_online|default:0 }}</div><div class="l"><i class="bi bi-wifi"></i> Users online</div></div>
+            <div class="dp-stat"><div class="v">{{ cto_stats.active_sessions|default:0 }}</div><div class="l"><i class="bi bi-shield-lock"></i> Sessions</div></div>
+            <div class="dp-stat"><div class="v">{{ cto_stats.backup_count|default:0 }}</div><div class="l"><i class="bi bi-hdd-stack"></i> Backups</div></div>
+            <div class="dp-stat"><div class="v">{{ cto_stats.total_db_size|default:"N/A" }}</div><div class="l"><i class="bi bi-database"></i> DB size</div></div>
+            <div class="dp-stat"><div class="v">{{ cto_stats.total_records|default:0 }}</div><div class="l"><i class="bi bi-list-ul"></i> Records</div></div>
+            <div class="dp-stat"><div class="v">{{ cto_stats.recent_logs|default:0 }}</div><div class="l"><i class="bi bi-journal-text"></i> Logs (24h)</div></div>
+        </div>
+        <div class="dp-sub-title">System resources</div>
+        <div class="dp-meter">
+            <div class="top"><span><i class="bi bi-device-hdd"></i> Disk usage ({{ cto_stats.disk_usage_percent|default:0 }}%)</span><span>{{ cto_stats.disk_used_gb|default:0 }} GB / {{ cto_stats.disk_total_gb|default:0 }} GB</span></div>
+            <div class="track"><div class="fill" style="width: {{ cto_stats.disk_usage_percent|default:0 }}%; background: {% if cto_stats.disk_usage_percent > 85 %}#ef4444{% elif cto_stats.disk_usage_percent > 70 %}#f59e0b{% else %}#10b981{% endif %};"></div></div>
+        </div>
+        <div class="dp-meter">
+            <div class="top"><span><i class="bi bi-memory"></i> Memory usage ({{ cto_stats.memory_usage_percent|default:0 }}%)</span><span>{{ cto_stats.memory_used_gb|default:0 }} GB / {{ cto_stats.memory_total_gb|default:0 }} GB</span></div>
+            <div class="track"><div class="fill" style="width: {{ cto_stats.memory_usage_percent|default:0 }}%; background: {% if cto_stats.memory_usage_percent > 85 %}#ef4444{% elif cto_stats.memory_usage_percent > 70 %}#f59e0b{% else %}#10b981{% endif %};"></div></div>
+        </div>
+        {% if cto_stats.latest_backup_time %}
+        <div class="dp-note ok"><i class="bi bi-check-circle"></i><span><strong>Last backup:</strong> {{ cto_stats.latest_backup_time|date:"d M Y, H:i" }} ({{ cto_stats.latest_backup_size|default:"N/A" }})</span></div>
+        {% else %}
+        <div class="dp-note bad"><i class="bi bi-exclamation-triangle"></i><span><strong>No backups found.</strong> Please run a backup.</span></div>
+        {% endif %}
+        <div class="dp-sub-title">Go to</div>
+        <div class="dp-actions" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+            <a href="{% url 'security_dashboard' %}" class="dp-act"><i class="bi bi-shield-lock"></i><span>Security</span></a>
+            <a href="{% url 'database_backup' %}" class="dp-act"><i class="bi bi-hdd-stack"></i><span>Backup</span></a>
+            <a href="{% url 'bi_dashboard' %}" class="dp-act"><i class="bi bi-bar-chart"></i><span>BI</span></a>
+            <a href="{% url 'ai_dashboard' %}" class="dp-act"><i class="bi bi-robot"></i><span>AI</span></a>
+            <a href="{% url 'user_list' %}" class="dp-act"><i class="bi bi-people"></i><span>Users</span></a>
+            <a href="{% url 'security_logs' %}" class="dp-act"><i class="bi bi-journal-text"></i><span>Audit logs</span></a>
+            <a href="{% url 'supply_chain_dashboard' %}" class="dp-act"><i class="bi bi-diagram-3"></i><span>Supply chain</span></a>
+        </div>
+    {% endif %}
+    </div>
+</section>
+{% endif %}
+
+<!-- ================= LOW STOCK + NEEDS ATTENTION ================= -->
+<section class="dp-row c-1-1">
+    <div class="dp-card">
+        <div class="hd"><h2><i class="bi bi-exclamation-triangle"></i> Low stock</h2>
+            <a href="{% url 'inventory_list' %}" class="dp-link">View all</a></div>
+        <div class="bd flush">
+            {% if low_stock_items %}
+            <ul class="dp-list">
+                {% for item in low_stock_items %}
+                <li>
+                    <div style="min-width:0;">
+                        <div class="nm">{{ item.product.name|truncatechars:34 }}</div>
+                        <div class="mt">{{ item.warehouse.name }} &middot; minimum {{ item.product.low_stock_threshold|floatformat:"-3" }}</div>
+                    </div>
+                    <span class="dp-pill {% if item.stock <= 0 %}red{% else %}amber{% endif %}">{{ item.stock|floatformat:"-3" }}{% if item.product.unit %} {{ item.product.unit.name }}{% endif %}{% if item.stock <= 0 %} &middot; out{% endif %}</span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="dp-empty"><i class="bi bi-check2-circle"></i>No low stock items</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="dp-card">
+        <div class="hd"><h2><i class="bi bi-bell"></i> Needs attention</h2></div>
+        <div class="bd flush">
+            {% if pending_sale_orders or pending_orders or active_installments or pending_leave_requests or pending_purchases %}
+            <ul class="dp-list">
+                {% if pending_sale_orders %}<li><a class="nm" href="{% url 'sale_order_list' %}" style="text-decoration:none;">Pending sale orders</a><span class="dp-pill amber">{{ pending_sale_orders }}</span></li>{% endif %}
+                {% if pending_orders %}<li><a class="nm" href="{% url 'purchase_order_list' %}" style="text-decoration:none;">Open purchase orders</a><span class="dp-pill amber">{{ pending_orders }}</span></li>{% endif %}
+                {% if active_installments %}<li><span class="nm">Active installments</span><span class="dp-pill amber">{{ active_installments }}</span></li>{% endif %}
+                {% if pending_leave_requests %}<li><span class="nm">Leave requests waiting</span><span class="dp-pill amber">{{ pending_leave_requests }}</span></li>{% endif %}
+                {% if pending_purchases %}<li><span class="nm">Purchases not yet settled</span><span class="dp-pill amber">{{ pending_purchases }}</span></li>{% endif %}
+            </ul>
+            {% else %}
+            <div class="dp-empty"><i class="bi bi-emoji-smile"></i>Nothing is waiting for you</div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<!-- ================= TOP PRODUCTS + RECENT SALES ================= -->
+<section class="dp-row c-1-1">
+    <div class="dp-card">
+        <div class="hd"><h2><i class="bi bi-trophy"></i> Top products, last 30 days</h2>
+            <a href="{% url 'product_list' %}" class="dp-link">View all</a></div>
+        <div class="bd flush">
+            {% if top_products %}
+                {% for product in top_products %}
+                <div class="dp-top">
+                    <div class="line"><b>{{ product.product__name|truncatechars:30 }}</b><span>Rs. {{ product.total_sales|floatformat:"0g" }}</span></div>
+                    <div class="track"><i style="width: {{ product.sales_percent|default:0 }}%"></i></div>
+                    <div class="mt">{{ product.total_qty|floatformat:"-3" }} sold</div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="dp-empty"><i class="bi bi-bar-chart"></i>No sales data yet</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="dp-card">
+        <div class="hd"><h2><i class="bi bi-clock-history"></i> Recent sales</h2>
+            <a href="{% url 'sale_list' %}" class="dp-link">View all</a></div>
+        <div class="bd flush" style="overflow-x:auto;">
+            <table class="dp-table">
+                <thead><tr><th>Bill</th><th>Customer</th><th class="r">Total</th><th>Status</th></tr></thead>
+                <tbody>
+                    {% for sale in recent_sales %}
+                    <tr onclick="window.location='{% url 'sale_detail' sale.pk %}'">
+                        <td><a href="{% url 'sale_detail' sale.pk %}" onclick="event.stopPropagation();">{{ sale.bill_no }}</a>
+                            <div class="mt">{{ sale.sale_date|date:"d M, h:i A" }}</div></td>
+                        <td><strong>{{ sale.customer.name|truncatechars:18 }}</strong></td>
+                        <td class="r"><strong>Rs. {{ sale.cached_total|floatformat:"0g" }}</strong></td>
+                        <td>{% if sale.outstanding_balance <= 0 %}<span class="dp-pill green">Paid</span>{% else %}<span class="dp-pill amber">Pending</span>{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4"><div class="dp-empty"><i class="bi bi-cart"></i>No sales yet</div></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function showLoading(message = 'Loading...') {
+        const overlay = document.getElementById('loadingOverlay');
+        const textEl = document.getElementById('loadingText');
+        if (textEl) textEl.textContent = message;
+        if (overlay) overlay.classList.add('show');
+    }
+    
+    function hideLoading() {
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) overlay.classList.remove('show');
+    }
+    
+    window.addEventListener('load', function() {
+        setTimeout(hideLoading, 500);
+    });
+    
+    function speakText(text, lang = 'en-US') {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = lang;
+            utterance.rate = 0.9;
+            window.speechSynthesis.speak(utterance);
+        }
+    }
+    
+    let dashRecognition = null;
+    
+    function startDashboardVoice() {
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            alert('❌ Voice commands work best in Chrome browser!');
+            return;
+        }
+        
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        dashRecognition = new SpeechRecognition();
+        dashRecognition.lang = 'en-US';
+        dashRecognition.continuous = false;
+        dashRecognition.interimResults = true;
+        
+        const statusDiv = document.getElementById('dashVoiceStatus');
+        const voiceBtn = document.getElementById('dashVoiceBtn');
+        const voiceText = document.getElementById('dashVoiceText');
+        
+        if (statusDiv) statusDiv.style.display = 'block';
+        if (voiceBtn) voiceBtn.classList.add('listening');
+        if (voiceText) voiceText.textContent = 'Listening...';
+        
+        speakText("I'm listening.");
+        dashRecognition.start();
+        
+        dashRecognition.onresult = function(event) {
+            const transcript = event.results[0][0].transcript.toLowerCase().trim();
+            const voiceTextEl = document.getElementById('dashVoiceText');
+            if (voiceTextEl) voiceTextEl.textContent = '"' + transcript + '"';
+            if (event.results[0].isFinal) executeDashboardCommand(transcript);
+        };
+        
+        dashRecognition.onend = function() { 
+            setTimeout(stopDashboardVoice, 1500); 
+        };
+    }
+    
+    function stopDashboardVoice() {
+        if (dashRecognition) { 
+            dashRecognition.stop(); 
+            dashRecognition = null; 
+        }
+        const statusDiv = document.getElementById('dashVoiceStatus');
+        const voiceBtn = document.getElementById('dashVoiceBtn');
+        if (statusDiv) statusDiv.style.display = 'none';
+        if (voiceBtn) voiceBtn.classList.remove('listening');
+    }
+    
+    function executeDashboardCommand(cmd) {
+        const commandTextEl = document.getElementById('dashVoiceCommand');
+        const voiceUrls = {
+            'new sale': "{% url 'sale_create' %}",
+            'sales': "{% url 'sale_list' %}",
+            'purchase': "{% url 'purchase_list' %}",
+            'customers': "{% url 'customer_list' %}",
+            'products': "{% url 'product_list' %}",
+            'inventory': "{% url 'inventory_list' %}",
+            'reports': "{% url 'reports_dashboard' %}",
+            'dashboard': "{% url 'dashboard' %}",
+            'users': "{% url 'user_list' %}",
+        };
+        
+        for (const [phrase, url] of Object.entries(voiceUrls)) {
+            if (cmd.includes(phrase)) {
+                if (commandTextEl) commandTextEl.textContent = '✅ Opening: ' + phrase;
+                speakText(`Opening ${phrase}.`);
+                showLoading(`Opening ${phrase}...`);
+                setTimeout(() => { window.location = url; }, 1000);
+                return;
+            }
+        }
+        
+        if (cmd.includes('logout')) {
+            speakText('Logging out.');
+            setTimeout(() => { window.location = "{% url 'logout' %}"; }, 1000);
+            return;
+        }
+        
+        speakText("Sorry, I didn't understand.");
+        setTimeout(stopDashboardVoice, 2500);
+    }
+    
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.code === 'Space') {
+            e.preventDefault();
+            startDashboardVoice();
+        }
+    });
+</script>
+{% endblock %}

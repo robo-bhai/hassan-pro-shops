@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block title %}{% if profile %}Edit Store {{ profile.code }}{% else %}Naya Store{% endif %}{% endblock %}
+{% block content %}
+<div class="container-fluid py-3" style="max-width:900px">
+  <h4>{% if profile %}Edit Store: {{ profile.code }}{% else %}Naya Store{% endif %}</h4>
+  {% for m in messages %}<div class="alert alert-{{ m.tags|default:'info' }} py-2">{{ m }}</div>{% endfor %}
+
+  <form method="post" class="row g-3" id="spForm">
+    {% csrf_token %}
+
+    {% if profile %}
+      <div class="col-md-6"><label class="form-label">Warehouse</label>
+        <input class="form-control" value="{{ profile.warehouse.name }}" disabled></div>
+    {% else %}
+      <div class="col-md-6"><label class="form-label">Warehouse (maujooda)</label>
+        <select name="warehouse" class="form-select">
+          <option value="">-- Chunein --</option>
+          {% for w in free_warehouses %}<option value="{{ w.id }}" {% if form.warehouse == w.id|stringformat:"s" %}selected{% endif %}>{{ w.name }}</option>{% endfor %}
+        </select></div>
+      <div class="col-md-6"><label class="form-label">Ya naya warehouse banayein</label>
+        <input type="text" name="new_warehouse" value="{{ form.new_warehouse }}" class="form-control" placeholder="jaise Packing Material Store"></div>
+    {% endif %}
+
+    <div class="col-md-4"><label class="form-label">Code * (max 10)</label>
+      <input type="text" name="code" value="{{ form.code }}" maxlength="10" class="form-control" placeholder="PMS" required></div>
+
+    <div class="col-md-4"><label class="form-label">Store type *</label>
+      <select name="store_type" id="spType" class="form-select">
+        {% for k, v in store_types %}<option value="{{ k }}" {% if form.store_type == k %}selected{% endif %}>{{ v }}</option>{% endfor %}
+      </select></div>
+
+    <div class="col-md-4"><label class="form-label">Company type (Business unit)</label>
+      <select name="business_unit" id="spUnit" class="form-select">
+        {% for k, v in units %}<option value="{{ k }}" {% if form.business_unit == k %}selected{% endif %}>{{ v }}</option>{% endfor %}
+      </select>
+      <div class="form-text" id="spUnitHint"></div></div>
+
+    <div class="col-md-6"><label class="form-label">Store keeper</label>
+      <select name="keeper" class="form-select">
+        <option value="">-- None --</option>
+        {% for u in users %}<option value="{{ u.id }}" {% if form.keeper == u.id|stringformat:"s" %}selected{% endif %}>{{ u.get_username }}{% if u.get_full_name %} - {{ u.get_full_name }}{% endif %}</option>{% endfor %}
+      </select></div>
+
+    <div class="col-md-6 d-flex align-items-end gap-4">
+      <div class="form-check"><input type="checkbox" name="can_issue" id="ci" class="form-check-input" {% if form.can_issue %}checked{% endif %}><label for="ci" class="form-check-label">Issue allowed</label></div>
+      <div class="form-check"><input type="checkbox" name="is_active" id="ia" class="form-check-input" {% if form.is_active %}checked{% endif %}><label for="ia" class="form-check-label">Active</label></div>
+    </div>
+
+    <div class="col-12">
+      <label class="form-label mb-1">Is store ki team ko ye modules milenge</label>
+      <div class="form-text mb-2">If you tick nothing, the default modules for the store type will apply: <strong id="spDefMods"></strong></div>
+      {% for g, items in module_groups %}
+        <div class="mb-2"><div class="small fw-semibold text-muted">{{ g }}</div>
+          <div class="d-flex flex-wrap gap-3">
+          {% for key, label in items %}
+            <div class="form-check"><input type="checkbox" name="modules" value="{{ key }}" id="m_{{ key }}" class="form-check-input" {% if key in selected %}checked{% endif %}>
+              <label for="m_{{ key }}" class="form-check-label">{{ label }}</label></div>
+          {% endfor %}
+          </div></div>
+      {% endfor %}
+    </div>
+
+    <div class="col-12">
+      <button class="btn btn-primary">Save</button>
+      <a href="{% url 'store_profile_list' %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{{ type_defaults|json_script:"spDefaults" }}
+{% endblock %}
+{% block extra_js %}
+<script>
+(function(){
+  var defs = JSON.parse(document.getElementById('spDefaults').textContent);
+  var names = {shop:'Shop', factory:'Factory', both:'Shop + Factory'};
+  var t = document.getElementById('spType'), h = document.getElementById('spUnitHint'), m = document.getElementById('spDefMods');
+  function upd(){ var d = defs[t.value] || {}; h.textContent = 'Khali chhorein to default: ' + (names[d.unit] || d.unit); m.textContent = (d.modules || []).join(', '); }
+  t.addEventListener('change', upd); upd();
+})();
+</script>
+{% endblock %}

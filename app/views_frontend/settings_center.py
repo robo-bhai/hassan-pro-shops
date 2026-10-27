@@ -1,13 +1,13 @@
 # app/views_frontend/settings_center.py
 """
-SETTINGS CENTER - project ki saari settings ek jagah.
+SETTINGS CENTER - all project settings in one place.
 
 URL:  /settings/center/            (pehla allowed tab)
       /settings/center/<tab>/      (modules, shareholders, company, delivery, security, voice)
 
-Tabs aur fields ki list `app/settings_catalog.py` me hai. Ye view catalog padh kar form banata,
-validate karta aur save karta hai. Har tab ka form alag save hota hai, is liye ek tab ki save
-dusre tab ki settings ko kabhi nahi chhoti.
+The list of tabs and fields is in `app/settings_catalog.py`. This view reads the catalog and builds the form,
+validates and saves. Each tab form is saved separately, so saving one tab
+never touches the settings of another tab.
 """
 import logging
 from decimal import Decimal, InvalidOperation
@@ -22,12 +22,11 @@ from django.shortcuts import redirect, render
 from django.urls import NoReverseMatch, reverse
 
 from ..models import CompanyInfo, DeliverySettings, SecuritySettings, SystemSetting
-from ..module_catalog import MODULE_CATALOG, MODULE_GROUPS
+from ..module_catalog import MODULE_GROUPS, get_module_catalog, get_module_keys
 from ..settings_catalog import TAB_BY_KEY, TABS
 
 logger = logging.getLogger(__name__)
 
-_MODULE_KEYS = tuple(m['key'] for m in MODULE_CATALOG)
 
 _DEFAULT_CITY_CHARGES = {
     'karachi': 100, 'lahore': 120, 'islamabad': 150, 'rawalpindi': 150,
@@ -56,7 +55,7 @@ def _fmt_decimal(d):
 
 
 def _coerce(field, post):
-    """POST se ek field ki value. (value, error) lautata hai."""
+    """The value of one field from POST. Returns (value, error)."""
     name, ftype, label = field['name'], field['type'], field['label']
 
     if ftype == 'bool':
@@ -76,36 +75,36 @@ def _coerce(field, post):
         try:
             num = int(raw) if ftype == 'int' else Decimal(raw)
         except (ValueError, InvalidOperation):
-            return None, '%s: sahi number likhein.' % label
+            return None, '%s: enter a valid number.' % label
         if ftype == 'decimal' and not num.is_finite():
-            return None, '%s: sahi number likhein.' % label
+            return None, '%s: enter a valid number.' % label
         if 'min' in field and num < field['min']:
-            return None, '%s: kam az kam %s hona chahiye.' % (label, field['min'])
+            return None, '%s: must be at least %s.' % (label, field['min'])
         if 'max' in field and num > field['max']:
-            return None, '%s: zyada se zyada %s ho sakta hai.' % (label, field['max'])
+            return None, '%s: must be at most %s.' % (label, field['max'])
         return num, None
 
     # text / textarea / email / url
     if field.get('required') and not raw:
-        return None, '%s zaroori hai.' % label
+        return None, '%s is required.' % label
     if field.get('max_len') and len(raw) > field['max_len']:
-        return None, '%s: %s se zyada characters nahi ho sakte.' % (label, field['max_len'])
+        return None, '%s: cannot be more than %s characters.' % (label, field['max_len'])
     if raw and ftype == 'email':
         try:
             validate_email(raw)
         except ValidationError:
-            return None, '%s: sahi email likhein.' % label
+            return None, '%s: enter a valid email.' % label
     if raw and ftype == 'url':
         try:
             URLValidator()(raw)
         except ValidationError:
-            return None, '%s: sahi URL likhein (https:// ke saath).' % label
+            return None, '%s: enter a valid URL (with https://).' % label
     return raw, None
 
 
 # ============================================================ stores
 class _SystemStore(object):
-    """SystemSetting table (key/value). Sirf bool, number aur select ke liye."""
+    """SystemSetting table (key/value). Only for bool, number and select."""
 
     def load(self):
         return None
@@ -182,19 +181,19 @@ def _modules_context():
         'shop': unit_enabled(m['key'], 'shop'),
         'factory': unit_enabled(m['key'], 'factory'),
         'visible': visible.get(m['key'], True),
-    } for m in MODULE_CATALOG]
+    } for m in get_module_catalog()]
     groups = [{'name': g, 'items': [r for r in rows if r['group'] == g]} for g in MODULE_GROUPS]
     return {'module_groups': [g for g in groups if g['items']], 'module_count': len(rows)}
 
 
 def _save_modules(request):
-    """Har module ka Shop / Factory switch (unchecked = off bhi save hota hai)."""
-    for k in _MODULE_KEYS:
+    """The Shop / Factory switch of each module (unchecked = off is saved too)."""
+    for k in get_module_keys():
         shop_on = request.POST.get('mode_shop_%s' % k) == 'on'
         factory_on = request.POST.get('mode_factory_%s' % k) == 'on'
         SystemSetting.set_value('mode_shop_%s' % k, shop_on, request.user)
         SystemSetting.set_value('mode_factory_%s' % k, factory_on, request.user)
-        # purana global switch union ke sath sync (purane code ke liye)
+        # old global switch in sync with the union (for old code)
         SystemSetting.set_value('show_%s_module' % k, shop_on or factory_on, request.user)
     cache.delete('module_visibility')
 
@@ -211,10 +210,10 @@ def _parse_city_charges(post):
         try:
             amount = float(values[i])
         except (TypeError, ValueError):
-            errors.append('City "%s": sahi charge likhein.' % key)
+            errors.append('City "%s": enter a valid charge.' % key)
             continue
         if amount < 0 or amount != amount or amount in (float('inf'), float('-inf')):
-            errors.append('City "%s": charge sahi nahi.' % key)
+            errors.append('City "%s": invalid charge.' % key)
             continue
         charges[key] = amount
     try:
@@ -222,7 +221,7 @@ def _parse_city_charges(post):
         if other < 0 or other != other or other in (float('inf'), float('-inf')):
             raise ValueError
     except (TypeError, ValueError):
-        errors.append('Baaqi shehron ka charge sahi likhein.')
+        errors.append('Enter a valid charge for the other cities.')
         other = 200.0
     charges['other'] = other
     return charges, errors
@@ -247,7 +246,7 @@ def _resolve_links(tab):
 
 # ============================================================ form building
 def _build_groups(tab, store, inst, posted=None, errors=None):
-    """Fields ko group-wise template ke liye tayyar karta hai."""
+    """Prepares the fields group-wise for the template."""
     errors = errors or {}
     groups, index = [], {}
     for f in tab['fields']:
@@ -280,12 +279,12 @@ def settings_center(request, tab=None):
     user = request.user
     visible_tabs = [t for t in TABS if _allowed(user, t['access'])]
     if not visible_tabs:
-        messages.error(request, 'Access denied! Aap ko settings dekhne ki ijazat nahi.')
+        messages.error(request, 'Access denied! You do not have permission to view settings.')
         return redirect('dashboard')
 
     tab_def = TAB_BY_KEY.get(tab) if tab else visible_tabs[0]
     if tab_def is None or not _allowed(user, tab_def['access']):
-        messages.error(request, 'Access denied! Is tab ki ijazat nahi.')
+        messages.error(request, 'Access denied! You do not have permission for this tab.')
         return redirect('settings_center')
 
     store = _STORES.get(tab_def['store'])
@@ -314,14 +313,14 @@ def settings_center(request, tab=None):
                 i.city_charges = _c
                 i.is_active = True
 
-        # Logo sab se aakhir me: baaki fields galat hon to purana logo file se delete na ho
+        # Logo goes last: if the other fields are wrong, the old logo file is not deleted
         if special == 'logo' and not error_list:
             try:
                 from .dashboard import _apply_company_logo
                 _apply_company_logo(request, inst)
             except ValueError as exc:
                 error_list.append(str(exc))
-            except Exception as exc:  # PIL na ho wagera
+            except Exception as exc:  # PIL is not installed, etc.
                 logger.error('Logo apply error: %s', exc)
                 error_list.append('Logo lagane me masla aaya.')
 
@@ -334,15 +333,15 @@ def settings_center(request, tab=None):
                     store.save(inst, values, user)
                     if special == 'modules':
                         _save_modules(request)
-                messages.success(request, '✅ %s settings save ho gayi.' % tab_def['label'])
+                messages.success(request, '✅ %s settings saved.' % tab_def['label'])
                 return redirect('settings_center_tab', tab=tab_def['key'])
             except Exception as exc:
                 logger.error('Settings save error (%s): %s', tab_def['key'], exc)
-                error_list.append('Save nahi ho saka. Dobara koshish karein.')
+                error_list.append('Could not save. Please try again.')
 
         for e in error_list:
             messages.error(request, '❌ ' + e)
-        posted = request.POST  # galti par user ki likhi hui values wapas dikhayein
+        posted = request.POST  # on error, show the user's entered values again
 
     context = {
         'company_name': getattr(CompanyInfo.objects.first(), 'name', None) or 'ERP System',

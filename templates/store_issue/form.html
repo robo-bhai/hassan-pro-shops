@@ -1,0 +1,217 @@
+{% extends 'base.html' %}
+{% block title %}New Store Issue - {{ company_name }}{% endblock %}
+{% block extra_css %}{% include 'store_issue/_styles.html' %}
+<style>
+.si-results{position:absolute;z-index:1050;left:0;right:0;top:100%;max-height:260px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.15);}
+.si-results .list-group-item{cursor:pointer;}
+.si-avail{font-size:.75rem;white-space:nowrap}
+/* Items: each item in one horizontal line (Item | Qty | Remarks | Delete), on mobile too */
+.si-items,.si-items thead,.si-items tbody{display:block;width:100%}
+.si-items thead tr,.si-items tr.si-row{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1.5fr) minmax(0,2fr) 40px;gap:.5rem;align-items:start}
+.si-items thead tr{padding:0 0 .35rem;border-bottom:1px solid var(--bs-border-color);margin-bottom:.6rem}
+.si-items th,.si-items td{display:block;width:auto!important;border:0;padding:0;vertical-align:top}
+.si-items tr.si-row{margin-bottom:.6rem}
+.si-items .form-control{min-width:0}
+@media (max-width:575px){.si-items thead tr,.si-items tr.si-row{grid-template-columns:minmax(0,3fr) minmax(0,1.6fr) minmax(0,1.6fr) 34px;gap:.35rem}
+.si-items .form-control{padding:.35rem .4rem;font-size:.85rem}.si-items .btn-sm{padding:.25rem .35rem}.si-avail{white-space:normal}}
+
+/* ---- Poora page mobile responsive ---- */
+
+.si-page .si-actions{display:flex;gap:.5rem;justify-content:flex-end}
+@media (max-width:767px){
+  .si-page{padding:.75rem .6rem 6rem!important}
+  .si-page h1.h3{font-size:1.15rem}
+  .si-page .si-head p{font-size:.78rem}
+  .si-page .si-head .btn{padding:.3rem .8rem;font-size:.85rem}
+  .si-page .si-card{border-radius:12px}
+  .si-page .si-card.p-3{padding:.75rem!important}
+  .si-page .form-label{font-size:.82rem;margin-bottom:.2rem}
+  .si-page .form-select,.si-page .form-control{font-size:16px;min-height:42px}   /* 16px = iPhone does not zoom */
+  .si-page .si-items .form-control{font-size:14px;min-height:40px}
+  .si-page .si-items-head{padding:.6rem .75rem!important}
+  .si-page .si-items-body{padding:.6rem!important}
+  .si-page .si-actions{position:fixed;left:0;right:0;bottom:0;z-index:1030;background:var(--bs-body-bg);
+    padding:.6rem .75rem calc(.6rem + env(safe-area-inset-bottom,0px));border-top:1px solid var(--bs-border-color);
+    box-shadow:0 -4px 16px rgba(0,0,0,.08)}
+  .si-page .si-actions .btn{flex:1;min-height:44px}
+  .si-page .si-actions .btn-light{flex:0 0 30%}
+  .si-results{max-height:50vh}
+}
+</style>{% endblock %}
+{% block content %}
+<div class="container-fluid px-2 px-md-4 py-3 py-md-4 si-page">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 mb-md-4 si-head">
+    <div><h1 class="h3 mb-1"><i class="bi bi-box-arrow-up text-primary me-2"></i>New Store Issue</h1>
+      <p class="text-muted small mb-0">Issue stock from the store inside the company (not a sale). The cost is calculated automatically using FIFO.</p></div>
+    <a href="{% url 'store_issue_list' %}" class="btn btn-outline-secondary rounded-pill px-3"><i class="bi bi-arrow-left me-1"></i>Back</a>
+  </div>
+
+  <form method="post" id="issueForm" autocomplete="off">
+    {% csrf_token %}
+    <div class="si-card p-3 mb-3">
+      <div class="row g-3">
+        <div class="col-lg-3 col-md-6"><label class="form-label fw-semibold">From store <span class="text-danger">*</span></label>
+          <select name="store" id="storeSel" class="form-select" required>
+            <option value="">Select store...</option>
+            {% for s in stores %}<option value="{{ s.pk }}" {% if form.store == s.pk|stringformat:"s" %}selected{% endif %}>{% if s.store_profile %}[{{ s.store_profile.code }}] {% endif %}{{ s.name }}</option>{% endfor %}
+          </select></div>
+        <div class="col-lg-3 col-md-6"><label class="form-label fw-semibold">Issue type <span class="text-danger">*</span></label>
+          <select name="issue_type" class="form-select" required>
+            {% for k,v in issue_types %}<option value="{{ k }}" {% if form.issue_type == k %}selected{% endif %}>{{ v }}</option>{% endfor %}
+          </select></div>
+        <div class="col-lg-3 col-md-6"><label class="form-label fw-semibold">Date &amp; time</label>
+          <input type="datetime-local" name="issue_date" value="{{ form.issue_date }}" class="form-control"></div>
+        <div class="col-lg-3 col-md-6"><label class="form-label fw-semibold">Department</label>
+          <select name="department" class="form-select"><option value="">-</option>
+            {% for d in departments %}<option value="{{ d.pk }}" {% if form.department == d.pk|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+          </select></div>
+        <div class="col-lg-3 col-md-6"><label class="form-label fw-semibold">Received by</label>
+          <input name="received_by" value="{{ form.received_by }}" maxlength="100" class="form-control" placeholder="Given to whom"></div>
+        <div class="col-lg-3 col-md-6"><label class="form-label fw-semibold">Production order</label>
+          <select name="production_order" class="form-select"><option value="">-</option>
+            {% for o in production_orders %}<option value="{{ o.pk }}" {% if form.production_order == o.pk|stringformat:"s" %}selected{% endif %}>{{ o.order_no }} - {{ o.product.name }}</option>{% endfor %}
+          </select></div>
+        <div class="col-lg-6"><label class="form-label fw-semibold">Purpose / notes</label>
+          <input name="purpose" value="{{ form.purpose }}" class="form-control" placeholder="Maqsad, e.g. Line 2 packing, generator repair"></div>
+      </div>
+      <div class="form-text mt-2"><i class="bi bi-info-circle me-1"></i>At least one of Department, Received by or Production order is required.</div>
+    </div>
+
+    <div class="si-card mb-3">
+      <div class="d-flex justify-content-between align-items-center p-3 border-bottom si-items-head">
+        <div class="fw-semibold"><i class="bi bi-list-check me-2"></i>Items</div>
+        <button type="button" class="btn btn-sm btn-outline-primary" id="addRow"><i class="bi bi-plus-lg me-1"></i>Add item</button>
+      </div>
+      <div class="p-3 si-items-body">
+        <table class="table si-items mb-0">
+          <thead><tr><th>Item</th><th>Qty</th><th>Remarks</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div id="noStore" class="text-muted small mt-2">Select a store first, then search for items.</div>
+      </div>
+    </div>
+
+    <div class="si-actions">
+      <a href="{% url 'store_issue_list' %}" class="btn btn-light px-4">Cancel</a>
+      <button class="btn btn-primary px-4" id="submitBtn"><i class="bi bi-check2-circle me-1"></i>Issue stock</button>
+    </div>
+  </form>
+</div>
+{{ rows|json_script:"initialRows" }}
+{% endblock %}
+{% block extra_js %}
+<script>
+(function () {
+  var apiUrl = "{% url 'store_issue_products_api' %}";
+  var storeSel = document.getElementById('storeSel');
+  var tbody = document.getElementById('rows');
+  var noStore = document.getElementById('noStore');
+  var timers = new WeakMap();
+
+  function el(tag, attrs, text) {
+    var e = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  function addRow(data) {
+    data = data || {};
+    var tr = el('tr', {'class': 'si-row'});
+
+    var td1 = el('td'); td1.style.position = 'relative';
+    var pid = el('input', {type: 'hidden', name: 'product_id', value: data.product_id || ''});
+    var search = el('input', {type: 'text', 'class': 'form-control', placeholder: 'Search item...'});
+    search.value = data.name || '';
+    var avail = el('div', {'class': 'si-avail text-muted'});
+    var results = el('div', {'class': 'list-group si-results d-none'});
+    td1.append(pid, search, avail, results);
+
+    var td2 = el('td');
+    var qty = el('input', {type: 'number', name: 'qty', step: 'any', min: '0', 'class': 'form-control', placeholder: 'Qty'});
+    qty.value = data.qty || '';
+    td2.append(qty);
+
+    var td3 = el('td');
+    var rem = el('input', {type: 'text', name: 'remarks', maxlength: '200', 'class': 'form-control', placeholder: 'Remarks'});
+    rem.value = data.remarks || '';
+    td3.append(rem);
+
+    var td4 = el('td', {'class': 'text-end'});
+    var del = el('button', {type: 'button', 'class': 'btn btn-sm btn-outline-danger', title: 'Remove'});
+    del.append(el('i', {'class': 'bi bi-trash'}));
+    td4.append(del);
+
+    tr.append(td1, td2, td3, td4);
+    tbody.append(tr);
+
+    function checkQty() {
+      var a = parseFloat(qty.dataset.avail);
+      var q = parseFloat(qty.value);
+      var bad = !isNaN(a) && !isNaN(q) && q > a;
+      qty.classList.toggle('is-invalid', bad);
+    }
+    qty.addEventListener('input', checkQty);
+
+    search.addEventListener('input', function () {
+      pid.value = ''; qty.dataset.avail = ''; avail.textContent = '';
+      clearTimeout(timers.get(search));
+      timers.set(search, setTimeout(function () { lookup(search.value, results, pick); }, 250));
+    });
+    search.addEventListener('focus', function () { if (storeSel.value) lookup(search.value, results, pick); });
+    document.addEventListener('click', function (e) { if (!td1.contains(e.target)) results.classList.add('d-none'); });
+
+    function pick(p) {
+      pid.value = p.id; search.value = p.name;
+      qty.dataset.avail = p.available;
+      avail.textContent = 'Available: ' + p.available + (p.unit ? ' ' + p.unit : '');
+      results.classList.add('d-none'); checkQty(); qty.focus();
+    }
+    del.addEventListener('click', function () { tr.remove(); });
+  }
+
+  function lookup(q, box, onPick) {
+    if (!storeSel.value) { return; }
+    fetch(apiUrl + '?store=' + encodeURIComponent(storeSel.value) + '&q=' + encodeURIComponent(q || ''),
+          {headers: {'X-Requested-With': 'XMLHttpRequest'}, credentials: 'same-origin'})
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        box.textContent = '';
+        if (!d.results.length) {
+          box.append(el('div', {'class': 'list-group-item text-muted small'}, 'No items found in this store'));
+        }
+        d.results.forEach(function (p) {
+          var a = el('a', {'class': 'list-group-item list-group-item-action d-flex justify-content-between'});
+          a.append(el('span', {}, p.name), el('span', {'class': 'text-muted small'}, p.available + (p.unit ? ' ' + p.unit : '')));
+          a.addEventListener('mousedown', function (e) { e.preventDefault(); onPick(p); });
+          box.append(a);
+        });
+        box.classList.remove('d-none');
+      }).catch(function () {});
+  }
+
+  function toggleStoreHint() { noStore.classList.toggle('d-none', !!storeSel.value); }
+  storeSel.addEventListener('change', function () {
+    // clear old items when the store changes (stock is different for each store)
+    var has = Array.prototype.some.call(tbody.querySelectorAll('input[name=product_id]'), function (i) { return i.value; });
+    if (has && !confirm('Store badalne se selected items clear ho jayenge. Jari rakhein?')) { return; }
+    tbody.textContent = ''; addRow(); toggleStoreHint();
+  });
+  document.getElementById('addRow').addEventListener('click', function () { addRow(); });
+
+  document.getElementById('issueForm').addEventListener('submit', function (e) {
+    var ok = false;
+    tbody.querySelectorAll('tr').forEach(function (tr) {
+      var p = tr.querySelector('input[name=product_id]').value, q = tr.querySelector('input[name=qty]').value;
+      if (p && q) ok = true;
+    });
+    if (!ok) { e.preventDefault(); alert('Kam az kam ek item aur quantity likhein.'); return; }
+    document.getElementById('submitBtn').disabled = true;
+  });
+
+  var initial = JSON.parse(document.getElementById('initialRows').textContent || '[]');
+  if (initial.length) { initial.forEach(addRow); } else { addRow(); }
+  toggleStoreHint();
+})();
+</script>
+{% endblock %}

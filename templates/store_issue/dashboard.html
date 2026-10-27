@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% block title %}Stores - {{ company_name }}{% endblock %}
+{% block extra_css %}{% include 'store_issue/_styles.html' %}{% endblock %}
+{% block content %}
+<div class="container-fluid px-4 py-4 si-page">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+    <div>
+      <h1 class="h3 mb-1"><i class="bi bi-buildings text-primary me-2"></i>Stores</h1>
+      <p class="text-muted small mb-0">PMS, RMS, FGS aur Technical store: stock, value aur internal issue</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      {% if is_superuser %}<a href="{% url 'store_access' %}" class="btn btn-outline-dark rounded-pill px-3"><i class="bi bi-people me-1"></i>Store Teams</a>{% endif %}
+      <a href="{% url 'store_issue_report' %}" class="btn btn-outline-secondary rounded-pill px-3"><i class="bi bi-bar-chart me-1"></i>Report</a>
+      <a href="{% url 'store_issue_list' %}" class="btn btn-outline-secondary rounded-pill px-3"><i class="bi bi-list-ul me-1"></i>All Issues</a>
+      {% if can_issue %}<a href="{% url 'store_issue_create' %}" class="btn btn-primary rounded-pill px-4"><i class="bi bi-box-arrow-up me-1"></i>New Issue</a>{% endif %}
+    </div>
+  </div>
+
+  {% if not has_profiles %}
+  <div class="alert alert-info border-0 d-flex gap-2">
+    <i class="bi bi-info-circle-fill mt-1"></i>
+    <div>Named stores are not set up yet. Run this in the terminal: <code>python manage.py setup_stores</code><br>
+    <span class="small">Ye PMS, RMS, FGS aur Technical store bana dega. Purane warehouses waise hi rahenge.</span></div>
+  </div>
+  {% endif %}
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-4"><div class="si-card si-kpi"><div class="ico bg-primary bg-opacity-10 text-primary"><i class="bi bi-cash-stack"></i></div>
+      <div><div class="lbl">Total stock value</div><div class="val">Rs. {{ total_value|floatformat:2 }}</div></div></div></div>
+    <div class="col-md-4"><div class="si-card si-kpi"><div class="ico bg-warning bg-opacity-10 text-warning"><i class="bi bi-box-arrow-up"></i></div>
+      <div><div class="lbl">Issued this month (cost)</div><div class="val">Rs. {{ total_issue_cost_month|floatformat:2 }}</div></div></div></div>
+    <div class="col-md-4"><div class="si-card si-kpi"><div class="ico bg-success bg-opacity-10 text-success"><i class="bi bi-buildings"></i></div>
+      <div><div class="lbl">Stores / warehouses</div><div class="val">{{ cards|length }}</div></div></div></div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    {% for c in cards %}
+    <div class="col-xl-3 col-lg-4 col-md-6">
+      <div class="si-card si-store p-3">
+        <div class="d-flex align-items-start justify-content-between mb-2">
+          <div><span class="si-code {{ c.profile.store_type|default:'GEN' }}">{{ c.code }}</span>
+            <div class="fw-semibold mt-2">{{ c.warehouse.name }}</div>
+            <div class="small text-muted">{{ c.type_label }}</div></div>
+          {% if c.low_count %}<span class="badge text-bg-warning" title="Low stock items"><i class="bi bi-exclamation-triangle"></i> {{ c.low_count }}</span>{% endif %}
+        </div>
+        <div class="row g-2 my-2">
+          <div class="col-4 si-stat">Items<b>{{ c.items }}</b></div>
+          <div class="col-4 si-stat">Qty<b>{{ c.qty|floatformat:"-2" }}</b></div>
+          <div class="col-4 si-stat">Value<b>{{ c.value|floatformat:0 }}</b></div>
+        </div>
+        <div class="small text-muted mb-3"><i class="bi bi-box-arrow-up me-1"></i>{{ c.issues_month }} issue(s) this month, Rs. {{ c.issue_cost_month|floatformat:0 }}</div>
+        <div class="d-flex gap-2">
+          <a href="{% url 'warehouse_inventory' c.warehouse.pk %}" class="btn btn-sm btn-outline-primary flex-fill">Stock</a>
+          <a href="{% url 'store_issue_list' %}?store={{ c.warehouse.pk }}" class="btn btn-sm btn-outline-secondary flex-fill">Issues</a>
+          {% if c.can_issue %}
+          <a href="{% url 'store_issue_create' %}?store={{ c.warehouse.pk }}" class="btn btn-sm btn-primary flex-fill">Issue</a>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="si-card">
+    <div class="p-3 border-bottom fw-semibold"><i class="bi bi-clock-history me-2"></i>Recent issues</div>
+    <div class="table-responsive">
+      <table class="table si-table align-middle mb-0">
+        <thead><tr><th>Issue #</th><th>Date</th><th>Store</th><th>To</th><th class="si-num">Cost</th><th>Status</th></tr></thead>
+        <tbody>
+        {% for i in recent %}
+          <tr>
+            <td><a href="{% url 'store_issue_detail' i.pk %}" class="fw-semibold text-decoration-none">{{ i.issue_no }}</a></td>
+            <td class="small">{{ i.issue_date|date:"d M Y h:i A" }}</td>
+            <td>{{ i.from_warehouse.name }}</td>
+            <td>{{ i.department.name|default:i.received_by|default:"-" }}</td>
+            <td class="si-num">{{ i.total_cost|floatformat:2 }}</td>
+            <td><span class="si-badge {{ i.status }}">{{ i.get_status_display }}</span></td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="6"><div class="si-empty"><i class="bi bi-inbox"></i>No issues yet</div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

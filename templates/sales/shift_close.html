@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}Close shift - {{ company_name }}{% endblock %}
+{% block content %}
+<div class="container-fluid px-2 px-md-4 py-3" style="max-width:760px">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div><h1 class="h4 mb-0"><i class="bi bi-box-arrow-right text-danger me-2"></i>Close Shift #{{ shift.pk }}</h1>
+      <div class="text-muted small">{{ shift.user.get_username }} &middot; {{ shift.warehouse.name }} &middot; started {{ shift.opened_at|date:"d M Y h:i A" }}</div></div>
+    <a href="{% url 'pos_screen' %}" class="btn btn-outline-secondary btn-sm">&larr; POS</a>
+  </div>
+  {% for m in messages %}<div class="alert alert-{{ m.tags|default:'info' }} py-2">{{ m }}</div>{% endfor %}
+
+  <div class="card mb-3"><div class="card-body">
+    <table class="table table-sm mb-0">
+      <tr><td>Bills</td><td class="text-end">{{ t.sales_count }}</td></tr>
+      <tr><td>Total sales</td><td class="text-end fw-semibold">{{ t.total_sales|floatformat:2 }}</td></tr>
+      <tr><td class="text-muted ps-3">Discount given</td><td class="text-end text-muted">{{ t.discount_total|floatformat:2 }}</td></tr>
+      <tr><td class="text-muted ps-3">Credit (unpaid)</td><td class="text-end text-muted">{{ t.credit_given|floatformat:2 }}</td></tr>
+      <tr><td colspan="2" class="pt-3 small text-uppercase text-muted">Payments received</td></tr>
+      <tr><td>Cash</td><td class="text-end">{{ t.cash_sales|floatformat:2 }}</td></tr>
+      <tr><td>Bank transfer</td><td class="text-end">{{ t.bank_sales|floatformat:2 }}</td></tr>
+      {% if t.other_sales %}<tr><td class="text-muted">Other (older payments)</td><td class="text-end text-muted">{{ t.other_sales|floatformat:2 }}</td></tr>{% endif %}
+      <tr><td colspan="2" class="pt-3 small text-uppercase text-muted">Drawer cash</td></tr>
+      <tr><td>Opening cash</td><td class="text-end">{{ shift.opening_cash|floatformat:2 }}</td></tr>
+      <tr><td>+ Cash sales</td><td class="text-end">{{ t.cash_sales|floatformat:2 }}</td></tr>
+      <tr><td>+ Cash in</td><td class="text-end">{{ t.cash_in|floatformat:2 }}</td></tr>
+      <tr><td>- Cash out</td><td class="text-end">{{ t.cash_out|floatformat:2 }}</td></tr>
+      <tr class="table-light"><th>Expected in drawer</th><th class="text-end fs-5" id="exp" data-v="{{ t.expected_cash|stringformat:'.2f' }}">{{ t.expected_cash|floatformat:2 }}</th></tr>
+    </table>
+    {% if movements %}<div class="small text-muted mt-3">Cash in/out:
+      {% for m in movements %}<div>{{ m.created_at|date:"h:i A" }} &middot; {{ m.get_kind_display }} {{ m.amount|floatformat:2 }} &middot; {{ m.reason }}</div>{% endfor %}</div>{% endif %}
+  </div></div>
+
+  <form method="post" class="card"><div class="card-body">
+    {% csrf_token %}
+    <label class="form-label fw-semibold">Actual cash in drawer (count it and enter)</label>
+    <input type="number" step="any" min="0" name="counted_cash" id="cnt" class="form-control form-control-lg mb-2" required inputmode="decimal" autofocus>
+    <div class="mb-2"><span id="dlbl" class="text-muted">Difference</span>: <b id="diff" class="fs-5">0.00</b></div>
+    <input name="notes" class="form-control mb-3" maxlength="255" placeholder="Note (reason, if there is a difference)">
+    <button class="btn btn-danger w-100" style="min-height:50px" onclick="return confirm('Close this shift? It cannot be reopened.')">Close shift</button>
+  </div></form>
+</div>
+<script>
+(function(){
+  var exp = parseFloat(document.getElementById('exp').dataset.v) || 0, c = document.getElementById('cnt'), d = document.getElementById('diff'), l = document.getElementById('dlbl');
+  c.addEventListener('input', function(){
+    var v = parseFloat(c.value); if(!isFinite(v)){ d.textContent='0.00'; d.className='fs-5'; l.textContent='Difference'; return; }
+    var x = Math.round((v-exp)*100)/100; d.textContent = x.toFixed(2);
+    if(x === 0){ d.className='fs-5 text-success'; l.textContent='Exact match'; }
+    else if(x < 0){ d.className='fs-5 text-danger'; l.textContent='Cash short'; }
+    else { d.className='fs-5 text-warning'; l.textContent='Cash over'; }
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Store Profiles{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+      <h4 class="mb-0">🏷️ Store Profiles</h4>
+      <small class="text-muted">Each store's type, company type (Shop/Factory) and its modules. Current Business Mode:
+        <strong>{% if mode == 'shop' %}Shop{% elif mode == 'factory' %}Factory{% else %}Shop + Factory{% endif %}</strong></small>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'store_access' %}" class="btn btn-outline-secondary btn-sm">👥 Store Teams</a>
+      <a href="{% url 'store_profile_add' %}" class="btn btn-primary btn-sm">+ Naya Store</a>
+    </div>
+  </div>
+
+  {% for m in messages %}<div class="alert alert-{{ m.tags|default:'info' }} py-2">{{ m }}</div>{% endfor %}
+
+  <div class="table-responsive">
+    <table class="table table-striped align-middle">
+      <thead><tr>
+        <th>Code</th><th>Warehouse</th><th>Type</th><th>Company type</th><th>Modules</th><th>Team</th><th>Status</th><th></th>
+      </tr></thead>
+      <tbody>
+      {% for r in rows %}
+        <tr>
+          <td><strong>{{ r.p.code }}</strong></td>
+          <td>{{ r.p.warehouse.name }}</td>
+          <td>{{ r.p.get_store_type_display }}</td>
+          <td>{{ r.unit_label }}{% if r.unit_is_default %} <small class="text-muted">(default)</small>{% endif %}</td>
+          <td style="max-width:320px">
+            {% for k in r.modules %}<span class="badge bg-light text-dark border me-1 mb-1">{{ k }}</span>{% endfor %}
+            {% if r.modules_is_default %}<small class="text-muted">(default)</small>{% endif %}
+          </td>
+          <td>{{ r.members }}</td>
+          <td>
+            {% if not r.p.is_active %}<span class="badge bg-secondary">Inactive</span>
+            {% elif r.visible_now %}<span class="badge bg-success">Running</span>
+            {% else %}<span class="badge bg-warning text-dark">Is mode me band</span>{% endif %}
+          </td>
+          <td class="text-end"><a href="{% url 'store_profile_edit' r.p.pk %}" class="btn btn-outline-primary btn-sm">Edit</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" class="text-center text-muted py-4">There is no store profile yet. <a href="{% url 'store_profile_add' %}">Create the first store</a>.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if plain_warehouses %}<small class="text-muted">{{ plain_warehouses }} ordinary warehouse(s) have no store profile.</small>{% endif %}
+</div>
+{% endblock %}

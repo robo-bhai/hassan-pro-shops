@@ -1,407 +1,122 @@
 {% extends 'base.html' %}
-{% load static %}
-
 {% block title %}Purchase Orders{% endblock %}
-{% block page_title %}📑 Purchase Orders{% endblock %}
-
-{% block extra_css %}
-<style>
-    :root { --border: #eef0f5; --text: #1a1a2e; --accent: #0d6efd; }
-    
-    .stats-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:10px; margin-bottom:20px; }
-    .stat-mini {
-        background:white; border-radius:14px; padding:14px 16px; border:1px solid var(--border);
-        display:flex; align-items:center; gap:10px; cursor:pointer; transition:all 0.3s;
-    }
-    .stat-mini:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.06); }
-    .stat-mini .sm-icon { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0; }
-    .stat-mini .sm-value { font-size:1.1rem; font-weight:800; color:var(--text); }
-    .stat-mini .sm-label { font-size:0.65rem; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; }
-    
-    .icon-total{background:#eef2ff;color:#667eea} .icon-pending{background:#fff3cd;color:#f2994a}
-    .icon-confirmed{background:#e0f7fa;color:#00bcd4} .icon-received{background:#e8f5e9;color:#4caf50}
-    .icon-processing{background:#e8f0fe;color:#667eea} .icon-shipped{background:#ede7f6;color:#7c4dff}
-    .icon-partial{background:#fff8e1;color:#e65100}
-    
-    .filter-bar { background:white; border-radius:14px; padding:16px 20px; border:1px solid var(--border); margin-bottom:20px; }
-    .filter-bar .form-control, .filter-bar .form-select { border-radius:10px; border:2px solid #eef0f5; padding:9px 14px; font-size:0.88rem; background:#fafbfc; }
-    .btn-filter { border-radius:10px; padding:10px 20px; font-weight:700; font-size:0.85rem; border:none; background:linear-gradient(135deg,#667eea,#764ba2); color:white; display:flex; align-items:center; justify-content:center; gap:6px; }
-    
-    .table-card { background:white; border-radius:16px; border:1px solid var(--border); }
-    .table-header { display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border); background:#fafbfc; border-radius:16px 16px 0 0; }
-    .table-header h5 { margin:0; font-weight:700; font-size:0.95rem; }
-    .badge-count { background:var(--accent); color:white; padding:4px 12px; border-radius:20px; font-size:0.72rem; font-weight:600; }
-    .btn-new { padding:8px 16px; border-radius:10px; font-weight:700; font-size:0.82rem; text-decoration:none; background:linear-gradient(135deg,#667eea,#764ba2); color:white; display:inline-flex; align-items:center; gap:6px; }
-    
-    .table-responsive-custom { overflow-x:auto; }
-    .order-table { width:100%; border-collapse:collapse; min-width:900px; }
-    .order-table thead th { background:#1a1d2e; color:white; padding:12px 14px; font-size:0.68rem; text-transform:uppercase; letter-spacing:1px; font-weight:700; white-space:nowrap; }
-    .order-table tbody td { padding:10px 14px; border-bottom:1px solid #f0f2f7; font-size:0.85rem; color:var(--text); vertical-align:middle; }
-    .order-table tbody tr { transition:all 0.2s; }
-    .order-table tbody tr:hover { background:#f8f9ff; }
-    .order-table tbody tr.clickable { cursor:pointer; }
-    .order-table tbody tr:nth-child(even) { background:#fafbfd; }
-    .order-table tbody tr:nth-child(even):hover { background:#f0f4ff; }
-    
-    .text-right{text-align:right} .text-center{text-align:center}
-    
-    .status-badge { padding:4px 12px; border-radius:15px; font-size:0.7rem; font-weight:700; white-space:nowrap; display:inline-flex; align-items:center; gap:5px; }
-    .status-dot{width:6px;height:6px;border-radius:50%;display:inline-block}
-    .status-pending{background:#fff3cd;color:#856404} .status-pending .status-dot{background:#f2994a}
-    .status-confirmed{background:#e0f7fa;color:#055160} .status-confirmed .status-dot{background:#00bcd4}
-    .status-processing{background:#e8f0fe;color:#084298} .status-processing .status-dot{background:#667eea}
-    .status-shipped{background:#ede7f6;color:#4a148c} .status-shipped .status-dot{background:#7c4dff}
-    .status-partially_received{background:#fff8e1;color:#e65100} .status-partially_received .status-dot{background:#ff9800}
-    .status-received{background:#d4edda;color:#155724} .status-received .status-dot{background:#28a745}
-    .status-completed{background:#cff4fc;color:#055160} .status-completed .status-dot{background:#0dcaf0}
-    .status-cancelled{background:#fce4ec;color:#721c24} .status-cancelled .status-dot{background:#dc3545}
-    
-    .btn-action { width:30px; height:30px; border-radius:8px; border:1px solid #e0e3eb; background:white; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#5a6070; transition:all 0.2s; font-size:1.2rem; line-height:1; padding:0; }
-    .btn-action:hover { background:#f0f2f7; color:#1a1a2e; border-color:#667eea; }
-    
-    /* ✅ CUSTOM ACTIONS MENU - NO BOOTSTRAP NEEDED */
-    .actions-menu {
-        display: none;
-        position: fixed;
-        background: white;
-        border-radius: 10px;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.25);
-        min-width: 230px;
-        padding: 8px 0;
-        z-index: 99999;
-        border: 1px solid #eef0f5;
-    }
-
-    .actions-menu.show { display: block; }
-
-    .actions-menu a {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 10px 16px;
-        color: #1a1a2e;
-        text-decoration: none;
-        font-size: 0.85rem;
-        transition: all 0.15s;
-    }
-
-    .actions-menu a:hover {
-        background: #f5f7ff;
-        color: #667eea;
-    }
-
-    .actions-menu a.text-success:hover { color: #28a745; background: #e8f5e9; }
-    .actions-menu a.text-danger:hover { color: #dc3545; background: #fce4ec; }
-    .actions-menu a.text-info:hover { color: #0dcaf0; background: #e0f7fa; }
-    .actions-menu a.text-primary:hover { color: #667eea; background: #eef2ff; }
-
-    .actions-menu hr {
-        margin: 5px 0;
-        border: none;
-        border-top: 1px solid #eef0f5;
-    }
-
-    .actions-menu i {
-        width: 18px;
-        text-align: center;
-        font-size: 1rem;
-    }
-    
-    .empty-state { text-align:center; padding:50px 20px; color:#8a8fa0; }
-    .empty-state .empty-icon { font-size:4rem; opacity:0.2; margin-bottom:10px; }
-    
-    @media (max-width:768px) { .stats-row{grid-template-columns:repeat(2,1fr)} .order-table{min-width:750px} .order-table thead th,.order-table tbody td{padding:8px 10px;font-size:0.78rem} }
-</style>
-{% endblock %}
+{% block page_title %}Purchase Orders{% endblock %}
+{% block extra_css %}{% include 'orders/_po_css.html' %}{% endblock %}
 
 {% block content %}
+<div class="po">
 
-<!-- Stats -->
-<div class="stats-row">
-    <div class="stat-mini" onclick="window.location='?'">
-        <div class="sm-icon icon-total">📋</div>
-        <div><div class="sm-value">{{ total_orders|default:'0' }}</div><div class="sm-label">Total</div></div>
-    </div>
-    <div class="stat-mini" onclick="window.location='?status=pending'">
-        <div class="sm-icon icon-pending">⏳</div>
-        <div><div class="sm-value">{{ pending_count|default:'0' }}</div><div class="sm-label">Pending</div></div>
-    </div>
-    <div class="stat-mini" onclick="window.location='?status=confirmed'">
-        <div class="sm-icon icon-confirmed">✅</div>
-        <div><div class="sm-value">{{ confirmed_count|default:'0' }}</div><div class="sm-label">Confirmed</div></div>
-    </div>
-    <div class="stat-mini" onclick="window.location='?status=processing'">
-        <div class="sm-icon icon-processing">🔄</div>
-        <div><div class="sm-value">{{ processing_count|default:'0' }}</div><div class="sm-label">Processing</div></div>
-    </div>
-    <div class="stat-mini" onclick="window.location='?status=received'">
-        <div class="sm-icon icon-received">📦</div>
-        <div><div class="sm-value">{{ received_count|default:'0' }}</div><div class="sm-label">Received</div></div>
-    </div>
-    <div class="stat-mini" onclick="window.location='?status=completed'">
-        <div class="sm-icon icon-received">🏁</div>
-        <div><div class="sm-value">{{ completed_count|default:'0' }}</div><div class="sm-label">Completed</div></div>
-    </div>
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <div class="po-muted" style="font-size:.85rem">Orders sent to vendors, with receiving progress and overdue tracking.</div>
+  <div class="d-flex gap-2">
+    <a class="po-btn" href="?{{ querystring }}{% if querystring %}&{% endif %}export=csv"><i class="bi bi-download"></i> CSV</a>
+    <a class="po-btn pri" href="{% url 'purchase_order_create' %}"><i class="bi bi-plus-lg"></i> New Purchase Order</a>
+  </div>
 </div>
 
-<!-- ✅ Filter Form - SIRF GET (Post hata diya) -->
-<div class="filter-bar">
-    <form method="GET" class="row g-2">
-        <div class="col-md-4">
-            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">🔍 Search</label>
-            <input type="text" name="search" class="form-control" placeholder="PO No, Vendor..." value="{{ search }}">
-        </div>
-        <div class="col-md-3">
-            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">📊 Status</label>
-            <select name="status" class="form-select">
-                <option value="">All Status</option>
-                <option value="pending" {% if selected_status == 'pending' %}selected{% endif %}>⏳ Pending</option>
-                <option value="confirmed" {% if selected_status == 'confirmed' %}selected{% endif %}>✅ Confirmed</option>
-                <option value="processing" {% if selected_status == 'processing' %}selected{% endif %}>🔄 Processing</option>
-                <option value="shipped" {% if selected_status == 'shipped' %}selected{% endif %}>🚚 Shipped</option>
-                <option value="partially_received" {% if selected_status == 'partially_received' %}selected{% endif %}>📦 Partial</option>
-                <option value="received" {% if selected_status == 'received' %}selected{% endif %}>✅ Received</option>
-                <option value="completed" {% if selected_status == 'completed' %}selected{% endif %}>🏁 Completed</option>
-                <option value="cancelled" {% if selected_status == 'cancelled' %}selected{% endif %}>❌ Cancelled</option>
-            </select>
-        </div>
-        <div class="col-md-3">
-            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">🏭 Warehouse</label>
-            <select name="warehouse" class="form-select">
-                <option value="">All Warehouses</option>
-                {% for wh in warehouses %}
-                <option value="{{ wh.id }}" {% if selected_warehouse == wh.id|stringformat:"s" %}selected{% endif %}>{{ wh.name }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-md-2">
-            <button type="submit" class="btn-filter w-100"><i class="bi bi-funnel"></i> Filter</button>
-        </div>
-    </form>
+<div class="po-kpis">
+  <a class="po-kpi" href="?status=open"><div class="v">{{ open_value|floatformat:"0g" }}</div><div class="l">Open order value (Rs.)</div></a>
+  <a class="po-kpi" href="?status=pending"><div class="v">{{ counts.pending }}</div><div class="l">Pending approval</div></a>
+  <a class="po-kpi" href="?status=confirmed"><div class="v">{{ counts.confirmed }}</div><div class="l">Confirmed / in transit</div></a>
+  <a class="po-kpi" href="?status=partially_received"><div class="v">{{ counts.partial }}</div><div class="l">Partly received</div></a>
+  <a class="po-kpi {% if counts.overdue %}warn{% endif %}" href="?status=overdue"><div class="v">{{ counts.overdue }}</div><div class="l">Overdue</div></a>
+  <a class="po-kpi" href="?status=received"><div class="v">{{ counts.done }}</div><div class="l">Received / completed</div></a>
 </div>
 
-<!-- Table -->
-<div class="table-card">
-    <div class="table-header">
-        <h5>📑 Purchase Orders <span class="badge-count">{{ page_obj.paginator.count|default:'0' }}</span></h5>
-        <a href="{% url 'purchase_order_create' %}" class="btn-new"><i class="bi bi-plus-lg"></i> New PO</a>
+<form method="get" class="po-card">
+  <div class="po-card-b">
+    <div class="row g-2 align-items-end">
+      <div class="col-12 col-md-3"><label class="po-lbl">Search</label>
+        <input class="po-inp" name="search" value="{{ search }}" placeholder="PO no, vendor, vendor SO"></div>
+      <div class="col-6 col-md-2"><label class="po-lbl">Status</label>
+        <select class="po-inp" name="status">
+          <option value="">All</option>
+          <option value="open" {% if selected_status == 'open' %}selected{% endif %}>All open</option>
+          <option value="overdue" {% if selected_status == 'overdue' %}selected{% endif %}>Overdue</option>
+          {% for k, v in status_choices %}<option value="{{ k }}" {% if selected_status == k %}selected{% endif %}>{{ v }}</option>{% endfor %}
+        </select></div>
+      <div class="col-6 col-md-2"><label class="po-lbl">Vendor</label>
+        <select class="po-inp" name="vendor"><option value="">All</option>
+          {% for v in vendors %}<option value="{{ v.id }}" {% if selected_vendor == v.id|stringformat:"s" %}selected{% endif %}>{{ v.name }}</option>{% endfor %}
+        </select></div>
+      <div class="col-6 col-md-2"><label class="po-lbl">Warehouse</label>
+        <select class="po-inp" name="warehouse"><option value="">All</option>
+          {% for w in warehouses %}<option value="{{ w.id }}" {% if selected_warehouse == w.id|stringformat:"s" %}selected{% endif %}>{{ w.name }}</option>{% endfor %}
+        </select></div>
+      <div class="col-6 col-md-3"><label class="po-lbl">Sort</label>
+        <select class="po-inp" name="sort">
+          <option value="date_desc" {% if sort == 'date_desc' %}selected{% endif %}>Newest first</option>
+          <option value="date_asc" {% if sort == 'date_asc' %}selected{% endif %}>Oldest first</option>
+          <option value="amount_desc" {% if sort == 'amount_desc' %}selected{% endif %}>Largest amount</option>
+          <option value="expected" {% if sort == 'expected' %}selected{% endif %}>Expected date</option>
+        </select></div>
+      <div class="col-6 col-md-2"><label class="po-lbl">From</label><input type="date" class="po-inp" name="from" value="{{ date_from }}"></div>
+      <div class="col-6 col-md-2"><label class="po-lbl">To</label><input type="date" class="po-inp" name="to" value="{{ date_to }}"></div>
+      <div class="col-12 col-md-8 d-flex gap-2">
+        <button class="po-btn pri" type="submit"><i class="bi bi-funnel"></i> Filter</button>
+        <a class="po-btn" href="{% url 'purchase_order_list' %}">Reset</a>
+      </div>
     </div>
-    
-    <div class="table-responsive-custom">
-        <table class="order-table">
-            <thead>
-                <tr>
-                    <th>PO No</th>
-                    <th>Date</th>
-                    <th>Vendor</th>
-                    <th>Warehouse</th>
-                    <th class="text-right">Total</th>
-                    <th>Receive</th>
-                    <th>Status</th>
-                    <th style="width:60px;">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for order in page_obj %}
-                <tr class="clickable" onclick="window.location='{% url 'purchase_order_detail' order.pk %}'">
-                    <td>
-                        <a href="{% url 'purchase_order_detail' order.pk %}" style="color:var(--accent);font-weight:700;text-decoration:none;" onclick="event.stopPropagation();">
-                            {{ order.order_no }}
-                        </a>
-                    </td>
-                    <td>
-                        <div style="font-weight:600;">{{ order.order_date|date:"d M, Y" }}</div>
-                        <small style="color:#8a8fa0;">{{ order.order_date|date:"h:i A" }}</small>
-                    </td>
-                    <td>
-                        <strong>{{ order.vendor.name|truncatechars:18 }}</strong>
-                        {% if order.vendor.vendor_code %}
-                        <br><small style="color:#8a8fa0;">{{ order.vendor.vendor_code }}</small>
-                        {% endif %}
-                    </td>
-                    <td>{{ order.warehouse.name }}</td>
-                    <td class="text-right"><strong>Rs. {{ order.total_amount|floatformat:0 }}</strong></td>
-                    <td>
-                        {% if order.receive_percent > 0 %}
-                        <div class="progress" style="height:6px;width:60px;border-radius:3px;background:#e9ecef;">
-                            <div class="progress-bar bg-success" style="width:{{ order.receive_percent }}%;border-radius:3px;"></div>
-                        </div>
-                        <small style="font-size:0.7rem;">{{ order.receive_percent }}%</small>
-                        {% else %}
-                        <span style="color:#8a8fa0;font-size:0.8rem;">-</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <span class="status-badge status-{{ order.status }}">
-                            <span class="status-dot"></span>{{ order.get_status_display }}
-                        </span>
-                    </td>
-                    <td onclick="event.stopPropagation(); event.preventDefault();">
-                        <button type="button" 
-                                class="btn-action" 
-                                onclick="toggleActions({{ order.id }}, event)"
-                                title="Actions">⋮</button>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="8">
-                        <div class="empty-state">
-                            <div class="empty-icon">📑</div>
-                            <h4>No Purchase Orders Found</h4>
-                            <p>{% if search %}Try different filters{% else %}Create your first PO!{% endif %}</p>
-                            {% if not search %}
-                            <a href="{% url 'purchase_order_create' %}" class="btn-new mt-2"><i class="bi bi-plus-lg"></i> Create First PO</a>
-                            {% endif %}
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+  </div>
+</form>
+
+<div class="po-card">
+  <div class="po-card-h">
+    <span>{{ page_obj.paginator.count }} order{{ page_obj.paginator.count|pluralize }}</span>
+    <span class="po-muted" style="font-weight:600">Filtered value: Rs. {{ filtered_value|floatformat:"2g" }}</span>
+  </div>
+  <div class="po-wrap">
+  <table class="po-table">
+    <thead><tr>
+      <th>PO No</th><th>Date</th><th>Vendor</th><th>Warehouse</th><th>Expected</th>
+      <th class="c">Items</th><th class="r">Net amount</th><th style="min-width:110px">Received</th><th>Status</th><th></th>
+    </tr></thead>
+    <tbody>
+    {% for o in page_obj %}
+      <tr>
+        <td><a href="{% url 'purchase_order_detail' o.pk %}" style="font-weight:700;text-decoration:none">{{ o.order_no }}</a>
+            {% if o.vendor_so_number %}<div class="po-muted" style="font-size:.72rem">SO: {{ o.vendor_so_number }}</div>{% endif %}</td>
+        <td>{{ o.order_date|date:"d M Y" }}<div class="po-muted" style="font-size:.72rem">{{ o.order_date|date:"h:i A" }}</div></td>
+        <td><strong>{{ o.vendor.name|truncatechars:22 }}</strong>{% if o.vendor.vendor_code %}<div class="po-muted" style="font-size:.72rem">{{ o.vendor.vendor_code }}</div>{% endif %}</td>
+        <td>{{ o.warehouse.name }}</td>
+        <td>{% if o.expected_date %}{{ o.expected_date|date:"d M Y" }}{% if o.is_overdue %}<div><span class="po-late">{{ o.days_late }} day{{ o.days_late|pluralize }} late</span></div>{% endif %}{% else %}<span class="po-muted">Not set</span>{% endif %}</td>
+        <td class="c">{{ o.item_count }}</td>
+        <td class="r"><strong>{{ o.net|floatformat:"2g" }}</strong>{% if o.discount_value %}<div class="po-muted" style="font-size:.72rem">after {{ o.discount_value|floatformat:"0g" }} discount</div>{% endif %}</td>
+        <td><div class="po-bar"><i style="width:{{ o.receive_percent }}%"></i></div><small class="po-muted">{{ o.receive_percent }}%</small></td>
+        <td><span class="po-badge st-{{ o.status }}">{{ o.get_status_display }}</span></td>
+        <td style="white-space:nowrap">
+          {% if o.can_receive %}<a class="po-btn sm ok" href="{% url 'purchase_order_detail' o.pk %}#receive">Receive</a>{% endif %}
+          <div class="dropdown d-inline-block">
+            <button class="po-btn sm" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-label="Actions"><i class="bi bi-three-dots-vertical"></i></button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li><a class="dropdown-item" href="{% url 'purchase_order_detail' o.pk %}"><i class="bi bi-eye"></i> Open</a></li>
+              <li><a class="dropdown-item" href="{% url 'purchase_order_print' o.pk %}" target="_blank"><i class="bi bi-printer"></i> Print</a></li>
+              <li><a class="dropdown-item" href="{% url 'purchase_order_duplicate' o.pk %}"><i class="bi bi-files"></i> Duplicate</a></li>
+              {% if o.next_actions %}<li><hr class="dropdown-divider"></li>{% endif %}
+              {% for st, label, colour, icon in o.next_actions %}
+              <li><form method="post" action="{% url 'purchase_order_quick_status' o.pk st %}" {% if st == 'cancelled' %}onsubmit="return confirm('Cancel {{ o.order_no }}?')"{% endif %}>
+                {% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button class="dropdown-item text-{{ colour }}"><i class="bi {{ icon }}"></i> {{ label }}</button></form></li>
+              {% endfor %}
+            </ul>
+          </div>
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="10" class="c po-muted" style="padding:40px">No purchase orders found. <a href="{% url 'purchase_order_create' %}">Create the first one</a>.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div class="po-card-b d-flex justify-content-between align-items-center">
+    <span class="po-muted" style="font-size:.82rem">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    <div class="d-flex gap-2">
+      {% if page_obj.has_previous %}<a class="po-btn sm" href="?{{ querystring }}&page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}
+      {% if page_obj.has_next %}<a class="po-btn sm" href="?{{ querystring }}&page={{ page_obj.next_page_number }}">Next</a>{% endif %}
     </div>
-    
-    {% include 'components/pagination.html' %}
+  </div>
+  {% endif %}
 </div>
-
-<!-- ✅ ACTION MENUS - Table ke BAHAR (fix positioning) -->
-{% for order in page_obj %}
-<div class="actions-menu" id="actions-{{ order.id }}">
-    <a href="{% url 'purchase_order_detail' order.pk %}">
-        <i class="bi bi-eye text-primary"></i> View Details
-    </a>
-    
-    {% if order.status == 'pending' %}
-    <a href="{% url 'purchase_order_quick_status' order.pk 'confirmed' %}" class="text-success">
-        <i class="bi bi-check-circle"></i> ✅ Confirm Order
-    </a>
-    {% endif %}
-    
-    {% if order.status == 'confirmed' or order.status == 'processing' or order.status == 'shipped' or order.status == 'partially_received' %}
-    <a href="{% url 'purchase_order_create_grn' order.pk %}" class="text-success">
-        <i class="bi bi-box-seam"></i> 📦 Create GRN
-    </a>
-    {% endif %}
-    
-    {% if order.status == 'pending' or order.status == 'confirmed' %}
-    <a href="{% url 'purchase_order_quick_status' order.pk 'processing' %}" class="text-primary">
-        <i class="bi bi-arrow-repeat"></i> 🔄 Start Processing
-    </a>
-    {% endif %}
-    
-    {% if order.status == 'processing' %}
-    <a href="{% url 'purchase_order_quick_status' order.pk 'shipped' %}" class="text-info">
-        <i class="bi bi-truck"></i> 🚚 Mark Shipped
-    </a>
-    {% endif %}
-    
-    {% if order.status == 'received' %}
-    <a href="{% url 'purchase_order_quick_status' order.pk 'completed' %}" class="text-success">
-        <i class="bi bi-check2-all"></i> 🏁 Mark Completed
-    </a>
-    {% endif %}
-    
-    {% if order.status != 'cancelled' and order.status != 'completed' %}
-    <hr>
-    <a href="{% url 'purchase_order_quick_status' order.pk 'cancelled' %}" 
-       class="text-danger"
-       onclick="return confirm('❌ Cancel PO #{{ order.order_no }}?')">
-        <i class="bi bi-x-circle"></i> ❌ Cancel Order
-    </a>
-    {% endif %}
 </div>
-{% endfor %}
-
-{% endblock %}
-
-{% block extra_js %}
-<script>
-// ✅ Custom Actions Dropdown
-let currentOpenMenu = null;
-
-function toggleActions(orderId, event) {
-    event.stopPropagation();
-    event.preventDefault();
-    
-    const menu = document.getElementById('actions-' + orderId);
-    if (!menu) {
-        console.log('❌ Menu not found for order:', orderId);
-        return;
-    }
-    
-    // Agar same menu open hai to band karein
-    if (currentOpenMenu === menu) {
-        menu.classList.remove('show');
-        currentOpenMenu = null;
-        return;
-    }
-    
-    // Purana menu band karein
-    if (currentOpenMenu) {
-        currentOpenMenu.classList.remove('show');
-    }
-    
-    // Button ki position calculate karein
-    const btn = event.currentTarget;
-    const rect = btn.getBoundingClientRect();
-    
-    const menuWidth = 230;
-    const menuHeight = 300;
-    
-    // Position calculate karein
-    let top = rect.bottom + 5;
-    let left = rect.right - menuWidth;
-    
-    // Screen boundaries check
-    if (left < 10) left = 10;
-    if (left + menuWidth > window.innerWidth - 10) {
-        left = window.innerWidth - menuWidth - 10;
-    }
-    if (top + menuHeight > window.innerHeight - 10) {
-        top = rect.top - menuHeight - 5;
-        if (top < 10) top = 10;
-    }
-    
-    menu.style.top = top + 'px';
-    menu.style.left = left + 'px';
-    menu.classList.add('show');
-    currentOpenMenu = menu;
-    
-    console.log('✅ Menu opened for order:', orderId);
-}
-
-// ✅ Bahar click par menu band
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('.actions-menu') && !e.target.closest('.btn-action')) {
-        document.querySelectorAll('.actions-menu.show').forEach(menu => {
-            menu.classList.remove('show');
-        });
-        currentOpenMenu = null;
-    }
-});
-
-// ✅ Escape key se band
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape' && currentOpenMenu) {
-        currentOpenMenu.classList.remove('show');
-        currentOpenMenu = null;
-    }
-});
-
-// ✅ Scroll par band
-window.addEventListener('scroll', function() {
-    if (currentOpenMenu) {
-        currentOpenMenu.classList.remove('show');
-        currentOpenMenu = null;
-    }
-}, true);
-
-// ✅ Resize par band
-window.addEventListener('resize', function() {
-    if (currentOpenMenu) {
-        currentOpenMenu.classList.remove('show');
-        currentOpenMenu = null;
-    }
-});
-</script>
 {% endblock %}

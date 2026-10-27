@@ -41,16 +41,16 @@ logger = logging.getLogger(__name__)
 @receiver(pre_delete, sender=User)
 def cleanup_user_references(sender, instance, **kwargs):
     """
-    User delete hone se PEHLE saare references cleanup karo.
+    Clean up all references BEFORE a User is deleted.
     
-    Yeh IntegrityError se bachata hai:
+    This prevents IntegrityError:
     - django_admin_log
     - app_adminpresence
     - app_subscriptionhistory
     - app_subscriptionpayment
     - app_subscriptionplan
     
-    Yeh signal automatically chalta hai jab bhi koi User delete hota hai.
+    This signal runs automatically whenever a User is deleted.
     """
     user_id = instance.id
     username = instance.username
@@ -72,7 +72,7 @@ def cleanup_user_references(sender, instance, **kwargs):
             # Foreign keys temporarily OFF
             cursor.execute("PRAGMA foreign_keys = OFF;")
             
-            # Saare orphan tables jo User ko reference karte hain
+            # All orphan tables that reference User
             orphan_tables = [
                 'app_subscriptionhistory',
                 'app_subscriptionpayment',
@@ -88,7 +88,7 @@ def cleanup_user_references(sender, instance, **kwargs):
                         if cursor.rowcount > 0:
                             logger.info(f"   ✅ Cleared {cursor.rowcount} rows from {table}.{column}")
                     except Exception:
-                        pass  # Column exist nahi karta, ignore
+                        pass  # The column does not exist, ignore
             
             # Foreign keys ON wapas
             cursor.execute("PRAGMA foreign_keys = ON;")
@@ -97,8 +97,8 @@ def cleanup_user_references(sender, instance, **kwargs):
         
     except Exception as e:
         logger.error(f"❌ User cleanup error for {username}: {e}")
-        # Signal fail hone par bhi user delete na rukey
-        # (Sirf log karo, exception raise na karo)
+        # Do not stop the user delete even if the signal fails
+        # (Only log it, do not raise an exception)
 
 
 # ========================================== #
@@ -116,7 +116,7 @@ def create_announcement_notification(
     """Universal helper — notification create karo"""
     try:
         if user:
-            # Specific user ke liye
+            # For a specific user
             Notification.objects.create(
                 user=user,
                 title=title,
@@ -126,7 +126,7 @@ def create_announcement_notification(
                 link=link,
             )
         else:
-            # Sab staff ke liye
+            # For all staff
             staff_users = User.objects.filter(is_staff=True, is_active=True)
             for u in staff_users:
                 Notification.objects.create(
@@ -395,7 +395,7 @@ def customer_payment_signal(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender='app.Purchase')
 def purchase_created_signal(sender, instance, created, **kwargs):
-    """Jab nayi purchase create ho"""
+    """When a new purchase is created"""
     if not created:
         return
     
@@ -422,7 +422,7 @@ def purchase_created_signal(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender='app.Inventory')
 def low_stock_signal(sender, instance, created, **kwargs):
-    """Jab stock low ho jaye"""
+    """When stock becomes low"""
     try:
         product = instance.product
         threshold = product.low_stock_threshold
@@ -557,7 +557,7 @@ def cash_transaction_signal(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender='app.CashBalance')
 def cash_low_signal(sender, instance, created, **kwargs):
-    """Cash balance kam ho jaye"""
+    """When the cash balance becomes low"""
     try:
         balance = instance.balance
         
@@ -587,7 +587,7 @@ def cash_low_signal(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender='app.Customer')
 def new_customer_signal(sender, instance, created, **kwargs):
-    """Naya customer add ho"""
+    """When a new customer is added"""
     if not created:
         return
     
@@ -614,7 +614,7 @@ def new_customer_signal(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender='app.Vendor')
 def new_vendor_signal(sender, instance, created, **kwargs):
-    """Naya vendor add ho"""
+    """When a new vendor is added"""
     if not created:
         return
     
@@ -640,7 +640,7 @@ def new_vendor_signal(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender='app.Shareholder')
 def new_shareholder_signal(sender, instance, created, **kwargs):
-    """Naya shareholder add ho"""
+    """When a new shareholder is added"""
     if not created:
         return
     
@@ -746,7 +746,7 @@ def share_transfer_signal(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender='app.Loan')
 def loan_created_signal(sender, instance, created, **kwargs):
-    """Naya loan liya"""
+    """New loan taken"""
     if not created:
         return
     
@@ -768,7 +768,7 @@ def loan_created_signal(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender='app.LoanGiven')
 def loan_given_signal(sender, instance, created, **kwargs):
-    """Kisi ko loan diya"""
+    """Loan given to someone"""
     if not created:
         return
     
@@ -860,7 +860,7 @@ def task_completed_signal(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender='app.OperationTask')
 def task_overdue_signal(sender, instance, created, **kwargs):
-    """Task overdue ho gaya"""
+    """Task became overdue"""
     try:
         if instance.status in ['pending', 'in_progress']:
             if instance.due_date and instance.due_date < now():

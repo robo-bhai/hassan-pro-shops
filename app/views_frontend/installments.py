@@ -624,7 +624,7 @@ def installment_pdf(request, pk):
     
     # Footer
     story.append(Spacer(1, 0.5*inch))
-    story.append(Paragraph(f"Generated on: {now().strftime('%d-%m-%Y %H:%M')}", styles['Normal']))
+    story.append(Paragraph(f"Generated on: {now().strftime('%d-%m-%Y %I:%M %p')}", styles['Normal']))
     story.append(Paragraph("This is a computer generated document.", styles['Normal']))
     
     doc.build(story)

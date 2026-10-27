@@ -269,7 +269,7 @@ def generate_share_certificate_pdf(share):
     story.append(Spacer(1, 0.2*inch))
     story.append(Paragraph("_" * 80, subtitle_style))
     story.append(Paragraph(
-        f"<font size='7' color='#8a8fa0'>This is a computer generated certificate. Generated on {datetime.now().strftime('%d-%m-%Y %H:%M')}</font>",
+        f"<font size='7' color='#8a8fa0'>This is a computer generated certificate. Generated on {datetime.now().strftime('%d-%m-%Y %I:%M %p')}</font>",
         subtitle_style
     ))
     story.append(Paragraph(

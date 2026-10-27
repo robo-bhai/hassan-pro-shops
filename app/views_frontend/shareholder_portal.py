@@ -754,13 +754,13 @@ def shareholder_portal_withdraw(request):
 def shareholder_login(request):
     """Shareholder login page"""
     
-    # ✅ Agar already logged in hai toh check karein
+    # ✅ Check if already logged in
     if request.user.is_authenticated:
         # ✅ Check if user is shareholder
         if hasattr(request.user, 'shareholder_profile'):
             return redirect('shareholder_portal_dashboard')
         else:
-            # Agar admin hai toh admin dashboard par bhejo
+            # If admin, send to the admin dashboard
             return redirect('dashboard')
     
     if request.method == 'POST':
@@ -789,13 +789,13 @@ def shareholder_login(request):
                 if shareholder.status == 'active' and shareholder.allow_login:
                     login(request, user)
                     messages.success(request, f'Welcome back, {shareholder.name}!')
-                    # ✅ YEH IMPORTANT HAI - Shareholder dashboard par redirect
+                    # ✅ THIS IS IMPORTANT - Redirect to the Shareholder dashboard
                     return redirect('shareholder_portal_dashboard')
                 else:
                     messages.error(request, 'Your account is not active or login is disabled!')
             else:
                 messages.error(request, 'This account is not a shareholder account!')
-                # ✅ Agar admin hai toh admin login page par bhejo
+                # ✅ If admin, send to the admin login page
                 return redirect('login')
         else:
             register_failure(request, 'sh_login', extra=username)
@@ -1132,7 +1132,7 @@ def shareholder_terms(request):
     # ========================================== #
     terms = TermsAndConditions.objects.filter(is_active=True).first()
     
-    # ✅ FALLBACK: Agar terms DB mein nahi hain toh placeholder use karo
+    # ✅ FALLBACK: If the terms are not in the DB, use a placeholder
     if not terms:
         terms = TermsAndConditions(
             version='1.0',

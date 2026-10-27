@@ -2,6 +2,7 @@
 from django.views.decorators.http import require_POST
 from django.db.models.functions import Coalesce
 from django.db.models import ExpressionWrapper
+from .. import store_access as _sa      # store-wise: dusre store ka stock chhupao
 from ..models import *
 import json
 import openpyxl
@@ -109,20 +110,20 @@ def get_batch_selling_price(request):
 
 @login_required
 def get_product_by_alias(request):
-    """AJAX: Product alias se product search karo"""
+    """AJAX: Search for a product by product alias"""
     alias = request.GET.get('alias', '').strip().lower()
     
     if not alias:
         return JsonResponse({'success': False, 'message': 'No alias provided'})
     
     try:
-        # User ke aliases mein search karo
+        # Search in the user's aliases
         product_alias = ProductAlias.objects.filter(alias__iexact=alias).first()
         
         if product_alias:
             product = product_alias.product
         else:
-            # Agar alias na mile to normal search
+            # If no alias is found, do a normal search
             product = Product.objects.filter(
                 Q(name__icontains=alias) |
                 Q(barcode__icontains=alias) |
@@ -180,7 +181,7 @@ def get_product_by_alias(request):
 
 @login_required
 def create_product_alias(request):
-    """AJAX: User apna product alias create kare"""
+    """AJAX: The user creates their own product alias"""
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
@@ -274,6 +275,7 @@ def batch_list(request):
         'purchase_item__purchase__vendor'
     ).order_by('-id')
     
+    batches = _sa.hide_other_stores(request.user, batches, 'warehouse')
     search = request.GET.get('search', '')
     if search:
         batches = batches.filter(
@@ -344,7 +346,7 @@ def batch_list(request):
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'page_obj': page_obj,
         'search': search,
-        'warehouses': Warehouse.objects.all(),
+        'warehouses': _sa.hide_other_stores(request.user, Warehouse.objects.all()),
         'selected_warehouse': warehouse_id,
         'stock_status': stock_status,
         'total_batches': stats['total_batches'],
@@ -455,6 +457,7 @@ def inventory_list(request):
         'product__brand', 'product__unit', 'product__location'
     ).order_by('product__name')
     
+    items = _sa.hide_other_stores(request.user, items, 'warehouse')
     # ✅ Search
     search = request.GET.get('search', '')
     if search:
@@ -533,7 +536,7 @@ def inventory_list(request):
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'page_obj': page_obj,
         'search': search,
-        'warehouses': Warehouse.objects.all(),
+        'warehouses': _sa.hide_other_stores(request.user, Warehouse.objects.all()),
         'selected_warehouse': warehouse_id,
         'stock_status': stock_status,
         'total_items': total_items,
@@ -550,7 +553,7 @@ def inventory_list(request):
 # ============================================
 @login_required
 def get_product_by_barcode(request):
-    """AJAX: Barcode, Serial Number, ya Product Name se product search - SIRF BATCH SELLING PRICE"""
+    """AJAX: Search for a product by Barcode, Serial Number, or Product Name - BATCH SELLING PRICE ONLY"""
     barcode = request.GET.get('barcode', '').strip()
     serial = request.GET.get('serial', '').strip()
     
@@ -616,7 +619,7 @@ def get_product_by_barcode(request):
             price = Decimal('0.0')
             has_selling_price = False
         
-        stock = sum(inv.stock for inv in Inventory.objects.filter(product=product))
+        stock = sum(inv.stock for inv in _sa.hide_other_stores(request.user, Inventory.objects.filter(product=product), 'warehouse'))
     
     return JsonResponse({
         'success': True,
@@ -982,7 +985,7 @@ def product_export_csv(request):
         
         if request.GET.get('with_stock') == 'true':
             # Get total stock across all warehouses
-            total_stock = Inventory.objects.filter(product=product).aggregate(
+            total_stock = _sa.hide_other_stores(request.user, Inventory.objects.filter(product=product), 'warehouse').aggregate(
                 total=django_models.Sum('stock')
             )['total'] or 0
             row.append(str(total_stock))
@@ -991,8 +994,8 @@ def product_export_csv(request):
             str(product.low_stock_threshold),
             product.used or '',
             'True' if product.is_active else 'False',
-            product.created_at.strftime('%Y-%m-%d %H:%M') if product.created_at else '',
-            product.updated_at.strftime('%Y-%m-%d %H:%M') if product.updated_at else '',
+            product.created_at.strftime('%Y-%m-%d %I:%M %p') if product.created_at else '',
+            product.updated_at.strftime('%Y-%m-%d %I:%M %p') if product.updated_at else '',
         ])
         
         writer.writerow(row)
@@ -1070,7 +1073,7 @@ def product_export_excel(request):
             row.append(float(product.price))
         
         if request.GET.get('with_stock') == 'true':
-            total_stock = Inventory.objects.filter(product=product).aggregate(
+            total_stock = _sa.hide_other_stores(request.user, Inventory.objects.filter(product=product), 'warehouse').aggregate(
                 total=django_models.Sum('stock')
             )['total'] or 0
             row.append(float(total_stock))
@@ -1079,8 +1082,8 @@ def product_export_excel(request):
             product.low_stock_threshold,
             product.used or '',
             'Active' if product.is_active else 'Inactive',
-            product.created_at.strftime('%Y-%m-%d %H:%M') if product.created_at else '',
-            product.updated_at.strftime('%Y-%m-%d %H:%M') if product.updated_at else '',
+            product.created_at.strftime('%Y-%m-%d %I:%M %p') if product.created_at else '',
+            product.updated_at.strftime('%Y-%m-%d %I:%M %p') if product.updated_at else '',
         ])
         
         for col, value in enumerate(row, 1):
@@ -1115,7 +1118,7 @@ def product_export_excel(request):
     ws_summary.cell(row=4, column=1, value="Active Products:")
     ws_summary.cell(row=4, column=2, value=products.filter(is_active=True).count())
     ws_summary.cell(row=5, column=1, value="Export Date:")
-    ws_summary.cell(row=5, column=2, value=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    ws_summary.cell(row=5, column=2, value=datetime.now().strftime('%Y-%m-%d %I:%M:%S %p'))
     ws_summary.cell(row=6, column=1, value="Exported By:")
     ws_summary.cell(row=6, column=2, value=request.user.username)
     
@@ -1479,12 +1482,12 @@ def api_create_product(request):
 
 def product_set_discount(request, pk):
     """
-    Product par discount set karein (batch price se auto-calculate)
+    Set a discount on a product (auto-calculated from the batch price)
 
     - Batch ki selling price = Original price
     - Discount % set karein
     - New price auto-calculate hoga
-    - ✅ Save hone ke baad products list par redirect hoga
+    - ✅ After saving, it will redirect to the products list
     """
     from decimal import Decimal
 
@@ -1517,7 +1520,7 @@ def product_set_discount(request, pk):
                 discount_percentage = Decimal('0')
 
             if discount_percentage < 0 or discount_percentage > 100:
-                messages.error(request, '❌ Discount 0-100 ke darmiyan honi chahiye!')
+                messages.error(request, '❌ Discount must be between 0 and 100!')
                 return redirect('product_list')  # ✅ YAHAN CHANGE
 
             # ✅ Original price = batch price

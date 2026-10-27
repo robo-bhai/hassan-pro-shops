@@ -20,6 +20,10 @@
             <button class="btn btn-outline-secondary rounded-pill px-3" onclick="exportUsers()">
                 <i class="bi bi-download me-2"></i>Export
             </button>
+            <button type="button" class="btn btn-outline-primary rounded-pill px-3"
+                    data-bs-toggle="modal" data-bs-target="#rolesModal">
+                <i class="bi bi-tags me-2"></i>Manage Roles
+            </button>
             <a href="{% url 'user_create' %}" class="btn btn-primary rounded-pill px-4">
                 <i class="bi bi-person-plus me-2"></i>Add User
             </a>
@@ -101,36 +105,44 @@
                         <i class="bi bi-shield-lock me-1"></i>Admin <span class="ms-1">({{ admin_count }})</span>
                     </span>
                 </a>
-                <a href="?role=owner{% if search %}&search={{ search }}{% endif %}" 
+                {% if 'owner' not in deleted_roles %}<a href="?role=owner{% if search %}&search={{ search }}{% endif %}" 
                    class="role-filter-btn {% if role_filter == 'owner' %}active{% endif %}">
                     <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill">
                         <i class="bi bi-building me-1"></i>Owner <span class="ms-1">({{ owner_count }})</span>
                     </span>
-                </a>
-                <a href="?role=manager{% if search %}&search={{ search }}{% endif %}" 
+                </a>{% endif %}
+                {% if 'manager' not in deleted_roles %}<a href="?role=manager{% if search %}&search={{ search }}{% endif %}" 
                    class="role-filter-btn {% if role_filter == 'manager' %}active{% endif %}">
                     <span class="badge bg-info bg-opacity-10 text-info px-3 py-2 rounded-pill">
                         <i class="bi bi-people me-1"></i>Manager <span class="ms-1">({{ manager_count }})</span>
                     </span>
-                </a>
-                <a href="?role=salesman{% if search %}&search={{ search }}{% endif %}" 
+                </a>{% endif %}
+                {% if 'salesman' not in deleted_roles %}<a href="?role=salesman{% if search %}&search={{ search }}{% endif %}" 
                    class="role-filter-btn {% if role_filter == 'salesman' %}active{% endif %}">
                     <span class="badge bg-success bg-opacity-10 text-success px-3 py-2 rounded-pill">
                         <i class="bi bi-person-badge me-1"></i>Salesman <span class="ms-1">({{ salesman_count }})</span>
                     </span>
-                </a>
-                <a href="?role=accountant{% if search %}&search={{ search }}{% endif %}" 
+                </a>{% endif %}
+                {% if 'accountant' not in deleted_roles %}<a href="?role=accountant{% if search %}&search={{ search }}{% endif %}" 
                    class="role-filter-btn {% if role_filter == 'accountant' %}active{% endif %}">
                     <span class="badge bg-warning bg-opacity-10 text-warning px-3 py-2 rounded-pill">
                         <i class="bi bi-calculator me-1"></i>Accountant <span class="ms-1">({{ accountant_count }})</span>
                     </span>
-                </a>
-                <a href="?role=warehouse{% if search %}&search={{ search }}{% endif %}" 
+                </a>{% endif %}
+                {% if 'warehouse' not in deleted_roles %}<a href="?role=warehouse{% if search %}&search={{ search }}{% endif %}" 
                    class="role-filter-btn {% if role_filter == 'warehouse' %}active{% endif %}">
                     <span class="badge bg-secondary bg-opacity-10 text-secondary px-3 py-2 rounded-pill">
                         <i class="bi bi-box me-1"></i>Warehouse <span class="ms-1">({{ warehouse_count }})</span>
                     </span>
+                </a>{% endif %}
+                {% for r in custom_roles %}
+                <a href="?role={{ r.key }}{% if search %}&search={{ search }}{% endif %}"
+                   class="role-filter-btn {% if role_filter == r.key %}active{% endif %}">
+                    <span class="badge bg-dark bg-opacity-10 text-dark px-3 py-2 rounded-pill">
+                        <i class="bi {{ r.icon }} me-1"></i>{{ r.label }} <span class="ms-1">({{ r.user_count }})</span>
+                    </span>
                 </a>
+                {% endfor %}
             </div>
         </div>
     </div>
@@ -272,7 +284,7 @@
                                 </div>
                             </td>
                             <td>
-                                <span class="role-badge {{ user.role }}">
+                                <span class="role-badge {{ user.role_css }}">
                                     <i class="bi {{ user.role_icon }} me-1"></i>
                                     {{ user.role_display }}
                                 </span>
@@ -285,7 +297,7 @@
                             </td>
                             <td class="text-center">
                                 {% if user.last_login %}
-                                    <span class="small text-muted" title="{{ user.last_login|date:'Y-m-d H:i:s' }}">
+                                    <span class="small text-muted" title="{{ user.last_login|date:'Y-m-d h:i:s A' }}">
                                         {{ user.last_login|timesince }} ago
                                     </span>
                                 {% else %}
@@ -305,26 +317,37 @@
                                        title="Edit User">
                                         <i class="bi bi-pencil"></i>
                                     </a>
+                                    <!-- Activity -->
+                                    <a href="{% url 'user_activity' user.id %}"
+                                       class="btn btn-sm btn-outline-secondary rounded-circle"
+                                       title="Login &amp; Activity History">
+                                        <i class="bi bi-clock-history"></i>
+                                    </a>
                                     <!-- Reset Password -->
                                     <a href="{% url 'user_reset_password' user.id %}" 
                                        class="btn btn-sm btn-outline-warning rounded-circle" 
                                        title="Reset Password">
                                         <i class="bi bi-key"></i>
                                     </a>
-                                    <!-- Toggle Status -->
-                                    <a href="{% url 'user_toggle_status' user.id %}" 
-                                       class="btn btn-sm btn-outline-{% if user.is_active %}danger{% else %}success{% endif %} rounded-circle"
-                                       title="{% if user.is_active %}Deactivate{% else %}Activate{% endif %} User"
-                                       onclick="return confirm('Are you sure you want to {% if user.is_active %}deactivate{% else %}activate{% endif %} this user?');">
-                                        <i class="bi bi-{% if user.is_active %}person-x{% else %}person-check{% endif %}"></i>
-                                    </a>
+                                    <!-- Toggle Status (POST + CSRF) -->
                                     {% if user.id != request.user.id %}
-                                    <a href="{% url 'user_delete' user.id %}" 
-                                       class="btn btn-sm btn-outline-danger rounded-circle"
-                                       title="Delete User"
-                                       onclick="return confirm('Are you sure you want to delete this user? This action cannot be undone.');">
-                                        <i class="bi bi-trash"></i>
-                                    </a>
+                                    <form method="post" action="{% url 'user_toggle_status' user.id %}" class="d-inline"
+                                          onsubmit="return confirm('Are you sure you want to {% if user.is_active %}deactivate{% else %}activate{% endif %} this user?');">
+                                        {% csrf_token %}
+                                        <button type="submit"
+                                                class="btn btn-sm btn-outline-{% if user.is_active %}danger{% else %}success{% endif %} rounded-circle"
+                                                title="{% if user.is_active %}Deactivate{% else %}Activate{% endif %} User">
+                                            <i class="bi bi-{% if user.is_active %}person-x{% else %}person-check{% endif %}"></i>
+                                        </button>
+                                    </form>
+                                    <!-- Delete (POST + CSRF) -->
+                                    <form method="post" action="{% url 'user_delete' user.id %}" class="d-inline"
+                                          onsubmit="return confirm('Are you sure you want to delete this user? This action cannot be undone. (Deactivate is safer.)');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger rounded-circle" title="Delete User">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
                                     {% endif %}
                                 </div>
                             </td>
@@ -396,6 +419,165 @@
 </div>
 
 <!-- Quick View Modal -->
+<!-- Manage Roles Modal -->
+<div class="modal fade" id="rolesModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold"><i class="bi bi-tags me-2"></i>Manage Roles</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Add role -->
+                <form method="post" action="{% url 'role_create' %}" class="mb-4">
+                    {% csrf_token %}
+                    <div class="d-flex gap-2 mb-2">
+                        <input type="text" name="name" class="form-control" maxlength="50" required
+                               placeholder="New role name (e.g. Cashier, Supervisor)">
+                        <button type="submit" class="btn btn-primary rounded-pill px-4 text-nowrap">
+                            <i class="bi bi-plus-lg me-1"></i>Add Role
+                        </button>
+                    </div>
+                    {% if can_edit_permissions %}
+                    <button class="btn btn-sm btn-outline-secondary rounded-pill" type="button"
+                            data-bs-toggle="collapse" data-bs-target="#newRolePerms">
+                        <i class="bi bi-shield-check me-1"></i>Set permissions (optional)
+                    </button>
+                    <div class="collapse mt-2" id="newRolePerms">
+                        <div class="border rounded-3 p-3" style="max-height: 280px; overflow-y: auto;">
+                            {% for m in matrix_modules %}
+                            <div class="mb-3">
+                                <div class="fw-semibold small mb-1">{{ m.name }}</div>
+                                <div class="row g-1">
+                                    {% for p in m.permissions %}
+                                    <div class="col-6 col-md-4">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="permissions"
+                                                   value="{{ p.key }}" id="np_{{ p.key }}">
+                                            <label class="form-check-label small" for="np_{{ p.key }}">{{ p.name }}</label>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="small text-muted">Only an Administrator can set permissions.</div>
+                    {% endif %}
+                </form>
+
+                <!-- Custom roles -->
+                <h6 class="text-muted small text-uppercase fw-semibold">Custom roles</h6>
+                <div class="table-responsive mb-4">
+                    <table class="table align-middle mb-0">
+                        <tbody>
+                        {% for r in custom_roles %}
+                            <tr>
+                                <td><i class="bi {{ r.icon }} me-2"></i><strong>{{ r.label }}</strong></td>
+                                <td class="text-muted small">{{ r.user_count }} user{{ r.user_count|pluralize }}</td>
+                                <td class="text-muted small">{{ r.perm_count }} permission{{ r.perm_count|pluralize }}</td>
+                                <td class="text-end text-nowrap">
+                                    {% if can_edit_permissions %}
+                                    <a href="{% url 'permission_matrix' %}" class="btn btn-sm btn-outline-primary rounded-pill">
+                                        <i class="bi bi-shield-check me-1"></i>Permissions
+                                    </a>
+                                    {% endif %}
+                                    {% if r.user_count %}
+                                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" disabled
+                                            title="Change the role of these users first">
+                                        <i class="bi bi-trash me-1"></i>In use
+                                    </button>
+                                    {% else %}
+                                    <form method="post" action="{% url 'role_delete' r.id %}" class="d-inline"
+                                          onsubmit="return confirm('Delete the role &quot;{{ r.label|escapejs }}&quot;?');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill">
+                                            <i class="bi bi-trash me-1"></i>Delete
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr><td class="text-muted text-center py-3">No custom roles yet. Add one above.</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Built-in roles -->
+                <h6 class="text-muted small text-uppercase fw-semibold">Built-in roles</h6>
+                <div class="table-responsive mb-3">
+                    <table class="table align-middle mb-0">
+                        <tbody>
+                        {% for r in builtin_roles %}{% if not r.deleted %}
+                            <tr>
+                                <td><i class="bi {{ r.icon }} me-2"></i><strong>{{ r.label }}</strong></td>
+                                <td class="text-muted small">
+                                    {% if r.user_count is not None %}{{ r.user_count }} user{{ r.user_count|pluralize }}{% else %}default{% endif %}
+                                </td>
+                                <td class="text-end text-nowrap">
+                                    {% if not r.deletable %}
+                                    <span class="badge bg-secondary bg-opacity-10 text-secondary px-3 py-2 rounded-pill">
+                                        <i class="bi bi-lock me-1"></i>Protected
+                                    </span>
+                                    {% elif not can_edit_permissions %}
+                                    <span class="small text-muted">Administrator only</span>
+                                    {% elif r.user_count %}
+                                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" disabled
+                                            title="Change the role of these users first">
+                                        <i class="bi bi-trash me-1"></i>In use
+                                    </button>
+                                    {% else %}
+                                    <form method="post" action="{% url 'role_delete_builtin' r.key %}" class="d-inline"
+                                          onsubmit="return confirm('Delete the built-in role &quot;{{ r.label|escapejs }}&quot;? You can restore it later.');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill">
+                                            <i class="bi bi-trash me-1"></i>Delete
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endif %}{% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Deleted built-in roles -->
+                {% if deleted_roles %}
+                <h6 class="text-muted small text-uppercase fw-semibold">Deleted built-in roles</h6>
+                <div class="d-flex flex-wrap gap-2">
+                    {% for r in builtin_roles %}{% if r.deleted %}
+                    <form method="post" action="{% url 'role_restore_builtin' r.key %}" class="d-inline">
+                        {% csrf_token %}
+                        <span class="badge bg-secondary bg-opacity-10 text-secondary px-3 py-2 rounded-pill">
+                            {{ r.label }}
+                            {% if can_edit_permissions %}
+                            <button type="submit" class="btn btn-link btn-sm p-0 ms-2 align-baseline">Restore</button>
+                            {% endif %}
+                        </span>
+                    </form>
+                    {% endif %}{% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            <div class="modal-footer border-0">
+                <button class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        if (new URLSearchParams(window.location.search).get('manage_roles')) {
+            new bootstrap.Modal(document.getElementById('rolesModal')).show();
+        }
+    });
+</script>
+
 <div class="modal fade" id="quickViewModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
@@ -490,6 +672,10 @@
     .role-badge.accountant {
         background: rgba(255, 193, 7, 0.12);
         color: #ffc107;
+    }
+    .role-badge.custom {
+        background: rgba(33, 37, 41, 0.10);
+        color: #212529;
     }
     .role-badge.warehouse {
         background: rgba(108, 117, 125, 0.12);

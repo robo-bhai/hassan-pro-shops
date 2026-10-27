@@ -14,7 +14,7 @@ class WhatsAppSender:
     
     @staticmethod
     def format_phone(phone):
-        """Phone number ko +92 format mein convert karo"""
+        """Convert the phone number to +92 format"""
         if not phone:
             return None
         phone = str(phone).replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
@@ -58,7 +58,7 @@ class WhatsAppSender:
         try:
             phone = WhatsAppSender.format_phone(customer_phone)
             
-            message = f"🧾 *INVOICE*\n━━━━━━━━━━━━━━━━\n📋 Bill No: *{bill_no}*\n💰 Total: *Rs. {total_amount:,.2f}*\n📅 Date: {datetime.now().strftime('%d-%m-%Y %H:%M')}\n━━━━━━━━━━━━━━━━\n🙏 Thank you for your business!"
+            message = f"🧾 *INVOICE*\n━━━━━━━━━━━━━━━━\n📋 Bill No: *{bill_no}*\n💰 Total: *Rs. {total_amount:,.2f}*\n📅 Date: {datetime.now().strftime('%d-%m-%Y %I:%M %p')}\n━━━━━━━━━━━━━━━━\n🙏 Thank you for your business!"
             
             wa_url = f"https://api.whatsapp.com/send?phone={phone}&text={quote(message)}"
             
@@ -104,7 +104,7 @@ class WhatsAppSender:
         try:
             phone = WhatsAppSender.format_phone(customer_phone)
             
-            message = f"✅ *ORDER CONFIRMED*\n━━━━━━━━━━━━━━━━\n👤 {customer_name}\n📋 Order No: *{order_no}*\n📦 Items: *{items_count}*\n💰 Total: *Rs. {total:,.2f}*\n📅 {datetime.now().strftime('%d-%m-%Y %H:%M')}\n━━━━━━━━━━━━━━━━\n🔄 Order is being processed!"
+            message = f"✅ *ORDER CONFIRMED*\n━━━━━━━━━━━━━━━━\n👤 {customer_name}\n📋 Order No: *{order_no}*\n📦 Items: *{items_count}*\n💰 Total: *Rs. {total:,.2f}*\n📅 {datetime.now().strftime('%d-%m-%Y %I:%M %p')}\n━━━━━━━━━━━━━━━━\n🔄 Order is being processed!"
             
             wa_url = f"https://api.whatsapp.com/send?phone={phone}&text={quote(message)}"
             
@@ -150,7 +150,7 @@ class WhatsAppSender:
             
             wa_url = f"https://api.whatsapp.com/send?phone={phone}&text={quote(message)}"
             
-            # PDF bhi save karo
+            # Also save the PDF
             import tempfile, os
             from .admin import generate_invoice_pdf
             
@@ -251,19 +251,19 @@ class WhatsAppSender:
             phone = WhatsAppSender.format_phone(customer_phone)
             
             status_messages = {
-                'confirmed': f"✅ *ORDER CONFIRMED*\n━━━━━━━━━━━━━━━━\n👤 {customer_name}\n📋 Order: *{order_no}*\n━━━━━━━━━━━━━━━━\nAapka order confirm ho gaya hai!\nJald process karte hain.",
+                'confirmed': f"✅ *ORDER CONFIRMED*\n━━━━━━━━━━━━━━━━\n👤 {customer_name}\n📋 Order: *{order_no}*\n━━━━━━━━━━━━━━━━\nYour order has been confirmed!\nWe will process it soon.",
                 
-                'processing': f"🔄 *ORDER PROCESSING*\n━━━━━━━━━━━━━━━━\n👤 {customer_name}\n📋 Order: *{order_no}*\n━━━━━━━━━━━━━━━━\nAapka order process ho raha hai...",
+                'processing': f"🔄 *ORDER PROCESSING*\n━━━━━━━━━━━━━━━━\n👤 {customer_name}\n📋 Order: *{order_no}*\n━━━━━━━━━━━━━━━━\nYour order is being processed...",
                 
-                'ready': f"📦 *ORDER READY*\n━━━━━━━━━━━━━━━━\n👤 {customer_name}\n📋 Order: *{order_no}*\n━━━━━━━━━━━━━━━━\nAapka order ready hai!\nJald delivery ke liye bhej rahe hain.",
+                'ready': f"📦 *ORDER READY*\n━━━━━━━━━━━━━━━━\n👤 {customer_name}\n📋 Order: *{order_no}*\n━━━━━━━━━━━━━━━━\nYour order is ready!\nWe are sending it for delivery soon.",
                 
-                'partially_delivered': f"🚚 *PARTIALLY DELIVERED*\n━━━━━━━━━━━━━━━━\n👤 {customer_name}\n📋 Order: *{order_no}*\n━━━━━━━━━━━━━━━━\nKuch items deliver ho gaye hain.\nBaqi jald bhej rahe hain.",
+                'partially_delivered': f"🚚 *PARTIALLY DELIVERED*\n━━━━━━━━━━━━━━━━\n👤 {customer_name}\n📋 Order: *{order_no}*\n━━━━━━━━━━━━━━━━\nSome items have been delivered.\nWe will send the rest soon.",
                 
-                'delivered': f"🚚 *ORDER DELIVERED*\n━━━━━━━━━━━━━━━━\n👤 {customer_name}\n📋 Order: *{order_no}*\n━━━━━━━━━━━━━━━━\nAapka order deliver ho gaya!\nFeedback zaroor dena! 🙏",
+                'delivered': f"🚚 *ORDER DELIVERED*\n━━━━━━━━━━━━━━━━\n👤 {customer_name}\n📋 Order: *{order_no}*\n━━━━━━━━━━━━━━━━\nYour order has been delivered!\nPlease do give feedback! 🙏",
                 
-                'invoiced': f"🧾 *INVOICE GENERATED*\n━━━━━━━━━━━━━━━━\n👤 {customer_name}\n📋 Order: *{order_no}*\n━━━━━━━━━━━━━━━━\nAapka invoice generate ho gaya hai.\nPayment jald clear karein.",
+                'invoiced': f"🧾 *INVOICE GENERATED*\n━━━━━━━━━━━━━━━━\n👤 {customer_name}\n📋 Order: *{order_no}*\n━━━━━━━━━━━━━━━━\nYour invoice has been generated.\nPlease clear the payment soon.",
                 
-                'cancelled': f"❌ *ORDER CANCELLED*\n━━━━━━━━━━━━━━━━\n👤 {customer_name}\n📋 Order: *{order_no}*\n━━━━━━━━━━━━━━━━\nOrder cancel kar diya gaya.\nKisi pareshani ke liye maazrat.",
+                'cancelled': f"❌ *ORDER CANCELLED*\n━━━━━━━━━━━━━━━━\n👤 {customer_name}\n📋 Order: *{order_no}*\n━━━━━━━━━━━━━━━━\nThe order has been cancelled.\nWe apologize for any inconvenience.",
             }
             
             message = status_messages.get(status, f"📋 Order *{order_no}*\nStatus: {status}")
@@ -290,7 +290,7 @@ class WhatsAppSender:
             company = WhatsAppSender.get_company_name()
             msg = f"""🏍️ *RIDER ASSIGNED*
 
-{customer_name}, aapka order *#{order_no}* rider ko de diya gaya hai.
+{customer_name}, your order *#{order_no}* has been given to the rider.
 
 👤 *Rider Name:* {rider_name}
 📞 *Contact:* {rider_contact}"""
@@ -302,7 +302,7 @@ class WhatsAppSender:
             
             msg += f"""
 
-Aap rider se direct rabta kar sakte hain.
+You can contact the rider directly.
 
 Shukriya! ❤️
 _{company}_"""
@@ -323,14 +323,14 @@ _{company}_"""
             company = WhatsAppSender.get_company_name()
             msg = f"""🚶 *ORDER READY FOR PICKUP*
 
-{customer_name}, aapka order *#{order_no}* pickup ke liye tayyar hai!
+{customer_name}, your order *#{order_no}* is ready for pickup!
 
 📍 *Pickup Address:*
 {pickup_address}
 
 ⏰ *Timing:* {timing}
 
-Apni ID saath le kar aayein.
+Bring your ID with you.
 
 Shukriya! ❤️
 _{company}_"""
@@ -349,9 +349,9 @@ _{company}_"""
         """Out for delivery message"""
         try:
             company = WhatsAppSender.get_company_name()
-            msg = f"""🛵 *ORDER RASTE MEIN HAI*
+            msg = f"""🛵 *ORDER IS ON THE WAY*
 
-{customer_name}, aapka order *#{order_no}* aapki taraf rawana ho gaya hai!"""
+{customer_name}, your order *#{order_no}* has been dispatched to you!"""
             
             if rider_name:
                 msg += f"\n\n👤 *Rider:* {rider_name}"
@@ -379,9 +379,9 @@ _{company}_"""
         """Order delivered message"""
         try:
             company = WhatsAppSender.get_company_name()
-            msg = f"""🎉 *ORDER DELIVER HO GAYA*
+            msg = f"""🎉 *ORDER DELIVERED*
 
-{customer_name}, aapka order *#{order_no}* successfully deliver ho gaya!"""
+{customer_name}, your order *#{order_no}* has been delivered successfully!"""
             
             if amount > 0:
                 msg += f"\n\n💰 *Amount Received:* Rs. {amount:,.0f}"
@@ -389,7 +389,7 @@ _{company}_"""
             msg += f"""
 
 Shukriya shopping karne ka! ❤️
-Hamari service kaise lagi? Apna feedback zaroor dein.
+How was our service? Please do give your feedback.
 
 _{company}_"""
             
@@ -408,14 +408,14 @@ _{company}_"""
             company = WhatsAppSender.get_company_name()
             msg = f"""❌ *ORDER CANCELLED*
 
-{customer_name}, aapka order *#{order_no}* cancel kar diya gaya hai."""
+{customer_name}, your order *#{order_no}* has been cancelled."""
             
             if reason:
                 msg += f"\n\n*Reason:* {reason}"
             
             msg += f"""
 
-Kisi bhi sawal ke liye hum se rabta karein.
+Contact us for any questions.
 
 _{company}_"""
             
@@ -434,7 +434,7 @@ _{company}_"""
             company = WhatsAppSender.get_company_name()
             msg = f"""✋ *ORDER PICKED UP*
 
-{customer_name}, aapne order *#{order_no}* pickup kar liya hai.
+{customer_name}, you have picked up your order *#{order_no}*.
 
 Shukriya shopping karne ka! ❤️
 
@@ -490,7 +490,7 @@ _{company}_"""
 # ============================================
 
 class WhatsAppBulkSender:
-    """Multiple customers ke liye sender"""
+    """Sender for multiple customers"""
     
     @staticmethod
     def get_outstanding_customers():
@@ -510,7 +510,7 @@ class WhatsAppBulkSender:
     
     @staticmethod
     def generate_reminder_links():
-        """Sab outstanding customers ke liye reminder links"""
+        """Reminder links for all outstanding customers"""
         customers = WhatsAppBulkSender.get_outstanding_customers()
         
         links = []

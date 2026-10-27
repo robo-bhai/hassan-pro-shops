@@ -265,7 +265,7 @@
         <div>
             <strong>⚠️ GRN Pending Conversion</strong>
             <br>
-            <small>Yeh GRN abhi Purchase mein convert nahi hua. Neeche "Convert to Purchase" button dabayein.</small>
+            <small>This GRN has not been converted to a Purchase yet. Click the "Convert to Purchase" button below.</small>
         </div>
     </div>
 {% endif %}
@@ -354,6 +354,7 @@
                             <th class="text-right">Pending</th>
                             <th class="text-right">Unit Price</th>
                             <th class="text-right">Total</th>
+                            <th>Batch / Expiry <small>(میعاد)</small></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -384,10 +385,19 @@
                             <td class="text-right">
                                 <strong>Rs. {{ item.total_amt|floatformat:2|intcomma }}</strong>
                             </td>
+                            <td style="min-width:190px"><!-- agri-edition:grn-cell -->
+                                {% if not grn.converted_to_purchase %}
+                                <input form="agriGrnForm" type="hidden" name="ids" value="{{ item.pk }}">
+                                <input form="agriGrnForm" type="text" maxlength="50" class="form-control form-control-sm mb-1" name="batch_{{ item.pk }}" value="{{ item.batch_no|default:'' }}" placeholder="Batch no">
+                                <input form="agriGrnForm" type="date" class="form-control form-control-sm" name="expiry_{{ item.pk }}" value="{{ item.expiry_date|date:'Y-m-d' }}">
+                                {% else %}
+                                {{ item.batch_no|default:"—" }}<br><small>{{ item.expiry_date|date:"d-m-Y"|default:"—" }}</small>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="7" class="text-center py-4">
+                            <td colspan="8" class="text-center py-4">
                                 <i class="bi bi-inbox fs-1 text-muted d-block"></i>
                                 <p class="text-muted mt-2">No items found</p>
                             </td>
@@ -403,10 +413,18 @@
                             <td class="text-right">
                                 <strong class="text-primary fs-6">Rs. {{ total_amount|floatformat:2|intcomma }}</strong>
                             </td>
+                            <td></td>
                         </tr>
                     </tfoot>
                 </table>
             </div>
+            {% if not grn.converted_to_purchase %}<!-- agri-edition:grn-form -->
+            <form id="agriGrnForm" method="post" action="{% url 'agri_grn_expiry' grn.pk %}" class="mt-2">{% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit" class="btn btn-sm btn-success"><i class="bi bi-save me-1"></i> Batch / Expiry save karein</button>
+                <small class="text-muted ms-2">Purchase mein convert karne se pehle save kar lein, taake stock mein expiry chali jaye.</small>
+            </form>
+            {% endif %}
         </div>
 
         <!-- Notes -->
@@ -471,7 +489,7 @@
                     {# Case: Not converted - show Convert button #}
                     <a href="{% url 'grn_convert_to_purchase' grn.pk %}" 
                        class="action-btn btn-success-custom"
-                       onclick="return confirm('GRN ko Purchase mein convert karein?\n\nGRN: {{ grn.grn_no }}\nVendor: {{ grn.vendor.name }}\nAmount: Rs. {{ total_amount|floatformat:2 }}\n\nYeh action undo nahi ho sakti!')">
+                       onclick="return confirm('Convert the GRN to a Purchase?\n\nGRN: {{ grn.grn_no }}\nVendor: {{ grn.vendor.name }}\nAmount: Rs. {{ total_amount|floatformat:2 }}\n\nThis action cannot be undone!')">
                         <i class="bi bi-arrow-right-circle"></i> 
                         <span>Convert to Purchase</span>
                     </a>
@@ -524,7 +542,7 @@
                 {% if not grn.converted_to_purchase %}
                 <a href="{% url 'grn_delete' grn.pk %}" 
                    class="action-btn btn-danger-custom"
-                   onclick="return confirm('⚠️ GRN ko delete karein?\n\nYeh action undo nahi ho sakti!')">
+                   onclick="return confirm('⚠️ Delete the GRN?\n\nThis action cannot be undone!')">
                     <i class="bi bi-trash"></i> 
                     <span>Delete GRN</span>
                 </a>

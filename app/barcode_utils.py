@@ -12,13 +12,13 @@ def generate_barcode_image(barcode_number, product_name="", price=""):
         if not barcode_number:
             return ""
         
-        # ✅ Agar 12-13 digits ka hai to EAN-13 use karein
+        # ✅ If it has 12-13 digits, use EAN-13
         if len(barcode_number) in [12, 13]:
             if len(barcode_number) == 13:
                 barcode_number = barcode_number[:12]
             ean = barcode.get('ean13', barcode_number, writer=ImageWriter())
         else:
-            # ✅ Baqi sab ke liye Code-128 use karein (jo kisi bhi length ko support karta hai)
+            # ✅ For everything else use Code-128 (it supports any length)
             code128 = barcode.get('code128', barcode_number, writer=ImageWriter())
             buffer = BytesIO()
             code128.write(buffer)

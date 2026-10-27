@@ -1,0 +1,160 @@
+{# Language: RTL styles, Urdu/Arabic font and the text translator (loads only when the language is not English). #}
+{% if LANG_CODE and LANG_CODE != 'en' %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ===== RTL (Urdu / Arabic) ===== */
+html[dir="rtl"] { --erp-rtl-font: "Noto Naskh Arabic", "Segoe UI", Tahoma, Arial, sans-serif; }
+html[dir="rtl"] body, html[dir="rtl"] .btn, html[dir="rtl"] input, html[dir="rtl"] select,
+html[dir="rtl"] textarea, html[dir="rtl"] .form-control, html[dir="rtl"] .form-select { font-family: var(--erp-rtl-font) !important; }
+html[dir="rtl"] body { line-height: 1.7; }
+/* layout */
+html[dir="rtl"] .sidebar { left: auto; right: 0; border-right: 0; border-left: 1px solid rgba(255,255,255,.08); box-shadow: -4px 0 30px rgba(0,0,0,.35); }
+html[dir="rtl"] .main-wrapper { margin-left: 0; margin-right: var(--sidebar-width); }
+@media (max-width: 991px) {
+  html[dir="rtl"] .sidebar { transform: translateX(100%); }
+  html[dir="rtl"] .sidebar.mobile-show { transform: translateX(0); }
+  html[dir="rtl"] .main-wrapper { margin-right: 0; }
+}
+/* sidebar items */
+html[dir="rtl"] .sidebar-menu li a { border-left: 0; border-right: 3px solid transparent; }
+html[dir="rtl"] .sidebar-menu li a:hover, html[dir="rtl"] .sidebar-menu li a.active { border-left-color: transparent; border-right-color: var(--sidebar-accent, #667eea); }
+html[dir="rtl"] .sidebar-menu > li > a.active::before,
+html[dir="rtl"] .sidebar-menu > .has-submenu > a[aria-expanded="true"]::before { left: auto; right: -12px; border-radius: 4px 0 0 4px; }
+html[dir="rtl"] .arrow-icon, html[dir="rtl"] .badge-alert, html[dir="rtl"] .sub-link .badge,
+html[dir="rtl"] .suggestion-item .remove-history { margin-left: 0; margin-right: auto; }
+html[dir="rtl"] .sidebar-menu .collapse { margin: 2px 28px 6px 12px; padding: 2px 10px 2px 0; }
+html[dir="rtl"] .sidebar-menu .collapse::before { left: auto; right: 0; }
+html[dir="rtl"] .sub-link { border-left: 1px solid transparent !important; }
+html[dir="rtl"] .sub-link:hover, html[dir="rtl"] .sub-link.active { padding-left: 10px !important; padding-right: 12px !important; }
+html[dir="rtl"] .sub-link.active::before { left: auto; right: -11px; }
+html[dir="rtl"] #biSubmenu .sub-link--nested { margin-left: 0; margin-right: 26px; }
+html[dir="rtl"] #biSubmenu .sub-link--nested::before { left: auto; right: -9px; }
+html[dir="rtl"] .search-item { border-left: 0; border-right: 3px solid transparent; }
+html[dir="rtl"] .search-item:hover, html[dir="rtl"] .search-item.active { border-left-color: transparent; border-right-color: #667eea; padding-left: 12px; padding-right: 15px; }
+/* misc */
+html[dir="rtl"] .alert { border-left-width: 1px; border-right-width: 4px; }
+html[dir="rtl"] .stat-card.danger-border { border-left: 0; border-right: 4px solid #dc3545; }
+html[dir="rtl"] .global-toast { border-left: 0; border-right: 4px solid; }
+html[dir="rtl"] input[type="number"], html[dir="rtl"] input[type="tel"], html[dir="rtl"] input[type="email"],
+html[dir="rtl"] input[type="url"], html[dir="rtl"] input[type="password"] { direction: ltr; text-align: right; }
+html[dir="rtl"] .table { text-align: right; }
+</style>
+<script>window.ERP_LANG = "{{ LANG_CODE }}"; window.ERP_COLLECT = "{% if I18N_COLLECT %}{% url 'i18n_collect' %}{% endif %}"; window.ERP_CSRF = "{% if I18N_COLLECT %}{{ csrf_token }}{% endif %}";</script>
+<script src="{% url 'i18n_dictionary' LANG_CODE %}?v={{ I18N_VERSION }}"></script>
+{% verbatim %}<script>
+(function () {
+  var L = window.ERP_LANG || 'en';
+  if (L === 'en') return;
+  var IDX = (L === 'ur') ? 0 : 1;
+  var D = window.ERP_I18N || {};
+  var RE = /^([^\p{L}\p{N}]*)([\s\S]*?)([^\p{L}\p{N}]*)$/u;
+  var SKIP = {SCRIPT: 1, STYLE: 1, NOSCRIPT: 1, TEXTAREA: 1, CODE: 1, PRE: 1};
+  var ATTRS = ['placeholder', 'title', 'aria-label'];
+  // Only menu / button / heading style text is ever reported as "missing" (never table data or names)
+  var UI_SEL = '.sidebar, .topbar, button, .btn, label, th, h1, h2, h3, h4, h5, h6, .nav-link, .dropdown-item, ' +
+               '.breadcrumb-item, .card-header, .modal-title, .page-title, legend, .form-label';
+  var VALID = /^[A-Za-z][A-Za-z0-9 &'\u2019()\/.,:+\-%?!#]*$/;
+  var pending = {}, pendingN = 0, sentKey = 'erp_i18n_sent', sent = {};
+  try { sent = JSON.parse(sessionStorage.getItem(sentKey) || '{}'); } catch (e) { sent = {}; }
+
+  function lookup(s) {
+    if (!s) return null;
+    var t = s.replace(/\s+/g, ' ').trim();
+    if (!t) return null;
+    var m = RE.exec(t);
+    if (!m) return null;
+    var lead = m[1], core = m[2], trail = m[3];
+    var v = D[(core + trail).toLowerCase()];
+    if (v && v[IDX]) return {lead: lead, out: v[IDX], trail: ''};
+    v = D[core.toLowerCase()];
+    if (v && v[IDX]) return {lead: lead, out: v[IDX], trail: trail};
+    return null;
+  }
+
+  function tr(s) {
+    var r = lookup(s);
+    if (!r) return null;
+    var w1 = /^\s*/.exec(s)[0], w2 = /\s*$/.exec(s)[0];
+    return w1 + r.lead + r.out + r.trail + w2;
+  }
+
+  function skipNode(el) {
+    for (; el && el.nodeType === 1; el = el.parentNode) {
+      if (SKIP[el.tagName] || el.hasAttribute('data-no-i18n') || el.isContentEditable) return true;
+    }
+    return false;
+  }
+
+  function consider(text, el) {
+    if (!window.ERP_COLLECT || !el || !el.closest || !el.closest(UI_SEL)) return;
+    var t = text.replace(/\s+/g, ' ').trim().replace(/^[^\w(]+/, '').replace(/[ :.\u2026!?*]+$/, '');
+    if (t.length < 2 || t.length > 100 || !VALID.test(t) || t.split(' ').length > 7) return;
+    if (/\d/.test(t)) return;
+    var k = t.toLowerCase();
+    if (sent[k] || pending[k]) return;
+    pending[k] = t; pendingN++;
+  }
+
+  var flushTimer = null;
+  function flush() {
+    flushTimer = null;
+    if (!pendingN || !window.ERP_COLLECT) return;
+    var items = Object.keys(pending).map(function (k) { return pending[k]; }).slice(0, 100);
+    items.forEach(function (t) { sent[t.toLowerCase()] = 1; delete pending[t.toLowerCase()]; pendingN--; });
+    try { sessionStorage.setItem(sentKey, JSON.stringify(sent)); } catch (e) {}
+    fetch(window.ERP_COLLECT, {
+      method: 'POST', credentials: 'same-origin',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': window.ERP_CSRF || ''},
+      body: JSON.stringify({items: items})
+    }).catch(function () {});
+    if (pendingN) flushTimer = setTimeout(flush, 3000);
+  }
+
+  function run(root) {
+    root = root || document.body;
+    if (!root) return;
+    var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null), n;
+    while ((n = w.nextNode())) {
+      if (n.__i18n === n.nodeValue) continue;
+      if (skipNode(n.parentNode)) continue;
+      var out = tr(n.nodeValue);
+      if (out !== null && out !== n.nodeValue) { n.__i18n = out; n.nodeValue = out; }
+      else if (out === null) consider(n.nodeValue, n.parentNode);
+    }
+    var els = root.querySelectorAll ? root.querySelectorAll('[placeholder],[title],[aria-label],input[type=submit],input[type=button]') : [];
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i];
+      if (skipNode(el)) continue;
+      ATTRS.forEach(function (a) {
+        var v = el.getAttribute(a);
+        if (v) { var o = tr(v); if (o !== null && o !== v) el.setAttribute(a, o); }
+      });
+      if (el.tagName === 'INPUT' && (el.type === 'submit' || el.type === 'button') && el.value) {
+        var ov = tr(el.value); if (ov !== null && ov !== el.value) el.value = ov;
+      }
+    }
+    if (pendingN && !flushTimer) flushTimer = setTimeout(flush, 4000);
+  }
+
+  var timer = null, obs = null;
+  function schedule() {
+    if (timer) return;
+    timer = setTimeout(function () {
+      timer = null;
+      if (obs) obs.disconnect();
+      try { run(document.body); } finally { watch(); }
+    }, 60);
+  }
+  function watch() {
+    if (!window.MutationObserver || !document.body) return;
+    obs = obs || new MutationObserver(schedule);
+    obs.observe(document.body, {childList: true, subtree: true, characterData: true});
+  }
+
+  function start() { run(document.body); watch(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+  window.erpTranslate = run;
+})();
+</script>{% endverbatim %}
+{% endif %}

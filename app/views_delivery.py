@@ -1,7 +1,7 @@
 """
 Delivery Settings Views — Frontend Admin Panel
 ===============================================
-Alag file — views_frontend.py ko bhari karne ke liye
+Separate file — to keep views_frontend.py from getting too large
 
 Features:
 ✅ Delivery settings view (frontend)
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 def delivery_settings_view(request):
     """
     Delivery settings — frontend admin panel se
-    Sirf superuser ya staff access kar sakta hai
+    Only a superuser or staff can access
     """
     from .models import DeliverySettings, CompanyInfo
     
