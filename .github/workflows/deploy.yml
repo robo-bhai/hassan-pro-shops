@@ -181,7 +181,7 @@ jobs:
             RESTORE_FILE=$(rclone lsf "$TARGET_DIR" --format "pm" --files-only --include "db_snapshot_*" | sort -t';' -k2 | tail -n 1 | cut -d';' -f1)
           else
             RESTORE_FILE="$TARGET_RESTORE_FILE"
-          .fi
+          fi
 
           if [ -z "$RESTORE_FILE" ]; then
             exit 1
@@ -227,10 +227,17 @@ jobs:
           python -c "
           import os
           CACHE_FILE = 'local_data_dump.sql.gz'
-          if os.path.exists(CACHE_FILE) and os.path.getsize(CACHE_FILE) > 10240:
-              print('VALID CACHE FOUND: Restoring latest snapshot into Local DB.')
-              with open('cache_decision.txt', 'w') as f:
-                  f.write('USE_CACHE')
+          if os.path.exists(CACHE_FILE):
+              file_size = os.path.getsize(CACHE_FILE)
+              print(f'Found cache file with size: {file_size} bytes')
+              if file_size > 100:
+                  print('VALID CACHE FOUND: Restoring latest snapshot into Local DB.')
+                  with open('cache_decision.txt', 'w') as f:
+                      f.write('USE_CACHE')
+              else:
+                  print('Cache file is too small.')
+                  with open('cache_decision.txt', 'w') as f:
+                      f.write('FRESH_START')
           else:
               print('NO CACHE FOUND: Initializing clean Local DB.')
               with open('cache_decision.txt', 'w') as f:
@@ -246,6 +253,7 @@ jobs:
             echo "Safe Cache Restoration Completed on Local DB."
           else
             echo "=== FRESH START: Preparing clean Local DB ==="
+            python manage.py migrate --noinput || true
           fi
 
       - name: Apply Migrations Safely & Ensure Superuser on Local DB
@@ -402,11 +410,11 @@ jobs:
             grep -E '"GET|POST|PUT|DELETE|HEAD' django.log || echo "No HTTP requests logged yet."
           done || true
 
-      - name: Save Updated Local DB Snapshot to GitHub Cache
+      - name: Create Safe Local DB Snapshot for Cache
         if: always()
         run: |
           echo "=========================================="
-          echo " CREATING SAFE LOCAL DB CACHE SNAPSHOT FOR FUTURE RUNS "
+          echo " CREATING SAFE LOCAL DB CACHE SNAPSHOT "
           echo "=========================================="
           MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
             --set-gtid-purged=OFF \
@@ -415,9 +423,11 @@ jobs:
             local_django_db | gzip > local_data_dump.sql.gz
 
           python -c "
-          import time
+          import time, os
           with open('cache_time.txt', 'w') as f:
               f.write(str(time.time()))
+          size = os.path.getsize('local_data_dump.sql.gz')
+          print(f'Generated local_data_dump.sql.gz size: {size} bytes')
           "
 
       - name: Save Updated DB Dump & Timestamp to GitHub Cache
