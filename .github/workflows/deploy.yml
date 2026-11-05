@@ -231,18 +231,18 @@ jobs:
           if os.path.exists(CACHE_FILE):
               file_size = os.path.getsize(CACHE_FILE)
               print(f'Found cache file with size: {file_size} bytes')
-              if file_size > 10:
+              if file_size > 5000:
                   print('VALID CACHE FOUND: Restoring latest snapshot into Local DB.')
                   with open('cache_decision.txt', 'w') as f:
                       f.write('USE_CACHE')
               else:
-                  print('Cache file is too small or empty.')
+                  print('Cache file is too small or invalid (< 5KB). Ignoring cache.')
                   with open('cache_decision.txt', 'w') as f:
                       f.write('FRESH_START')
           else:
               print('NO CACHE FOUND: Initializing clean Local DB.')
               with open('cache_decision.txt', 'w') as f:
-                  f.write('FRESH_START')
+                      f.write('FRESH_START')
           "
 
           DECISION=$(cat cache_decision.txt)
@@ -267,13 +267,19 @@ jobs:
           DB_NAME: "local_django_db"
           BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
         run: |
-          echo "=== 1. APPLYING MIGRATIONS SAFELY WITH --fake-initial ==="
+          echo "=== 1. CHECKING EXISTING TABLES & APPLYING SAFE MIGRATIONS ==="
           python manage.py makemigrations
-          if python manage.py migrate --fake-initial; then
-            echo "Local DB migrations applied successfully with zero data risk!"
+          
+          # Check if tables already exist in database to prevent any data loss
+          TABLE_COUNT=$(MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='local_django_db';")
+          echo "Existing tables count in local_django_db: $TABLE_COUNT"
+
+          if [ "$TABLE_COUNT" -gt 3 ]; then
+            echo "Tables already exist from cache restore. Running migrate with --fake-initial to protect existing data..."
+            python manage.py migrate --fake-initial --noinput || python manage.py migrate --fake --noinput
           else
-            echo "Conflict detected. Forcing safe state sync..."
-            python manage.py migrate --fake || true
+            echo "Database is empty. Running normal migrations..."
+            python manage.py migrate --noinput
           fi
 
           echo "=== 2. ENSURING SUPERUSER CREATION ON LOCAL DB ==="
@@ -347,7 +353,7 @@ jobs:
           RCLONE_REMOTE=$(rclone listremotes | head -n 1)
           TIMESTAMP=$(date +"%d-%m-%y_%H-%M")
           SNAPSHOT_FILENAME="db_snapshot_${TIMESTAMP}.sql.gz.enc"
-          mysqldump -h 127.0.0.1 -P 3306 -u root -proot --set-gtid-purged=OFF --column-statistics=0 --single-transaction --databases local_django_db | gzip > raw_snapshot.sql.gz
+          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root --set-gtid-purged=OFF --column-statistics=0 --single-transaction --databases local_django_db | gzip > raw_snapshot.sql.gz
           python -c "
           import os, base64
           from cryptography.fernet import Fernet
@@ -401,7 +407,7 @@ jobs:
               LATEST_RUN_ID=$(gh api "repos/$REPO/actions/runs?branch=$BRANCH&per_page=1" --jq '.workflow_runs[0].id' 2>/dev/null || echo "$CURRENT_RUN_ID")
               if [ "$LATEST_RUN_ID" -gt "$CURRENT_RUN_ID" ]; then
                 echo "A newer workflow run ($LATEST_RUN_ID) detected! Creating emergency Local DB snapshot before exiting..."
-                mysqldump -h 127.0.0.1 -P 3306 -u root -proot --set-gtid-purged=OFF --column-statistics=0 --single-transaction --databases local_django_db | gzip > local_data_dump.sql.gz
+                MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root --set-gtid-purged=OFF --column-statistics=0 --single-transaction --databases local_django_db | gzip > local_data_dump.sql.gz
                 date +%s > cache_time.txt
                 exit 0
               fi
@@ -417,7 +423,7 @@ jobs:
           echo "=========================================="
           echo " CREATING SAFE LOCAL DB CACHE SNAPSHOT "
           echo "=========================================="
-          mysqldump -h 127.0.0.1 -P 3306 -u root -proot \
+          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
             --set-gtid-purged=OFF \
             --column-statistics=0 \
             --single-transaction \
@@ -430,6 +436,9 @@ jobs:
           if os.path.exists('local_data_dump.sql.gz'):
               size = os.path.getsize('local_data_dump.sql.gz')
               print(f'Generated local_data_dump.sql.gz size: {size} bytes')
+              if size < 5000:
+                  print('ERROR: Dump file is too small or empty!')
+                  exit(1)
           else:
               print('ERROR: Dump file not created!')
               exit(1)
