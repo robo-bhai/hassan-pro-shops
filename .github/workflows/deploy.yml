@@ -1,60 +1,96 @@
 name: Django CI/CD (GitHub MySQL + Cloudinary)
 
 on:
-  push: { branches: [main] }
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
-      bootstrap_empty: { description: "true only for the very first run", default: "false" }
-      restore_key:     { description: "optional exact cache key to restore", default: "" }
-  repository_dispatch: { types: [backup_now, migrate_now] }
+      bootstrap_empty:
+        description: "true sirf bilkul pehli run ke liye (jab koi snapshot na ho)"
+        required: false
+        default: "false"
+      restore_key:
+        description: "Optional: restore karne ke liye exact cache key"
+        required: false
+        default: ""
+  repository_dispatch:
+    types:
+      - backup_now
+      - migrate_now
 
-permissions: { contents: read, actions: write }
-concurrency: { group: erp-main, cancel-in-progress: false }
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: erp-main
+  cancel-in-progress: false
 
 jobs:
   run:
+    name: build-and-run
     runs-on: ubuntu-latest
     timeout-minutes: 350
+
     services:
       mysql:
         image: mysql:8.4
         env:
           MYSQL_ROOT_PASSWORD: ${{ secrets.DB_PASS }}
           MYSQL_DATABASE: ${{ secrets.DB_NAME }}
-        ports: ["3306:3306"]
+        ports:
+          - 3306:3306
         options: >-
           --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
-          --health-interval=10s --health-timeout=5s --health-retries=10
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
     env:
-      DB_HOST: 127.0.0.1
+      DB_HOST: "127.0.0.1"
       DB_PORT: "3306"
-      DB_USER: root
+      DB_USER: "root"
       DB_PASS: ${{ secrets.DB_PASS }}
       DB_NAME: ${{ secrets.DB_NAME }}
       BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
       DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+      DJANGO_SALT_KEY: ${{ secrets.DJANGO_SALT_KEY }}
       CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
       CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
       CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
       ALLOWED_HOSTS: ${{ secrets.ALLOWED_HOSTS }}
       CSRF_TRUSTED_ORIGINS: ${{ secrets.CSRF_TRUSTED_ORIGINS }}
-      DJANGO_SALT_KEY: ${{ secrets.DJANGO_SALT_KEY }}
       EMAIL_HOST_USER: ${{ secrets.EMAIL_HOST_USER }}
       EMAIL_HOST_PASSWORD: ${{ secrets.EMAIL_HOST_PASSWORD }}
       DEFAULT_FROM_EMAIL: ${{ secrets.DEFAULT_FROM_EMAIL }}
       BOOTSTRAP_EMPTY: ${{ github.event.inputs.bootstrap_empty || 'false' }}
       GH_TOKEN: ${{ github.token }}
+      PYTHONUNBUFFERED: "1"
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.13" }
-      - run: |
-          pip install -r requirements.txt
-          sudo apt-get update && sudo apt-get install -y mysql-client
+      # ------------------------------------------------------------
+      # 0. Tayyari
+      # ------------------------------------------------------------
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      # ---------- 1. RESTORE latest good snapshot from GitHub Cache ----------
-      - name: Restore snapshot
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          sudo apt-get update
+          sudo apt-get install -y mysql-client
+
+      # ------------------------------------------------------------
+      # 1. Restore: sab se naya achha snapshot GitHub Cache se
+      # ------------------------------------------------------------
+      - name: Restore latest snapshot from GitHub Cache
         id: restore
         uses: actions/cache/restore@v4
         with:
@@ -63,7 +99,7 @@ jobs:
           restore-keys: |
             mysql-snap-ok-
 
-      - name: Restore legacy local cache (purane workflow ka data, sirf agar naya snapshot na ho)
+      - name: Restore legacy local cache (sirf agar naya snapshot na mile)
         if: steps.restore.outputs.cache-matched-key == ''
         uses: actions/cache/restore@v4
         with:
@@ -78,98 +114,123 @@ jobs:
         id: load
         run: bash scripts/ci/db_restore.sh snapshot
 
-      # ---------- 2. SAFE MIGRATIONS (no fake, no syncdb, no makemigrations) ----------
+      # ------------------------------------------------------------
+      # 2. Safe migrations (koi fake / syncdb / makemigrations nahi)
+      # ------------------------------------------------------------
       - name: Migration safety gate
         id: mig
         run: |
           python manage.py makemigrations --check --dry-run
           python manage.py safemigrate --dry-run
           PENDING=$(python manage.py showmigrations --plan | grep -c '\[ \]' || true)
-          echo "pending=$PENDING" >> "$GITHUB_OUTPUT"
+          echo "pending=${PENDING:-0}" >> "$GITHUB_OUTPUT"
 
       - name: Pre-migrate snapshot
         if: steps.mig.outputs.pending != '0'
-        id: premig
         run: bash scripts/ci/db_snapshot.sh snapshot_pre
-      - name: Save pre-migrate snapshot
+
+      - name: Save pre-migrate snapshot to GitHub Cache
         if: steps.mig.outputs.pending != '0'
         uses: actions/cache/save@v4
         with:
           path: snapshot_pre
           key: mysql-snap-premigrate-${{ github.run_id }}-${{ github.run_attempt }}
 
-      - name: Migrate (stops on any danger)
+      - name: Migrate (khatarnak migration par ruk jata hai)
         run: python manage.py safemigrate
 
-      - name: Ensure superuser (password set only when newly created)
+      - name: Ensure superuser (password sirf naye user ka set hota hai)
+        env:
+          SUPERUSER_NAME: ${{ secrets.SUPERUSER_NAME }}
+          SUPERUSER_EMAIL: ${{ secrets.SUPERUSER_EMAIL }}
+          SUPERUSER_PASSWORD: ${{ secrets.SUPERUSER_PASSWORD }}
         run: |
           python manage.py shell -c "
           import os
           from django.contrib.auth import get_user_model
           U = get_user_model()
-          n, e, p = (os.environ.get(k) for k in ('SUPERUSER_NAME','SUPERUSER_EMAIL','SUPERUSER_PASSWORD'))
+          n = os.environ.get('SUPERUSER_NAME')
+          e = os.environ.get('SUPERUSER_EMAIL')
+          p = os.environ.get('SUPERUSER_PASSWORD')
           if n and p:
               u, created = U.objects.get_or_create(username=n, defaults={'email': e})
               if created:
-                  u.set_password(p); u.is_staff = u.is_superuser = True; u.save()
+                  u.set_password(p)
+                  u.is_staff = True
+                  u.is_superuser = True
+                  u.save()
+                  print('Superuser created:', n)
+              else:
+                  print('Superuser already exists, password untouched:', n)
           "
-        env:
-          SUPERUSER_NAME: ${{ secrets.SUPERUSER_NAME }}
-          SUPERUSER_EMAIL: ${{ secrets.SUPERUSER_EMAIL }}
-          SUPERUSER_PASSWORD: ${{ secrets.SUPERUSER_PASSWORD }}
 
-      - run: python manage.py collectstatic --noinput
+      - name: Collect static files
+        run: python manage.py collectstatic --noinput
 
-      # ---------- 3. START APP ----------
-      - name: Start app + tunnel
+      # ------------------------------------------------------------
+      # 3. App + Cloudflare tunnel start
+      # ------------------------------------------------------------
+      - name: Start app and Cloudflare tunnel
         run: |
           nohup gunicorn P1.wsgi:application --bind 0.0.0.0:8000 --workers 2 > django.log 2>&1 &
           curl -sSL -o cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
           chmod +x cloudflared
           nohup ./cloudflared tunnel run --token "${{ secrets.CLOUDFLARE_TOKEN }}" > tunnel.log 2>&1 &
           sleep 6
+          echo "App aur tunnel start ho gaye."
 
-      # ---------- 4. SERVE IN SEGMENTS, CHECKPOINT AFTER EACH ----------
-      - name: Serve segment 1 (110 min)
+      # ------------------------------------------------------------
+      # 4. Segments + checkpoints (har ~110 min baad snapshot cache mein)
+      # ------------------------------------------------------------
+      - name: Serve segment 1
         timeout-minutes: 115
-        run: bash scripts/ci/serve_until.sh 110      # sets STOP=true in $GITHUB_ENV if a newer run exists
-      - name: Checkpoint 1
-        if: ${{ !cancelled() }}
+        run: bash scripts/ci/serve_until.sh 110
+
+      - name: Checkpoint 1 - snapshot
         id: cp1
+        if: ${{ !cancelled() }}
         run: bash scripts/ci/db_snapshot.sh snapshot "${{ steps.load.outputs.total || 0 }}"
-      - uses: actions/cache/save@v4
+
+      - name: Checkpoint 1 - save to GitHub Cache
         if: ${{ !cancelled() && steps.cp1.outcome == 'success' }}
+        uses: actions/cache/save@v4
         with:
           path: snapshot
           key: mysql-snap-${{ steps.cp1.outputs.prefix }}-${{ github.run_id }}-${{ github.run_attempt }}-cp1
 
-      - name: Serve segment 2 (110 min)
+      - name: Serve segment 2
         if: env.STOP != 'true'
         timeout-minutes: 115
         run: bash scripts/ci/serve_until.sh 110
-      - name: Checkpoint 2
-        if: ${{ !cancelled() && env.STOP != 'true' }}
+
+      - name: Checkpoint 2 - snapshot
         id: cp2
+        if: ${{ !cancelled() && env.STOP != 'true' }}
         run: bash scripts/ci/db_snapshot.sh snapshot "${{ steps.load.outputs.total || 0 }}"
-      - uses: actions/cache/save@v4
+
+      - name: Checkpoint 2 - save to GitHub Cache
         if: ${{ !cancelled() && env.STOP != 'true' && steps.cp2.outcome == 'success' }}
+        uses: actions/cache/save@v4
         with:
           path: snapshot
           key: mysql-snap-${{ steps.cp2.outputs.prefix }}-${{ github.run_id }}-${{ github.run_attempt }}-cp2
 
-      - name: Serve segment 3 (watchdog, ends ~335 min total)
+      - name: Serve segment 3 (watchdog, job timeout se pehle khatam)
         if: env.STOP != 'true'
         timeout-minutes: 112
         run: bash scripts/ci/serve_until.sh 108
 
-      # ---------- 5. FINAL SNAPSHOT: runs on success, failure, timeout AND cancel ----------
-      - name: Final snapshot (quiesce app first)
-        if: ${{ always() }}
+      # ------------------------------------------------------------
+      # 5. Aakhri snapshot: success, failure, timeout aur cancel, sab par
+      # ------------------------------------------------------------
+      - name: Final snapshot (app band karke)
         id: final
+        if: ${{ always() }}
         run: |
           pkill -TERM -f gunicorn || true
           sleep 3
           bash scripts/ci/db_snapshot.sh snapshot "${{ steps.load.outputs.total || 0 }}"
+
       - name: Save final snapshot to GitHub Cache
         if: ${{ always() && steps.final.outcome == 'success' }}
         uses: actions/cache/save@v4
@@ -181,10 +242,21 @@ jobs:
         if: ${{ always() }}
         run: |
           gh cache list --key mysql-snap-ok- --sort created_at --order desc --limit 100 --json id \
-            | jq -r '.[5:][].id' | xargs -r -n1 gh cache delete || true
+            | jq -r '.[5:][].id' \
+            | xargs -r -n1 gh cache delete || true
 
-      - name: Weekly encrypted artifact copy (90-day insurance)
-        if: ${{ always() && github.run_number % 7 == 0 && steps.final.outcome == 'success' }}
+      - name: Check if weekly artifact copy is due (Sunday)
+        id: weekly
+        if: ${{ always() }}
+        run: |
+          if [ "$(date -u +%u)" = "7" ]; then
+            echo "due=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "due=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Weekly encrypted artifact copy (90 din ka bima)
+        if: ${{ always() && steps.weekly.outputs.due == 'true' && steps.final.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
           name: snapshot-${{ github.run_id }}
