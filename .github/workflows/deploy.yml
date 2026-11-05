@@ -30,7 +30,6 @@ jobs:
       EMAIL_HOST_USER: ${{ secrets.EMAIL_HOST_USER }}
       EMAIL_HOST_PASSWORD: ${{ secrets.EMAIL_HOST_PASSWORD }}
       DEFAULT_FROM_EMAIL: ${{ secrets.DEFAULT_FROM_EMAIL }}
-      
       CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
       CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
       CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
@@ -64,17 +63,15 @@ jobs:
       - name: Wait for Previous Workflow Runs to Complete
         env:
           GH_TOKEN: ${{ github.token }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
         run: |
           echo "=========================================="
           echo " CHECKING FOR OLDER ACTIVE PREVIOUS RUNS "
           echo "=========================================="
-          CURRENT_RUN_ID="${{ github.run_id }}"
-          REPO="${{ github.repository }}"
-          BRANCH="${{ github.ref_name }}"
-
           while true; do
-            # jq query correctly structured without inner filter syntax errors
-            OLDER_RUNS=$(gh api "repos/$REPO/actions/runs?branch=$BRANCH&per_page=20"               --jq ".workflow_runs[] | select(.id < $CURRENT_RUN_ID) | select(.status == "in_progress" or .status == "queued") | .id")
+            OLDER_RUNS=$(gh api "repos/$REPO/actions/runs?branch=$BRANCH&per_page=20" --jq ".workflow_runs[] | select(.id < ($CURRENT_RUN_ID | tonumber)) | select(.status == "in_progress" or .status == "queued") | .id" || true)
 
             if [ -n "$OLDER_RUNS" ]; then
               echo "Older workflow run(s) detected: $OLDER_RUNS. Holding this run (ID: $CURRENT_RUN_ID)... Checking again in 10 seconds."
@@ -98,6 +95,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           INPUT_VAL: ${{ github.event.inputs.restore_action }}
           CLIENT_PAYLOAD_FILE: ${{ github.event.client_payload.file }}
+          EVENT_ACTION: ${{ github.event.action }}
         run: |
           echo "=================================================="
           echo " TRIGGER ROUTER EVALUATION "
@@ -106,12 +104,11 @@ jobs:
           TARGET_FILE=""
 
           if [ "$EVENT_NAME" = "repository_dispatch" ]; then
-            ACTION_TYPE="${{ github.event.action }}"
-            if [ "$ACTION_TYPE" = "restore_now" ]; then
+            if [ "$EVENT_ACTION" = "restore_now" ]; then
               RESTORE_REQ="true"
               TARGET_FILE="${CLIENT_PAYLOAD_FILE:-latest}"
               echo "Termux Trigger: Forced Restore Request Received for file '$TARGET_FILE'."
-            elif [ "$ACTION_TYPE" = "backup_now" ]; then
+            elif [ "$EVENT_ACTION" = "backup_now" ]; then
               echo "Termux Trigger: Backup execution requested."
             fi
           elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
@@ -163,7 +160,7 @@ jobs:
               user.is_staff = True
               user.is_superuser = True
               user.save()
-              print(f'CLOUD DB: Superuser '{username}' verified and saved successfully.')
+              print(f"CLOUD DB: Superuser '{username}' verified and saved successfully.")
           "
           echo "--- 2. APPLYING MIGRATIONS & ENSURING SUPERUSER TO LOCAL ---"
           export DB_HOST="127.0.0.1"
@@ -192,7 +189,7 @@ jobs:
               user.is_staff = True
               user.is_superuser = True
               user.save()
-              print(f'LOCAL DB: Superuser '{username}' verified and saved successfully.')
+              print(f"LOCAL DB: Superuser '{username}' verified and saved successfully.")
           "
           curl -d "Forced Django Migrations & Superuser Verification Executed Successfully for Both Cloud & Local! 🚀" ntfy.sh/hshshehgag
           echo "Forced migration & superuser dispatch complete."
@@ -353,7 +350,7 @@ jobs:
               user.is_staff = True
               user.is_superuser = True
               user.save()
-              print(f'CLOUD DB: Superuser '{username}' verified and saved successfully.')
+              print(f"CLOUD DB: Superuser '{username}' verified and saved successfully.")
           "
 
       - name: Sync Migrations & Ensure Superuser on Local DB
@@ -388,7 +385,7 @@ jobs:
               user.is_staff = True
               user.is_superuser = True
               user.save()
-              print(f'LOCAL DB: Superuser '{username}' verified and saved successfully.')
+              print(f"LOCAL DB: Superuser '{username}' verified and saved successfully.")
           "
 
       - name: Process & Place PWA Icons from Project Root
@@ -521,14 +518,13 @@ jobs:
       - name: Realtime HTTP Access Logs & Error Stream
         env:
           GH_TOKEN: ${{ github.token }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
         run: |
           echo "=========================================="
           echo " LIVE HTTP SERVER ACCESS LOGS & ERRORS "
           echo "=========================================="
-          CURRENT_RUN_ID="${{ github.run_id }}"
-          REPO="${{ github.repository }}"
-          BRANCH="${{ github.ref_name }}"
-
           for i in {1..65}; do
             for s in {1..60}; do
               LATEST_RUN_ID=$(gh api "repos/$REPO/actions/runs?branch=$BRANCH&per_page=1" --jq '.workflow_runs[0].id' 2>/dev/null || echo "$CURRENT_RUN_ID")
@@ -547,7 +543,7 @@ jobs:
           done || true
 
       - name: Save Persistent Database Snapshot to GitHub Cache
-        if: ALWAYS()
+        if: always()
         run: |
           echo "=========================================="
           echo " CREATING 101% COMPLETE SNAPSHOT BEFORE EXIT "
@@ -562,7 +558,7 @@ jobs:
           "
 
       - name: Update Global GitHub Cache with Latest Snapshot
-        if: ALWAYS()
+        if: always()
         uses: actions/cache/save@v4
         with:
           path: |
