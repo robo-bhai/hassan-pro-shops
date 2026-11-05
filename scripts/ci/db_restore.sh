@@ -5,6 +5,17 @@ IN="${1:-snapshot}"
 export MYSQL_PWD="$DB_PASS"
 M=(mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -N -B)
 
+# ---- Purane workflow ka local cache (cloud_data_dump.sql.gz) -> ek baar import ----
+if [ ! -f "$IN/snap.tar.enc" ] && [ -f cloud_data_dump.sql.gz ]; then
+  echo "Naya snapshot nahi mila; purane GitHub cache (cloud_data_dump.sql.gz) se load kar raha hoon."
+  gzip -t cloud_data_dump.sql.gz
+  EXISTING=$(mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -N -B -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_NAME'")
+  if [ "$EXISTING" -ne 0 ]; then echo "::error::Target DB khali nahi ($EXISTING tables). Abort."; exit 1; fi
+  gunzip -c cloud_data_dump.sql.gz | mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" "$DB_NAME"
+  echo "Legacy cache load ho gaya. Is run ke aakhir mein naye format ka snapshot ban jayega."
+  exit 0
+fi
+
 if [ ! -f "$IN/snap.tar.enc" ]; then
   if [ "${BOOTSTRAP_EMPTY:-false}" = "true" ]; then
     echo "No snapshot; bootstrap_empty=true -> starting with empty DB"; exit 0
