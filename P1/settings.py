@@ -236,6 +236,10 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'  # sirf purane code ke import ke liye; use nahi hota
 os.makedirs(STATIC_ROOT, exist_ok=True)
 
+# Django 5.1+ ismein STATICFILES_STORAGE ignore karta hai, lekin django-cloudinary-storage ka
+# collectstatic command ise seedha padhta hai (na ho to AttributeError). Isliye lazmi rakhein.
+STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
+
 STORAGES = {
     "default": {
         "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
