@@ -231,12 +231,12 @@ jobs:
           if os.path.exists(CACHE_FILE):
               file_size = os.path.getsize(CACHE_FILE)
               print(f'Found cache file with size: {file_size} bytes')
-              if file_size > 100:
+              if file_size > 1000:
                   print('VALID CACHE FOUND: Restoring latest snapshot into Local DB.')
                   with open('cache_decision.txt', 'w') as f:
                       f.write('USE_CACHE')
               else:
-                  print('Cache file is too small.')
+                  print('Cache file is too small or empty.')
                   with open('cache_decision.txt', 'w') as f:
                       f.write('FRESH_START')
           else:
@@ -347,7 +347,7 @@ jobs:
           RCLONE_REMOTE=$(rclone listremotes | head -n 1)
           TIMESTAMP=$(date +"%d-%m-%y_%H-%M")
           SNAPSHOT_FILENAME="db_snapshot_${TIMESTAMP}.sql.gz.enc"
-          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root --set-gtid-purged=OFF --column-statistics=0 --single-transaction local_django_db | gzip > raw_snapshot.sql.gz
+          mysqldump -h 127.0.0.1 -P 3306 -u root -proot --set-gtid-purged=OFF --column-statistics=0 --single-transaction --databases local_django_db | gzip > raw_snapshot.sql.gz
           python -c "
           import os, base64
           from cryptography.fernet import Fernet
@@ -401,7 +401,7 @@ jobs:
               LATEST_RUN_ID=$(gh api "repos/$REPO/actions/runs?branch=$BRANCH&per_page=1" --jq '.workflow_runs[0].id' 2>/dev/null || echo "$CURRENT_RUN_ID")
               if [ "$LATEST_RUN_ID" -gt "$CURRENT_RUN_ID" ]; then
                 echo "A newer workflow run ($LATEST_RUN_ID) detected! Creating emergency Local DB snapshot before exiting..."
-                MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root --set-gtid-purged=OFF --column-statistics=0 --single-transaction local_django_db | gzip > local_data_dump.sql.gz
+                mysqldump -h 127.0.0.1 -P 3306 -u root -proot --set-gtid-purged=OFF --column-statistics=0 --single-transaction --databases local_django_db | gzip > local_data_dump.sql.gz
                 date +%s > cache_time.txt
                 exit 0
               fi
@@ -417,18 +417,22 @@ jobs:
           echo "=========================================="
           echo " CREATING SAFE LOCAL DB CACHE SNAPSHOT "
           echo "=========================================="
-          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
+          mysqldump -h 127.0.0.1 -P 3306 -u root -proot \
             --set-gtid-purged=OFF \
             --column-statistics=0 \
             --single-transaction \
-            local_django_db | gzip > local_data_dump.sql.gz
+            --databases local_django_db | gzip > local_data_dump.sql.gz
 
           python -c "
           import time, os
           with open('cache_time.txt', 'w') as f:
               f.write(str(time.time()))
-          size = os.path.getsize('local_data_dump.sql.gz')
-          print(f'Generated local_data_dump.sql.gz size: {size} bytes')
+          if os.path.exists('local_data_dump.sql.gz'):
+              size = os.path.getsize('local_data_dump.sql.gz')
+              print(f'Generated local_data_dump.sql.gz size: {size} bytes')
+          else:
+              print('ERROR: Dump file not created!')
+              exit(1)
           "
 
       - name: Save Updated DB Dump & Timestamp to GitHub Cache
