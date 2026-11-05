@@ -36,7 +36,7 @@ try:
     s.connect(("8.8.8.8", 80))
     local_ip = s.getsockname()[0]
     s.close()
-
+    
     if local_ip and local_ip not in ALLOWED_HOSTS and '*' not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append(local_ip)
 except Exception:
@@ -165,16 +165,11 @@ DATABASES = {
         'OPTIONS': {
             'charset': 'utf8mb4',
             'connect_timeout': 10,
-            # Django ko isolation level khud set karne do (backend handles it).
-            # Agar None rakho to Django default (REPEATABLE READ) use karega.
-            # Hum yahan explicitly READ COMMITTED chahte hain isliye Django ko
-            # set karne de rahe hain — lekin init_command mein duplicate SET nahi.
+            # Ek hi valid SET statement (MySQL 8.4): isolation Django ke option se lagta hai.
             'isolation_level': 'read committed',
-            # Sirf sql_mode + timeouts — SESSION TRANSACTION ISOLATION LEVEL
-            # yahan NAHI (Django khud handle karta hai, duplicate = 1064).
             'init_command': (
-                "SET sql_mode='STRICT_TRANS_TABLES';"
-                "SET SESSION innodb_lock_wait_timeout=50"
+                "SET sql_mode='STRICT_TRANS_TABLES', "
+                "SESSION innodb_lock_wait_timeout=50"
             ),
         },
     }
