@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% block title %}Store Issues - {{ company_name }}{% endblock %}
+{% block extra_css %}{% include 'store_issue/_styles.html' %}{% endblock %}
+{% block content %}
+<div class="container-fluid px-4 py-4 si-page">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+    <div>
+      <h1 class="h3 mb-1"><i class="bi bi-box-arrow-up text-primary me-2"></i>Store Issues</h1>
+      <p class="text-muted small mb-0">Stock issued inside the company (not a sale)</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a href="{% url 'store_dashboard' %}" class="btn btn-outline-secondary rounded-pill px-3"><i class="bi bi-buildings me-1"></i>Stores</a>
+      <a href="{% url 'store_issue_report' %}" class="btn btn-outline-secondary rounded-pill px-3"><i class="bi bi-bar-chart me-1"></i>Report</a>
+      {% if can_issue %}<a href="{% url 'store_issue_create' %}" class="btn btn-primary rounded-pill px-4"><i class="bi bi-plus-lg me-1"></i>New Issue</a>{% endif %}
+    </div>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-sm-6"><div class="si-card si-kpi"><div class="ico bg-primary bg-opacity-10 text-primary"><i class="bi bi-receipt"></i></div>
+      <div><div class="lbl">Issues (issued)</div><div class="val">{{ total_count }}</div></div></div></div>
+    <div class="col-sm-6"><div class="si-card si-kpi"><div class="ico bg-warning bg-opacity-10 text-warning"><i class="bi bi-cash-stack"></i></div>
+      <div><div class="lbl">Total cost</div><div class="val">Rs. {{ total_cost|floatformat:2 }}</div></div></div></div>
+  </div>
+
+  <form method="get" class="si-card p-3 mb-3">
+    <div class="row g-2 align-items-end">
+      <div class="col-lg-3 col-md-6"><label class="form-label small mb-1">Search</label>
+        <input type="search" name="q" value="{{ f.q }}" class="form-control" placeholder="Issue #, receiver, item..."></div>
+      <div class="col-lg-2 col-md-6"><label class="form-label small mb-1">Store</label>
+        <select name="store" class="form-select"><option value="">All</option>
+          {% for s in stores %}<option value="{{ s.pk }}" {% if f.store == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>{% endfor %}</select></div>
+      <div class="col-lg-2 col-md-6"><label class="form-label small mb-1">Type</label>
+        <select name="type" class="form-select"><option value="">All</option>
+          {% for k,v in issue_types %}<option value="{{ k }}" {% if f.type == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
+      <div class="col-lg-2 col-md-6"><label class="form-label small mb-1">Department</label>
+        <select name="department" class="form-select"><option value="">All</option>
+          {% for d in departments %}<option value="{{ d.pk }}" {% if f.department == d.pk|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select></div>
+      <div class="col-lg-1 col-md-4"><label class="form-label small mb-1">Status</label>
+        <select name="status" class="form-select"><option value="">All</option>
+          <option value="issued" {% if f.status == 'issued' %}selected{% endif %}>Issued</option>
+          <option value="cancelled" {% if f.status == 'cancelled' %}selected{% endif %}>Cancelled</option></select></div>
+      <div class="col-lg-1 col-md-4 col-6"><label class="form-label small mb-1">From</label><input type="date" name="from" value="{{ f.from }}" class="form-control"></div>
+      <div class="col-lg-1 col-md-4 col-6"><label class="form-label small mb-1">To</label><input type="date" name="to" value="{{ f.to }}" class="form-control"></div>
+    </div>
+    <div class="d-flex gap-2 mt-3">
+      <button class="btn btn-primary btn-sm px-3"><i class="bi bi-funnel me-1"></i>Filter</button>
+      {% if filters_active %}<a href="{% url 'store_issue_list' %}" class="btn btn-outline-secondary btn-sm px-3">Clear</a>{% endif %}
+    </div>
+  </form>
+
+  <div class="si-card">
+    <div class="table-responsive">
+      <table class="table table-hover si-table align-middle mb-0">
+        <thead><tr><th>Issue #</th><th>Date</th><th>Store</th><th>Type</th><th>To</th><th class="si-num">Items</th><th class="si-num">Cost</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+        {% for i in page_obj %}
+          <tr>
+            <td><a href="{% url 'store_issue_detail' i.pk %}" class="fw-semibold text-decoration-none">{{ i.issue_no }}</a></td>
+            <td class="small text-nowrap">{{ i.issue_date|date:"d M Y h:i A" }}</td>
+            <td>{{ i.from_warehouse.name }}</td>
+            <td class="small">{{ i.get_issue_type_display }}</td>
+            <td>{% if i.department %}{{ i.department.name }}{% endif %}{% if i.received_by %}<div class="small text-muted">{{ i.received_by }}</div>{% endif %}</td>
+            <td class="si-num">{{ i.item_count }}</td>
+            <td class="si-num">{{ i.total_cost|floatformat:2 }}</td>
+            <td><span class="si-badge {{ i.status }}">{{ i.get_status_display }}</span></td>
+            <td class="text-end text-nowrap">
+              <a href="{% url 'store_issue_detail' i.pk %}" class="btn btn-sm btn-outline-primary rounded-circle" title="View"><i class="bi bi-eye"></i></a>
+              <a href="{% url 'store_issue_print' i.pk %}" target="_blank" class="btn btn-sm btn-outline-secondary rounded-circle" title="Print"><i class="bi bi-printer"></i></a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="9"><div class="si-empty"><i class="bi bi-inbox"></i>No issues found</div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if page_obj.has_other_pages %}
+    <div class="d-flex justify-content-between align-items-center p-3 border-top">
+      <span class="small text-muted">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+      <div class="btn-group">
+        {% if page_obj.has_previous %}<a class="btn btn-sm btn-outline-secondary" href="?{{ qs }}{% if qs %}&{% endif %}page={{ page_obj.previous_page_number }}">Prev</a>{% endif %}
+        {% if page_obj.has_next %}<a class="btn btn-sm btn-outline-secondary" href="?{{ qs }}{% if qs %}&{% endif %}page={{ page_obj.next_page_number }}">Next</a>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

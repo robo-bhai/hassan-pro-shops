@@ -12,7 +12,7 @@
     }
     
     body {
-        padding-bottom: 90px !important;
+        padding-bottom: 20px !important;
     }
 </style>
 
@@ -51,86 +51,6 @@
             {% endif %}
         </div>
     </div>
-
-    {% if is_store_order %}
-    <div class="alert alert-light border mb-3">
-        <b><i class="bi bi-shop"></i> {{ store_name }}</b>
-        {% if order.status == 'confirmed' and order.prep_minutes %}
-            <span class="d-block small text-muted">Store ne order qubool kar liya &middot; tayyar hone mein ~{{ order.prep_minutes }} minute</span>
-        {% elif order.status == 'ready' %}
-            <span class="d-block small text-success">Aap ka maal tayyar hai 📦</span>
-        {% elif order.status == 'pending' %}
-            <span class="d-block small text-muted">Store ke jawab ka intezar hai...</span>
-        {% endif %}
-    </div>
-    {% endif %}
-
-    {% if store_rejected %}
-    <div class="card border-danger shadow-sm mb-4">
-        <div class="card-body">
-            <h6 class="fw-bold text-danger mb-2">❌ {{ store_name }} ne order qubool nahi kiya</h6>
-            <p class="mb-2"><b>Wajah:</b> {{ order.reject_reason }}</p>
-            <p class="mb-0 small text-muted">💰 {{ refund_note }}</p>
-            {% if suggested_stores %}
-            <hr>
-            <div class="fw-bold mb-2">Aap in stores se order kar sakte hain:</div>
-            <div class="d-flex flex-column gap-2">
-                {% for st in suggested_stores %}
-                <a href="{% url 'store_detail' st.pk %}" class="btn btn-outline-primary text-start">
-                    <i class="bi bi-shop"></i> {{ st.business_name }}
-                    <span class="small text-muted">&middot; {{ st.delivery_time_min }}-{{ st.delivery_time_max }} min{% if st.min_order_amount > 0 %} &middot; Min Rs. {{ st.min_order_amount|floatformat:0 }}{% endif %}</span>
-                </a>
-                {% endfor %}
-            </div>
-            {% endif %}
-            <a href="{% url 'store_list' %}" class="btn btn-link px-0 mt-2">Saare stores dekhein</a>
-        </div>
-    </div>
-    {% endif %}
-
-    {% if review_rider or rider_di %}
-    {% if rider_di.rider %}
-    <div class="card border-0 shadow-sm mb-3"><div class="card-body py-3">
-        🏍️ <b>Rider:</b> {{ rider_di.rider.name }}
-        <a href="tel:{{ rider_di.rider.phone }}" class="ms-2">📞 {{ rider_di.rider.phone }}</a>
-    </div></div>
-    {% endif %}
-    {% endif %}
-
-    {% if can_review %}
-    <style>
-      .rv-stars{display:inline-flex;flex-direction:row-reverse;gap:2px}
-      .rv-stars input{display:none}
-      .rv-stars label{font-size:34px;color:#d1d5db;cursor:pointer;line-height:1}
-      .rv-stars input:checked ~ label,.rv-stars label:hover,.rv-stars label:hover ~ label{color:#f59e0b}
-    </style>
-    <div class="card border-0 shadow-sm mb-4"><div class="card-body">
-      <h5 class="mb-3">⭐ Apna tajurba bataein</h5>
-      <form method="post" action="{% url 'rate_order' order.id %}">{% csrf_token %}
-        {% if is_store_order %}
-        <div class="mb-3">
-          <div class="fw-semibold mb-1">🏪 {{ store_name }}</div>
-          <div class="rv-stars">{% for i in "54321" %}<input type="radio" id="vr{{ i }}" name="vendor_rating" value="{{ i }}"><label for="vr{{ i }}">★</label>{% endfor %}</div>
-          <input class="form-control mt-2" name="vendor_comment" maxlength="300" placeholder="Maal/store ke bare mein likhein (optional)">
-        </div>
-        {% endif %}
-        {% if review_rider %}
-        <div class="mb-3">
-          <div class="fw-semibold mb-1">🏍️ Rider: {{ review_rider.name }}</div>
-          <div class="rv-stars">{% for i in "54321" %}<input type="radio" id="rr{{ i }}" name="rider_rating" value="{{ i }}"><label for="rr{{ i }}">★</label>{% endfor %}</div>
-          <input class="form-control mt-2" name="rider_comment" maxlength="300" placeholder="Delivery ke bare mein likhein (optional)">
-        </div>
-        {% endif %}
-        <button class="btn btn-primary w-100">Rating bhejein</button>
-      </form>
-    </div></div>
-    {% elif review %}
-    <div class="card border-0 shadow-sm mb-4"><div class="card-body">
-      <h6 class="mb-2">⭐ Aap ki rating</h6>
-      {% if review.vendor_rating %}<div>🏪 {{ store_name }}: <b style="color:#f59e0b">{{ review.vendor_rating }}/5 ★</b>{% if review.vendor_comment %} — {{ review.vendor_comment }}{% endif %}</div>{% endif %}
-      {% if review.rider_rating %}<div>🏍️ Rider: <b style="color:#f59e0b">{{ review.rider_rating }}/5 ★</b>{% if review.rider_comment %} — {{ review.rider_comment }}{% endif %}</div>{% endif %}
-    </div></div>
-    {% endif %}
 
     <!-- Status Timeline -->
     {% if order.status != 'cancelled' %}
@@ -198,22 +118,16 @@
                                         </div>
                                     </td>
                                     <td class="text-center">{{ item.qty }}</td>
-                                    <td class="text-end">Rs. {{ item.price|floatformat:0 }}</td>
-                                    <td class="text-end fw-bold">Rs. {{ item.total_amt|floatformat:0 }}</td>
+                                    <td class="text-end">Rs. {{ item.price|floatformat:2 }}</td>
+                                    <td class="text-end fw-bold">Rs. {{ item.total_amt|floatformat:2 }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                             <tfoot class="table-light">
-                                {% if is_store_order %}
-                                <tr>
-                                    <td colspan="3" class="text-end">Delivery fee:</td>
-                                    <td class="text-end">Rs. {{ order.delivery_fee|floatformat:0 }}</td>
-                                </tr>
-                                {% endif %}
                                 <tr>
                                     <td colspan="3" class="text-end fw-bold">Total:</td>
                                     <td class="text-end fw-bold text-success fs-5">
-                                        Rs. {% if is_store_order %}{{ grand_total|floatformat:0 }}{% else %}{{ total_amount|floatformat:2 }}{% endif %}
+                                        Rs. {{ total_amount|floatformat:2 }}
                                     </td>
                                 </tr>
                             </tfoot>
@@ -262,7 +176,7 @@
             {% endif %}
 
             <!-- Cancel Button -->
-            {% if order.status == 'pending' or order.status == 'confirmed' and not order.vendor_id %}
+            {% if order.status == 'pending' or order.status == 'confirmed' %}
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
                     <button type="button" 
@@ -336,7 +250,7 @@
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: #f3f5ff;
+    background: #f8f9fc;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -380,10 +294,6 @@
         margin-bottom: 15px;
     }
 }
-
-    body { background: #f3f5ff; }
-    .card { border-radius: 20px; border: 0; box-shadow: 0 6px 20px rgba(0,0,0,.06); }
-    .timeline-icon { box-shadow: 0 3px 8px rgba(37, 99, 235,.25); }
 </style>
 
 <script>
@@ -416,11 +326,4 @@ function confirmCancel() {
 }
 </script>
 
-
-<nav class="app-bottom-nav" aria-label="Quick navigation">
-    <a href="{% url 'shop_home' %}"><i class="bi bi-house-door-fill"></i>Home</a>
-    <a href="{% url 'store_list' %}"><i class="bi bi-shop"></i>Stores</a>
-    <a href="{% url 'my_orders' %}" class="active"><i class="bi bi-receipt"></i>Orders</a>
-    <a href="{% url 'cart_view' %}"><i class="bi bi-cart3"></i>Cart</a>
-</nav>
 {% endblock %}

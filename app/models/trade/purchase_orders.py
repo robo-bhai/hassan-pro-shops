@@ -226,6 +226,9 @@ class GoodsReceivedItem(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     total_amt = models.DecimalField(max_digits=15, decimal_places=2, editable=False, default=Decimal('0.0'))
     notes = models.CharField(max_length=255, blank=True, null=True, verbose_name="Remarks")
+    # [agri-edition:grn-fields] batch / expiry noted at receiving, copied to the Purchase on convert
+    batch_no = models.CharField(max_length=50, null=True, blank=True)
+    expiry_date = models.DateField(null=True, blank=True)
     
     class Meta:
         verbose_name_plural = '4.2.1 Goods Received Items'

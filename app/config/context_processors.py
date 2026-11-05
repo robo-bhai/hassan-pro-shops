@@ -5,7 +5,7 @@ from ..models import SystemSetting, Purchase, ShareholderDepositRequest, Shareho
 
 def _company_branding():
     """Company name and logo (for the sidebar etc.)."""
-    company = CompanyInfo.objects.only("name", "logo", "tagline", "contact_number", "email", "website").first()
+    company = CompanyInfo.objects.only("name", "logo").first()
     logo_url = None
     if company and company.logo:
         try:
@@ -16,22 +16,19 @@ def _company_branding():
         "company_logo": logo_url,
         "company_name": company.name if company else "ERP System",
         "company_tagline": company.tagline if company and company.tagline else "",
-        # Shop sidebar SUPPORT section (har page par available, sirf kuch views par nahi)
-        "company_contact_number": company.contact_number if company and company.contact_number else "",
-        "company_email": company.email if company and company.email else "",
-        "company_website": company.website if company and company.website else "",
     }
 
 
 # ----------------------------------------------------------------------------
-# MODULE VISIBILITY
-# Factory mode was removed: the business mode is always 'shop' and only the Shop switch of each module counts.
-# (The old mode_factory_* rows are ignored.) No module is hidden until you turn its switch off.
+# MODULE VISIBILITY (per business unit)
+# Each module has 2 switches: Shop and Factory.
+#   mode = shop    -> only the Shop switches are considered
+#   mode = factory -> only the Factory switches are considered
+#   mode = both    -> the module shows when it is ON in Shop OR Factory
+# No module is hidden until you turn its switch off (there is no fixed rule).
 # ----------------------------------------------------------------------------
 from ..module_config.module_catalog import MODULE_CATALOG, get_module_catalog, get_module_keys
 from ..i18n.i18n_lang import LANGUAGES, get_language
-
-from ..lite_edition import is_lite
 
 MODULES = [m['key'] for m in MODULE_CATALOG]
 
@@ -50,17 +47,22 @@ def module_visibility():
     """{module: True/False, '_mode': mode} - 60 second cache, cleared immediately on save."""
     data = cache.get('module_visibility')
     if data is None:
-        mode = 'shop'                      # Factory mode removed: only the Shop switches apply
+        mode = SystemSetting.get_value('business_mode', 'both')
+        if mode not in ('shop', 'factory', 'both'):
+            mode = 'both'
         data = {'_mode': mode}
         for m in get_module_keys():
-            data[m] = unit_enabled(m, 'shop')
+            shop, fac = unit_enabled(m, 'shop'), unit_enabled(m, 'factory')
+            data[m] = shop if mode == 'shop' else fac if mode == 'factory' else (shop or fac)
         cache.set('module_visibility', data, 60)
     return data
 
 
 def system_settings(request):
     """Context processor to make system settings available in all templates"""
+    from ..store.store_access import module_scope, restrict_visibility
     user = getattr(request, 'user', None)
+    store_scope = module_scope(user)                 # None = no restriction
     _lang = get_language(request)
     _i18n_ver = ''
     if _lang['code'] != 'en':
@@ -71,13 +73,7 @@ def system_settings(request):
         except Exception:
             _i18n_ver = ''
     _i18n_collect = bool(getattr(user, 'is_authenticated', False) and (user.is_superuser or user.is_staff))
-    vis = module_visibility()
-    # Administrator (superuser) always sees every module. The Module Settings switches only limit the
-    # customer side (Owner + staff), so the sidebar flags below are all True for the Administrator.
-    if getattr(user, 'is_superuser', False):
-        vis = {k: (v if k == '_mode' else True) for k, v in vis.items()}
-    _is_owner = bool(getattr(user, 'is_authenticated', False)
-                     and user.groups.filter(name='Owner').exists())
+    vis = restrict_visibility(user, module_visibility())
 
     # Cache counts for 5 minutes to improve performance
     cache_key = 'sidebar_counts'
@@ -122,19 +118,17 @@ def system_settings(request):
         # MODULE SETTINGS                            #
         # ========================================== #
         'BUSINESS_MODE': vis['_mode'],
-        # Lite Edition (simple Urdu-first mode): templates use {% if LITE_MODE %}
-        'LITE_MODE': is_lite(),
-        # Owner of the customer account (sidebar: Security section is for Administrator / Owner only)
-        'IS_OWNER': _is_owner,
         # ===== LANGUAGE (en / ur / ar) =====
         'LANG_CODE': _lang['code'], 'LANG_DIR': _lang['dir'], 'LANG_LABEL': _lang['native'],
         'LANGUAGES': LANGUAGES,
         'I18N_VERSION': _i18n_ver, 'I18N_COLLECT': _i18n_collect,
+        # True = this user is a member of a store's team: the sidebar shows only that store's modules
+        'STORE_RESTRICTED': store_scope is not None,
         # templates me: {% if MODULE_VISIBLE.loans %} ya {% if SHOW_LOANS_MODULE %}
         'MODULE_VISIBLE': {k: v for k, v in vis.items() if k != '_mode'},
         # Sidebar links for newly auto-detected modules (the ones that are ON)
         'AUTO_MODULES': [m for m in get_module_catalog()
-                         if m.get('auto') and vis.get(m["key"], True)],
+                         if m.get('auto') and vis.get(m['key'], True) and not store_scope],
         **{'SHOW_%s_MODULE' % k.upper(): v for k, v in vis.items() if k != '_mode'},
 
         # ========================================== #

@@ -16,7 +16,7 @@
     shareholder/ shareholders, certificates, share_transfers, meetings, terms, support_tickets,
                registration_requests, cash_balances, cash_requests, cash_deductions, cash_reports,
                shareholder_portal, dividends
-    inventory/ products, warehouses, production
+    inventory/ products, warehouses, store_issue, store_transfer, store_ops, production
     people/    hr, users
     ai/        ai_insights, operations, ai_purchasing, cash_ai, shareholder_ai, board_cso
     system/    dashboard, dashboard_extras, reports, notifications, chat, backup, audit,
@@ -30,14 +30,14 @@
 - models/trade/      customers, sales, sale_orders, sale_returns, installments, targets,
                      vendors, purchases, purchase_orders, purchase_returns, monthly_plans,
                      customer_portal, delivery, pos_shift, supply_chain, services
-- models/inventory/  catalog, production
+- models/inventory/  catalog, store_issue, store_ops, store_transfer, production
 - models/people/     hr, shareholders, shares, dividends, drip, cash, loans, discounts
 - models/ai_bi/      insights, operations, purchase_ai, cash_ai, shareholder_ai, board, cso_tech, bi
 - models/system/     core, security, documents, translation, constants, audit_qa
 
 ## Naye import
 from app.ledger import posting_core
-from app import report_exports
+from app.store import store_access
 from app.models import Product              # pehle jaisa
 Naya view/model add karne par: file sahi group mein rakho aur __init__.py ki _MODULES list mein
 "group.file" likho (models/ aur views_frontend/ dono mein).

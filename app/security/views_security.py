@@ -16,13 +16,12 @@ from app.utils.security import (
 )
 from django.contrib.auth.models import User
 from django.db.models import Q
-from app.module_gate import can_use_security
 
 
 @login_required
 def security_dashboard(request):
     """Security dashboard"""
-    if not can_use_security(request.user):
+    if not request.user.is_superuser:
         messages.error(request, 'Access denied!')
         return redirect('dashboard')
     
@@ -47,7 +46,7 @@ def security_dashboard(request):
 @login_required
 def security_settings_view(request):
     """View and update security settings"""
-    if not can_use_security(request.user):
+    if not request.user.is_superuser:
         messages.error(request, 'Access denied!')
         return redirect('dashboard')
     
@@ -139,7 +138,7 @@ def two_factor_verify(request):
 @login_required
 def ip_whitelist_view(request):
     """View and manage IP whitelist"""
-    if not can_use_security(request.user):
+    if not request.user.is_superuser:
         messages.error(request, 'Access denied!')
         return redirect('dashboard')
     
@@ -162,7 +161,7 @@ def ip_whitelist_view(request):
 @login_required
 def ip_blacklist_view(request):
     """View and manage IP blacklist"""
-    if not can_use_security(request.user):
+    if not request.user.is_superuser:
         messages.error(request, 'Access denied!')
         return redirect('dashboard')
     
@@ -195,7 +194,7 @@ def ip_blacklist_view(request):
 @login_required
 def security_logs(request):
     """View security logs"""
-    if not can_use_security(request.user):
+    if not request.user.is_superuser:
         messages.error(request, 'Access denied!')
         return redirect('dashboard')
     
@@ -227,7 +226,7 @@ def security_logs(request):
 @login_required
 def security_alerts_view(request):
     """View security alerts"""
-    if not can_use_security(request.user):
+    if not request.user.is_superuser:
         messages.error(request, 'Access denied!')
         return redirect('dashboard')
     
@@ -266,7 +265,7 @@ def security_alerts_view(request):
 @login_required
 def api_key_management(request):
     """Manage API keys"""
-    if not can_use_security(request.user):
+    if not request.user.is_superuser:
         messages.error(request, 'Access denied!')
         return redirect('dashboard')
     

@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Approvals - {{ company_name }}{% endblock %}
+{% block extra_css %}{% include 'store_issue/_styles.html' %}{% include 'store_issue/_styles_ops.html' %}{% endblock %}
+{% block content %}
+<div class="container-fluid px-4 py-4 si-page">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <div><h1 class="h3 mb-1"><i class="bi bi-check2-square text-primary me-2"></i>Issue Approvals</h1>
+      <p class="text-muted small mb-0">{{ setting.get_approval_mode_display }}{% if setting.approval_mode == 'above_limit' %} (Rs. {{ setting.approval_limit }}){% endif %}</p></div>
+    <a href="{% url 'store_issue_list' %}" class="btn btn-outline-secondary rounded-pill px-3">All Issues</a>
+  </div>
+  {% if waiting_count %}<div class="alert alert-warning border-0"><b>{{ waiting_count }}</b> request(s) waiting for your approval.</div>{% endif %}
+  <div class="btn-group mb-3">
+    <a class="btn btn-sm {% if status == 'pending' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?status=pending">Pending</a>
+    <a class="btn btn-sm {% if status == 'approved' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?status=approved">Approved</a>
+    <a class="btn btn-sm {% if status == 'rejected' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?status=rejected">Rejected</a>
+    <a class="btn btn-sm {% if status == 'cancelled' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?status=cancelled">Cancelled</a>
+  </div>
+  <div class="si-card"><div class="table-responsive">
+    <table class="table table-hover si-table align-middle mb-0">
+      <thead><tr><th>Request #</th><th>Date</th><th>Store</th><th>Type</th><th>Requested by</th><th class="si-num">Items</th><th class="si-num">Andaazi cost</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for r in page_obj %}
+        <tr><td><a href="{% url 'store_request_detail' r.pk %}" class="fw-semibold text-decoration-none">{{ r.request_no }}</a></td>
+          <td class="small text-nowrap">{{ r.requested_at|date:"d M Y h:i A" }}</td><td>{{ r.from_warehouse.name }}</td><td class="small">{{ r.get_issue_type_label }}</td>
+          <td>{{ r.requested_by.get_username|default:"-" }}</td><td class="si-num">{{ r.item_count }}</td><td class="si-num">{{ r.est_cost|floatformat:2 }}</td>
+          <td><span class="si-badge {{ r.status }}">{{ r.get_status_display }}</span></td></tr>
+      {% empty %}<tr><td colspan="8"><div class="si-empty"><i class="bi bi-inbox"></i>No requests</div></td></tr>{% endfor %}
+      </tbody></table></div>
+    {% if page_obj.has_other_pages %}<div class="d-flex justify-content-between p-3 border-top"><span class="small text-muted">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+      <div class="btn-group">{% if page_obj.has_previous %}<a class="btn btn-sm btn-outline-secondary" href="?status={{ status }}&page={{ page_obj.previous_page_number }}">Prev</a>{% endif %}
+      {% if page_obj.has_next %}<a class="btn btn-sm btn-outline-secondary" href="?status={{ status }}&page={{ page_obj.next_page_number }}">Next</a>{% endif %}</div></div>{% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -5,22 +5,10 @@ from django.utils.html import format_html
 from django.utils.timezone import now
 
 
-@admin.register(StoreCategory, site=admin.site)
-class StoreCategoryAdmin(admin.ModelAdmin):
-    list_display = ('icon', 'name', 'sort_order', 'is_active', 'store_count')
-    list_display_links = ('icon', 'name')
-    list_editable = ('sort_order', 'is_active')
-    search_fields = ('name',)
-
-    @admin.display(description='Stores')
-    def store_count(self, obj):
-        return obj.stores.count()
-
-
 @admin.register(VendorProfile, site=admin.site)
 class VendorProfileAdmin(admin.ModelAdmin):
-    list_display = ('business_name', 'vendor', 'user', 'city', 'store_category', 'is_approved', 'store_status', 'created_at', 'last_login_at')
-    list_filter = ('is_approved', 'store_status', 'store_category', 'city')
+    list_display = ('business_name', 'vendor', 'user', 'city', 'is_approved', 'store_status', 'created_at', 'last_login_at')
+    list_filter = ('is_approved', 'store_status', 'city')
     search_fields = ('business_name', 'vendor__name', 'vendor__contact_number', 'user__email')
     readonly_fields = ('vendor', 'user', 'approved_at', 'last_login_at', 'created_at')
     actions = ['approve_accounts', 'suspend_accounts']

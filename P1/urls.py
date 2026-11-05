@@ -29,8 +29,7 @@ urlpatterns = [
     path('logout-redirect/', lambda request: redirect('/login/'), name='logout_redirect'),
 ]
 
-# Force-serve media and static files in CI/CD Runner & Cloudflare Tunnel
+# Force-serve static files (media Cloudinary se aati hai) in CI/CD Runner & Cloudflare Tunnel
 urlpatterns += [
-    re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
     re_path(r'^static/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT}),
 ]

@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block title %}Store Transfers - {{ company_name }}{% endblock %}
+{% block extra_css %}{% include 'store_issue/_styles.html' %}
+<style>.si-badge.in_transit{background:rgba(217,119,6,.14);color:#b45309}.si-badge.received{background:rgba(5,150,105,.12);color:#047857}</style>{% endblock %}
+{% block content %}
+<div class="container-fluid px-4 py-4 si-page">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+    <div><h1 class="h3 mb-1"><i class="bi bi-arrow-left-right text-primary me-2"></i>Store Transfers</h1>
+      <p class="text-muted small mb-0">Send goods from one store to another and receive them there</p></div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a href="{% url 'store_receipts' %}" class="btn btn-outline-secondary rounded-pill px-3"><i class="bi bi-box-arrow-in-down me-1"></i>Receipts</a>
+      {% if can_send %}<a href="{% url 'store_transfer_create' %}" class="btn btn-primary rounded-pill px-4"><i class="bi bi-send me-1"></i>New Transfer</a>{% endif %}
+    </div>
+  </div>
+
+  {% if waiting_count %}
+  <div class="alert alert-warning border-0 d-flex align-items-center gap-2">
+    <i class="bi bi-hourglass-split fs-5"></i>
+    <div><b>{{ waiting_count }}</b> transfer(s) on the way to your store, still to be received.
+      <a href="?status=in_transit" class="ms-1">Dekhein</a></div>
+  </div>
+  {% endif %}
+
+  <form method="get" class="si-card p-3 mb-3"><div class="row g-2 align-items-end">
+    <div class="col-lg-3 col-md-6"><label class="form-label small mb-1">Search</label>
+      <input type="search" name="q" value="{{ f.q }}" class="form-control" placeholder="Transfer # ya item"></div>
+    <div class="col-lg-2 col-md-6"><label class="form-label small mb-1">Status</label>
+      <select name="status" class="form-select"><option value="">All</option>
+        <option value="in_transit" {% if f.status == 'in_transit' %}selected{% endif %}>In transit</option>
+        <option value="received" {% if f.status == 'received' %}selected{% endif %}>Received</option>
+        <option value="cancelled" {% if f.status == 'cancelled' %}selected{% endif %}>Cancelled</option></select></div>
+    <div class="col-lg-3 col-md-6"><label class="form-label small mb-1">Store (bheja ya mila)</label>
+      <select name="store" class="form-select"><option value="">All</option>
+        {% for s in stores %}<option value="{{ s.pk }}" {% if f.store == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>{% endfor %}</select></div>
+    <div class="col-lg-2 col-6"><label class="form-label small mb-1">From</label><input type="date" name="from" value="{{ f.from }}" class="form-control"></div>
+    <div class="col-lg-2 col-6"><label class="form-label small mb-1">To</label><input type="date" name="to" value="{{ f.to }}" class="form-control"></div>
+  </div>
+  <div class="d-flex gap-2 mt-3"><button class="btn btn-primary btn-sm px-3"><i class="bi bi-funnel me-1"></i>Filter</button>
+    {% if filters_active %}<a href="{% url 'store_transfer_list' %}" class="btn btn-outline-secondary btn-sm px-3">Clear</a>{% endif %}</div></form>
+
+  <div class="si-card"><div class="table-responsive">
+    <table class="table table-hover si-table align-middle mb-0">
+      <thead><tr><th>Transfer #</th><th>Date</th><th>From</th><th></th><th>To</th><th class="si-num">Items</th><th class="si-num">Cost</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+      {% for t in page_obj %}
+        <tr>
+          <td><a href="{% url 'store_transfer_detail' t.pk %}" class="fw-semibold text-decoration-none">{{ t.transfer_no }}</a></td>
+          <td class="small text-nowrap">{{ t.transfer_date|date:"d M Y h:i A" }}</td>
+          <td>{{ t.from_warehouse.name }}</td><td class="text-muted"><i class="bi bi-arrow-right"></i></td><td>{{ t.to_warehouse.name }}</td>
+          <td class="si-num">{{ t.item_count }}</td><td class="si-num">{{ t.total_cost|floatformat:2 }}</td>
+          <td><span class="si-badge {{ t.status }}">{{ t.get_status_display }}</span></td>
+          <td class="text-end text-nowrap">
+            {% if t.can_receive %}<a href="{% url 'store_transfer_detail' t.pk %}" class="btn btn-sm btn-success rounded-pill px-3">Receive</a>{% endif %}
+            <a href="{% url 'store_transfer_print' t.pk %}" target="_blank" class="btn btn-sm btn-outline-secondary rounded-circle" title="Print"><i class="bi bi-printer"></i></a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="9"><div class="si-empty"><i class="bi bi-inbox"></i>No transfers found</div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% if page_obj.has_other_pages %}
+    <div class="d-flex justify-content-between align-items-center p-3 border-top"><span class="small text-muted">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+      <div class="btn-group">
+        {% if page_obj.has_previous %}<a class="btn btn-sm btn-outline-secondary" href="?{{ qs }}{% if qs %}&{% endif %}page={{ page_obj.previous_page_number }}">Prev</a>{% endif %}
+        {% if page_obj.has_next %}<a class="btn btn-sm btn-outline-secondary" href="?{{ qs }}{% if qs %}&{% endif %}page={{ page_obj.next_page_number }}">Next</a>{% endif %}
+      </div></div>{% endif %}
+  </div>
+</div>
+{% endblock %}

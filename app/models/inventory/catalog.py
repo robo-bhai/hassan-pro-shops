@@ -2,7 +2,6 @@
 from django.db import models
 from django.db import transaction
 from django.core.exceptions import ValidationError
-from django.core.validators import MinValueValidator
 from decimal import Decimal
 from datetime import datetime
 from datetime import timedelta
@@ -40,12 +39,6 @@ class Brand(models.Model):
 # Category model to store category details
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
-    min_margin_percent = models.DecimalField(
-        max_digits=6, decimal_places=2, null=True, blank=True,
-        validators=[MinValueValidator(0)],
-        verbose_name='Minimum margin %',
-        help_text='Lowest profit (as % of cost) allowed for products of this category. '
-                  'Empty = use the company rule (Settings > Pricing). 0 = no minimum for this category.')
 
     class Meta:
         verbose_name_plural = '1.2 Product Category'
@@ -106,6 +99,11 @@ class Product(models.Model):
         help_text="Product ki tasveer"
     )
     used = models.TextField(null=True, blank=True)
+    # [agri-edition:product-fields] fertilizer / pesticide / seed details
+    active_ingredient = models.CharField(max_length=150, null=True, blank=True, help_text="e.g. Imidacloprid 20% SL, or NPK 18-46-0")
+    registration_no = models.CharField(max_length=60, null=True, blank=True, help_text="DPP / department registration number")
+    pack_size = models.CharField(max_length=40, null=True, blank=True, help_text="e.g. 50 kg bag, 250 ml bottle")
+    target_crops = models.CharField(max_length=150, null=True, blank=True, help_text="Crops it is used on")
     unit = models.ForeignKey(Unit, on_delete=models.SET_NULL, null=True, blank=True, related_name="products")
     brand = models.ForeignKey(Brand, on_delete=models.SET_NULL, null=True, blank=True, related_name="products")
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name="products")
@@ -131,20 +129,6 @@ class Product(models.Model):
     # ✅ ADD THIS FIELD - Product Active/Inactive Status
     is_active = models.BooleanField(default=True, verbose_name=_("Is Active"), help_text="Uncheck to deactivate product")
     
-    # Vendor portal: kaun sa vendor ye product shop par list kar raha hai
-    vendor = models.ForeignKey(
-        'Vendor', on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='listed_products', verbose_name=_("Listed by Vendor")
-    )
-    approval_status = models.CharField(
-        max_length=10,
-        choices=[('approved', 'Approved'), ('pending', 'Pending'), ('rejected', 'Rejected')],
-        default='approved',
-        verbose_name=_("Approval Status"),
-        help_text="Vendor ke products pending se shuru hote hain; approve hone par shop par nazar aate hain"
-    )
-    rejection_reason = models.CharField(max_length=200, blank=True, default='')
-
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
@@ -325,7 +309,8 @@ class WarehouseTransfer(models.Model):
                 warehouse=self.to_warehouse,
                 price=batch.price,
                 purchase_item=batch.purchase_item,
-                defaults={'qty': qty_in_batch, 'remaining_qty': qty_in_batch}
+                defaults={'qty': qty_in_batch, 'remaining_qty': qty_in_batch,
+                          'batch_no': batch.batch_no, 'expiry_date': batch.expiry_date}  # [agri-edition:transfer]
             )
             if not created:
                 # If batch already exists in the target warehouse, increment its quantities
@@ -484,17 +469,15 @@ class GroupSummary(models.Model):
 
 # StockBatch model for managing FIFO stock batches
 # StockBatch model for managing FIFO stock batches
-# Quantities are floats, so 0.1 + 0.2 style leftovers (e.g. 0.0000001) can remain in a batch.
-# Anything this small counts as "nothing left" (same value as utils.batch_age.STOCK_EPS).
-STOCK_EPS = 0.0001
-
-
 class StockBatch(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, db_index=True)
     qty = models.FloatField()
     price = models.DecimalField(max_digits=10, decimal_places=2)  # Purchase price
     remaining_qty = models.FloatField()
     warehouse = models.ForeignKey(Warehouse, on_delete=models.CASCADE)
+    # [agri-edition:fields] batch number and expiry date (fertilizer / pesticide / seed stock)
+    batch_no = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+    expiry_date = models.DateField(null=True, blank=True, db_index=True)
     purchase_item = models.ForeignKey(
         'PurchaseItem', 
         on_delete=models.SET_NULL, 
@@ -526,47 +509,17 @@ class StockBatch(models.Model):
     # ============================================
     # ✅ VALIDATION
     # ============================================
-    @classmethod
-    def from_db(cls, db, field_names, values):
-        """Remember the selling price as loaded, so clean() can tell whether it is being CHANGED."""
-        instance = super().from_db(db, field_names, values)
-        instance._loaded_selling_price = instance.__dict__.get('selling_price')
-        return instance
-
-    def _selling_price_changed(self):
-        if self.pk is None or self._state.adding:
-            return True
-        loaded = getattr(self, '_loaded_selling_price', None)
-        if loaded is None:          # price was deferred when loaded: unknown, do not block unrelated saves
-            return False
-        return self.selling_price != loaded
-
     def clean(self):
-        """Selling price cannot be lower than the purchase price, nor than the minimum margin policy.
-
-        The margin policy is checked only when the selling price is being set or changed. Raising the
-        policy later therefore never blocks an unrelated save (e.g. a sale reducing the stock).
-        """
+        """Selling price cannot be lower than the purchase price"""
         if self.selling_price > 0:
             if self.selling_price < self.price:
                 raise ValidationError({
                     'selling_price': f'Selling price (Rs. {self.selling_price:,.2f}) cannot be lower than the purchase price (Rs. {self.price:,.2f})! It must be at least Rs. {self.price:,.2f}.'
                 })
-            if self._selling_price_changed():
-                from ...utils import pricing as _pricing
-                from ...utils.margin_policy import MarginPolicy
-                try:
-                    _pricing.check_selling_price(self.price, self.selling_price,
-                                                 MarginPolicy.load().for_product(self.product))
-                except ValueError as exc:
-                    raise ValidationError({'selling_price': str(exc)})
     
     def save(self, *args, **kwargs):
         """Run validation before saving"""
         self.clean()
-        # float drift: a tiny leftover is stored as exactly 0 so the batch really is "sold out"
-        if self.remaining_qty is not None and abs(self.remaining_qty) <= STOCK_EPS:
-            self.remaining_qty = 0
         super().save(*args, **kwargs)
 
     # ============================================
@@ -598,30 +551,43 @@ class StockBatch(models.Model):
     # CLASS METHODS
     # ============================================
     @classmethod
-    def add_batch(cls, product, qty, price, purchase_item=None, warehouse=None):
+    def add_batch(cls, product, qty, price, purchase_item=None, warehouse=None, batch_no=None, expiry_date=None):  # [agri-edition:addbatch-def]
         """Add a new batch to a specific warehouse."""
         if not warehouse:
             raise ValidationError("Warehouse must be specified for adding a batch.")
         batch = cls.objects.create(
             product=product, qty=qty, price=price, remaining_qty=qty,
             purchase_item=purchase_item, warehouse=warehouse,
+            batch_no=batch_no, expiry_date=expiry_date,  # [agri-edition:addbatch-create]
         )
         return batch
 
     @classmethod
-    def get_batches_for_sale(cls, product, qty, warehouse=None):
+    def get_batches_for_sale(cls, product, qty, warehouse=None, skip_expired=False):  # [agri-edition:fefo-def]
         """Retrieve batches for sale from a specific warehouse."""
         if not warehouse:
             raise ValidationError("Warehouse must be specified for batch retrieval.")
         batches = []
         remaining_qty = qty
-        for batch in cls.objects.filter(product=product, warehouse=warehouse, remaining_qty__gt=STOCK_EPS).order_by('id'):
-            if remaining_qty <= STOCK_EPS:
+        # [agri-edition:fefo] nearest expiry first; batches without an expiry date keep the old FIFO order.
+        # With skip_expired=True, expired batches are never sold.
+        from django.utils import timezone as _agri_tz
+        _agri_qs = cls.objects.filter(product=product, warehouse=warehouse, remaining_qty__gt=0)
+        if skip_expired:
+            _agri_qs = _agri_qs.exclude(expiry_date__lt=_agri_tz.localdate())
+        for batch in _agri_qs.order_by(F('expiry_date').asc(nulls_last=True), 'id'):
+            if remaining_qty <= 0:
                 break
             qty_in_batch = min(remaining_qty, batch.remaining_qty)
             batches.append((batch, qty_in_batch))
             remaining_qty -= qty_in_batch
-        if remaining_qty > STOCK_EPS:
+        if remaining_qty > 0:
+            if skip_expired:  # [agri-edition:expired-msg]
+                from django.db.models import Sum as _AgriSum
+                _agri_exp = cls.objects.filter(product=product, warehouse=warehouse, remaining_qty__gt=0,
+                                               expiry_date__lt=_agri_tz.localdate()).aggregate(t=_AgriSum('remaining_qty'))['t'] or 0
+                if _agri_exp:
+                    raise ValidationError(f"{product.name}: {_agri_exp:g} units EXPIRED hain, sale nahi ho sakti. Expiry Manager se hata dein. Non-expired stock: {qty - remaining_qty:g}")
             raise ValidationError(f"Not enough stock for {product.name} in {warehouse.name}. Required: {qty}, Available: {qty - remaining_qty}")
         return batches
 

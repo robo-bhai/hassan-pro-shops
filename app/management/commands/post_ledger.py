@@ -17,7 +17,7 @@ from django.db.models import DecimalField, Value
 from django.db.models.functions import Coalesce
 
 from app.models import (Account, CustomerPayment, GLPosting, JournalEntryItem, LedgerEntry, Payroll, PostingRule, Purchase,
-                        Sale, SaleItem, SalePayment, VendorPayment, CashTransaction)
+                        Sale, SaleItem, SalePayment, StoreJournalLink, VendorPayment, CashTransaction)
 from app.ledger.posting_core import PostingError, classify_cash_row, q2, next_balance
 
 DATE_FIELD = {'sale': 'sale_date', 'sale_payment': 'payment_date', 'customer_payment': 'payment_date',
@@ -233,6 +233,10 @@ class Command(BaseCommand):
         from datetime import date as _date
         from django.db.models import Min
         from app.models import JournalEntry
+        if StoreJournalLink.objects.filter(doc_type='opening').exists():
+            self.stderr.write('The store module already booked an opening stock entry (Store Settings). '
+                              'Booking another one would count the stock twice.')
+            return
         acc, ledger, value = inventory_figures()
         if acc is None:
             self.stderr.write('Inventory account is not mapped. Run --setup first.')

@@ -3,6 +3,7 @@ from ...security.permissions import perm_required
 from django.utils.timezone import localdate
 from django.db.models.functions import Coalesce
 from django.db.models import ExpressionWrapper
+from ...store import store_access as _sa      # store-wise: dusre store ka stock chhupao
 from ...models import *
 import json
 import calendar
@@ -173,9 +174,9 @@ def reports_dashboard(request):
     total_vendor_outstanding = (vendor_agg['total_amt'] - vendor_agg['total_paid']) + opening_balance_total
     
     # Low Stock Count
-    low_stock_count = Inventory.objects.filter(
+    low_stock_count = _sa.hide_other_stores(request.user, Inventory.objects.filter(
         stock__lt=F('product__low_stock_threshold')
-    ).count()
+    ), 'warehouse').count()
     
     # Top 5 Products
     top_products = SaleItem.objects.filter(
@@ -251,7 +252,7 @@ def business_health(request):
     outstanding_percentage = float((total_customer_outstanding / total_sales * 100)) if total_sales > 0 else 0
     
     # ✅ Inventory value with ExpressionWrapper
-    inventory_value = Inventory.objects.all().aggregate(
+    inventory_value = _sa.hide_other_stores(request.user, Inventory.objects.all(), 'warehouse').aggregate(
         total=Coalesce(
             Sum(
                 ExpressionWrapper(
@@ -835,7 +836,7 @@ def accounts_receivable_aging(request):
 @perm_required('view_reports')
 def inventory_status_report(request):
     """Inventory Status Report"""
-    items = Inventory.objects.select_related('product', 'warehouse').order_by('product__name')
+    items = _sa.hide_other_stores(request.user, Inventory.objects.select_related('product', 'warehouse').order_by('product__name'), 'warehouse')
     
     total_products = items.count()
     total_stock_value = sum(item.stock_value() for item in items)
@@ -857,7 +858,7 @@ def inventory_status_report(request):
 @login_required
 @perm_required('view_reports')
 def low_stock_report(request):
-    low_stock_items = Inventory.objects.select_related(
+    low_stock_items = _sa.hide_other_stores(request.user, Inventory.objects.select_related(
         'product',
         'warehouse',
         'product__unit',
@@ -865,7 +866,7 @@ def low_stock_report(request):
         'product__brand'
     ).filter(
         stock__lt=F('product__low_stock_threshold')
-    ).order_by('product__name')
+    ).order_by('product__name'), 'warehouse')
     
     for item in low_stock_items:
         if item.product.low_stock_threshold > 0:
@@ -887,7 +888,7 @@ def inventory_aging_report(request):
     """Inventory Aging Report"""
     from decimal import Decimal
     
-    warehouses = Warehouse.objects.all()
+    warehouses = _sa.hide_other_stores(request.user, Warehouse.objects.all())
     aging_data = []
     total_value = Decimal('0.0')
     
@@ -925,7 +926,7 @@ def stock_aging_report(request):
     """Stock Aging Report"""
     stock_data = []
     
-    batches = StockBatch.objects.filter(remaining_qty__gt=0).select_related('product', 'warehouse')
+    batches = _sa.hide_other_stores(request.user, StockBatch.objects.filter(remaining_qty__gt=0).select_related('product', 'warehouse'), 'warehouse')
     
     for batch in batches:
         value = batch.remaining_qty * batch.price
@@ -1586,7 +1587,7 @@ def export_report_excel(request, report_name):
         headers = ['Product', 'Current Stock', 'Threshold', 'Status']
         ws.append(headers)
         
-        low_stock = Inventory.objects.filter(stock__lt=F('product__low_stock_threshold'))
+        low_stock = _sa.hide_other_stores(request.user, Inventory.objects.filter(stock__lt=F('product__low_stock_threshold')), 'warehouse')
         for item in low_stock:
             ws.append([
                 item.product.name,
@@ -1943,38 +1944,39 @@ def profit_loss(request):
 @perm_required('view_reports')
 def batch_sale_report(request, pk):
     """
-    Batch se kitne ka sale hua - complete report.
-
-    Qty/amount/profit ab SaleItemBatchUsage se aate hain: agar ek sale line 2 batches se bani
-    (6 + 4), to har batch ki report mein sirf apna hissa aata hai. Purani multi-batch lines
-    (jin ka split save nahi hua tha) alag "unknown split" mein dikhti hain, ginti mein nahi.
+    Batch se kitne ka sale hua — complete report
     """
+    from django.db.models import Sum, Count
     from decimal import Decimal
-    from types import SimpleNamespace
-    from ...batch_report_logic import build_batch_sale_rows, summarize_batch_sale_rows
-
+    
     batch = get_object_or_404(StockBatch, pk=pk)
-
-    usages = (SaleItemBatchUsage.objects.filter(batch=batch)
-              .select_related('sale_item', 'sale_item__sale', 'sale_item__sale__customer',
-                              'sale_item__product')
-              .order_by('-sale_item__sale__sale_date', '-id'))
-    rows = build_batch_sale_rows(usages)
-
-    # Old sale lines that touched this batch but have 2+ batches and no saved split
-    unknown_items = (SaleItem.objects.filter(batches_used=batch, batch_usages__isnull=True)
-                     .select_related('sale', 'sale__customer', 'product').distinct())
-    unknown_count = unknown_items.count()
-
-    summary = summarize_batch_sale_rows(rows)
-    total_qty = summary['total_qty']
-    total_sales = summary['total_sales']
-    total_profit = summary['total_profit']
-
+    
+    # ✅ All sales from this batch
+    sales_items = SaleItem.objects.filter(
+        batches_used=batch
+    ).select_related('sale', 'sale__customer', 'product').order_by('-sale__sale_date')
+    
+    # ✅ Statistics
+    stats = sales_items.aggregate(
+        total_qty=Sum('qty'),
+        total_sales=Sum('total_amt'),
+        total_profit=Sum('profit'),
+        total_orders=Count('id', distinct=True),
+    )
+    
+    total_qty = stats['total_qty'] or 0
+    total_sales = stats['total_sales'] or Decimal('0.00')
+    total_profit = stats['total_profit'] or Decimal('0.00')
+    total_orders = stats['total_orders'] or 0
+    
+    # ✅ Total cost (batch se)
     total_cost = Decimal(str(total_qty)) * batch.price
+    
+    # ✅ Remaining
     remaining_qty = batch.remaining_qty
     remaining_value = Decimal(str(remaining_qty)) * batch.price
-
+    
+    # ✅ Batch summary
     batch_summary = {
         'original_qty': batch.qty,
         'sold_qty': total_qty,
@@ -1985,18 +1987,35 @@ def batch_sale_report(request, pk):
         'total_profit': total_profit,
         'profit_margin': (total_profit / total_sales * 100) if total_sales > 0 else Decimal('0.00'),
     }
-
+    
+    # ✅ Daily summary
+    daily_summary = sales_items.values(
+        'sale__sale_date__date'
+    ).annotate(
+        qty=Sum('qty'),
+        amount=Sum('total_amt'),
+        profit=Sum('profit'),
+    ).order_by('-sale__sale_date__date')
+    
+    # ✅ Customer-wise
+    customer_summary = sales_items.values(
+        'sale__customer__name',
+        'sale__customer__customer_code'
+    ).annotate(
+        qty=Sum('qty'),
+        amount=Sum('total_amt'),
+        profit=Sum('profit'),
+        orders=Count('id'),
+    ).order_by('-amount')
+    
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'batch': batch,
-        'sales_items': rows,
-        'stats': {'total_qty': total_qty, 'total_sales': total_sales,
-                  'total_profit': total_profit, 'total_orders': summary['total_orders']},
+        'sales_items': sales_items,
+        'stats': stats,
         'batch_summary': batch_summary,
-        'daily_summary': summary['daily'],
-        'customer_summary': summary['customers'],
+        'daily_summary': daily_summary,
+        'customer_summary': customer_summary,
         'total_cost': total_cost,
-        'unknown_split_items': list(unknown_items[:50]),
-        'unknown_split_count': unknown_count,
     }
     return render(request, 'inventory/batch_sale_report.html', context)

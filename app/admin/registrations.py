@@ -20,13 +20,7 @@ admin.site.register(CompanyInfo, CompanyInfoAdmin)
 admin.site.register(Brand)
 
 
-class CategoryAdmin(admin.ModelAdmin):
-    list_display = ('name', 'min_margin_percent')
-    search_fields = ('name',)
-    fields = ('name', 'min_margin_percent')
-
-
-admin.site.register(Category, CategoryAdmin)
+admin.site.register(Category)
 
 
 admin.site.register(Types)

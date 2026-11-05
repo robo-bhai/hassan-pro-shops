@@ -85,6 +85,9 @@ class StoreTransferBatchUsage(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2)
     received_qty = models.FloatField(default=0)
     dest_batch = models.ForeignKey("StockBatch", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    # [agri-edition:usage-snapshot] batch no / expiry copied here, so they survive if the batch row is deleted
+    batch_no = models.CharField(max_length=50, null=True, blank=True)
+    expiry_date = models.DateField(null=True, blank=True)
 
     class Meta:
         verbose_name_plural = "Store Transfer Batch Usage"

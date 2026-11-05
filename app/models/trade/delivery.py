@@ -79,65 +79,6 @@ class DeliverySettings(models.Model):
         super().save(*args, **kwargs)
 
 
-class RiderProfile(models.Model):
-    """Rider ka login account (Talabat rider app jaisa). Admin banata hai."""
-    user = models.OneToOneField(
-        'auth.User', on_delete=models.CASCADE, related_name='rider_profile'
-    )
-    name = models.CharField(max_length=100)
-    phone = models.CharField(max_length=20, unique=True)
-    vehicle = models.CharField(max_length=50, blank=True, default='')
-    is_active = models.BooleanField(default=True)
-    is_online = models.BooleanField(default=False, help_text="Rider abhi orders lene ke liye tayyar hai")
-    per_delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, default=50,
-                                           help_text="Har delivery par rider ki kamai (Rs.)")
-    last_seen_at = models.DateTimeField(null=True, blank=True)
-    last_login_at = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name_plural = "🏍️ Riders"
-        ordering = ['name']
-
-    def __str__(self):
-        return f"{self.name} ({self.phone})"
-
-
-class RiderSettlement(models.Model):
-    """Rider ke saath hisab: COD cash jama (cash_in) ya kamai ki ada'egi (payout)."""
-    KINDS = [('cash_in', 'Cash jama (rider se liya)'), ('payout', 'Kamai ada ki (rider ko di)')]
-    rider = models.ForeignKey(RiderProfile, on_delete=models.CASCADE, related_name='settlements')
-    kind = models.CharField(max_length=10, choices=KINDS)
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
-    note = models.CharField(max_length=200, blank=True, default='')
-    created_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"{self.rider.name} {self.kind} Rs.{self.amount}"
-
-
-class OrderReview(models.Model):
-    """Customer ki rating: store (vendor) aur rider ke liye (delivered order par, ek dafa)."""
-    sale_order = models.OneToOneField('SaleOrder', on_delete=models.CASCADE, related_name='review')
-    vendor = models.ForeignKey('Vendor', on_delete=models.SET_NULL, null=True, blank=True, related_name='reviews')
-    rider = models.ForeignKey(RiderProfile, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviews')
-    vendor_rating = models.PositiveSmallIntegerField(null=True, blank=True)
-    vendor_comment = models.CharField(max_length=300, blank=True, default='')
-    rider_rating = models.PositiveSmallIntegerField(null=True, blank=True)
-    rider_comment = models.CharField(max_length=300, blank=True, default='')
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"Review {self.sale_order_id}: store {self.vendor_rating} / rider {self.rider_rating}"
-
-
 class DeliveryInfo(models.Model):
     """Delivery type aur rider/pickup info"""
     
@@ -177,15 +118,6 @@ class DeliveryInfo(models.Model):
     )
     
     # Rider Info (if local_rider)
-    rider = models.ForeignKey(
-        'RiderProfile', on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='deliveries',
-        verbose_name="Rider (login wala)"
-    )
-    rider_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0,
-                                    help_text="Is delivery par rider ki kamai")
-    cash_collected = models.DecimalField(max_digits=12, decimal_places=2, default=0,
-                                         help_text="COD cash jo rider ne customer se liya")
     rider_name = models.CharField(max_length=100, blank=True, null=True)
     rider_contact = models.CharField(max_length=20, blank=True, null=True)
     rider_vehicle = models.CharField(max_length=50, blank=True, null=True)

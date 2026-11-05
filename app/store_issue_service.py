@@ -93,7 +93,7 @@ def create_issue(*, user, from_warehouse, issue_type, items, issue_date=None, de
             continue
         batches = list(StockBatch.objects.select_for_update()
                        .filter(product=product, warehouse=from_warehouse, remaining_qty__gt=0)
-                       .order_by('id'))
+                       .order_by(F('expiry_date').asc(nulls_last=True), 'id'))  # [agri-edition:fefo]
         takes, short = allocate_fifo([(b.pk, b.remaining_qty) for b in batches], qty)
         if short > EPS:
             shortages.append(f"{product.name}: batch records cover only {qty - short:g} (audit the stock)")
@@ -120,7 +120,8 @@ def create_issue(*, user, from_warehouse, issue_type, items, issue_date=None, de
         for batch_id, take in takes:
             batch = batch_map[batch_id]
             StockBatch.objects.filter(pk=batch_id).update(remaining_qty=F('remaining_qty') - take)
-            StoreIssueBatchUsage.objects.create(item=item, batch_id=batch_id, qty=take, price=batch.price)
+            StoreIssueBatchUsage.objects.create(item=item, batch_id=batch_id, qty=take, price=batch.price,
+                                                batch_no=batch.batch_no, expiry_date=batch.expiry_date)  # [agri-edition:usage-snapshot]
             item_total += _d(take) * batch.price
         item.total_cost = item_total.quantize(Decimal('0.01'), ROUND_HALF_UP)
         item.unit_cost = (item_total / _d(qty)).quantize(Decimal('0.0001'), ROUND_HALF_UP)
@@ -151,7 +152,8 @@ def cancel_issue(issue_id, user, reason=''):
                 StockBatch.objects.filter(pk=u.batch_id).update(remaining_qty=F('remaining_qty') + u.qty)
             else:   # the batch is already deleted - the new batch gets the same cost
                 StockBatch.objects.create(product=item.product, warehouse=issue.from_warehouse,
-                                          qty=u.qty, remaining_qty=u.qty, price=u.price)
+                                          qty=u.qty, remaining_qty=u.qty, price=u.price,
+                                          batch_no=u.batch_no, expiry_date=u.expiry_date)  # [agri-edition:usage-snapshot]
         inv, _ = Inventory.objects.select_for_update().get_or_create(product=item.product,
                                                                     warehouse=issue.from_warehouse)
         inv.stock = round(inv.stock + item.qty, 6)

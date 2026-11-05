@@ -43,11 +43,10 @@ from django.views.decorators.http import require_POST
 from ..decorators import vendor_login_required
 from ..vendor_commission import commission_percent, reprice_open_batches, vendor_earnings, vendor_share
 from ..models import (
-    Brand, Category, CompanyInfo, DeliveryInfo, Inventory, OrderReview, Product, RiderProfile, SaleOrder,
-    StockBatch, StoreCategory, Unit, Vendor, VendorProfile, Warehouse,
+    Brand, Category, CompanyInfo, Inventory, Product, SaleOrder, StockBatch, Unit,
+    Vendor, VendorProfile, Warehouse,
 )
 from . import store_orders
-from .views_reviews import vendor_rating
 from .views_customer_auth import get_client_ip, is_valid_phone, normalize_phone, safe_login
 
 logger = logging.getLogger(__name__)
@@ -270,8 +269,6 @@ def vendor_register(request):
         city = request.POST.get('city', '').strip()[:100]
         delivery_areas = ', '.join(VendorProfile.clean_areas(request.POST.get('delivery_areas', '')))
         address = request.POST.get('address', '').strip()[:500]
-        store_category = StoreCategory.objects.filter(
-            pk=request.POST.get('store_category') or 0, is_active=True).first()
         password = request.POST.get('password', '')
         confirm = request.POST.get('confirm_password', '')
 
@@ -328,8 +325,7 @@ def vendor_register(request):
                 approved = _auto_approve_accounts()
                 VendorProfile.objects.create(
                     vendor=vendor, user=user, business_name=business_name,
-                    city=city, delivery_areas=delivery_areas, store_category=store_category,
-                    is_approved=approved,
+                    city=city, delivery_areas=delivery_areas, is_approved=approved,
                     approved_at=now() if approved else None,
                     last_login_at=now(),
                 )
@@ -350,7 +346,6 @@ def vendor_register(request):
 
     return render(request, 'customer_portal/vendor/register.html', {
         'page_title': 'Vendor Registration',
-        'store_categories': StoreCategory.objects.filter(is_active=True),
         'company_name': _company_name(),
     })
 
@@ -440,9 +435,6 @@ def vendor_dashboard(request):
         'products': products,
         'counts': counts,
         'earnings': vendor_earnings(vendor),
-        'rating': vendor_rating(vendor),
-        'recent_reviews': OrderReview.objects.filter(vendor=vendor, vendor_rating__isnull=False)
-                          .select_related('sale_order')[:5],
         'commission_percent': commission_percent(profile),
         'new_orders': SaleOrder.objects.filter(vendor=vendor, status='pending').count(),
         'company_name': _company_name(),
@@ -776,8 +768,6 @@ def vendor_store_settings(request):
             status = 'open'
 
         description = post.get('store_description', '').strip()[:1000]
-        store_category = StoreCategory.objects.filter(
-            pk=post.get('store_category') or 0, is_active=True).first()
 
         try:
             opens_at, closes_at = _parse_time(post.get('opens_at')), _parse_time(post.get('closes_at'))
@@ -817,7 +807,6 @@ def vendor_store_settings(request):
         else:
             profile.store_status = status
             profile.store_description = description
-            profile.store_category = store_category
             profile.opens_at, profile.closes_at = opens_at, closes_at
             profile.min_order_amount, profile.delivery_fee = min_order, fee
             profile.delivery_time_min, profile.delivery_time_max = t_min, t_max
@@ -837,7 +826,6 @@ def vendor_store_settings(request):
     return render(request, 'customer_portal/vendor/store_settings.html', {
         'page_title': 'Store Settings',
         'profile': profile,
-        'store_categories': StoreCategory.objects.filter(is_active=True),
         'company_name': _company_name(),
     })
 
@@ -877,7 +865,7 @@ def vendor_orders(request):
     for o in qs:
         items = list(o.items.all())
         phone = o.customer.contact_number
-        wa_action = {'confirmed': 'accept', 'ready': 'ready', 'delivered': 'delivered', 'cancelled': 'reject'}.get(o.status)
+        wa_action = {'confirmed': 'accept', 'ready': 'ready', 'cancelled': 'reject'}.get(o.status)
         wa_url = None
         if phone and wa_action:
             wa_url = store_orders.whatsapp_link(phone, store_orders.customer_whatsapp_text(o, wa_action))
@@ -889,11 +877,9 @@ def vendor_orders(request):
             'wa_url': wa_url,
             'call_phone': phone,
             'is_cod': (o.payment_method or 'cod') == 'cod',
-            'delivery': DeliveryInfo.objects.filter(sale_order=o).select_related('rider').first(),
         })
 
     return render(request, 'customer_portal/vendor/orders.html', {
-        'riders': list(RiderProfile.objects.filter(is_active=True)),
         'page_title': 'Orders',
         'profile': profile,
         'orders': orders,
@@ -908,7 +894,7 @@ def vendor_orders(request):
 @vendor_login_required
 @require_POST
 def vendor_order_action(request, pk, action):
-    """action: accept | reject | ready | delivered."""
+    """action: accept | reject | ready."""
     vendor = request.user.vendor_profile.vendor
     tab = request.POST.get('tab', 'new')
     back = f"{reverse('vendor_orders')}?tab={tab if tab in ORDER_TABS else 'new'}"
@@ -947,11 +933,10 @@ def vendor_order_action(request, pk, action):
         'accept': f'✅ Order #{order.order_no} qubool kar liya.',
         'reject': f'❌ Order #{order.order_no} reject kar diya. Customer ko wajah bata di gayi.',
         'ready': f'📦 Order #{order.order_no} tayyar hai.',
-        'delivered': f'🎉 Order #{order.order_no} deliver ho gaya. Mukammal tab mein dekh sakte hain.',
     }[action]
     messages.success(request, done)
     # accept ke baad order "Chal rahe" mein chala jata hai
-    next_tab = {'accept': 'active', 'ready': 'active', 'reject': 'done', 'delivered': 'done'}[action]
+    next_tab = {'accept': 'active', 'ready': 'active', 'reject': 'done'}[action]
     return redirect(f"{reverse('vendor_orders')}?tab={next_tab}")
 
 

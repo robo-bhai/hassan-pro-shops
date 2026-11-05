@@ -3,7 +3,7 @@
 SETTINGS CENTER - all project settings in one place.
 
 URL:  /settings/center/            (pehla allowed tab)
-      /settings/center/<tab>/      (modules, shareholders, company, delivery, security, voice ...)
+      /settings/center/<tab>/      (modules, shareholders, company, delivery, security, voice)
 
 The list of tabs and fields is in `app/settings_catalog.py`. This view reads the catalog and builds the form,
 validates and saves. Each tab form is saved separately, so saving one tab
@@ -180,6 +180,7 @@ def _modules_context():
         'id': m['key'], 'name': m['label'], 'icon': m['icon'],
         'description': m['description'], 'group': m['group'],
         'shop': unit_enabled(m['key'], 'shop'),
+        'factory': unit_enabled(m['key'], 'factory'),
         'visible': visible.get(m['key'], True),
     } for m in get_module_catalog()]
     groups = [{'name': g, 'items': [r for r in rows if r['group'] == g]} for g in MODULE_GROUPS]
@@ -187,46 +188,15 @@ def _modules_context():
 
 
 def _save_modules(request):
-    """The on/off switch of each module (unchecked = off is saved too). Factory mode is removed."""
+    """The Shop / Factory switch of each module (unchecked = off is saved too)."""
     for k in get_module_keys():
         shop_on = request.POST.get('mode_shop_%s' % k) == 'on'
+        factory_on = request.POST.get('mode_factory_%s' % k) == 'on'
         SystemSetting.set_value('mode_shop_%s' % k, shop_on, request.user)
-        # old global switch in sync (for old code)
-        SystemSetting.set_value('show_%s_module' % k, shop_on, request.user)
+        SystemSetting.set_value('mode_factory_%s' % k, factory_on, request.user)
+        # old global switch in sync with the union (for old code)
+        SystemSetting.set_value('show_%s_module' % k, shop_on or factory_on, request.user)
     cache.delete('module_visibility')
-
-
-def _shareholder_context():
-    """Quick stats for the Shareholders tab (they used to be on the old Module Settings page)."""
-    from decimal import Decimal as _D
-    from ...models import BalanceDividend, Purchase, Shareholder, ShareholderCashBalance
-    from ...models.people.cash import get_shareholder_balance_used
-
-    active = list(Shareholder.objects.filter(status='active'))
-    total_balance = _D('0')
-    total_balance_used = _D('0')
-    eligible = 0
-    for sh in active:
-        try:
-            total_balance += ShareholderCashBalance.get_balance(sh)
-        except Exception as exc:
-            logger.warning('Shareholder balance error (%s): %s', sh.pk, exc)
-        try:
-            used = get_shareholder_balance_used(sh)
-        except Exception as exc:
-            logger.warning('Balance-used error (%s): %s', sh.pk, exc)
-            continue
-        if used > 0:
-            eligible += 1
-            total_balance_used += used
-    return {
-        'total_shareholders': len(active),
-        'total_balance': total_balance,
-        'pending_purchases': Purchase.objects.filter(shareholder_deduction_done=False).count(),
-        'eligible_shareholders': eligible,
-        'total_balance_used': total_balance_used,
-        'pending_balance_dividends': BalanceDividend.objects.filter(status='declared').count(),
-    }
 
 
 def _parse_city_charges(post):
@@ -314,9 +284,6 @@ def settings_center(request, tab=None):
         messages.error(request, 'Access denied! You do not have permission to view settings.')
         return redirect('dashboard')
 
-    if tab and tab not in TAB_BY_KEY:
-        return redirect('settings_center')   # unknown tab
-
     tab_def = TAB_BY_KEY.get(tab) if tab else visible_tabs[0]
     if tab_def is None or not _allowed(user, tab_def['access']):
         messages.error(request, 'Access denied! You do not have permission for this tab.')
@@ -327,15 +294,6 @@ def settings_center(request, tab=None):
     special = tab_def.get('special')
 
     posted, errors, error_list = None, {}, []
-
-    # Edition card (Full ERP / Lite) on the Modules tab. When the edition is switched the rest of the form
-    # is NOT saved (it still shows the old module switches and would undo the switch).
-    if request.method == 'POST' and special == 'modules':
-        from ...lite_edition import apply_edition_post
-        result = apply_edition_post(request.POST, user)
-        if result and result[0]:
-            getattr(messages, result[1])(request, result[2])
-            return redirect('settings_center_tab', tab='modules')
 
     if request.method == 'POST' and store is not None:
         data, fields_ok = {}, []
@@ -398,10 +356,6 @@ def settings_center(request, tab=None):
     }
     if special == 'modules':
         context.update(_modules_context())
-        from ...lite_edition import edition_context
-        context.update(edition_context())
-    elif special == 'shareholders':
-        context.update(_shareholder_context())
     elif special == 'city_charges':
         context.update(_city_context(inst))
     elif special == 'logo':
@@ -417,6 +371,7 @@ def _legacy_redirect(tab_key):
     return view
 
 
+module_settings_redirect = _legacy_redirect('modules')
 company_settings_redirect = _legacy_redirect('company')
 delivery_settings_redirect = _legacy_redirect('delivery')
 security_settings_redirect = _legacy_redirect('security')

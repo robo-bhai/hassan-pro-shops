@@ -186,18 +186,30 @@ class SaleRetrnItem(models.Model):
             return (Decimal(str(agg['c'])) / Decimal(str(agg['q']))).quantize(Decimal('0.01'))
         return None
 
+    def _agri_source_batch(self):
+        """[agri-edition:sale-return] The batch this product was sold from on the original bill (None if unknown)."""
+        sale = self.sale_return.sale if self.sale_return_id else None
+        if not sale:
+            return None
+        return (StockBatch.objects.filter(sale_items__sale=sale, product=self.product)
+                .order_by('id').first())
+
     def _increase_stock(self, qty, warehouse):
         """Increase stock in batches - at the ORIGINAL COST (Step 3b), so stock value matches the ledger"""
         remaining = qty
         cost = self._original_unit_cost() or self.price      # old sale without a saved cost: previous behaviour
+        src = self._agri_source_batch()
         
-        # Try to find existing batch with same cost
-        existing_batch = StockBatch.objects.filter(
+        # Try to find existing batch with same cost (and, if known, the same batch no / expiry)
+        _qs = StockBatch.objects.filter(
             product=self.product,
             warehouse=warehouse,
             price=cost,
             remaining_qty__gt=0
-        ).order_by('id').first()
+        )
+        if src is not None:
+            _qs = _qs.filter(expiry_date=src.expiry_date, batch_no=src.batch_no)
+        existing_batch = _qs.order_by('id').first()
         
         if existing_batch:
             existing_batch.remaining_qty += remaining
@@ -211,6 +223,8 @@ class SaleRetrnItem(models.Model):
                 qty=remaining,
                 remaining_qty=remaining,
                 price=cost,
+                batch_no=src.batch_no if src is not None else None,        # [agri-edition:sale-return]
+                expiry_date=src.expiry_date if src is not None else None,
             )
     
     def _decrease_stock(self, qty, warehouse):

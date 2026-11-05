@@ -274,12 +274,10 @@ class Purchase(models.Model):
         
         # Set previous balance for new purchases
         if not self.pk:
-            # Two separate sums: joining the items and summing `paid` in one query repeats each
-            # bill's `paid` once per item line, which understated what the vendor is still owed.
-            billed = PurchaseItem.objects.filter(purchase__vendor=self.vendor).aggregate(
-                t=Sum('total_amt'))['t'] or Decimal('0.0')
-            paid_so_far = self.vendor.purchase_set.aggregate(t=Sum('paid'))['t'] or Decimal('0.0')
-            self.previous_balance = billed - paid_so_far
+            previous_balance = self.vendor.purchase_set.aggregate(
+                outstanding=Sum('purchaseitem__total_amt') - Sum('paid')
+            )['outstanding'] or Decimal('0.0')
+            self.previous_balance = previous_balance
             
             if not self.created_by:
                 self.created_by = User.objects.first()
@@ -309,6 +307,10 @@ class PurchaseItem(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2)
     total_amt = models.DecimalField(max_digits=15, decimal_places=2, editable=False, default=Decimal('0.0'))
 
+    # [agri-edition:pi-fields]
+    batch_no = models.CharField(max_length=50, null=True, blank=True)
+    expiry_date = models.DateField(null=True, blank=True)
+
     class Meta:
         verbose_name_plural = '4.1. Purchase Items'
 
@@ -336,13 +338,16 @@ class PurchaseItem(models.Model):
                 batch.remaining_qty += qty_diff
                 batch.qty += qty_diff
                 batch.price = self.price
+                batch.batch_no = self.batch_no  # [agri-edition:pi-sync]
+                batch.expiry_date = self.expiry_date
                 batch.save()
             Inventory.update_stock(self.product, qty_diff, warehouse)
             super().save(*args, **kwargs)
         else:
             # New item - ONLY ONE SAVE
             super().save(*args, **kwargs)
-            StockBatch.add_batch(self.product, self.qty, self.price, purchase_item=self, warehouse=warehouse)
+            StockBatch.add_batch(self.product, self.qty, self.price, purchase_item=self, warehouse=warehouse,
+                                 batch_no=self.batch_no, expiry_date=self.expiry_date)  # [agri-edition:pi-add]
             Inventory.update_stock(self.product, self.qty, warehouse)
 
     def __str__(self):

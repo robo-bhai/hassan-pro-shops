@@ -16,7 +16,6 @@ Order ka status purane SaleOrder statuses se hi chalta hai (admin ka kaam waise 
     pending   -> vendor ke liye "New"
     confirmed -> Accepted (tayyar ho raha hai)
     ready     -> Ready (rider/customer ke liye tayyar)
-    delivered -> Deliver ho gaya (vendor khud mark karta hai; cash mil gaya)
     cancelled -> Rejected (reject_reason ke saath)
 """
 import logging
@@ -44,7 +43,6 @@ ACTIONS = {
     'accept': (('pending',), 'confirmed'),
     'reject': (('pending',), 'cancelled'),
     'ready': (('confirmed', 'processing'), 'ready'),
-    'delivered': (('ready',), 'delivered'),
 }
 
 
@@ -243,8 +241,6 @@ def customer_whatsapp_text(order, action):
         return f"✅ {shop}: Aap ka order #{order.order_no} qubool ho gaya.{eta}"
     if action == 'ready':
         return f"📦 {shop}: Aap ka order #{order.order_no} tayyar hai."
-    if action == 'delivered':
-        return f"🎉 {shop}: Aap ka order #{order.order_no} deliver ho gaya. Shukriya!"
     if action == 'reject':
         return (f"❌ {shop}: Maazrat, order #{order.order_no} qubool nahi ho saka. "
                 f"Wajah: {order.reject_reason}")
@@ -328,54 +324,7 @@ def apply_vendor_action(order, action, *, user, prep_minutes=None, reason_code='
     order.status = new_status
     order.vendor_responded_at = now()
     order.save()
-    if action == 'delivered':
-        auto_invoice_delivered(order, user)
     after_vendor_action(order, action, user)
-
-
-def auto_invoice_delivered(order, user):
-    """
-    Delivered hote hi invoice (Sale) khud bana do, poora PAID (COD cash mil chuka / online pehle ada).
-    Is se vendor dashboard ki sales/commission bharti hain, stock kam hota hai aur accounts ban jate hain.
-    Kuch bhi fail ho (stock kam, month locked...) to delivery na ruke: order Delivered hi rehta hai
-    aur admin ko notification milti hai ke manually invoice banaye.
-    """
-    from django.db import transaction
-    from ..models import Sale, SaleItem
-
-    if order.converted_to_sale_id:
-        return None
-    try:
-        with transaction.atomic():
-            sale = Sale.objects.create(
-                warehouse=order.warehouse,
-                customer=order.customer,
-                bill_no=f"INV-{order.order_no}",
-                sale_date=now(),
-                paid=Decimal('0.00'),
-                discount_value=order.discount_value,
-                created_by=user,
-            )
-            for item in order.items.all():
-                SaleItem.objects.create(sale=sale, product=item.product, qty=item.qty, price=item.price)
-            # Poora paid: items ki raqam customer ne (COD cash / online) de di hai
-            sale.paid = sale.total_amount()
-            sale.save()
-            order.status = 'invoiced'
-            order.converted_to_sale = sale
-            order.save()
-        return sale
-    except Exception as exc:
-        logger.error("Auto invoice failed for order %s: %s", order.order_no, exc)
-        try:
-            from django.contrib.auth.models import User
-            for admin in User.objects.filter(is_superuser=True, is_active=True):
-                _notify(admin, f'⚠️ Order #{order.order_no} ka invoice khud nahi bana',
-                        f'Wajah: {exc}\nOrder Delivered hai, manually "Convert to Invoice" karein.',
-                        f'/orders/sale/{order.id}/', 'warning')
-        except Exception:
-            pass
-        return None
 
 
 def after_vendor_action(order, action, user):
@@ -391,19 +340,6 @@ def after_vendor_action(order, action, user):
     elif action == 'ready':
         _notify(cust_user, f'📦 Order #{order.order_no} tayyar hai',
                 f'{shop} ka maal tayyar hai.', link, 'info')
-    elif action == 'delivered':
-        _notify(cust_user, f'🎉 Order #{order.order_no} deliver ho gaya',
-                f'{shop} ka order aap tak pahunch gaya. Shukriya!', link, 'success')
-        try:
-            from django.contrib.auth.models import User
-            for admin in User.objects.filter(is_superuser=True, is_active=True):
-                _notify(admin, f'✅ Order #{order.order_no} deliver ho gaya',
-                        f'{shop} ne order deliver mark kiya. Rs. {order_payable_total(order):,.0f} '
-                        f'({(order.payment_method or "cod").upper()}). '
-                        + ('Invoice khud ban gaya.' if order.converted_to_sale_id else 'Ab invoice bana sakte hain.'),
-                        f'/orders/sale/{order.id}/', 'success')
-        except Exception as exc:
-            logger.error("Delivered notify error: %s", exc)
     elif action == 'reject':
         _notify(cust_user, f'❌ Order #{order.order_no} reject ho gaya',
                 f'{shop} ne order qubool nahi kiya.\nWajah: {order.reject_reason}\n{refund_note(order)}',

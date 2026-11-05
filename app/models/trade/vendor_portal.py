@@ -7,24 +7,6 @@ from django.utils import timezone
 from ..inventory.catalog import Product
 
 
-class StoreCategory(models.Model):
-    """Store ki type (Restaurant, Grocery, Pharmacy...) - Talabat ke top icons jaisi.
-    Ye PRODUCT category (Category model) se alag hai: ye poore store ko batati hai."""
-    name = models.CharField(max_length=60, unique=True)
-    icon = models.CharField(max_length=8, blank=True, default='🏪',
-                            help_text="Ek emoji, jaise 🍔 🛒 💊")
-    sort_order = models.PositiveSmallIntegerField(default=0, help_text="Chhota number pehle nazar aata hai")
-    is_active = models.BooleanField(default=True)
-
-    class Meta:
-        verbose_name = 'Store Category'
-        verbose_name_plural = '3.1 Store Categories'
-        ordering = ['sort_order', 'name']
-
-    def __str__(self):
-        return f"{self.icon} {self.name}".strip()
-
-
 class VendorProfile(models.Model):
     """Portal account of a Vendor. Customer side ke CustomerProfile jaisa."""
     vendor = models.OneToOneField(
@@ -49,11 +31,6 @@ class VendorProfile(models.Model):
     )
     last_login_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    store_category = models.ForeignKey(
-        'StoreCategory', null=True, blank=True, on_delete=models.SET_NULL,
-        related_name='stores', verbose_name="Store category",
-        help_text="Store ki type (Restaurant, Grocery...). Customer stores isi se filter karta hai."
-    )
 
     # ---- Store page (Talabat jaisi shop ki apni page) ----
     STORE_STATUS = [('open', 'Open'), ('busy', 'Busy'), ('closed', 'Closed')]

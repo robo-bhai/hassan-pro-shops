@@ -5,12 +5,21 @@ import sys
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+
+def _req(name):
+    """Zaroori environment variable. Na ho to khamoshi se default/SQLite nahi, seedha error."""
+    v = os.environ.get(name)
+    if not v:
+        from django.core.exceptions import ImproperlyConfigured
+        raise ImproperlyConfigured(f"{name} set nahi hai (koi fallback allowed nahi)")
+    return v
+
 # --- DATABASE DRIVER SETUP ---
 import pymysql
 pymysql.install_as_MySQLdb()
 
 # --- KEYS & GENERAL CONFIGURATION ---
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+SECRET_KEY = _req('DJANGO_SECRET_KEY')
 SALT_KEY = os.environ.get('DJANGO_SALT_KEY')
 DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
@@ -87,9 +96,10 @@ INSTALLED_APPS = [
 
 # --- CLOUDINARY CONFIGURATION (FROM ENVIRONMENT/GIT SECRETS) ---
 CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
-    'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
-    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
+    'CLOUD_NAME': _req('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': _req('CLOUDINARY_API_KEY'),
+    'API_SECRET': _req('CLOUDINARY_API_SECRET'),
+    'SECURE': True,
 }
 
 MIDDLEWARE = [
@@ -140,56 +150,32 @@ TEMPLATES = [
 WSGI_APPLICATION = 'P1.wsgi.application'
 
 # ==========================================
-# ✅ DATABASE (SQLite / MySQL, .env se switch)
+# DATABASE: sirf MySQL (GitHub runner service). SQLite fallback KHATAM.
 # ==========================================
-DB_ENGINE = os.environ.get('DB_ENGINE', 'sqlite').lower()
-
-if DB_ENGINE == 'mysql':
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': os.environ.get('DB_NAME', 'uqn88'),
-            'USER': os.environ.get('DB_USER', 'root'),
-            'PASSWORD': os.environ.get('DB_PASSWORD', ''),
-            'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
-            'PORT': os.environ.get('DB_PORT', '3306'),
-            'CONN_MAX_AGE': 60,
-            'CONN_HEALTH_CHECKS': True,
-            'OPTIONS': {
-                'charset': 'utf8mb4',
-                'connect_timeout': 10,
-                'init_command': (
-                    "SET sql_mode='STRICT_TRANS_TABLES', "
-                    "SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED, "
-                    "innodb_lock_wait_timeout=50"
-                ),
-            },
-        }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': _req('DB_NAME'),
+        'USER': _req('DB_USER'),
+        'PASSWORD': _req('DB_PASS'),
+        'HOST': _req('DB_HOST'),
+        'PORT': os.environ.get('DB_PORT', '3306'),
+        'CONN_MAX_AGE': 60,
+        'CONN_HEALTH_CHECKS': True,
+        'OPTIONS': {
+            'charset': 'utf8mb4',
+            'connect_timeout': 10,
+            'init_command': (
+                "SET sql_mode='STRICT_TRANS_TABLES', "
+                "SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED, "
+                "innodb_lock_wait_timeout=50"
+            ),
+        },
     }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-            'CONN_MAX_AGE': 0,
-            'OPTIONS': {
-                'timeout': 60,                    # lock par 60s intezar
-                'transaction_mode': 'IMMEDIATE',  # Django 5.1+
-                'init_command': (
-                    'PRAGMA journal_mode=WAL;'
-                    'PRAGMA synchronous=NORMAL;'
-                    'PRAGMA busy_timeout=60000;'
-                    'PRAGMA temp_store=MEMORY;'
-                    'PRAGMA cache_size=-20000;'
-                ),
-            },
-        }
-    }
+}
 
 # --- DB BACKUP CONFIGURATION ---
-# Backward compatibility for django-cloudinary-storage / collectstatic
-STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
-
+# Asal snapshot/restore GitHub workflow (scripts/ci) karta hai, GitHub Cache mein.
 DBBACKUP_STORAGE = 'django.core.files.storage.FileSystemStorage'
 DBBACKUP_STORAGE_OPTIONS = {
     'location': BASE_DIR / 'dbbackup',
@@ -243,50 +229,20 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 WHITENOISE_USE_FINDERS = True
 
-# Media Files Setup
+# Media: sab kuch Cloudinary par. MEDIA_URL sirf cloudinary_storage ke liye hai,
+# MEDIA_ROOT par koi file save nahi hoti.
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
-
-# Directory Auto-Creation (Safe Side)
+MEDIA_ROOT = BASE_DIR / 'media'  # sirf purane code ke import ke liye; use nahi hota
 os.makedirs(STATIC_ROOT, exist_ok=True)
-os.makedirs(MEDIA_ROOT, exist_ok=True)
-
-# ============================================
-# ✅ DYNAMIC STORAGE SETTINGS (Termux / CI / Prod)
-# ============================================
-
-# Environment variable check karein (Default: False)
-IS_TERMUX = os.getenv('RUNNING_IN_TERMUX', 'false').lower() == 'true'
-
-if IS_TERMUX:
-    # Android / Termux ke liye custom storage
-    DEFAULT_FILE_STORAGE_BACKEND = "app.custom_storage.TermuxFileSystemStorage"
-else:
-    # Standard Server / Cloud Storage ke liye Cloudinary
-    DEFAULT_FILE_STORAGE_BACKEND = "cloudinary_storage.storage.MediaCloudinaryStorage"
-
-
-#((((--++(++++)))))
-
-
-# Backward compatibility & fix for missing files crash during collectstatic
-STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
 
 STORAGES = {
     "default": {
-        "BACKEND": DEFAULT_FILE_STORAGE_BACKEND,
+        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
     },
     "staticfiles": {
         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
-
-
-
-
-##()++(+:&&&:&-)
-
-
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -351,7 +307,7 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB
 LOGS_DIR = BASE_DIR / 'logs'
 os.makedirs(LOGS_DIR, exist_ok=True)
 
-RCLONE_ENABLED = True
+RCLONE_ENABLED = False  # Google Drive backup band; snapshot GitHub Cache mein jata hai
 RCLONE_REMOTE_NAME = 'gdrive'
 RCLONE_REMOTE_DIR = 'TermuxBackups'
 

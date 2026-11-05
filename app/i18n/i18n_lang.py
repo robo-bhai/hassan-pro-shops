@@ -11,16 +11,6 @@ LANGUAGES = [
 LANGUAGE_CODES = {l['code'] for l in LANGUAGES}
 
 
-def _site_default():
-    """Site-wide default language (Urdu while Lite Edition is ON), else None."""
-    try:
-        from app.lite_edition import default_language
-        code = default_language()
-        return code if code in LANGUAGE_CODES else None
-    except Exception:
-        return None
-
-
 def get_language(request):
     """Current language dict (cookie first, then session, else English)."""
     code = None
@@ -30,5 +20,5 @@ def get_language(request):
             session = getattr(request, 'session', None)
             code = session.get(COOKIE_NAME) if session is not None else None
     if code not in LANGUAGE_CODES:
-        code = _site_default() or DEFAULT_LANG
+        code = DEFAULT_LANG
     return next(l for l in LANGUAGES if l['code'] == code)

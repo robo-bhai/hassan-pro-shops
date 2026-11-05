@@ -10,9 +10,7 @@ _MODULES = [
     "finance.budgeting",
     "finance.accounting",
     "inventory.catalog",
-    "inventory.price_log",
     "trade.vendors",
-    "trade.vendor_portal",
     "trade.purchase_orders",
     "trade.purchases",
     "trade.purchase_returns",
@@ -47,11 +45,13 @@ _MODULES = [
     "ai_bi.cso_tech",
     "trade.customer_portal",
     "trade.delivery",
+    "inventory.store_issue",
+    "inventory.store_ops",
+    "inventory.store_transfer",
     "trade.pos_shift",
-    "trade.shop_banner",
     "system.translation",
     "finance.gl_posting",
-    "pos.ocr",
+    "inventory.agri",
 ]
 
 _ns = {}

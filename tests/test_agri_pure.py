@@ -128,7 +128,8 @@ class StaticChecks(unittest.TestCase):
                     'app/agri/urls.py', 'app/models/inventory/agri.py', 'app/migrations/0029_agri_complete.py',
                     'app/management/commands/agri_alerts.py', 'app/views_frontend/pos_sales/pos.py',
                     'app/views_frontend/pos_sales/sales.py', 'app/views_frontend/purchase/po_pro.py',
-                    'app/migrations/0030_agri_usage_snapshot.py',
+                    'app/migrations/0030_agri_usage_snapshot.py', 'app/store/store_issue_service.py',
+                    'app/store/store_transfer_service.py', 'app/store/store_ops_service.py',
                     'app/views_frontend/purchase/grn.py'):
             ast.parse(self.read(rel), rel)
 
@@ -153,6 +154,22 @@ class StaticChecks(unittest.TestCase):
         leaves = sorted(f for f in os.listdir(os.path.join(ROOT, 'app/migrations')) if f[:4] in ('0029', '0030'))
         self.assertEqual(leaves, ['0029_agri_complete.py', '0030_agri_usage_snapshot.py'])
         self.assertIn("('app', '0029_agri_complete')", self.read('app/migrations/0030_agri_usage_snapshot.py'))
+
+    def test_usage_snapshot_fields_in_migration_and_models(self):
+        mig = self.read('app/migrations/0030_agri_usage_snapshot.py')
+        for model, rel in (('storeissuebatchusage', 'app/models/inventory/store_issue.py'),
+                           ('storetransferbatchusage', 'app/models/inventory/store_transfer.py')):
+            src = self.read(rel)
+            for name in ('batch_no', 'expiry_date'):
+                self.assertIn("model_name='%s', name='%s'" % (model, name), mig)
+                self.assertRegex(src, r'\n\s+%s = models\.' % name)
+
+    def test_store_services_use_fefo_and_snapshot(self):
+        for rel in ('app/store/store_issue_service.py', 'app/store/store_transfer_service.py'):
+            src = self.read(rel)
+            self.assertIn("expiry_date').asc(nulls_last=True)", src, rel)
+            self.assertIn('usage-snapshot', src, rel)
+        self.assertIn('usage-snapshot', self.read('app/store/store_ops_service.py'))
 
     def test_model_registered(self):
         self.assertIn('"inventory.agri"', self.read('app/models/__init__.py'))
@@ -187,7 +204,7 @@ class StaticChecks(unittest.TestCase):
 
     def test_stock_batch_creators_carry_expiry(self):
         for rel in ('app/models/trade/sale_returns.py', 'app/models/trade/purchase_returns.py',
-                    'app/views_frontend/pos_sales/shop_tools.py',
+                    'app/store/store_transfer_service.py', 'app/views_frontend/pos_sales/shop_tools.py',
                     'app/views_frontend/purchase/grn.py', 'app/views_frontend/purchase/po_pro.py'):
             self.assertIn('agri-edition', self.read(rel), rel)
 

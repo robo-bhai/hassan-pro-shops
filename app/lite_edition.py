@@ -14,9 +14,6 @@ Switch it on/off from the shell:
     python manage.py lite_edition off
     python manage.py lite_edition status
 
-Shop Edition (online shop order process) lives in the same file: Settings > Modules > Edition card
-(Full ERP / Lite / Shop) or `python manage.py shop_edition on|off|status`.
-
 This file keeps Django imports lazy so the planning logic can be tested without Django.
 """
 
@@ -170,191 +167,45 @@ def disable_lite():
     return True
 
 
-# ----------------------------------------------------------------------------
-# SHOP EDITION (online shop ka order process: sirf zaroori modules)
-# Settings > Modules > Edition card mein Full ERP / Lite ke saath teesra option.
-# Lite aur Shop ek waqt mein ON nahi hote: ek se doosre par jate waqt pehli edition khud restore hoti hai.
-# ----------------------------------------------------------------------------
-SHOP_MARKER = 'shop_edition_on'            # SystemSetting row: 'true' while Shop Edition is ON
-AGRI_MARKER = 'agri_edition_on'
-
-# Zaroori: shop order -> SaleOrder (sales), stock (inventory), vendors (purchase), hisaab (accounts, cash)
-SHOP_CORE = ['sales', 'inventory', 'purchase', 'accounts', 'cash']
-# Default ON, magar "sirf zaroori" chunne par band
-SHOP_OPTIONAL_ON = ['reports', 'whatsapp', 'backup']
-# Checkbox ke taur par extra (python manage.py shop_edition on --also installment)
-SHOP_OPTIONAL = ['installment', 'hr', 'loans', 'services']
-
-
-def shop_plan(all_keys, also=(), only_core=False):
-    """Catalog keys ko (show, hide) mein baantna. Shop ke liye."""
-    keep = set(SHOP_CORE) | set(also or ())
-    if not only_core:
-        keep |= set(SHOP_OPTIONAL_ON)
-    show = [k for k in all_keys if k in keep]
-    hide = [k for k in all_keys if k not in keep]
-    return show, hide
-
-
-def shop_setting_keys_for(module_keys):
-    return ['business_mode'] + ['mode_shop_%s' % k for k in module_keys]
-
-
-def shop_marker_on():
-    """Shop Edition ki state seedhe database se (cache ke baghair)."""
-    from app.models import SystemSetting
-    return SystemSetting.objects.filter(setting_key=SHOP_MARKER).exists()
-
-
-def _shop_state_file():
-    import os
-    from django.conf import settings
-    return os.path.join(str(settings.BASE_DIR), 'shop_edition_prev_state.json')
-
-
-def validate_shop_also(also):
-    """Unknown module par ValueError (kuch badalne se pehle check ke liye)."""
-    from app.module_catalog import get_module_keys
-    all_keys = get_module_keys()
-    unknown = [k for k in (also or ()) if k not in all_keys]
-    if unknown:
-        raise ValueError('Unknown module(s): %s' % ', '.join(unknown))
-    return all_keys
-
-
-def enable_shop(also=(), only_core=False):
-    """Shop Edition ON. Returns (show, hide). ValueError: bura module / pehle se ON / Lite ya Agri ON.
-    Pehli values save hoti hain taake disable_shop() restore kar sake."""
-    import json
-    from app.models import SystemSetting
-
-    all_keys = validate_shop_also(also)
-    if SystemSetting.objects.filter(setting_key=SHOP_MARKER).exists():
-        raise ValueError('Shop Edition is already ON.')
-    if SystemSetting.objects.filter(setting_key=LITE_MARKER).exists():
-        raise ValueError('Lite Edition ON hai. Pehle usay off karein (ya Settings > Modules se Shop chunen).')
-    if SystemSetting.objects.filter(setting_key=AGRI_MARKER).exists():
-        raise ValueError('Agri Edition ON hai. Pehle usay off karein.')
-
-    show, hide = shop_plan(all_keys, list(also or ()), only_core)
-    prev = {}
-    for k in shop_setting_keys_for(all_keys):
-        row = SystemSetting.objects.filter(setting_key=k).first()
-        prev[k] = row.setting_value if row else None
-    with open(_shop_state_file(), 'w') as fh:
-        json.dump(prev, fh)
-    _set('business_mode', 'shop')
-    for k in hide:
-        _set('mode_shop_%s' % k, 'false')
-    for k in show:
-        _set('mode_shop_%s' % k, 'true')
-    _set(SHOP_MARKER, 'true')
-    clear_cache()
-    return show, hide
-
-
-def disable_shop():
-    """Shop Edition OFF aur pehli settings wapas. False agar ON nahi thi.
-    State file na mile (jaise Docker rebuild) to rows hata di jati hain -> har module default (ON)."""
-    import json
-    import os
-    from app.models import SystemSetting
-    from app.module_catalog import get_module_keys
-
-    marker = SystemSetting.objects.filter(setting_key=SHOP_MARKER).first()
-    if not marker:
-        return False
-    try:
-        with open(_shop_state_file()) as fh:
-            prev = json.load(fh)
-    except (OSError, ValueError):
-        prev = {k: None for k in shop_setting_keys_for(get_module_keys())}
-    for k, v in prev.items():
-        if v is None:
-            SystemSetting.objects.filter(setting_key=k).delete()
-        else:
-            _set(k, v)
-    marker.delete()
-    try:
-        os.remove(_shop_state_file())
-    except OSError:
-        pass
-    clear_cache()
-    return True
-
-
 def edition_context():
     """Template context for the Edition card (Settings > Modules)."""
     from app.models import SystemSetting
     from app.module_catalog import get_module_catalog
     labels = {m['key']: m['label'] for m in get_module_catalog()}
-    lite_on, shop_on = lite_marker_on(), shop_marker_on()
     return {
-        'lite_on': lite_on,
-        'shop_on': shop_on,
-        'edition_now': 'lite' if lite_on else ('shop' if shop_on else 'full'),
+        'lite_on': lite_marker_on(),
         'lite_lang': SystemSetting.get_value(LITE_LANG_KEY, LITE_DEFAULT_LANG),
         'lite_optional': [{'key': k, 'label': labels.get(k, k)} for k in LITE_OPTIONAL],
         'lite_show_labels': [labels.get(k, k) for k in LITE_SHOW],
-        'shop_optional': [{'key': k, 'label': labels.get(k, k)} for k in SHOP_OPTIONAL],
-        'shop_core_labels': [labels.get(k, k) for k in SHOP_CORE],
-        'shop_extra_labels': [labels.get(k, k) for k in SHOP_OPTIONAL_ON],
     }
 
 
 def apply_edition_post(post, user=None):
-    """Handle the Edition card of the settings form (Full ERP / Lite / Shop).
+    """Handle the Edition card of the settings form.
 
     Returns None when the form has no `edition` field. Otherwise (switched, level, message):
-      switched=True  -> an edition was turned ON/OFF; the caller must redirect and NOT save the rest of the
+      switched=True  -> Lite was turned ON/OFF; the caller must redirect and NOT save the rest of the
                         form (it still shows the old module switches and would undo the switch).
-      switched=False -> nothing switched (the Lite default language may have been updated); carry on saving.
-    Lite <-> Shop: pehli edition pehle restore hoti hai, phir nayi lagti hai (original settings kabhi nahi khoti).
+      switched=False -> nothing switched (the default language may have been updated); carry on saving.
     """
     from app.models import SystemSetting
     edition = post.get('edition')
-    if edition not in ('lite', 'full', 'shop'):
+    if edition not in ('lite', 'full'):
         return None
-    lite_on, shop_on = lite_marker_on(), shop_marker_on()
-
-    if edition == 'full':
-        if not (lite_on or shop_on):
-            return False, 'success', ''
-        if lite_on:
-            disable_lite()
-        if shop_on:
-            disable_shop()
-        return True, 'success', '✅ Full ERP wapas lag gaya — pehle ki module settings restore ho gayin.'
-
-    if edition == 'lite':
-        if lite_on:
-            if post.get('lang') in ('ur', 'en', 'ar'):
-                SystemSetting.set_value(LITE_LANG_KEY, post['lang'], user)
-                clear_cache()
-            return False, 'success', ''
-        if shop_on:
-            disable_shop()
+    on = lite_marker_on()
+    if edition == 'lite' and not on:
         try:
             enable_lite(post.getlist('also'), post.get('lang', LITE_DEFAULT_LANG))
         except ValueError as exc:
             return True, 'error', str(exc)
         return True, 'success', '✅ Lite Edition ON — sirf roz ke modules dikhaye ja rahe hain.'
-
-    # edition == 'shop'
-    if shop_on:
-        return False, 'success', ''
-    also = post.getlist('shop_also')
-    only_core = post.get('shop_only_core') == '1'
-    try:
-        validate_shop_also(also)
-        if SystemSetting.objects.filter(setting_key=AGRI_MARKER).exists():
-            raise ValueError('Agri Edition ON hai. Pehle usay off karein.')
-        if lite_on:
-            disable_lite()
-        enable_shop(also, only_core)
-    except ValueError as exc:
-        return True, 'error', str(exc)
-    return True, 'success', '✅ Shop Edition ON — sirf online shop order process ke modules dikhaye ja rahe hain.'
+    if edition == 'full' and on:
+        disable_lite()
+        return True, 'success', '✅ Full ERP wapas lag gaya — Lite se pehle ki module settings restore ho gayin.'
+    if edition == 'lite' and on and post.get('lang') in ('ur', 'en', 'ar'):
+        SystemSetting.set_value(LITE_LANG_KEY, post['lang'], user)
+        clear_cache()
+    return False, 'success', ''
 
 
 def lite_dashboard_context(today):

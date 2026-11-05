@@ -3,6 +3,7 @@ from ...security.permissions import perm_required
 from django.utils.timezone import localdate
 from django.db.models.functions import Coalesce
 from django.db.models import ExpressionWrapper
+from ...store import store_access as _sa      # store-wise: dusre store ka stock chhupao
 from django.core.cache import cache
 from ...models import *
 import os
@@ -46,6 +47,146 @@ def profile_view(request):
     return render(request, 'profile.html', {
         'user': request.user
     })
+
+
+from ...module_catalog import MODULE_GROUPS, get_module_catalog, get_module_keys
+
+
+@login_required
+@perm_required('view_settings')
+def module_settings(request):
+    """Module settings page - Admin can toggle modules"""
+    if not request.user.is_superuser:
+        messages.error(request, 'Access denied! Only superuser can change module settings.')
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        # Update settings from POST data
+        for key, value in request.POST.items():
+            if key.startswith('setting_'):
+                setting_key = key.replace('setting_', '')
+                SystemSetting.set_value(setting_key, value == 'on', request.user)
+        
+        # Shop / Factory switch for each module (unchecked = off is also saved)
+        for m in get_module_keys():
+            shop_on = request.POST.get('mode_shop_%s' % m) == 'on'
+            factory_on = request.POST.get('mode_factory_%s' % m) == 'on'
+            SystemSetting.set_value('mode_shop_%s' % m, shop_on, request.user)
+            SystemSetting.set_value('mode_factory_%s' % m, factory_on, request.user)
+            # keep the old global switch in sync with the union (for old code)
+            SystemSetting.set_value('show_%s_module' % m, shop_on or factory_on, request.user)
+
+        # Shareholder deduction: unchecked = off, and the type is saved too
+        SystemSetting.set_value('enable_shareholder_purchase_deduction',
+                                request.POST.get('setting_enable_shareholder_purchase_deduction') == 'on',
+                                request.user)
+        deduction_type = request.POST.get('deduction_type')
+        if deduction_type in ('proportional', 'equal'):
+            SystemSetting.set_value('shareholder_deduction_type', deduction_type, request.user)
+
+        # Handle Balance Dividend Settings
+        enable_balance_dividend = request.POST.get('setting_enable_balance_dividend') == 'on'
+        SystemSetting.set_value('enable_balance_dividend', enable_balance_dividend, request.user)
+        
+        # Business mode: shop / factory / both
+        business_mode = request.POST.get('business_mode', 'both')
+        if business_mode not in ('shop', 'factory', 'both'):
+            business_mode = 'both'
+        SystemSetting.set_value('business_mode', business_mode, request.user)
+        
+        default_dividend_type = request.POST.get('default_dividend_type', 'both')
+        SystemSetting.set_value('default_dividend_type', default_dividend_type, request.user)
+        
+        default_dividend_percentage = request.POST.get('default_dividend_percentage', '50')
+        SystemSetting.set_value('default_dividend_percentage', default_dividend_percentage, request.user)
+        
+        min_balance_for_dividend = request.POST.get('min_balance_for_dividend', '0')
+        SystemSetting.set_value('min_balance_for_dividend', min_balance_for_dividend, request.user)
+        
+        min_holding_months = request.POST.get('min_holding_months', '0')
+        SystemSetting.set_value('min_holding_months', min_holding_months, request.user)
+        
+        auto_process_days = request.POST.get('auto_process_days', '7')
+        SystemSetting.set_value('auto_process_days', auto_process_days, request.user)
+        
+        cache.delete('module_visibility')   # sidebar foran naye settings dikhaye
+        messages.success(request, '✅ Module settings updated successfully!')
+        return redirect('module_settings')
+    
+    # GET request - show form
+    # ========================================== #
+    # MODULE SETTINGS                           #
+    # ========================================== #
+    from ...context_processors import unit_enabled, module_visibility
+    visible = module_visibility()
+    module_settings = []
+    for m in get_module_catalog():
+        module_settings.append({
+            'id': m['key'], 'key': 'show_%s_module' % m['key'],
+            'name': m['label'], 'icon': m['icon'], 'description': m['description'], 'group': m['group'],
+            'shop': unit_enabled(m['key'], 'shop'),
+            'factory': unit_enabled(m['key'], 'factory'),
+            'visible': visible.get(m['key'], True),     # is it running now?
+        })
+    module_groups = [
+        {'name': g, 'items': [x for x in module_settings if x['group'] == g]}
+        for g in MODULE_GROUPS
+    ]
+    module_groups = [g for g in module_groups if g['items']]
+    
+    # ========================================== #
+    # SHAREHOLDER DEDUCTION SETTINGS             #
+    # ========================================== #
+    is_enabled = SystemSetting.get_bool('enable_shareholder_purchase_deduction', True)
+    deduction_type = SystemSetting.get_value('shareholder_deduction_type', 'proportional')
+    
+    total_shareholders = Shareholder.objects.filter(status='active').count()
+    total_balance = 0
+    for sh in Shareholder.objects.filter(status='active'):
+        total_balance += ShareholderCashBalance.get_balance(sh)
+    pending_purchases = Purchase.objects.filter(shareholder_deduction_done=False).count()
+    
+    # ========================================== #
+    # BALANCE DIVIDEND SETTINGS                  #
+    # ========================================== #
+    enable_balance_dividend = SystemSetting.get_bool('enable_balance_dividend', True)
+    default_dividend_type = SystemSetting.get_value('default_dividend_type', 'both')
+    default_dividend_percentage = SystemSetting.get_value('default_dividend_percentage', '50')
+    min_balance_for_dividend = SystemSetting.get_value('min_balance_for_dividend', '0')
+    min_holding_months = SystemSetting.get_value('min_holding_months', '0')
+    auto_process_days = SystemSetting.get_value('auto_process_days', '7')
+    
+    # Eligible shareholders count
+    eligible_count = 0
+    total_balance_used = Decimal('0.00')
+    for shareholder in Shareholder.objects.filter(status='active'):
+        balance_used = get_shareholder_balance_used(shareholder)
+        if balance_used > 0:
+            eligible_count += 1
+            total_balance_used += balance_used
+    
+    pending_balance_dividends = BalanceDividend.objects.filter(status='declared').count()
+    
+    context = {
+        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'module_settings': module_settings,
+        'module_groups': module_groups,
+        'is_enabled': is_enabled,
+        'deduction_type': deduction_type,
+        'total_shareholders': total_shareholders,
+        'total_balance': total_balance,
+        'pending_purchases': pending_purchases,
+        'enable_balance_dividend': enable_balance_dividend,
+        'default_dividend_type': default_dividend_type,
+        'default_dividend_percentage': default_dividend_percentage,
+        'min_balance_for_dividend': min_balance_for_dividend,
+        'min_holding_months': min_holding_months,
+        'auto_process_days': auto_process_days,
+        'eligible_shareholders': eligible_count,
+        'total_balance_used': total_balance_used,
+        'pending_balance_dividends': pending_balance_dividends,
+    }
+    return render(request, 'admin/module_settings.html', context)
 
 
 @login_required
@@ -101,11 +242,6 @@ def dashboard_view(request):
         and not request.user.is_superuser 
         and not request.user.is_staff):
         return redirect('shop_home')
-
-    # Lite Edition: small-shop dashboard (5 numbers) instead of the full ERP dashboard
-    from ...lite_edition import is_lite, lite_dashboard_context
-    if is_lite():
-        return render(request, 'index_lite.html', lite_dashboard_context(localdate()))
     
     # ========================================== #
     # ROLE DETECTION                              #
@@ -284,11 +420,11 @@ def dashboard_view(request):
     # ✅ Everyone except the superuser sees stock numbers only for their own stores (the cache is shared for everyone)
     if not is_superuser:
         base_stats = dict(base_stats)
-        _inv = Inventory.objects.all()
+        _inv = _sa.hide_other_stores(request.user, Inventory.objects.all(), 'warehouse')
         _low = _inv.filter(stock__lt=F('product__low_stock_threshold'))
         base_stats['low_stock_items'] = list(_low.select_related('product', 'warehouse', 'product__unit').order_by('stock')[:10])
         base_stats['low_stock_count'] = _low.count()
-        _val = StockBatch.objects.filter(remaining_qty__gt=0).aggregate(
+        _val = _sa.hide_other_stores(request.user, StockBatch.objects.filter(remaining_qty__gt=0), 'warehouse').aggregate(
             total=Sum(ExpressionWrapper(F('remaining_qty') * F('price'),
                                         output_field=DecimalField(max_digits=20, decimal_places=2))))['total']
         base_stats['total_stock_value'] = _val or Decimal('0.00')
@@ -391,8 +527,8 @@ def dashboard_view(request):
         today_attendance = Attendance.objects.filter(date=today, status='present').count()
         today_absent = Attendance.objects.filter(date=today, status='absent').count()
         
-        total_stock_items = Inventory.objects.filter(stock__gt=0).count()
-        out_of_stock_items = Inventory.objects.filter(stock=0).count()
+        total_stock_items = _sa.hide_other_stores(request.user, Inventory.objects.filter(stock__gt=0), 'warehouse').count()
+        out_of_stock_items = _sa.hide_other_stores(request.user, Inventory.objects.filter(stock=0), 'warehouse').count()
         
         today_avg_sale = Decimal('0.00')
         if base_stats['today_sales_count'] > 0:
@@ -491,7 +627,7 @@ def dashboard_view(request):
     if is_superuser:
         quick_actions = [
             {'name': 'Users', 'url': '/users/', 'icon': 'bi-people', 'color': 'primary'},
-            {'name': 'Settings', 'url': '/settings/center/', 'icon': 'bi-gear', 'color': 'success'},
+            {'name': 'Settings', 'url': '/settings/modules/', 'icon': 'bi-gear', 'color': 'success'},
             {'name': 'Backup', 'url': '/database-backup/', 'icon': 'bi-hdd-stack', 'color': 'info'},
             {'name': 'Reports', 'url': '/reports/dashboard/', 'icon': 'bi-graph-up', 'color': 'warning'},
         ]
@@ -504,7 +640,7 @@ def dashboard_view(request):
         ]
     elif is_md:
         quick_actions = [
-            {'name': 'Sale', 'url': '/sales/pos/', 'icon': 'bi-cart-plus', 'color': 'primary'},
+            {'name': 'Sale', 'url': '/sales/create/', 'icon': 'bi-cart-plus', 'color': 'primary'},
             {'name': 'Purchase', 'url': '/purchases/create/', 'icon': 'bi-box-arrow-in-down', 'color': 'success'},
             {'name': 'Inventory', 'url': '/inventory/', 'icon': 'bi-box', 'color': 'info'},
             {'name': 'Reports', 'url': '/reports/dashboard/', 'icon': 'bi-graph-up', 'color': 'warning'},

@@ -1,13 +1,8 @@
 from django.urls import path, re_path
-from django.views.generic import RedirectView
 from django.contrib.auth import views as auth_views
 from . import views_frontend
 from .customer import views_customer_portal
 from app.customer import views_customer_auth
-from app.customer import views_vendor_portal
-from app.customer import views_rider_portal
-from app.customer import views_reviews
-from app.customer import views_stores
 from app.security import views_admin_otp
 from app.security import views_security
 from app.backoffice import views_bi  
@@ -22,7 +17,6 @@ from app.views_frontend.system.settings_center import settings_center
 from app.views_frontend.pos_sales import pos as pos_views
 from app.views_frontend.pos_sales import shift as shift_views
 from app.views_frontend.pos_sales import shop_tools
-from app.licensing import views as license_views
 
 urlpatterns = [
     # ============================================
@@ -47,6 +41,7 @@ urlpatterns = [
     ), name='login'),
     path('settings/toggle/<str:setting_key>/', views_frontend.toggle_setting, name='toggle_setting'),
     path('production/stock/consume/<int:pk>/', views_frontend.production_consume_stock, name='production_consume_stock'),
+    path('settings/modules/', views_frontend.module_settings, name='module_settings'),
     path('cash/', views_frontend.cash_dashboard, name='cash_dashboard'),
     path('cash/add/', views_frontend.cash_add, name='cash_add'),
     path('cash/withdraw/', views_frontend.cash_withdraw, name='cash_withdraw'),
@@ -201,7 +196,7 @@ urlpatterns = [
     # SALES
     # ============================================
     path('sales/', views_frontend.sale_list, name='sale_list'),
-    path('sales/create/', RedirectView.as_view(pattern_name='pos_screen', permanent=False), name='sale_create'),  # POS-only: old Create Sale form closed
+    path('sales/create/', views_frontend.sale_create, name='sale_create'),
     path('sales/<int:pk>/', views_frontend.sale_detail, name='sale_detail'),
     
     # ============================================
@@ -233,17 +228,6 @@ urlpatterns = [
     # VENDORS
     # ============================================
     path('vendors/', views_frontend.vendor_list, name='vendor_list'),
-    path('vendors/approvals/', views_frontend.vendor_approvals, name='vendor_approvals'),
-    path('vendors/approvals/account/<int:pk>/<str:action>/', views_frontend.vendor_account_action, name='vendor_account_action'),
-    path('vendors/approvals/product/<int:pk>/<str:action>/', views_frontend.vendor_product_action, name='vendor_product_action'),
-    path('vendors/approvals/bulk/', views_frontend.vendor_approvals_bulk, name='vendor_approvals_bulk'),
-    path('vendors/approvals/account/<int:pk>/commission/', views_frontend.vendor_commission_update, name='vendor_commission_update'),
-    path('vendors/banners/', views_frontend.shop_banner_list, name='shop_banner_list'),
-    path('vendors/banners/add/', views_frontend.shop_banner_form, name='shop_banner_create'),
-    path('vendors/banners/<int:pk>/edit/', views_frontend.shop_banner_form, name='shop_banner_edit'),
-    path('vendors/banners/<int:pk>/toggle/', views_frontend.shop_banner_toggle, name='shop_banner_toggle'),
-    path('vendors/banners/<int:pk>/delete/', views_frontend.shop_banner_delete, name='shop_banner_delete'),
-    path('vendors/banners/<int:pk>/move/', views_frontend.shop_banner_move, name='shop_banner_move'),
     path('vendors/create/', views_frontend.vendor_create, name='vendor_create'),
     path('vendors/<int:pk>/update/', views_frontend.vendor_update, name='vendor_update'),
     path('vendors/<int:pk>/ledger/', views_frontend.vendor_ledger, name='vendor_ledger'),
@@ -255,8 +239,44 @@ urlpatterns = [
     path('warehouses/create/', views_frontend.warehouse_create, name='warehouse_create'),
     path('warehouses/<int:pk>/update/', views_frontend.warehouse_update, name='warehouse_update'),
     path('warehouses/<int:pk>/inventory/', views_frontend.warehouse_inventory, name='warehouse_inventory'),
-    path('warehouses/<int:pk>/delete/', views_frontend.warehouse_delete, name='warehouse_delete'),
 
+    # STORES + INTERNAL STORE ISSUE (PMS / RMS / FGS / Technical)
+    path('stores/', views_frontend.store_dashboard, name='store_dashboard'),
+    path('stores/access/', views_frontend.store_access, name='store_access'),
+    path('store-issue/', views_frontend.store_issue_list, name='store_issue_list'),
+    path('store-issue/create/', views_frontend.store_issue_create, name='store_issue_create'),
+    path('store-issue/report/', views_frontend.store_issue_report, name='store_issue_report'),
+    path('store-issue/api/products/', views_frontend.store_issue_products_api, name='store_issue_products_api'),
+    path('store-issue/<int:pk>/', views_frontend.store_issue_detail, name='store_issue_detail'),
+    path('store-issue/<int:pk>/print/', views_frontend.store_issue_print, name='store_issue_print'),
+    path('store-issue/<int:pk>/cancel/', views_frontend.store_issue_cancel, name='store_issue_cancel'),
+
+    # STORE TRANSFER (bhejna / receive) + STORE RECEIPTS (purchase / GRN)
+    path('store-transfer/', views_frontend.store_transfer_list, name='store_transfer_list'),
+    path('store-transfer/create/', views_frontend.store_transfer_create, name='store_transfer_create'),
+    path('store-transfer/<int:pk>/', views_frontend.store_transfer_detail, name='store_transfer_detail'),
+    path('store-transfer/<int:pk>/receive/', views_frontend.store_transfer_receive, name='store_transfer_receive'),
+    path('store-transfer/<int:pk>/cancel/', views_frontend.store_transfer_cancel, name='store_transfer_cancel'),
+    path('store-transfer/<int:pk>/print/', views_frontend.store_transfer_print, name='store_transfer_print'),
+    path('store-receipts/', views_frontend.store_receipts, name='store_receipts'),
+
+    # STORE OPS: settings, approvals, physical count, return to store
+    path('stores/settings/', views_frontend.store_settings, name='store_settings'),
+    path('store-request/', views_frontend.store_request_list, name='store_request_list'),
+    path('store-request/<int:pk>/', views_frontend.store_request_detail, name='store_request_detail'),
+    path('store-request/<int:pk>/approve/', views_frontend.store_request_approve, name='store_request_approve'),
+    path('store-request/<int:pk>/reject/', views_frontend.store_request_reject, name='store_request_reject'),
+    path('store-request/<int:pk>/cancel/', views_frontend.store_request_cancel, name='store_request_cancel'),
+    path('store-count/', views_frontend.store_count_list, name='store_count_list'),
+    path('store-count/new/', views_frontend.store_count_new, name='store_count_new'),
+    path('store-count/<int:pk>/', views_frontend.store_count_detail, name='store_count_detail'),
+    path('store-count/<int:pk>/save/', views_frontend.store_count_save, name='store_count_save'),
+    path('store-count/<int:pk>/post/', views_frontend.store_count_post, name='store_count_post'),
+    path('store-count/<int:pk>/cancel/', views_frontend.store_count_cancel, name='store_count_cancel'),
+    path('store-return/', views_frontend.store_return_list, name='store_return_list'),
+    path('store-return/new/<int:issue_pk>/', views_frontend.store_return_create, name='store_return_create'),
+    path('store-return/<int:pk>/', views_frontend.store_return_detail, name='store_return_detail'),
+    
     # ============================================
     # PRODUCTS
     # ============================================
@@ -269,12 +289,7 @@ urlpatterns = [
     # ============================================
     path('inventory/', views_frontend.inventory_list, name='inventory_list'),
     path('batches/', views_frontend.batch_list, name='batch_list'),
-    path('batches/export/', views_frontend.batch_export, name='batch_export'),
     path('ajax/update-batch-selling-price/', views_frontend.update_batch_selling_price, name='update_batch_sp'),
-    path('ajax/bulk-update-batch-selling-price/', views_frontend.bulk_update_batch_selling_price, name='bulk_update_batch_sp'),
-    path('price-history/', views_frontend.price_history_list, name='price_history'),
-    path('price-history/undo/run/<uuid:run_id>/', views_frontend.price_undo, name='price_undo_run'),
-    path('price-history/undo/change/<int:log_id>/', views_frontend.price_undo, name='price_undo_change'),
     
     # ============================================
     # RETURNS (Purchase & Sale)
@@ -829,12 +844,6 @@ urlpatterns = [
     
     
     path('ajax/search-products/', views_frontend.search_products_ajax, name='search_products_ajax'),
-    path('ajax/ocr-match-product/', views_frontend.ocr_match_product, name='ocr_match_product'),
-    path('ajax/ocr-feedback/', views_frontend.ocr_feedback, name='ocr_feedback'),
-    path('ajax/ocr-catalog/', views_frontend.ocr_catalog, name='ocr_catalog'),
-    path('ajax/ocr-details/', views_frontend.ocr_details, name='ocr_details'),
-    path('ocr/dashboard/', views_frontend.ocr_dashboard, name='ocr_dashboard'),
-    path('ajax/ocr-alias-action/', views_frontend.ocr_alias_action, name='ocr_alias_action'),
     # ✅ SAHI - Vendor Pricing Report (Matrix view)
     path('vendors/pricing-report/', views_frontend.vendor_pricing_report, name='vendor_pricing_report'),
     path('vendors/pricing-report/export/', views_frontend.vendor_pricing_report_export, name='vendor_pricing_report_export'),
@@ -1100,8 +1109,6 @@ urlpatterns = [
      
      path('shop/', views_customer_portal.shop_home, name='shop_home'),
      path('shop/product/<int:pk>/', views_customer_portal.product_detail, name='shop_product_detail'),
-     path('shop/stores/', views_stores.store_list, name='store_list'),
-     path('shop/stores/<int:pk>/', views_stores.store_detail, name='store_detail'),
      path('shop/cart/', views_customer_portal.cart_view, name='cart_view'),
      path('shop/cart/add/', views_customer_portal.add_to_cart, name='add_to_cart'),
      path('shop/cart/update/', views_customer_portal.update_cart, name='update_cart'),
@@ -1111,34 +1118,6 @@ urlpatterns = [
      path('shop/track/', views_customer_portal.track_order, name='track_order'),
      path('shop/api/cart-count/', views_customer_portal.get_cart_count, name='get_cart_count'),
      path('shop/register/', views_customer_auth.customer_register, name='customer_register'),
-
-     # ---- Vendor portal (vendor apni products shop par list karta hai) ----
-     path('shop/vendor/register/', views_vendor_portal.vendor_register, name='vendor_register'),
-     path('shop/vendor/login/', views_vendor_portal.vendor_login, name='vendor_login'),
-     path('shop/vendor/logout/', views_vendor_portal.vendor_logout, name='vendor_logout'),
-     path('shop/vendor/', views_vendor_portal.vendor_dashboard, name='vendor_dashboard'),
-     path('shop/vendor/products/add/', views_vendor_portal.vendor_product_add, name='vendor_product_add'),
-     path('shop/vendor/products/<int:pk>/edit/', views_vendor_portal.vendor_product_edit, name='vendor_product_edit'),
-     path('shop/vendor/products/<int:pk>/toggle/', views_vendor_portal.vendor_product_toggle, name='vendor_product_toggle'),
-     path('shop/vendor/store/', views_vendor_portal.vendor_store_settings, name='vendor_store_settings'),
-     path('shop/vendor/orders/', views_vendor_portal.vendor_orders, name='vendor_orders'),
-     path('shop/vendor/orders/<int:pk>/assign-rider/', views_rider_portal.vendor_assign_rider, name='vendor_assign_rider'),
-     path('shop/vendor/orders/<int:pk>/<str:action>/', views_vendor_portal.vendor_order_action, name='vendor_order_action'),
-     path('shop/vendor/api/orders-poll/', views_vendor_portal.vendor_orders_poll, name='vendor_orders_poll'),
-     # ---- Rider portal (Talabat jaisa rider) ----
-     path('shop/rider/login/', views_rider_portal.rider_login, name='rider_login'),
-     path('shop/rider/logout/', views_rider_portal.rider_logout, name='rider_logout'),
-     path('shop/rider/', views_rider_portal.rider_home, name='rider_home'),
-     path('shop/rider/history/', views_rider_portal.rider_history, name='rider_history'),
-     path('shop/rider/earnings/', views_rider_portal.rider_earnings, name='rider_earnings'),
-     path('shop/rider/online/', views_rider_portal.rider_toggle_online, name='rider_toggle_online'),
-     path('shop/rider/api/poll/', views_rider_portal.rider_poll, name='rider_poll'),
-     path('shop/rider/accept/<int:pk>/', views_rider_portal.rider_accept_order, name='rider_accept_order'),
-     path('shop/rider/manage/<int:pk>/', views_rider_portal.rider_detail, name='rider_detail'),
-     path('shop/rider/order/<int:pk>/<str:action>/', views_rider_portal.rider_order_action, name='rider_order_action'),
-     path('shop/rider/manage/', views_rider_portal.rider_manage, name='rider_manage'),
-     path('shop/vendor/api/create/<str:kind>/', views_vendor_portal.vendor_create_master, name='vendor_create_master'),
-
      
      path('shop/login/', views_customer_auth.customer_login, name='customer_login'),
      
@@ -1152,7 +1131,6 @@ urlpatterns = [
      path('shop/my-orders/', views_customer_portal.my_orders, name='my_orders'),
      path('shop/order/<int:order_id>/', views_customer_portal.order_detail_customer, name='order_detail_customer'),
      path('shop/order/<int:order_id>/cancel/', views_customer_portal.cancel_order_customer, name='cancel_order_customer'),
-     path('shop/order/<int:order_id>/rate/', views_reviews.rate_order, name='rate_order'),
      path('customers/<int:pk>/', views_frontend.customer_ledger, name='customer_detail'),
      path('shop/send-order-otp/', views_customer_auth.send_order_otp, name='send_order_otp'),
      path('shop/verify-order-otp/', views_customer_auth.verify_order_otp, name='verify_order_otp'),
@@ -1183,7 +1161,6 @@ urlpatterns = [
     path('admin-chat/<int:pk>/reopen/', views_frontend.admin_chat_reopen, name='admin_chat_reopen'),
     path('admin-chat/stats/', views_frontend.admin_chat_stats_api, name='admin_chat_stats_api'),
     path('shop/set-delivery-type/', views_customer_portal.set_delivery_type, name='set_delivery_type'),
-    path('shop/set-area/', views_customer_portal.set_delivery_area, name='set_delivery_area'),
     path('settings/delivery/', views_delivery.delivery_settings_view, name='delivery_settings_view'),
     path('settings/delivery/toggle/', views_delivery.delivery_settings_toggle, name='delivery_settings_toggle'),
     path('settings/delivery/reset/', views_delivery.delivery_settings_reset, name='delivery_settings_reset'),
@@ -1217,6 +1194,9 @@ urlpatterns = [
      path('testing/run-auto/stop/', views_testing.test_auto_stop, name='test_auto_stop'),
      path('settings/center/', settings_center, name='settings_center'),
      path('settings/<str:tab>/', settings_center, name='settings_center_tab'),
+     path('stores/profiles/', views_frontend.store_profile_list, name='store_profile_list'),
+     path('stores/profiles/add/', views_frontend.store_profile_form, name='store_profile_add'),
+     path('stores/profiles/<int:pk>/edit/', views_frontend.store_profile_form, name='store_profile_edit'),
      path('sales/pos/', pos_views.pos_screen, name='pos_screen'),
      path('sales/pos/products/', pos_views.pos_products, name='pos_products'),
      path('sales/pos/customers/', pos_views.pos_customers, name='pos_customers'),
@@ -1226,7 +1206,6 @@ urlpatterns = [
      path('sales/shift/movement/', shift_views.shift_movement, name='shift_movement'),
      path('sales/shift/close/', shift_views.shift_close, name='shift_close'),
      path('sales/shift/<int:pk>/close/', shift_views.shift_close, name='shift_close_pk'),
-     path('license/', license_views.license_page, name='license_page'),
      path('sales/shift/<int:pk>/report/', shift_views.shift_report, name='shift_report'),
      path('sales/shifts/', shift_views.shift_list, name='shift_list'),
      path('reports/profit-analysis/', views_frontend.profit_analysis, name='profit_analysis'),
@@ -1242,3 +1221,7 @@ urlpatterns = [
      path('reports/ledger/payable-aging/', views_frontend.gl_payable_aging, name='gl_payable_aging'),
 
 ]
+
+# ---- Agri Edition (added by install_agri.py) ----
+from app.agri.urls import urlpatterns as _agri_urlpatterns  # app.agri.urls
+urlpatterns += _agri_urlpatterns

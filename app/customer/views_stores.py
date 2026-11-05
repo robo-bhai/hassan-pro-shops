@@ -1,7 +1,7 @@
 """
 Customer side: Stores list aur ek Store ki apni page (Talabat jaisi).
 
-- store_list   : /shop/stores/            (search, store types (?type=), product category chips, Open now, Free delivery, sort)
+- store_list   : /shop/stores/            (search, category chips, Open now, Free delivery, sort)
 - store_detail : /shop/stores/<id>/       (store header, category sections, +/- cart stepper, cart bar)
 
 Sirf approved vendors (VendorProfile.is_approved) ke stores nazar aate hain, aur sirf
@@ -14,9 +14,8 @@ from django.db.models import Count, Q, Sum, Value, DecimalField
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, render
 
-from ..models import Category, CompanyInfo, Product, ShopBanner, StoreCategory, VendorProfile
+from ..models import Category, CompanyInfo, Product, ShopBanner, VendorProfile
 from .views_customer_portal import get_cart_count_value, get_delivery_area, get_product_final_price
-from .views_reviews import store_rating_map, store_reviews
 
 STATUS_ORDER = {'open': 0, 'busy': 1, 'closed': 2}
 
@@ -70,7 +69,6 @@ CURRENCY = 'Rs'           # Pakistani Rupee. Baad mein settings se lena ho to ya
 
 SORTS = {
     'recommended': 'Recommended',
-    'rating': 'Top rated',
     'fastest': 'Fastest delivery',
     'fee': 'Lowest delivery fee',
     'min_order': 'Lowest minimum order',
@@ -88,29 +86,11 @@ def store_list(request):
         category_id = int(request.GET.get('category', ''))
     except (TypeError, ValueError):
         category_id = None
-    try:
-        store_type_id = int(request.GET.get('type', ''))
-    except (TypeError, ValueError):
-        store_type_id = None
 
     live = _live_products()
     stores = VendorProfile.objects.filter(
         is_approved=True, vendor__in=live.values('vendor')
-    ).select_related('vendor', 'store_category')
-
-    # Store types (Restaurants, Grocery...) - har type mein kitne stores hain
-    type_counts = dict(
-        stores.exclude(store_category__isnull=True).values('store_category')
-        .annotate(n=Count('id')).values_list('store_category', 'n')
-    )
-    store_types = list(StoreCategory.objects.filter(is_active=True))
-    store_types = [t for t in store_types if type_counts.get(t.id)]
-    for t in store_types:
-        t.store_count = type_counts[t.id]
-    if store_type_id and store_type_id not in {t.id for t in store_types}:
-        store_type_id = None
-    if store_type_id:
-        stores = stores.filter(store_category_id=store_type_id)
+    ).select_related('vendor')
 
     if category_id:
         stores = stores.filter(vendor__in=live.filter(category_id=category_id).values('vendor'))
@@ -132,15 +112,11 @@ def store_list(request):
         tags.setdefault(vid, []).append(cname)
 
     stores = list(stores.order_by('business_name')[:200])
-    ratings = store_rating_map()
     for st in stores:
         st.status = st.status_label
         st.product_count = counts.get(st.vendor_id, 0)
         st.tags = sorted(tags.get(st.vendor_id, []))[:3]
         st.is_free_delivery = (st.delivery_fee or 0) == 0
-        _r = ratings.get(st.vendor_id)
-        st.rating_avg = _r['avg'] if _r else None
-        st.rating_count = _r['count'] if _r else 0
     if open_only:
         stores = [s for s in stores if s.status != 'closed']
 
@@ -156,7 +132,6 @@ def store_list(request):
 
     sort_keys = {
         'recommended': lambda s: (STATUS_ORDER[s.status], s.business_name.lower()),
-        'rating': lambda s: (STATUS_ORDER[s.status], -(s.rating_avg or 0), -s.rating_count, s.business_name.lower()),
         'fastest': lambda s: (STATUS_ORDER[s.status], s.delivery_time_min, s.delivery_time_max),
         'fee': lambda s: (STATUS_ORDER[s.status], s.delivery_fee or 0),
         'min_order': lambda s: (STATUS_ORDER[s.status], s.min_order_amount or 0),
@@ -167,7 +142,7 @@ def store_list(request):
     for b in banners:
         b.target = b.get_link()
     # Banner sirf pehle page par (koi search/filter na ho) - warna results ke beech mein jagah gher leta hai
-    show_banners = not (search or category_id or store_type_id or open_only or free_only)
+    show_banners = not (search or category_id or open_only or free_only)
 
     return render(request, 'customer_portal/stores.html', {
         'banners': banners if show_banners else [],
@@ -182,8 +157,6 @@ def store_list(request):
         'area_filter_on': bool(area) and not show_all,
         'outside_count': outside_count,
         'selected_category': category_id,
-        'store_types': store_types,
-        'selected_type': store_type_id,
         'categories': Category.objects.filter(products__in=live).distinct().order_by('name'),
         'currency': CURRENCY,
         'cart_count': get_cart_count_value(request),
@@ -192,7 +165,7 @@ def store_list(request):
 
 
 def store_detail(request, pk):
-    store = get_object_or_404(VendorProfile.objects.select_related('vendor', 'store_category'), pk=pk, is_approved=True)
+    store = get_object_or_404(VendorProfile.objects.select_related('vendor'), pk=pk, is_approved=True)
     base = _live_products().filter(vendor=store.vendor)
 
     search = request.GET.get('q', '').strip()[:100]
@@ -237,7 +210,6 @@ def store_detail(request, pk):
         p.stock_int = int(p.total_stock or 0)
 
     return render(request, 'customer_portal/store_detail.html', {
-        'reviews': store_reviews(store.vendor),
         'store': store,
         'status': store.status_label,
         'products': page_obj,

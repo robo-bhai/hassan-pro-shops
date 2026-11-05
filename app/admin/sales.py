@@ -671,6 +671,9 @@ class CustomerAdmin(admin.ModelAdmin):
                        ('ref_name_1', 'ref_contact_number_1'),
                        ('ref_name_2', 'ref_contact_number_2'))
         }),
+        ('Farmer (Agri)', {      # [agri-edition:admin-customer]
+            'fields': ('village', 'main_crop', 'credit_limit'),
+        }),
     )
 
     def adjusted_outstanding_balance(self, obj):

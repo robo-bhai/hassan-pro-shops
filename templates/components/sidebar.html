@@ -1,5 +1,5 @@
 <aside class="sidebar" id="sidebar" aria-label="Main navigation">
-    <a href="{% url 'dashboard' %}" class="sidebar-brand" title="{{ company_name|default:'ERP System' }}" aria-label="{{ company_name|default:'ERP System' }} - Dashboard">
+    <a href="{% if STORE_RESTRICTED %}{% url 'store_dashboard' %}{% else %}{% url 'dashboard' %}{% endif %}" class="sidebar-brand" title="{{ company_name|default:'ERP System' }}" aria-label="{{ company_name|default:'ERP System' }} - Dashboard">
         <div class="brand-icon-wrap{% if company_logo %} has-logo{% endif %}">
             {% if company_logo %}
                 <img src="{{ company_logo }}" alt="{{ company_name|default:'Logo' }}" class="brand-logo">
@@ -9,6 +9,10 @@
         </div>
         <h4>{{ company_name|default:'ERP System' }}</h4>
         <small>Management Solution</small>
+        <div class="mode-chip mode-{{ BUSINESS_MODE|default:'both' }}" title="Business mode">
+            <span class="mode-chip__label">Business Mode</span>
+            <span class="mode-chip__value"><i class="mode-dot"></i>{% if BUSINESS_MODE == 'shop' %}Shop{% elif BUSINESS_MODE == 'factory' %}Factory{% else %}Shop + Factory{% endif %}</span>
+        </div>
     </a>
     
     <div class="sidebar-user">
@@ -60,29 +64,6 @@
             </div>
         </div>
     </div>
-
-    {# License status card (set by app.middleware.license_gate; hidden while licensing is switched off) #}
-    {% with ls=request.license_status %}{% if ls and ls.reason != 'disabled' %}
-    {% url 'license_page' as license_url %}
-    <a href="{{ license_url|default:'/license/' }}" class="sidebar-license" title="{{ ls.message }}"
-       style="display:block;margin:8px 14px;padding:9px 12px;border-radius:10px;text-decoration:none;line-height:1.35;
-              border-left:4px solid {% if ls.state == 'readonly' %}#ef4444{% elif ls.state == 'grace' or ls.reason == 'expiring' %}#f59e0b{% elif ls.state == 'trial' %}#3b82f6{% else %}#22c55e{% endif %};
-              background:rgba(255,255,255,.06);color:#e5e7eb;">
-        <span style="font-size:.72rem;letter-spacing:.04em;color:#a2a3b7;">🔑 LICENSE</span><br>
-        <strong style="font-size:.9rem;">{% if ls.customer %}{{ ls.customer }}{% elif ls.state == 'trial' %}Trial version{% else %}Not licensed{% endif %}</strong><br>
-        <small style="color:#cbd5e1;">
-            {% if ls.state == 'readonly' %}
-                {% if ls.reason == 'expired' or ls.reason == 'trial_expired' %}Expired &middot; Read-only{% else %}Read-only &middot; fix license{% endif %}
-            {% elif ls.state == 'grace' %}
-                Expired {{ ls.expires|date:"d M Y" }} &middot; grace period
-            {% elif ls.state == 'trial' %}
-                {{ ls.days_left }} day{{ ls.days_left|pluralize }} left in trial
-            {% else %}
-                Active until {{ ls.expires|date:"d M Y" }} ({{ ls.days_left }} day{{ ls.days_left|pluralize }})
-            {% endif %}
-        </small>
-    </a>
-    {% endif %}{% endwith %}
     
     <!-- ========================================== -->
     <!-- ✅ ADVANCED SEARCH BOX                      -->
@@ -172,15 +153,20 @@
     </div>
     
     <ul class="sidebar-menu">
-{% if LITE_MODE %}{% include 'components/sidebar_lite_menu.html' %}{% else %}
 
         <!-- ################ OVERVIEW ################ -->
         <li class="menu-group-label" role="presentation">Overview</li>
 
-<li><a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+<li><a href="{% if STORE_RESTRICTED %}{% url 'store_dashboard' %}{% else %}{% url 'dashboard' %}{% endif %}" class="{% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'store_dashboard' %}active{% endif %}">
                 <span class="menu-icon">📊</span>Main Dashboard
             </a>
         </li>
+        {% if MODULE_VISIBLE.agri != False %}<!-- agri-edition:menu -->
+        <li><a href="/agri/" class="{% if request.path == '/agri/' %}active{% endif %}"><span class="menu-icon">🌾</span>Agri Edition</a></li>
+        <li><a href="/agri/expiry/?f=expired" class="{% if '/agri/expiry' in request.path %}active{% endif %}"><span class="menu-icon">⏰</span>Expiry Manager</a></li>
+        <li><a href="/agri/credit/" class="{% if '/agri/credit' in request.path %}active{% endif %}"><span class="menu-icon">💰</span>Kisan Udhaar</a></li>
+        {% endif %}
+
         {% if SHOW_BI_MODULE %}
         <!-- ========== 📊 BUSINESS INTELLIGENCE SECTION ========== -->
 <li class="has-submenu">
@@ -259,7 +245,6 @@
         <!-- CSO Tech Section (Board Room ke andar ya alag) -->
 <li><a href="{% url 'ai_cso_tech_dashboard' %}" class="sub-link"><span>💻</span> CSO Tech Dashboard</a></li>
 <li><a href="{% url 'ai_cso_tech_system' %}" class="sub-link"><span>🏥</span> System Health</a></li>
-{% url 'license_page' as license_url %}{% if license_url %}<li><a href="{{ license_url }}" class="sub-link"><span>🔑</span> License</a></li>{% endif %}
 <li><a href="{% url 'ai_cso_tech_security' %}" class="sub-link"><span>🔐</span> Security</a></li>
 <li><a href="{% url 'ai_cso_tech_performance' %}" class="sub-link"><span>⚡</span> Performance</a></li>
 <li><a href="{% url 'ai_cso_tech_bugs' %}" class="sub-link"><span>🐛</span> Bug Tracker</a></li>
@@ -385,6 +370,7 @@
             <ul class="collapse list-unstyled {% if 'sale' in request.path or 'challan' in request.path %}show{% endif %}" id="salesSubmenu">
                 <li><a href="{% url 'pos_screen' %}" class="sub-link {% if '/sales/pos/' in request.path %}active{% endif %}"><span>🖥️</span> POS Screen</a></li>
                 <li><a href="{% url 'shift_list' %}" class="sub-link {% if '/sales/shift' in request.path %}active{% endif %}"><span>🕒</span> Cashier Shifts</a></li>
+                <li><a href="{% url 'sale_create' %}" class="sub-link"><span>➕</span> New Sale</a></li>
                 <li><a href="{% url 'sale_list' %}" class="sub-link"><span>📋</span> Sales List</a></li>
                 <li><a href="{% url 'sale_order_create' %}" class="sub-link"><span>📝</span> New Sale Order</a></li>
                 <li><a href="{% url 'sale_order_list' %}" class="sub-link"><span>📑</span> Sale Orders</a></li>
@@ -539,6 +525,32 @@
             <ul class="collapse list-unstyled {% if 'warehouse' in request.path %}show{% endif %}" id="warehouseSubmenu">
                 <li><a href="{% url 'warehouse_list' %}" class="sub-link"><span>📋</span> All Warehouses</a></li>
                 <li><a href="{% url 'warehouse_create' %}" class="sub-link"><span>➕</span> Add Warehouse</a></li>
+            </ul>
+        </li>
+        {% endif %}
+
+        {% if SHOW_STORE_ISSUE_MODULE %}
+        <!-- ========== STORES & ISSUE (PMS / RMS / FGS / Technical) ========== -->
+        <li class="has-submenu">
+            <a href="#storeIssueSubmenu" data-bs-toggle="collapse" aria-controls="storeIssueSubmenu" role="button" aria-expanded="{% if '/stores/' in request.path or 'store-issue' in request.path or 'store-transfer' in request.path or 'store-receipts' in request.path or 'store-request' in request.path or 'store-count' in request.path or 'store-return' in request.path %}true{% else %}false{% endif %}">
+                <span class="menu-icon">🏬</span> Stores &amp; Issue
+                <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
+            </a>
+            <ul class="collapse list-unstyled {% if '/stores/' in request.path or 'store-issue' in request.path or 'store-transfer' in request.path or 'store-receipts' in request.path or 'store-request' in request.path or 'store-count' in request.path or 'store-return' in request.path %}show{% endif %}" id="storeIssueSubmenu">
+                <li><a href="{% url 'store_dashboard' %}" class="sub-link"><span>📊</span> Stores</a></li>
+                <li><a href="{% url 'store_issue_create' %}" class="sub-link"><span>📤</span> New Issue</a></li>
+                <li><a href="{% url 'store_issue_list' %}" class="sub-link"><span>📋</span> All Issues</a></li>
+                <li><a href="{% url 'store_issue_report' %}" class="sub-link"><span>📈</span> Issue Report</a></li>
+                <li><a href="{% url 'store_transfer_list' %}" class="sub-link {% if 'store-transfer' in request.path %}active{% endif %}"><span>🔄</span> Store Transfers</a></li>
+                <li><a href="{% url 'store_receipts' %}" class="sub-link {% if 'store-receipts' in request.path %}active{% endif %}"><span>📥</span> Store Receipts</a></li>
+                <li><a href="{% url 'store_request_list' %}" class="sub-link {% if 'store-request' in request.path %}active{% endif %}"><span>🙋</span> Store Requests</a></li>
+                <li><a href="{% url 'store_count_list' %}" class="sub-link {% if 'store-count' in request.path %}active{% endif %}"><span>🧮</span> Store Count</a></li>
+                <li><a href="{% url 'store_return_list' %}" class="sub-link {% if 'store-return' in request.path %}active{% endif %}"><span>↩️</span> Store Returns</a></li>
+                {% if request.user.is_superuser %}
+                <li><a href="{% url 'store_profile_list' %}" class="sub-link {% if '/stores/profiles/' in request.path %}active{% endif %}"><span>🏷️</span> Store Profiles</a></li>
+                <li><a href="{% url 'store_access' %}" class="sub-link {% if '/stores/access/' in request.path %}active{% endif %}"><span>👥</span> Store Teams</a></li>
+                <li><a href="{% url 'store_settings' %}" class="sub-link {% if '/stores/settings/' in request.path %}active{% endif %}"><span>⚙️</span> Store Settings</a></li>
+                {% endif %}
             </ul>
         </li>
         {% endif %}
@@ -921,14 +933,11 @@
                 <span class="menu-icon">👥</span> People
                 <i class="bi bi-chevron-down ms-auto arrow-icon"></i>
             </a>
-            <ul class="collapse list-unstyled {% if 'customer' in request.path or 'vendor' in request.path or 'rider' in request.path %}show{% endif %}" id="peopleSubmenu">
+            <ul class="collapse list-unstyled {% if 'customer' in request.path or 'vendor' in request.path %}show{% endif %}" id="peopleSubmenu">
                 <li><a href="{% url 'customer_list' %}" class="sub-link"><span>👤</span> Customers</a></li>
                 <li><a href="{% url 'customer_create' %}" class="sub-link"><span>➕</span> Add Customer</a></li>
                 <li><a href="{% url 'vendor_list' %}" class="sub-link"><span>🏢</span> Vendors</a></li>
                 <li><a href="{% url 'vendor_create' %}" class="sub-link"><span>➕</span> Add Vendor</a></li>
-                <li><a href="{% url 'vendor_approvals' %}" class="sub-link"><span>✅</span> Vendor Approvals</a></li>
-                <li><a href="{% url 'shop_banner_list' %}" class="sub-link"><span>🖼️</span> Shop Banners</a></li>
-                <li><a href="{% url 'rider_manage' %}" class="sub-link"><span>🏍️</span> Riders</a></li>
             </ul>
         </li>
         {% endif %}
@@ -1049,12 +1058,9 @@
 
 
         <!-- ################ ADMINISTRATION ################ -->
-        {% if SHOW_SYSTEM_TOOLS_MODULE or SHOW_TESTING_MODULE or IS_OWNER and SHOW_SECURITY_MODULE %}
         <li class="menu-group-label" role="presentation">Administration</li>
-        {% endif %}
 
-        <!-- ========== SECURITY SECTION (Administrator always; Owner only when the Security module is ON) ========== -->
-        {% if request.user.is_superuser or IS_OWNER and SHOW_SECURITY_MODULE %}
+        <!-- ========== SECURITY SECTION ========== -->
 <li class="has-submenu">
             <a href="#securitySubmenu" data-bs-toggle="collapse" aria-controls="securitySubmenu" role="button" aria-expanded="{% if 'security' in request.path %}true{% else %}false{% endif %}">
                 <span class="menu-icon">🔒</span> Security
@@ -1072,7 +1078,6 @@
                 <li><a href="{% url 'change_password_security' %}" class="sub-link"><span>🔑</span> Change Password</a></li>
             </ul>
         </li>
-        {% endif %}
 
         {% if SHOW_TESTING_MODULE %}
         <!-- ========== 🧪 TESTING SECTION ========== -->
@@ -1096,8 +1101,7 @@
         </li>
         {% endif %}
 
-        <!-- ========== SYSTEM SECTION (Administrator always; others only while System Tools is ON) ========== -->
-{% if SHOW_SYSTEM_TOOLS_MODULE %}
+        <!-- ========== SYSTEM SECTION ========== -->
 <li class="has-submenu">
     <a href="#systemSubmenu" data-bs-toggle="collapse" aria-controls="systemSubmenu" role="button" aria-expanded="{% if 'settings' in request.path or 'backup' in request.path or 'users' in request.path or 'terms' in request.path or 'permission-matrix' in request.path or 'voice' in request.path or 'admin-chat' in request.path or 'otp-management' in request.path or 'notifications' in request.path or 'admin/support' in request.path %}true{% else %}false{% endif %}">
         <span class="menu-icon">⚙️</span> System
@@ -1105,30 +1109,23 @@
     </a>
     <ul class="collapse list-unstyled {% if 'settings' in request.path or 'backup' in request.path or 'users' in request.path or 'terms' in request.path or 'permission-matrix' in request.path or 'voice' in request.path or 'admin-chat' in request.path or 'otp-management' in request.path or 'notifications' in request.path or 'admin/support' in request.path %}show{% endif %}" id="systemSubmenu">
         
+        {% if not STORE_RESTRICTED %}
         <li class="menu-section-label" role="presentation">👥 USERS & PERMISSIONS</li>
         <li><a href="{% url 'user_list' %}" class="sub-link"><span>👥</span> User Management</a></li>
-        {% if SHOW_SYSTEM_TOOLS_MODULE %}
         <li><a href="{% url 'permission_matrix' %}" class="sub-link"><span>🔐</span> Permission Matrix</a></li>
-        {% endif %}
         
         <li class="menu-section-label" role="presentation">⚙️ CONFIGURATION</li>
         <li><a href="{% url 'settings_center' %}" class="sub-link {% if '/settings/center/' in request.path or '/settings/modules/' in request.path %}active{% endif %}"><span>⚙️</span> Settings</a></li>
-        {% if SHOW_SHAREHOLDERS_MODULE %}
         <li><a href="{% url 'strategy_allocations_list' %}" class="sub-link"><span>⚙️</span> Strategy Allocations</a></li>
-        {% endif %}
         {% if request.user.is_superuser or request.user.is_staff %}
         <li><a href="{% url 'translation_manager' %}" class="sub-link {% if '/settings/translations/' in request.path %}active{% endif %}"><span>🌐</span> Translation Manager</a></li>
         {% endif %}
 
         <li class="menu-section-label" role="presentation">💬 COMMUNICATION</li>
-        {% if SHOW_SYSTEM_TOOLS_MODULE %}
         <li><a href="{% url 'admin_chat_panel' %}" class="sub-link {% if 'admin-chat' in request.path %}active{% endif %}"><span>💬</span> Admin Chat</a></li>
-        {% endif %}
         <li><a href="{% url 'notification_list' %}" class="sub-link {% if '/notifications/' in request.path %}active{% endif %}"><span>🔔</span> Notifications</a></li>
         {% if request.user.is_superuser or request.user.is_staff %}
-        {% if SHOW_SYSTEM_TOOLS_MODULE %}
         <li><a href="{% url 'admin_support_tickets' %}" class="sub-link {% if 'admin/support' in request.path %}active{% endif %}"><span>🎫</span> Support Tickets</a></li>
-        {% endif %}
         {% endif %}
         {% if request.user.is_superuser %}
         <li><a href="{% url 'otp_management' %}" class="sub-link {% if 'otp-management' in request.path %}active{% endif %}"><span>🔑</span> OTP Management</a></li>
@@ -1151,16 +1148,13 @@
         <li><a href="{% url 'database_backup' %}" class="sub-link"><span>💾</span> Database Backup</a></li>
         {% endif %}
         
-        {% if request.user.is_superuser or request.user.is_staff %}
         <li><a href="{% url 'admin:index' %}" target="_blank" class="sub-link"><span>🔒</span> Admin Panel <i class="bi bi-box-arrow-up-right ms-auto" style="font-size:0.6rem;opacity:0.5;"></i></a></li>
-        {% endif %}
+        {% endif %}{# /not STORE_RESTRICTED #}
         <li><a href="{% url 'logout' %}" class="sub-link"><span>🚪</span> Logout</a></li>
         
     </ul>
 </li>
-{% endif %}
 
-{% endif %}
     </ul>
     
     <div class="sidebar-footer">

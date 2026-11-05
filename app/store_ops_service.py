@@ -238,7 +238,7 @@ def post_count(count_id, user, unit_costs=None, reasons=None, allow_self=False):
             qty = -diff
             batches = list(StockBatch.objects.select_for_update()
                            .filter(product=line.product, warehouse=wh, remaining_qty__gt=0)
-                           .order_by('id'))
+                           .order_by(F('expiry_date').asc(nulls_last=True), 'id'))  # [agri-edition:fefo]
             takes, short = allocate_fifo([(b.pk, b.remaining_qty) for b in batches], qty)
             if short > EPS:
                 raise StoreOpsError(f"{line.product.name}: batch records cover only {qty - short:g} (stock audit).")
@@ -314,7 +314,8 @@ def create_return(*, user, issue_id, quantities, returned_by='', notes='', retur
                 StockBatch.objects.filter(pk=usage.batch_id).update(remaining_qty=F('remaining_qty') + take)
             else:
                 StockBatch.objects.create(product=item.product, warehouse=issue.from_warehouse, qty=take,
-                                          remaining_qty=take, price=usage.price)
+                                          remaining_qty=take, price=usage.price,
+                                          batch_no=usage.batch_no, expiry_date=usage.expiry_date)  # [agri-edition:usage-snapshot]
             StoreReturnBatch.objects.create(line=line, usage=usage, qty=take)
             cost += _d(take) * usage.price
             left -= take

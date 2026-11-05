@@ -12,7 +12,7 @@
     .vo-tabs { display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; }
     .vo-tab { flex: 1 0 auto; text-align: center; text-decoration: none; padding: 10px 14px; border-radius: 12px;
               background: #fff; color: #444; font-weight: 600; box-shadow: 0 2px 10px rgba(0,0,0,.05); white-space: nowrap; }
-    .vo-tab.active { background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); color: #fff; }
+    .vo-tab.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; }
     .vo-tab .n { display: inline-block; min-width: 22px; padding: 1px 7px; border-radius: 20px; font-size: 12px;
                  background: rgba(0,0,0,.1); margin-left: 4px; }
     .vo-tab.active .n { background: rgba(255,255,255,.3); }
@@ -58,10 +58,6 @@
     @media (max-width: 600px) {
         .vo-acts .vo-btn { flex: 1 1 45%; text-align: center; }
     }
-
-    body { background: #f3f5ff; }
-    .vo-card { border-radius: 22px; box-shadow: 0 6px 20px rgba(0,0,0,.06); }
-    .vo-btn { border-radius: 24px; }
 </style>
 
 <div class="vo-wrap">
@@ -135,32 +131,6 @@
                 <form method="post" action="{% url 'vendor_order_action' o.id 'ready' %}" style="display:inline;">
                     {% csrf_token %}<input type="hidden" name="tab" value="{{ tab }}">
                     <button type="submit" class="vo-btn vo-readybtn">📦 Ready</button>
-                </form>
-                {% endif %}
-            {% elif o.status == 'ready' and profile.is_approved %}
-                {% if row.delivery and row.delivery.rider %}
-                    <div class="vo-note info" style="flex-basis:100%;">
-                        🏍️ Rider: <b>{{ row.delivery.rider.name }}</b> ({{ row.delivery.rider.phone }}) —
-                        {% if row.delivery.status == 'assigned' %}maal lene aa raha hai{% else %}maal le kar raaste mein hai{% endif %}
-                    </div>
-                {% endif %}
-                {% if not row.delivery or row.delivery.status == 'assigned' or not row.delivery.rider %}
-                    {% if riders %}
-                    <form method="post" action="{% url 'vendor_assign_rider' o.id %}" style="display:inline-flex;gap:6px;align-items:center;">
-                        {% csrf_token %}
-                        <select name="rider_id" required style="padding:8px;border-radius:10px;border:1px solid #cbd5e1;">
-                            <option value="">🏍️ Rider chunein</option>
-                            {% for r in riders %}<option value="{{ r.id }}" {% if row.delivery.rider_id == r.id %}selected{% endif %}>{{ r.name }}{% if r.is_online %} 🟢{% endif %}</option>{% endfor %}
-                        </select>
-                        <button type="submit" class="vo-btn vo-readybtn">{% if row.delivery.rider %}Badlein{% else %}Rider do{% endif %}</button>
-                    </form>
-                    {% endif %}
-                {% endif %}
-                {% if not row.delivery or not row.delivery.rider %}
-                <form method="post" action="{% url 'vendor_order_action' o.id 'delivered' %}" style="display:inline;"
-                      onsubmit="return confirm('Kya order customer tak pahunch gaya{% if row.is_cod %} aur cash (Rs. {{ row.total|floatformat:0 }}) mil gaya{% endif %}?');">
-                    {% csrf_token %}<input type="hidden" name="tab" value="{{ tab }}">
-                    <button type="submit" class="vo-btn vo-accept">🎉 Deliver ho gaya (khud){% if row.is_cod %} / Cash mil gaya{% endif %}</button>
                 </form>
                 {% endif %}
             {% endif %}

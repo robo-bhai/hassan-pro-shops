@@ -40,7 +40,7 @@ class StoreProfileForm(forms.ModelForm):
 @admin.register(StoreProfile, site=admin.site)
 class StoreProfileAdmin(admin.ModelAdmin):
     form = StoreProfileForm
-    list_display = ('code', 'warehouse', 'store_type', 'unit_shown', 'modules_shown', 'can_issue', 'can_transfer_out', 'can_transfer_in', 'keeper', 'is_active')
+    list_display = ('code', 'warehouse', 'store_type', 'unit_shown', 'modules_shown', 'can_issue', 'keeper', 'is_active')
 
     @admin.display(description='Company type')
     def unit_shown(self, obj):
