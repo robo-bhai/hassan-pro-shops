@@ -1,433 +1,399 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load static erp_filters %}
 
 {% block title %}Stock Batches{% endblock %}
 {% block page_title %}📦 Stock Batches{% endblock %}
 
 {% block extra_css %}
 <style>
-    :root {
-        --border: #eef0f5;
-        --text: #1a1a2e;
-        --text-light: #6b7280;
-        --accent: #0d6efd;
-        --success: #11998e;
-        --danger: #dc3545;
-        --warning: #f2994a;
-    }
-    
-    .stats-bar {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 12px;
-        margin-bottom: 20px;
-    }
-    
-    .stat-card-mini {
-        background: white;
-        border-radius: 14px;
-        padding: 16px 18px;
-        border: 1px solid var(--border);
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        transition: all 0.3s;
-    }
-    
-    .stat-card-mini:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 6px 20px rgba(0,0,0,0.06);
-    }
-    
-    .stat-card-mini .stat-icon {
-        width: 44px; height: 44px;
-        border-radius: 12px;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 1.2rem; flex-shrink: 0;
-    }
-    
-    .stat-card-mini .stat-value {
-        font-size: 1.2rem; font-weight: 800; color: var(--text); line-height: 1;
-    }
-    
-    .stat-card-mini .stat-label {
-        font-size: 0.7rem; color: var(--text-light); margin-top: 3px;
-        text-transform: uppercase; letter-spacing: 0.5px;
-    }
-    
-    .icon-total { background: #eef2ff; color: #667eea; }
-    .icon-value { background: #e8f5e9; color: #4caf50; }
-    .icon-profit { background: #fff3cd; color: #f2994a; }
-    .icon-batches { background: #e0f7fa; color: #00bcd4; }
-    
-    .filter-bar {
-        background: white;
-        border-radius: 14px;
-        padding: 16px 20px;
-        border: 1px solid var(--border);
-        margin-bottom: 20px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-    }
-    
-    .filter-bar .form-control,
-    .filter-bar .form-select {
-        border-radius: 10px;
-        border: 2px solid #eef0f5;
-        padding: 10px 14px;
-        font-size: 0.9rem;
-        font-weight: 500;
-        background: #fafbfc;
-        transition: all 0.2s;
-    }
-    
-    .filter-bar .form-control:focus,
-    .filter-bar .form-select:focus {
-        border-color: var(--accent);
-        box-shadow: 0 0 0 3px rgba(13,110,253,0.1);
-        background: white;
-        outline: none;
-    }
-    
-    .btn-filter {
-        border-radius: 10px; padding: 10px 20px;
-        font-weight: 700; font-size: 0.85rem; border: none; cursor: pointer;
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        color: white; display: flex; align-items: center;
-        justify-content: center; gap: 6px; transition: all 0.3s;
-    }
-    
-    .btn-filter:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(102,126,234,0.4);
-    }
-    
-    .table-card {
-        background: white;
-        border-radius: 16px;
-        border: 1px solid var(--border);
-        overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-    }
-    
-    .table-header {
-        display: flex; justify-content: space-between; align-items: center;
-        padding: 18px 22px; border-bottom: 1px solid var(--border);
-        background: #fafbfc; flex-wrap: wrap; gap: 12px;
-    }
-    
-    .table-header h5 { margin: 0; font-weight: 700; font-size: 1rem; }
-    
-    .badge-count {
-        background: var(--accent); color: white;
-        padding: 5px 14px; border-radius: 20px;
-        font-size: 0.75rem; font-weight: 600;
-    }
-    
-    .table-responsive-custom {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-    
-    .batch-table {
-        width: 100%; border-collapse: collapse; min-width: 1100px;
-    }
-    
-    .batch-table thead th {
-        background: #1a1d2e; color: white;
-        padding: 14px 16px; font-size: 0.7rem;
-        text-transform: uppercase; letter-spacing: 1.5px;
-        font-weight: 700; white-space: nowrap; border: none;
-    }
-    
-    .batch-table tbody td {
-        padding: 12px 16px; border-bottom: 1px solid #f0f2f7;
-        font-size: 0.88rem; color: var(--text); vertical-align: middle;
-    }
-    
-    .batch-table tbody tr { transition: all 0.2s; }
-    .batch-table tbody tr:hover { background: #f8f9ff; }
-    .batch-table tbody tr:nth-child(even) { background: #fafbfd; }
-    .batch-table tbody tr:nth-child(even):hover { background: #f0f4ff; }
-    
-    .batch-table tbody tr.row-sold { opacity: 0.6; }
-    .batch-table tbody tr.row-profitable { border-left: 3px solid #4caf50; }
-    
-    .text-right { text-align: right; }
-    .text-center { text-align: center; }
-    
-    .selling-price-input {
-        width: 90px; border-radius: 6px; border: 2px solid #e0e3eb;
-        padding: 5px 8px; font-weight: 600; text-align: right;
-        font-size: 0.8rem; transition: all 0.2s;
-    }
-    
-    .selling-price-input:focus {
-        border-color: #f2994a; outline: none;
-        box-shadow: 0 0 0 3px rgba(242,153,74,0.15);
-    }
-    
-    .profit-badge {
-        display: inline-flex; align-items: center; gap: 4px;
-        padding: 4px 12px; border-radius: 15px;
-        font-size: 0.78rem; font-weight: 700;
-    }
-    
-    .profit-positive { background: #d4edda; color: #155724; }
-    .profit-zero { background: #fff3cd; color: #856404; }
-    .profit-negative { background: #fce4ec; color: #721c24; }
-    
-    .price-cell { font-weight: 600; }
-    .price-cell.cost { color: #6b7280; }
-    .price-cell.selling { color: var(--accent); }
-    
-    /* ✅ Discount Badge */
-    .discount-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 3px 10px;
-        border-radius: 12px;
-        font-size: 0.72rem;
-        font-weight: 800;
-        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-        color: white;
-        box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
-    }
-    
-    .discount-badge.none {
-        background: #f1f5f9;
-        color: #94a3b8;
-        box-shadow: none;
-    }
-    
-    .final-price {
-        font-weight: 800;
-        color: #10b981;
-    }
-    
-    .original-price-strike {
-        font-size: 0.72rem;
-        color: #94a3b8;
-        text-decoration: line-through;
-        margin-left: 4px;
-    }
-    
-    /* ✅ Report Button */
-    .btn-report {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        border-radius: 8px;
-        padding: 5px 12px;
-        font-size: 0.75rem;
-        font-weight: 700;
-        cursor: pointer;
-        transition: all 0.2s;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-    }
-    
-    .btn-report:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-        color: white;
-    }
-    
-    .empty-state { text-align: center; padding: 60px 20px; }
-    .empty-state .empty-icon { font-size: 5rem; opacity: 0.2; margin-bottom: 15px; }
-    .empty-state h4 { color: #8a8fa0; font-weight: 700; }
-    
+    /* All colours come from base.html variables, so light AND dark theme both work.
+       Every class is prefixed "sb-" so nothing here can leak into other pages. */
+    .sb-head { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; }
+    .sb-head h2 { margin:0; font-size:1.25rem; font-weight:800; color:var(--text-primary); }
+    .sb-head p  { margin:2px 0 0; font-size:.8rem; color:var(--text-secondary); }
+    .sb-btn { border-radius:10px; padding:8px 16px; font-weight:600; font-size:.85rem; }
+
+    .sb-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px; margin-bottom:16px; }
+    .sb-stat { background:var(--bg-card); border:1px solid var(--border-color); border-radius:14px; padding:16px 18px;
+               display:flex; align-items:center; gap:14px; text-decoration:none; color:inherit; transition:transform .2s, box-shadow .2s; }
+    .sb-stat:hover { transform:translateY(-2px); box-shadow:0 6px 18px var(--shadow-hover); color:inherit; }
+    .sb-stat-icon { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0; }
+    .sb-stat-value { font-size:1.25rem; font-weight:800; color:var(--text-primary); line-height:1.1; }
+    .sb-stat-label { font-size:.68rem; color:var(--text-secondary); margin-top:3px; text-transform:uppercase; letter-spacing:.6px; }
+    .sb-stat-sub { font-size:.72rem; color:var(--text-muted); margin-top:2px; }
+    .ic-blue { background:#eef2ff; color:#4f6bed; } .ic-green { background:#e6f6ec; color:#2e9e5b; }
+    .ic-amber { background:#fff4e0; color:#e08a00; } .ic-red { background:#fdeaea; color:#d63a3a; }
+    .sb-stat.warn { border-color:#f2c36b; }
+
+    .sb-filters { background:var(--bg-card); border:1px solid var(--border-color); border-radius:14px; padding:14px 18px; margin-bottom:16px; }
+    .sb-filters label { display:block; font-weight:700; font-size:.65rem; text-transform:uppercase; letter-spacing:1.2px; color:var(--text-muted); margin-bottom:4px; }
+    .sb-filters .form-control, .sb-filters .form-select { border-radius:10px; font-size:.86rem; background-color:var(--input-bg); color:var(--text-primary); border-color:var(--border-color); }
+    .sb-filters .form-control:focus, .sb-filters .form-select:focus { border-color:#0d6efd; box-shadow:0 0 0 3px rgba(13,110,253,.12); }
+
+    .sb-card { background:var(--bg-card); border:1px solid var(--border-color); border-radius:16px; overflow:hidden; }
+    .sb-card-head { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px; padding:14px 20px; border-bottom:1px solid var(--border-color); background:var(--table-header-bg); }
+    .sb-card-head h5 { margin:0; font-size:1rem; font-weight:700; color:var(--text-primary); }
+    .sb-count { background:#0d6efd; color:#fff; padding:4px 12px; border-radius:20px; font-size:.72rem; font-weight:700; margin-left:6px; }
+    .sb-hint { font-size:.72rem; color:var(--text-muted); }
+
+    .sb-scroll { overflow:auto; max-height:72vh; -webkit-overflow-scrolling:touch; }
+    .sb-table { width:100%; border-collapse:separate; border-spacing:0; min-width:1080px; }
+    .sb-table thead th { position:sticky; top:0; z-index:2; background:#1a1d2e; color:#fff; padding:12px 14px; font-size:.68rem; text-transform:uppercase;
+                         letter-spacing:1.2px; font-weight:700; white-space:nowrap; border:0; }
+    .sb-table thead th[data-sort] { cursor:pointer; user-select:none; }
+    .sb-table thead th[data-sort]:hover { background:#272b44; }
+    .sb-table thead th .arr { opacity:.35; margin-left:4px; font-size:.7rem; }
+    .sb-table thead th.sorted .arr { opacity:1; color:#7fd1ff; }
+    .sb-table tbody td { padding:11px 14px; border-bottom:1px solid var(--border-color); font-size:.86rem; color:var(--text-primary); vertical-align:middle; }
+    .sb-table tbody tr:hover { background:var(--bg-hover); }
+    .sb-table tbody tr.is-sold { opacity:.62; }
+    .sb-table tbody tr.is-nopx td:first-child, .sb-table tbody tr.is-below td:first-child { box-shadow:inset 3px 0 0 #f2994a; }
+    .sb-table tbody tr.is-below td:first-child { box-shadow:inset 3px 0 0 #dc3545; }
+    .sb-table tbody tr.is-ok td:first-child { box-shadow:inset 3px 0 0 #2e9e5b; }
+    .r { text-align:right; } .c { text-align:center; }
+    .sb-muted { color:var(--text-muted); font-size:.74rem; }
+    .sb-col-check { width:34px; text-align:center; }
+    .sb-col-check input { width:16px; height:16px; cursor:pointer; }
+
+    .sb-prod { font-weight:700; line-height:1.25; }
+    .sb-chip { display:inline-block; padding:2px 9px; border-radius:20px; font-size:.68rem; font-weight:700; white-space:nowrap; }
+    .chip-ok { background:#e2f5e9; color:#1b7a43; } .chip-sold { background:#eceef3; color:#6b7280; }
+    .chip-nopx { background:#fff1db; color:#a76100; } .chip-below { background:#fde3e3; color:#b42323; }
+    .chip-disc { background:#fde8f0; color:#b0246a; }
+    .sb-bar { height:5px; border-radius:3px; background:var(--progress-bg); margin-top:5px; overflow:hidden; min-width:70px; }
+    .sb-bar > i { display:block; height:100%; background:#4f6bed; }
+
+    .sb-price { width:96px; border-radius:8px; border:2px solid var(--border-color); padding:5px 8px; font-weight:700; text-align:right; font-size:.85rem;
+                background:var(--input-bg); color:var(--text-primary); transition:border-color .2s, background .2s; }
+    .sb-price:focus { border-color:#f2994a; outline:none; box-shadow:0 0 0 3px rgba(242,153,74,.18); }
+    .sb-price.is-saving { opacity:.6; pointer-events:none; }
+    .sb-price.is-saved { background:#d4edda; border-color:#4caf50; color:#155724; }
+    .sb-price.is-error { background:#fdecea; border-color:#dc3545; }
+    .sb-price.is-empty { border-style:dashed; border-color:#f2994a; }
+    .sb-price-ro { font-weight:700; }
+    .sb-min { display:block; font-size:.66rem; color:var(--text-muted); margin-top:2px; text-align:right; }
+    .sb-pill { font-size:.75rem; font-weight:700; color:#0d6efd; background:#eaf2ff; padding:3px 9px; border-radius:12px; white-space:nowrap; }
+    .sb-pill.low { color:#a76100; background:#fff1db; }
+    .sb-profit { display:block; font-size:.7rem; color:#1b7a43; margin-top:3px; font-weight:600; }
+
+    .sb-icon-btn { border:1px solid var(--border-color); background:var(--bg-card); color:var(--text-primary); border-radius:8px; padding:5px 9px;
+                   font-size:.74rem; font-weight:700; text-decoration:none; cursor:pointer; white-space:nowrap; }
+    .sb-icon-btn:hover { background:var(--bg-hover); color:var(--text-primary); }
+
+    .sb-empty { text-align:center; padding:56px 20px; color:var(--text-secondary); }
+    .sb-empty .big { font-size:3.6rem; opacity:.3; }
+
+    /* Bulk price bar */
+    .bulk-bar { position:fixed; left:50%; bottom:18px; transform:translate(-50%,140%); width:min(960px,calc(100vw - 24px)); z-index:1050;
+                background:#1a1d2e; color:#fff; border-radius:16px; padding:14px 18px; box-shadow:0 12px 40px rgba(0,0,0,.35); transition:transform .25s ease; }
+    .bulk-bar.show { transform:translate(-50%,0); }
+    .bulk-bar .bulk-title { font-weight:800; font-size:.9rem; white-space:nowrap; }
+    .bulk-bar .form-control, .bulk-bar .form-select { border-radius:8px; border:0; padding:6px 10px; font-size:.85rem; font-weight:600; min-width:0; background:#fff; color:#1a1a2e; }
+    .bulk-bar label.small { color:#aab0c5; font-size:.65rem; text-transform:uppercase; letter-spacing:1px; margin-bottom:2px; display:block; }
+    .bulk-chip { border:1px solid #3b4160; background:transparent; color:#dbe0f5; border-radius:999px; padding:3px 11px; font-size:.75rem; font-weight:700; cursor:pointer; }
+    .bulk-chip:hover { background:#2a2f4a; }
+    .bulk-apply { background:linear-gradient(135deg,#11998e,#38ef7d); color:#04261f; border:0; border-radius:10px; padding:8px 18px; font-weight:800; font-size:.85rem; }
+    .bulk-apply:disabled { opacity:.6; }
+    .bulk-clear { background:transparent; border:0; color:#aab0c5; font-weight:700; font-size:.8rem; }
+
+    .p-toasts { position:fixed; top:76px; right:16px; z-index:2000; display:flex; flex-direction:column; gap:8px; }
+    .p-toast { min-width:240px; max-width:360px; padding:11px 16px; border-radius:12px; font-size:.85rem; font-weight:600; color:#fff; box-shadow:0 8px 24px rgba(0,0,0,.18); animation:pToastIn .2s ease; }
+    .p-toast.ok { background:#11998e; } .p-toast.err { background:#dc3545; } .p-toast.warn { background:#f2994a; }
+    @keyframes pToastIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+
+    /* Phones: every row becomes a card (no sideways scrolling) */
     @media (max-width: 768px) {
-        .stats-bar { grid-template-columns: repeat(2, 1fr); gap: 8px; }
-        .stat-card-mini { padding: 12px 14px; gap: 8px; }
-        .stat-card-mini .stat-icon { width: 36px; height: 36px; font-size: 1rem; }
-        .stat-card-mini .stat-value { font-size: 1rem; }
-        .filter-bar { padding: 14px 16px; }
-        .batch-table { min-width: 800px; }
-        .batch-table thead th, .batch-table tbody td { padding: 10px 12px; font-size: 0.78rem; }
-        .table-header { padding: 14px 16px; }
+        .sb-stats { grid-template-columns:repeat(2,1fr); gap:8px; }
+        .sb-stat { padding:12px; gap:10px; } .sb-stat-icon { width:36px; height:36px; font-size:1rem; } .sb-stat-value { font-size:1.02rem; }
+        .sb-scroll { max-height:none; overflow:visible; }
+        .sb-table { min-width:0; } .sb-table thead { display:none; }
+        .sb-table, .sb-table tbody, .sb-table tr, .sb-table td { display:block; width:100%; }
+        .sb-table tbody tr { margin:10px; width:auto; border:1px solid var(--border-color); border-radius:12px; padding:8px 4px; background:var(--bg-card); }
+        .sb-table tbody td { border:0; padding:6px 12px; display:flex; justify-content:space-between; align-items:center; gap:12px; text-align:right; }
+        .sb-table tbody td[data-label]::before { content:attr(data-label); font-size:.66rem; text-transform:uppercase; letter-spacing:.8px; color:var(--text-muted); font-weight:700; text-align:left; }
+        .sb-table tbody td.sb-col-check { justify-content:flex-start; }
+        .sb-table tbody tr.is-ok td:first-child, .sb-table tbody tr.is-nopx td:first-child, .sb-table tbody tr.is-below td:first-child { box-shadow:none; }
+        .bulk-bar { bottom:8px; padding:12px; }
+    }
+    .sb-filter-toggle { width:100%; display:flex; align-items:center; justify-content:space-between; gap:10px; background:none; border:0; padding:0; color:var(--text-primary); font-weight:700; font-size:.9rem; }
+    .sb-filter-toggle .badge { font-size:.7rem; }
+    .sb-filter-toggle .bi-chevron-down { transition:transform .2s; }
+    .sb-filter-toggle[aria-expanded="true"] .bi-chevron-down { transform:rotate(180deg); }
+    @media (max-width: 768px) {
+        .sb-filters { padding:12px 14px; }
+        #sbFilterBody { margin-top:12px; }
+        .sb-filters .form-control, .sb-filters .form-select { min-height:42px; }   /* easy to tap */
+    }
+    @media print {
+        .sb-filters, .sb-actions, .bulk-bar, .p-toasts, .sb-col-check, .sb-col-act, nav[aria-label="Pagination"] { display:none !important; }
+        .sb-scroll { max-height:none; overflow:visible; } .sb-table thead th { position:static; }
     }
 </style>
 {% endblock %}
 
 {% block content %}
 
-<!-- Stats -->
-<div class="stats-bar">
-    <div class="stat-card-mini">
-        <div class="stat-icon icon-total">📦</div>
-        <div class="stat-info">
-            <div class="stat-value">{{ total_batches|default:'0' }}</div>
-            <div class="stat-label">Total Batches</div>
-        </div>
+<div class="sb-head">
+    <div>
+        <h2>Stock Batches</h2>
+        <p>Cost, selling price and margin of every purchase batch{% if has_filters %} &middot; <strong>filtered view</strong>{% endif %}</p>
     </div>
-    <div class="stat-card-mini">
-        <div class="stat-icon icon-value">💰</div>
-        <div class="stat-info">
-            <div class="stat-value">Rs. {{ total_stock_value|floatformat:0|default:'0' }}</div>
-            <div class="stat-label">Stock Value</div>
-        </div>
-    </div>
-    <div class="stat-card-mini">
-        <div class="stat-icon icon-profit">📈</div>
-        <div class="stat-info">
-            <div class="stat-value">Rs. {{ total_potential_profit|floatformat:0|default:'0' }}</div>
-            <div class="stat-label">Potential Profit</div>
-        </div>
-    </div>
-    <div class="stat-card-mini">
-        <div class="stat-icon icon-batches">🏷️</div>
-        <div class="stat-info">
-            <div class="stat-value">{{ active_batches|default:'0' }}</div>
-            <div class="stat-label">Active Batches</div>
-        </div>
+    <div class="d-flex flex-wrap gap-2 sb-actions">
+        {% if can_export %}<a href="{% url 'batch_export' %}?{{ request.GET.urlencode }}" class="btn btn-sm btn-outline-primary sb-btn"><i class="bi bi-download"></i> Export CSV</a>{% endif %}
+        <button type="button" class="btn btn-sm btn-outline-secondary sb-btn" onclick="window.print()"><i class="bi bi-printer"></i> Print</button>
+        <a href="{% url 'inventory_list' %}" class="btn btn-sm btn-outline-success sb-btn">📊 View Stock</a>
+        {% if request.user|can:"view_price_history" %}<a href="{% url 'price_history' %}" class="btn btn-sm btn-outline-secondary sb-btn">🕘 Price History</a>{% endif %}
     </div>
 </div>
 
-<!-- Filter -->
-<div class="filter-bar">
-    <form method="GET" class="row g-2 align-items-end">
-        <div class="col-md-4">
-            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">🔍 Search</label>
-            <input type="text" name="search" class="form-control" placeholder="Product name, bill no..." value="{{ search }}">
+<!-- Stats (follow the current filters) -->
+<div class="sb-stats" id="sbStats">
+    <div class="sb-stat">
+        <div class="sb-stat-icon ic-blue">📦</div>
+        <div>
+            <div class="sb-stat-value" data-stat="total_batches">{{ total_batches|default:'0' }}</div>
+            <div class="sb-stat-label">Batches</div>
+            <div class="sb-stat-sub"><span data-stat="active_batches">{{ active_batches|default:'0' }}</span> in stock &middot; {{ sold_batches|default:'0' }} sold out</div>
         </div>
-        <div class="col-md-3">
-            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">🏭 Warehouse</label>
-            <select name="warehouse" class="form-select">
+    </div>
+    <div class="sb-stat">
+        <div class="sb-stat-icon ic-green">💰</div>
+        <div>
+            <div class="sb-stat-value">Rs. <span data-stat="total_stock_value">{{ total_stock_value|floatformat:0 }}</span></div>
+            <div class="sb-stat-label">Stock value (at cost)</div>
+        </div>
+    </div>
+    <div class="sb-stat">
+        <div class="sb-stat-icon ic-amber">📈</div>
+        <div>
+            <div class="sb-stat-value">Rs. <span data-stat="total_potential_profit">{{ total_potential_profit|floatformat:0 }}</span></div>
+            <div class="sb-stat-label">Potential profit</div>
+            <div class="sb-stat-sub">batches with a selling price</div>
+        </div>
+    </div>
+    <a class="sb-stat {% if no_price_batches %}warn{% endif %}" href="?stock_status=no_sp" title="Show in-stock batches that have no selling price">
+        <div class="sb-stat-icon ic-red">⚠️</div>
+        <div>
+            <div class="sb-stat-value" data-stat="no_price_batches">{{ no_price_batches|default:'0' }}</div>
+            <div class="sb-stat-label">Need a selling price</div>
+            <div class="sb-stat-sub">in stock, price not set</div>
+        </div>
+    </a>
+    <a class="sb-stat {% if slow_batches %}warn{% endif %}" href="?stock_status=stale" title="In stock for {{ stale_days }} days or more">
+        <div class="sb-stat-icon ic-amber">🕸️</div>
+        <div>
+            <div class="sb-stat-value">Rs. <span data-stat="slow_stock_value">{{ slow_stock_value|floatformat:0 }}</span></div>
+            <div class="sb-stat-label">Slow-moving stock</div>
+            <div class="sb-stat-sub"><span data-stat="slow_batches">{{ slow_batches|default:'0' }}</span> batches &middot; {{ stale_days }}+ days old</div>
+        </div>
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="sb-filters">
+    {# Phones: filters sit behind this button (open by default when a filter is active). Desktop: always visible. #}
+    <button type="button" class="sb-filter-toggle d-md-none" data-bs-toggle="collapse" data-bs-target="#sbFilterBody"
+            aria-expanded="{% if has_filters %}true{% else %}false{% endif %}" aria-controls="sbFilterBody">
+        <span><i class="bi bi-funnel me-2"></i>Filters &amp; sort{% if has_filters %} <span class="badge bg-primary ms-1">on</span>{% endif %}</span>
+        <i class="bi bi-chevron-down"></i>
+    </button>
+    <div class="collapse d-md-block{% if has_filters %} show{% endif %}" id="sbFilterBody">
+    <form method="get" id="filterForm" class="row g-2 align-items-end">
+        <div class="col-12 col-md-4 col-lg-3">
+            <label for="fSearch">Search</label>
+            <input id="fSearch" type="search" name="search" class="form-control" placeholder="Product, serial, barcode, bill, vendor, batch #" value="{{ search }}">
+        </div>
+        <div class="col-6 col-md-4 col-lg-2">
+            <label for="fWh">Warehouse</label>
+            <select id="fWh" name="warehouse" class="form-select">
                 <option value="">All</option>
-                {% for wh in warehouses %}
-                <option value="{{ wh.id }}" {% if selected_warehouse == wh.id|stringformat:"s" %}selected{% endif %}>{{ wh.name }}</option>
-                {% endfor %}
+                {% for wh in warehouses %}<option value="{{ wh.id }}" {% if selected_warehouse == wh.id|stringformat:"s" %}selected{% endif %}>{{ wh.name }}</option>{% endfor %}
             </select>
         </div>
-        <div class="col-md-3">
-            <label style="font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#8a8fa0;margin-bottom:4px;display:block;">📊 Stock</label>
-            <select name="stock_status" class="form-select">
+        <div class="col-6 col-md-4 col-lg-2">
+            <label for="fCat">Category</label>
+            <select id="fCat" name="category" class="form-select">
                 <option value="">All</option>
-                <option value="in_stock" {% if stock_status == 'in_stock' %}selected{% endif %}>✅ In Stock</option>
-                <option value="sold" {% if stock_status == 'sold' %}selected{% endif %}>🛒 Sold Out</option>
-                <option value="has_sp" {% if stock_status == 'has_sp' %}selected{% endif %}>💰 Has Selling Price</option>
-                <option value="no_sp" {% if stock_status == 'no_sp' %}selected{% endif %}>⚠️ No Selling Price</option>
+                {% for c in categories %}<option value="{{ c.id }}" {% if selected_category == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
             </select>
         </div>
-        <div class="col-md-2">
-            <button type="submit" class="btn-filter w-100"><i class="bi bi-funnel"></i> Filter</button>
+        <div class="col-6 col-md-4 col-lg-2">
+            <label for="fVen">Vendor</label>
+            <select id="fVen" name="vendor" class="form-select">
+                <option value="">All</option>
+                {% for v in vendors %}<option value="{{ v.id }}" {% if selected_vendor == v.id|stringformat:"s" %}selected{% endif %}>{{ v.name }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-6 col-md-4 col-lg-3">
+            <label for="fSt">Stock / price</label>
+            <select id="fSt" name="stock_status" class="form-select">
+                <option value="">All</option>
+                <option value="in_stock" {% if stock_status == 'in_stock' %}selected{% endif %}>In stock</option>
+                <option value="sold" {% if stock_status == 'sold' %}selected{% endif %}>Sold out</option>
+                <option value="has_sp" {% if stock_status == 'has_sp' %}selected{% endif %}>Has selling price</option>
+                <option value="no_sp" {% if stock_status == 'no_sp' %}selected{% endif %}>No selling price</option>
+                <option value="stale" {% if stock_status == 'stale' %}selected{% endif %}>Slow-moving ({{ stale_days }}+ days)</option>
+            </select>
+        </div>
+        <div class="col-6 col-md-3 col-lg-2">
+            <label for="fFrom">Purchased from</label>
+            <input id="fFrom" type="date" name="date_from" class="form-control" value="{{ f.date_from|date:'Y-m-d' }}">
+        </div>
+        <div class="col-6 col-md-3 col-lg-2">
+            <label for="fTo">Purchased to</label>
+            <input id="fTo" type="date" name="date_to" class="form-control" value="{{ f.date_to|date:'Y-m-d' }}">
+        </div>
+        <div class="col-6 col-md-2 col-lg-1">
+            <label for="fPer">Rows</label>
+            <select id="fPer" name="per_page" class="form-select">
+                {% for s in page_sizes %}<option value="{{ s }}" {% if per_page == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-6 col-md-3 col-lg-2">
+            <label for="fSort">Sort by</label>
+            <select id="fSort" name="sort" class="form-select">
+                <option value="id" {% if f.sort == 'id' %}selected{% endif %}>Batch #</option>
+                <option value="product" {% if f.sort == 'product' %}selected{% endif %}>Product</option>
+                <option value="age" {% if f.sort == 'age' %}selected{% endif %}>Age</option>
+                <option value="remaining" {% if f.sort == 'remaining' %}selected{% endif %}>Stock</option>
+                <option value="cost" {% if f.sort == 'cost' %}selected{% endif %}>Cost</option>
+                <option value="selling" {% if f.sort == 'selling' %}selected{% endif %}>Selling price</option>
+                <option value="value" {% if f.sort == 'value' %}selected{% endif %}>Value</option>
+            </select>
+        </div>
+        <div class="col-6 col-md-3 col-lg-2">
+            <label for="fDir">Order</label>
+            <select id="fDir" name="dir" class="form-select">
+                <option value="desc" {% if f.dir != 'asc' %}selected{% endif %}>High &rarr; Low / Newest</option>
+                <option value="asc" {% if f.dir == 'asc' %}selected{% endif %}>Low &rarr; High / Oldest</option>
+            </select>
+        </div>
+        <div class="col-12 col-md-4 col-lg-3 d-flex gap-2">
+            <button type="submit" class="btn btn-primary sb-btn flex-fill"><i class="bi bi-funnel"></i> Apply</button>
+            {% if has_filters %}<a href="{% url 'batch_list' %}" class="btn btn-outline-secondary sb-btn" title="Clear all filters"><i class="bi bi-x-lg"></i> Reset</a>{% endif %}
         </div>
     </form>
+    </div>
 </div>
 
 <!-- Table -->
-<div class="table-card">
-    <div class="table-header">
-        <h5>📦 Stock Batches <span class="badge-count">{{ page_obj.paginator.count|default:'0' }} batches</span></h5>
-        <div class="d-flex gap-2">
-            <a href="{% url 'inventory_list' %}" class="btn btn-sm btn-outline-success" style="border-radius:10px; padding:8px 16px; font-weight:600;">📊 View Stock</a>
-        </div>
+<div class="sb-card">
+    <div class="sb-card-head">
+        <h5>Batches <span class="sb-count">{{ page_obj.paginator.count|default:'0' }}</span></h5>
+        <span class="sb-hint">
+            {% if can_edit_prices %}Type a price and press Enter &middot; &uarr;/&darr; moves between rows &middot; Esc cancels{% else %}View only &mdash; you do not have permission to change prices{% endif %}
+        </span>
     </div>
-    
-    <div class="table-responsive-custom">
-        <table class="batch-table">
+
+    <div class="sb-scroll">
+        <table class="sb-table" id="batchTable" data-sort="{{ f.sort }}" data-dir="{{ f.dir }}">
             <thead>
                 <tr>
-                    <th>Product</th>
+                    {% if can_edit_prices %}<th class="sb-col-check"><input type="checkbox" id="selectAll" title="Select all rows on this page" aria-label="Select all rows on this page"></th>{% endif %}
+                    <th data-sort="id">Batch <span class="arr">&#8645;</span></th>
+                    <th data-sort="product">Product <span class="arr">&#8645;</span></th>
                     <th>Warehouse</th>
-                    <th>Purchase Bill</th>
-                    <th class="text-right">Qty</th>
-                    <th class="text-right">Remaining</th>
-                    <th class="text-right">Cost Price</th>
-                    <th class="text-right">Selling Price</th>
-                    <th class="text-center">Discount</th>
-                    <th class="text-right">Profit/Unit</th>
-                    <th class="text-right">Total Value</th>
-                    <th class="text-center">Action</th>
+                    <th>Bill / Vendor</th>
+                    <th data-sort="age" class="r">Age <span class="arr">&#8645;</span></th>
+                    <th data-sort="remaining" class="r">Stock <span class="arr">&#8645;</span></th>
+                    <th data-sort="cost" class="r">Cost <span class="arr">&#8645;</span></th>
+                    <th data-sort="selling" class="r">Selling price <span class="arr">&#8645;</span></th>
+                    <th class="r">Margin</th>
+                    <th data-sort="value" class="r">Value <span class="arr">&#8645;</span></th>
+                    <th class="c sb-col-act">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for batch in page_obj %}
-                <tr class="{% if batch.remaining_qty <= 0 %}row-sold{% endif %} {% if batch.profit_per_unit > 0 %}row-profitable{% endif %}">
-                    <td>
-                        <strong>{{ batch.product.name|truncatechars:25 }}</strong>
-                        {% if batch.product.serial_no %}
-                        <br><small style="color:#8a8fa0;">{{ batch.product.serial_no }}</small>
-                        {% endif %}
+                <tr data-batch-id="{{ batch.id }}" data-cost="{{ batch.price|stringformat:'s' }}" data-min="{{ batch.min_price|stringformat:'s' }}" data-qty="{{ batch.remaining_qty|stringformat:'s' }}"
+                    class="{% if batch.is_sold_out %}is-sold{% endif %} {% if batch.below_min %}is-below{% elif batch.no_price and not batch.is_sold_out %}is-nopx{% elif not batch.is_sold_out %}is-ok{% endif %}">
+                    {% if can_edit_prices %}<td class="sb-col-check"><input type="checkbox" class="row-check" value="{{ batch.id }}" aria-label="Select batch {{ batch.id }}"></td>{% endif %}
+
+                    <td data-label="Batch">
+                        <div><strong>#{{ batch.id }}</strong></div>
+                        {% if batch.purchase_item and batch.purchase_item.purchase %}<div class="sb-muted">{{ batch.purchase_item.purchase.pur_date|date:"d M Y" }}</div>{% endif %}
                     </td>
-                    <td>{{ batch.warehouse.name }}</td>
-                    <td>
-                        {% if batch.purchase_item and batch.purchase_item.purchase %}
-                        <span style="font-size:0.82rem;">{{ batch.purchase_item.purchase.bill_no|default:'Pending' }}</span>
-                        {% else %}
-                        <span style="color:#ccc;">-</span>
-                        {% endif %}
-                    </td>
-                    <td class="text-right">{{ batch.qty|floatformat:2 }}</td>
-                    <td class="text-right">
-                        {% if batch.remaining_qty <= 0 %}
-                        <span class="text-danger fw-bold">0</span>
-                        {% else %}
-                        <strong>{{ batch.remaining_qty|floatformat:2 }}</strong>
-                        {% endif %}
-                    </td>
-                    <td class="text-right price-cell cost">Rs. {{ batch.price|floatformat:2 }}</td>
-                    <td class="text-right">
-                        <input type="number" class="selling-price-input" 
-                               value="{{ batch.selling_price|floatformat:2 }}" 
-                               step="0.01" min="{{ batch.price|floatformat:2 }}"
-                               onchange="updateSellingPrice('{{ batch.id }}', this.value)"
-                               title="Enter selling price">
-                    </td>
-                    
-                    <!-- ✅ DISCOUNT COLUMN -->
-                    <td class="text-center">
+
+                    <td data-label="Product">
+                        <div class="sb-prod">{{ batch.product.name|truncatechars:34 }}</div>
+                        <div class="sb-muted">
+                            {% if batch.product.serial_no %}{{ batch.product.serial_no }}{% endif %}
+                            {% if batch.product.category %}{% if batch.product.serial_no %} &middot; {% endif %}{{ batch.product.category.name }}{% endif %}
+                        </div>
                         {% if batch.product.discount_percentage and batch.product.discount_percentage > 0 %}
-                        <span class="discount-badge">
-                            <i class="bi bi-tag-fill"></i> {{ batch.product.discount_percentage|floatformat:0 }}%
-                        </span>
-                        <br>
-                        <small class="final-price">Rs. {{ batch.product.price|floatformat:0 }}</small>
-                        {% else %}
-                        <span class="discount-badge none">No Discount</span>
+                        <span class="sb-chip chip-disc" title="Product discount. Current product price: Rs. {{ batch.product.price|floatformat:0 }}">-{{ batch.product.discount_percentage|floatformat:'-1' }}% product discount</span>
                         {% endif %}
                     </td>
-                    
-                    <td class="text-right">
-                        {% with profit=batch.profit_per_unit %}
-                        {% if profit > 0 %}
-                        <span class="profit-badge profit-positive">+Rs. {{ profit|floatformat:2 }}</span>
-                        {% elif profit == 0 and batch.selling_price > 0 %}
-                        <span class="profit-badge profit-zero">Rs. 0</span>
+
+                    <td data-label="Warehouse">{{ batch.warehouse.name }}</td>
+
+                    <td data-label="Bill / Vendor">
+                        {% if batch.purchase_item and batch.purchase_item.purchase %}
+                        <div>{{ batch.purchase_item.purchase.bill_no|default:'Pending' }}</div>
+                        <div class="sb-muted">{{ batch.purchase_item.purchase.vendor.name|truncatechars:22 }}</div>
+                        {% else %}<span class="sb-muted">&mdash;</span>{% endif %}
+                    </td>
+
+                    <td class="r" data-label="Age">
+                        {% if batch.age_days is None %}<span class="sb-muted">&mdash;</span>
                         {% else %}
-                        <span style="color:#ccc;">-</span>
+                        <div{% if batch.is_slow %} style="color:#a76100;font-weight:600;"{% endif %}>{{ batch.age_days }} d</div>
+                        {% if batch.is_slow %}<span class="sb-chip chip-nopx" title="In stock for {{ stale_days }}+ days">Slow</span>{% endif %}
                         {% endif %}
-                        {% endwith %}
                     </td>
-                    <td class="text-right">
-                        <strong>Rs. {{ batch.selling_value|floatformat:0 }}</strong>
+
+                    <td class="r" data-label="Stock">
+                        <div>
+                            {% if batch.is_sold_out %}<span class="sb-chip chip-sold" data-cell="status">Sold out</span>
+                            {% elif batch.below_min %}<span class="sb-chip chip-below" data-cell="status" title="Selling price is below the current minimum margin">Below min</span>
+                            {% elif batch.no_price %}<span class="sb-chip chip-nopx" data-cell="status">No price</span>
+                            {% else %}<span class="sb-chip chip-ok" data-cell="status">In stock</span>{% endif %}
+                        </div>
+                        <div style="margin-top:4px;"><strong>{{ batch.remaining_qty|floatformat:'-2' }}</strong> <span class="sb-muted">/ {{ batch.qty|floatformat:'-2' }} {{ batch.product.unit|default:'' }}</span></div>
+                        <div class="sb-bar" title="{{ batch.sold_pct }}% sold"><i style="width:{{ batch.sold_pct }}%"></i></div>
                     </td>
-                    <td class="text-center">
+
+                    <td class="r" data-label="Cost">Rs. {{ batch.price|floatformat:2 }}</td>
+
+                    <td class="r" data-label="Selling price">
+                        {% if can_edit_prices %}
+                        <input type="number" class="sb-price{% if batch.selling_price <= 0 %} is-empty{% endif %}"
+                               value="{{ batch.selling_price|stringformat:'s' }}" data-original="{{ batch.selling_price|stringformat:'s' }}"
+                               step="0.01" min="0" inputmode="decimal" aria-label="Selling price"
+                               title="Type the price and press Enter. 0 clears it. Esc cancels.">
+                        {% else %}
+                        <span class="sb-price-ro">{% if batch.selling_price > 0 %}Rs. {{ batch.selling_price|floatformat:2 }}{% else %}<span class="sb-muted">not set</span>{% endif %}</span>
+                        {% endif %}
+                        <span class="sb-min" title="{% if batch.min_pct %}Cost + {{ batch.min_pct|floatformat:'-2' }}% minimum margin{% else %}Cost price{% endif %}">min Rs. {{ batch.min_price|floatformat:2 }}{% if batch.min_pct %} &middot; {{ batch.min_pct|floatformat:'-2' }}%{% endif %}</span>
+                    </td>
+
+                    <td class="r" data-label="Margin" data-cell="margin">
+                        {% if batch.selling_price > 0 %}
+                        <span class="sb-pill{% if batch.min_pct and batch.profit_margin_percent < batch.min_pct %} low{% endif %}">{{ batch.profit_margin_percent|floatformat:1 }}%</span>
+                        <span class="sb-profit">+Rs. {{ batch.profit_per_unit|floatformat:2 }} / unit</span>
+                        {% else %}<span class="sb-muted">&mdash;</span>{% endif %}
+                    </td>
+
+                    <td class="r" data-label="Value" data-cell="value">
+                        <strong data-sell>Rs. {{ batch.selling_value|floatformat:0 }}</strong>
+                        <div class="sb-muted">cost Rs. {{ batch.cost_value|floatformat:0 }}</div>
+                    </td>
+
+                    <td class="c sb-col-act" data-label="Actions">
                         <div class="d-flex gap-1 justify-content-center">
-                            <button class="btn btn-sm btn-outline-warning" style="border-radius:8px; padding:5px 10px; font-size:0.72rem;"
-                                    onclick="quickSetSP('{{ batch.id }}', '{{ batch.price }}')" title="Quick Set 20% Margin">
-                                💰 +20%
-                            </button>
-                            
-                            <!-- ✅ SALE REPORT BUTTON -->
-                            <a href="{% url 'batch_sale_report' batch.id %}" 
-                               class="btn-report"
-                               title="Sale Report">
-                                <i class="bi bi-file-earmark-bar-graph"></i> Report
-                            </a>
+                            {% if can_edit_prices %}<button type="button" class="sb-icon-btn" data-quick title="Set selling price = cost + 20% (never below the minimum margin)">+20%</button>{% endif %}
+                            {% if can_view_reports %}<a href="{% url 'batch_sale_report' batch.id %}" class="sb-icon-btn" title="Sales made from this batch"><i class="bi bi-file-earmark-bar-graph"></i> Report</a>{% endif %}
                         </div>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="11">
-                        <div class="empty-state">
-                            <div class="empty-icon">📦</div>
-                            <h4>No Batches Found</h4>
-                            <p>{% if search %}Try different filters{% else %}No stock batches available{% endif %}</p>
+                    <td colspan="12">
+                        <div class="sb-empty">
+                            <div class="big">📦</div>
+                            <h5>No batches found</h5>
+                            <p>{% if has_filters %}No batch matches these filters.{% else %}No stock batches yet. They appear when a purchase is received.{% endif %}</p>
+                            {% if has_filters %}<a href="{% url 'batch_list' %}" class="btn btn-outline-primary sb-btn">Clear filters</a>{% endif %}
                         </div>
                     </td>
                 </tr>
@@ -435,48 +401,300 @@
             </tbody>
         </table>
     </div>
-    
+
     {% include 'components/pagination.html' %}
 </div>
+
+{% if can_edit_prices %}
+<!-- Bulk selling-price tool (shows when rows are ticked) -->
+<div class="bulk-bar" id="bulkBar" role="region" aria-label="Bulk selling price">
+    <div class="d-flex flex-wrap align-items-end gap-3">
+        <div class="bulk-title"><span id="bulkCount">0</span> selected</div>
+        <div>
+            <label class="small" for="bulkMode">Set price as</label>
+            <select id="bulkMode" class="form-select">
+                <option value="percent">Cost + %</option>
+                <option value="amount">Cost + Rs</option>
+                <option value="fixed">Fixed price (Rs)</option>
+            </select>
+        </div>
+        <div style="width:110px;">
+            <label class="small" for="bulkValue" id="bulkValueLabel">Margin %</label>
+            <input type="number" id="bulkValue" class="form-control" min="0" step="0.01" inputmode="decimal" placeholder="20">
+        </div>
+        <div>
+            <label class="small" for="bulkRound">Round up to</label>
+            <select id="bulkRound" class="form-select">
+                <option value="none">No rounding</option>
+                <option value="1">Next Rs 1</option>
+                <option value="5">Next Rs 5</option>
+                <option value="10">Next Rs 10</option>
+            </select>
+        </div>
+        <div class="form-check mb-1" style="color:#dbe0f5;">
+            <input class="form-check-input" type="checkbox" id="bulkInStock" checked>
+            <label class="form-check-label" for="bulkInStock" style="font-size:.8rem;">In-stock only</label>
+        </div>
+        <div class="d-flex gap-2 ms-auto align-items-center">
+            <button type="button" class="bulk-clear" id="bulkClear">Clear</button>
+            <button type="button" class="bulk-apply" id="bulkApply"><i class="bi bi-check2-circle"></i> Apply</button>
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2 mt-2" id="bulkChips">
+        <button type="button" class="bulk-chip" data-pct="10">+10%</button>
+        <button type="button" class="bulk-chip" data-pct="15">+15%</button>
+        <button type="button" class="bulk-chip" data-pct="20">+20%</button>
+        <button type="button" class="bulk-chip" data-pct="25">+25%</button>
+        <button type="button" class="bulk-chip" data-pct="30">+30%</button>
+    </div>
+</div>
+{% endif %}
+<div class="p-toasts" id="pToasts" aria-live="polite"></div>
 
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    function updateSellingPrice(batchId, newPrice) {
-        fetch('/ajax/update-batch-selling-price/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify({
-                batch_id: batchId,
-                selling_price: newPrice
-            })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                // Show brief success
-                const input = document.querySelector(`input[onchange*="${batchId}"]`);
-                input.style.backgroundColor = '#d4edda';
-                setTimeout(() => { input.style.backgroundColor = ''; }, 1000);
-                // Reload to show updated profit
-                setTimeout(() => { location.reload(); }, 500);
-            } else {
-                alert('❌ Error: ' + data.message);
-                location.reload();
+(function () {
+    'use strict';
+    const CAN_EDIT = {% if can_edit_prices %}true{% else %}false{% endif %};
+    const URL_ONE  = "{% url 'update_batch_sp' %}";
+    const URL_BULK = "{% url 'bulk_update_batch_sp' %}";
+    const CSRF = '{{ csrf_token }}';
+    const QUICK_PCT = 20;
+    {% if request.user|can:"view_price_history" %}const URL_UNDO_RUN = "{% url 'price_undo_run' run_id='00000000-0000-0000-0000-000000000000' %}";{% else %}const URL_UNDO_RUN = '';{% endif %}
+
+    const money = (n, d = 2) => Number(n).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+    const $ = (sel, root = document) => root.querySelector(sel);
+    const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+    function toast(msg, type = 'ok', ms = 3200) {
+        const el = document.createElement('div');
+        el.className = 'p-toast ' + type;
+        el.textContent = msg;
+        $('#pToasts').appendChild(el);
+        setTimeout(() => el.remove(), ms);
+    }
+
+    // ---------- sortable headers (keeps every filter, resets to page 1) ----------
+    (function () {
+        const table = $('#batchTable');
+        const cur = table.dataset.sort, dir = table.dataset.dir;
+        $$('th[data-sort]', table).forEach(th => {
+            if (th.dataset.sort === cur) {
+                th.classList.add('sorted');
+                $('.arr', th).innerHTML = dir === 'asc' ? '&#9650;' : '&#9660;';
             }
-        })
-        .catch(err => {
-            alert('❌ Error updating price');
+            th.addEventListener('click', () => {
+                const q = new URLSearchParams(location.search);
+                const next = (th.dataset.sort === cur && dir === 'desc') ? 'asc' : 'desc';
+                q.set('sort', th.dataset.sort); q.set('dir', next); q.delete('page');
+                location.search = q.toString();
+            });
         });
+    })();
+
+    // Filters that are plain selects apply instantly
+    $$('#filterForm select').forEach(s => s.addEventListener('change', () => $('#filterForm').submit()));
+
+    if (!CAN_EDIT) return;   // everything below is price editing
+
+    // Offer Undo for the bulk run that was just applied (shown once, after the page reloads)
+    (function () {
+        let run = null;
+        try { run = sessionStorage.getItem('lastPriceRun'); sessionStorage.removeItem('lastPriceRun'); } catch (e) {}
+        if (!run || !URL_UNDO_RUN) return;
+        const el = document.createElement('div');
+        el.className = 'p-toast ok';
+        el.appendChild(document.createTextNode('Prices updated. '));
+        const a = document.createElement('a');
+        a.href = URL_UNDO_RUN.replace('00000000-0000-0000-0000-000000000000', encodeURIComponent(run));
+        a.textContent = '↩ Undo';
+        a.style.cssText = 'color:#fff;font-weight:800;text-decoration:underline;';
+        el.appendChild(a);
+        $('#pToasts').appendChild(el);
+        setTimeout(() => el.remove(), 15000);
+    })();
+
+    async function post(url, body) {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+            body: JSON.stringify(body)
+        });
+        let data = {};
+        try { data = await res.json(); } catch (e) { /* non-JSON error page */ }
+        if (!res.ok && !data.message) data.message = 'Server error (' + res.status + ').';
+        data.success = res.ok && data.success !== false;
+        return data;
     }
-    
-    function quickSetSP(batchId, costPrice) {
-        const sp = (parseFloat(costPrice) * 1.2).toFixed(2);
-        updateSellingPrice(batchId, sp);
+
+    // Refresh the stat cards without reloading (small JSON call, same filters)
+    async function refreshStats() {
+        try {
+            const q = new URLSearchParams(location.search);
+            q.set('stats', '1');
+            const res = await fetch(location.pathname + '?' + q.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            if (!res.ok) return;
+            const d = await res.json();
+            Object.keys(d).forEach(k => { const el = $('[data-stat="' + k + '"]'); if (el) el.textContent = d[k]; });
+        } catch (e) { /* optional */ }
     }
+
+    // ---------- single price edit ----------
+    function setStatus(row, hasPrice) {
+        const chip = $('[data-cell="status"]', row);
+        if (!chip) return;
+        const sold = (parseFloat(row.dataset.qty) || 0) <= 0;
+        chip.className = 'sb-chip ' + (sold ? 'chip-sold' : (hasPrice ? 'chip-ok' : 'chip-nopx'));
+        chip.textContent = sold ? 'Sold out' : (hasPrice ? 'In stock' : 'No price');
+        chip.removeAttribute('title');
+        row.classList.remove('is-ok', 'is-nopx', 'is-below');
+        if (!sold) row.classList.add(hasPrice ? 'is-ok' : 'is-nopx');
+    }
+
+    function paintRow(row, d) {
+        const input = $('.sb-price', row);
+        input.value = d.selling_price;
+        input.dataset.original = d.selling_price;
+        input.classList.toggle('is-empty', !d.has_price);
+
+        const profit = parseFloat(d.profit_per_unit);
+        $('[data-cell="margin"]', row).innerHTML = d.has_price
+            ? '<span class="sb-pill">' + money(d.margin_percent, 1) + '%</span><span class="sb-profit">+Rs. ' + money(profit) + ' / unit</span>'
+            : '<span class="sb-muted">&mdash;</span>';
+        $('[data-sell]', row).textContent = 'Rs. ' + money(d.selling_value, 0);
+        setStatus(row, d.has_price);
+    }
+
+    async function savePrice(input) {
+        const row = input.closest('tr');
+        const id = row.dataset.batchId;
+        const cost = parseFloat(row.dataset.cost);
+        const original = input.dataset.original;
+        const raw = input.value.trim();
+        const val = parseFloat(raw);
+
+        if (raw === '' || isNaN(val) || val < 0) {
+            input.value = original;
+            toast('Enter a valid price.', 'err');
+            return;
+        }
+        const minP = parseFloat(row.dataset.min) || cost;
+        if (val !== 0 && val < minP) {
+            input.value = original;
+            input.classList.add('is-error');
+            setTimeout(() => input.classList.remove('is-error'), 1200);
+            toast(minP > cost
+                ? 'Price is below the minimum margin. It must be at least Rs. ' + money(minP) + '.'
+                : 'Selling price cannot be below cost (Rs. ' + money(cost) + ').', 'err', 4500);
+            return;
+        }
+        if (parseFloat(original) === val) return;
+
+        input.classList.add('is-saving');
+        try {
+            const d = await post(URL_ONE, { batch_id: id, selling_price: raw });
+            if (d.success) {
+                paintRow(row, d);
+                input.classList.add('is-saved');
+                setTimeout(() => input.classList.remove('is-saved'), 1000);
+                toast(d.message, 'ok');
+                refreshStats();
+            } else {
+                input.value = original;
+                toast(d.message || 'Could not update price.', 'err', 4500);
+            }
+        } catch (e) {
+            input.value = original;
+            toast('Network error - price was not saved.', 'err', 4500);
+        } finally {
+            input.classList.remove('is-saving');
+        }
+    }
+
+    document.addEventListener('change', e => { if (e.target.matches('.sb-price')) savePrice(e.target); });
+    document.addEventListener('keydown', e => {
+        if (!e.target.matches('.sb-price')) return;
+        if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); }
+        if (e.key === 'Escape') { e.target.value = e.target.dataset.original; e.target.blur(); }
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            const inputs = $$('.sb-price');
+            const nxt = inputs[inputs.indexOf(e.target) + (e.key === 'ArrowDown' ? 1 : -1)];
+            if (nxt) { nxt.focus(); nxt.select(); }
+        }
+    });
+
+    // Per-row "+20%": cost + 20%, never below the minimum margin
+    document.addEventListener('click', e => {
+        const btn = e.target.closest('[data-quick]');
+        if (!btn) return;
+        const row = btn.closest('tr');
+        const input = $('.sb-price', row);
+        const wanted = Math.ceil(parseFloat(row.dataset.cost) * (1 + QUICK_PCT / 100) * 100) / 100;
+        input.value = Math.max(wanted, parseFloat(row.dataset.min) || 0).toFixed(2);
+        savePrice(input);
+    });
+
+    // ---------- selection + bulk bar ----------
+    const bar = $('#bulkBar'), selectAll = $('#selectAll');
+    function selectedIds() { return $$('.row-check:checked').map(c => parseInt(c.value, 10)); }
+    function syncBar() {
+        const n = selectedIds().length, total = $$('.row-check').length;
+        $('#bulkCount').textContent = n;
+        bar.classList.toggle('show', n > 0);
+        selectAll.checked = n > 0 && n === total;
+        selectAll.indeterminate = n > 0 && n < total;
+    }
+    document.addEventListener('change', e => { if (e.target.matches('.row-check')) syncBar(); });
+    selectAll.addEventListener('change', () => { $$('.row-check').forEach(c => { c.checked = selectAll.checked; }); syncBar(); });
+    $('#bulkClear').addEventListener('click', () => { $$('.row-check').forEach(c => { c.checked = false; }); syncBar(); });
+
+    const mode = $('#bulkMode'), value = $('#bulkValue');
+    const LABELS = { percent: ['Margin %', '20'], amount: ['Add Rs', '50'], fixed: ['Price Rs', '500'] };
+    mode.addEventListener('change', () => {
+        const [label, ph] = LABELS[mode.value];
+        $('#bulkValueLabel').textContent = label;
+        value.placeholder = ph;
+    });
+    $('#bulkChips').addEventListener('click', e => {
+        const chip = e.target.closest('[data-pct]');
+        if (!chip) return;
+        mode.value = 'percent';
+        mode.dispatchEvent(new Event('change'));
+        value.value = chip.dataset.pct;
+    });
+
+    $('#bulkApply').addEventListener('click', async function () {
+        const ids = selectedIds();
+        if (!ids.length) return;
+        const v = parseFloat(value.value);
+        if (isNaN(v) || v < 0 || (mode.value === 'fixed' && v <= 0)) {
+            toast('Enter a valid value first.', 'err');
+            value.focus();
+            return;
+        }
+        const body = { batch_ids: ids, mode: mode.value, value: value.value, rounding: $('#bulkRound').value, only_in_stock: $('#bulkInStock').checked };
+        const btn = this;
+        btn.disabled = true;
+        try {
+            const preview = await post(URL_BULK, Object.assign({ dry_run: true }, body));
+            if (!preview.success) { toast(preview.message, 'err', 5000); return; }
+            if (preview.updated_count === 0) { toast(preview.message + ' Nothing to change.', 'warn', 5000); return; }
+            if (!confirm(preview.message + '\n\nApply these selling prices?')) return;
+
+            const done = await post(URL_BULK, Object.assign({ dry_run: false }, body));
+            if (!done.success) { toast(done.message, 'err', 5000); return; }
+            toast(done.message, 'ok', 2500);
+            try { if (done.run_id && URL_UNDO_RUN) sessionStorage.setItem('lastPriceRun', done.run_id); } catch (e) {}
+            setTimeout(() => location.reload(), 700);
+        } catch (e) {
+            toast('Network error - nothing was changed.', 'err', 4500);
+        } finally {
+            btn.disabled = false;
+        }
+    });
+})();
 </script>
 {% endblock %}

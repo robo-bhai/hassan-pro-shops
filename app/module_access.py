@@ -10,14 +10,15 @@ In settings.py, add this line to the MIDDLEWARE list, AFTER AuthenticationMiddle
     'app.module_access.ModuleAccessMiddleware',
 """
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import redirect
-from django.urls import Resolver404, resolve, reverse
+from django.urls import reverse
 from django.utils.html import escape
 
 from .context_processors import module_visibility
-from .store.store_access import module_scope
 
-from .module_catalog import STORE_USER_BLOCKED_PREFIXES, get_module_catalog
+from .module_catalog import get_module_catalog
+
+# These stay reachable even when the Security module is off (2FA login step, own password change).
+ALWAYS_OPEN = ('/security/two-factor/', '/security/change-password/')
 
 # (URL prefix, module key, name) - built from the catalog, longest prefix first.
 def _url_prefixes():
@@ -62,43 +63,14 @@ class ModuleAccessMiddleware:
     def __call__(self, request):
         hit = module_for_path(request.path)
         user = getattr(request, 'user', None)
-        if user is not None and user.is_authenticated:
+        # Administrator (superuser) always has every module; the switches only limit the customer side.
+        if user is not None and user.is_authenticated and not user.is_superuser:
             vis = module_visibility()
-            if hit:
+            if hit and not request.path.startswith(ALWAYS_OPEN):
                 key, label = hit
                 if not vis.get(key, True):
                     return self._blocked(request, user, label, vis.get('_mode', 'both'))
-
-            # Member of a store team: only that store's modules (admin pages closed)
-            scope = module_scope(user)
-            if scope is not None:
-                # The store's own dashboard instead of the company-wide Dashboard (Stores)
-                if request.method == 'GET' and self._is_company_dashboard(request.path_info):
-                    return redirect('store_dashboard')
-                if hit and hit[0] not in scope:
-                    return self._blocked_store(request, hit[1])
-                if request.path.startswith(tuple(STORE_USER_BLOCKED_PREFIXES)):
-                    return self._blocked_store(request, 'Ye page')
         return self.get_response(request)
-
-    @staticmethod
-    def _is_company_dashboard(path):
-        try:
-            return resolve(path).url_name == 'dashboard'
-        except Resolver404:
-            return False
-
-    @staticmethod
-    def _blocked_store(request, label):
-        wants_json = (request.headers.get('x-requested-with') == 'XMLHttpRequest'
-                      or 'application/json' in request.headers.get('accept', '')
-                      or request.path.startswith(('/ajax/', '/api/')))
-        msg = '%s is not allowed for your store.' % label
-        if wants_json:
-            return JsonResponse({'success': False, 'message': msg}, status=403)
-        return HttpResponse(_PAGE.format(label=escape(label), mode='store',
-                                         hint=' This is not included in your store modules.', settings_link=''),
-                            status=403)
 
     @staticmethod
     def _blocked(request, user, label, mode):
@@ -110,9 +82,9 @@ class ModuleAccessMiddleware:
         link = hint = ''
         if user.is_superuser:
             try:
-                link = '<a href="%s">Module Settings</a>' % reverse('module_settings')
+                link = '<a href="%s">Settings</a>' % reverse('settings_center_tab', args=['modules'])
             except Exception:
                 link = ''
-            hint = ' To enable it, turn on the switch in Module Settings.'
+            hint = ' To enable it, turn on the switch in Settings → Modules.'
         return HttpResponse(_PAGE.format(label=escape(label), mode=escape(mode), hint=hint, settings_link=link),
                             status=403)

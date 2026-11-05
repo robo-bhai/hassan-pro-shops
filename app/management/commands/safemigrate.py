@@ -1,5 +1,6 @@
 import datetime
 import os
+import sqlite3
 
 from django.conf import settings
 from django.core.management import call_command
@@ -50,9 +51,23 @@ def table_counts(vendor_tables, cursor):
     out = {}
     for t in COUNT_TABLES:
         if t in vendor_tables:
-            cursor.execute("SELECT COUNT(*) FROM %s" % connection.ops.quote_name(t))
+            cursor.execute('SELECT COUNT(*) FROM "%s"' % t)
             out[t] = cursor.fetchone()[0]
     return out
+
+
+def sqlite_backup(src, folder, stamp):
+    os.makedirs(folder, exist_ok=True)
+    dest = os.path.join(folder, f"pre_migrate_{stamp}.sqlite3")
+    s, d = sqlite3.connect(src), sqlite3.connect(dest)
+    try:
+        s.backup(d)
+    finally:
+        d.close()
+        s.close()
+    if os.path.getsize(dest) == 0:
+        raise RuntimeError("Backup file khali bani")
+    return dest
 
 
 class Command(BaseCommand):
@@ -108,10 +123,13 @@ class Command(BaseCommand):
                 "Ye migrations data delete karengi, is liye RUK gaya. Pehle un tables ka data nikaal lein "
                 "(ya migration badlein). Jaan boojh kar karna ho to: python manage.py safemigrate --allow-destructive")
 
-        if connection.vendor != "mysql":
-            raise CommandError("Sirf MySQL allowed hai (SQLite fallback band hai).")
         backup = None
-        out(self.style.WARNING("\nPre-migrate snapshot workflow ki scripts/ci/db_snapshot.sh le chuki hoti hai."))
+        if connection.vendor == "sqlite":
+            folder = getattr(settings, "BACKUP_DIR", None) or os.path.join(str(settings.BASE_DIR), "dbbackup")
+            backup = sqlite_backup(str(cfg["NAME"]), folder, datetime.datetime.now().strftime("%Y%m%d_%H%M%S"))
+            out(self.style.SUCCESS(f"\nBackup bani: {backup}"))
+        else:
+            out(self.style.WARNING("\nYe SQLite nahi hai: mysqldump / pg_dump se apni backup pehle khud le lein."))
 
         call_command("migrate", interactive=False)
 

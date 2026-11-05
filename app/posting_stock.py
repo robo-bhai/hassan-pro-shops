@@ -8,7 +8,6 @@ posting_stock.py - Step 3: stock and cost entries.
     Stock adjustment +   Dr Inventory               Cr Stock Gain
     Stock adjustment -   Dr Stock Loss              Cr Inventory
 
-Store issue / transfer / count are NOT here: they already post through store_accounting.py.
 Moving stock between two warehouses changes nothing in the books while all warehouses share one Inventory account.
 
 Everything goes through posting.post_entry, so each document is booked once, re-posted when it changes and

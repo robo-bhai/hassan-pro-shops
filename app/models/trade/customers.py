@@ -44,10 +44,6 @@ class Customer(models.Model):
     ref_name_2 = models.CharField(max_length=100, null=True, blank=True)
     ref_contact_number_2 = models.CharField(max_length=15, null=True, blank=True)
     address = models.TextField(null=True, blank=True)
-    # [agri-edition:customer] farmer details
-    village = models.CharField(max_length=100, null=True, blank=True)
-    main_crop = models.CharField(max_length=100, null=True, blank=True)
-    credit_limit = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     profit_margin = models.DecimalField(
         max_digits=5, 
         decimal_places=2, 

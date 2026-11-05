@@ -32,9 +32,6 @@ class Sale(models.Model):
     installment_plan = models.ForeignKey('InstallmentPlan', on_delete=models.SET_NULL, null=True, blank=True)
     down_payment_received = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     is_converted_to_expense = models.BooleanField(default=False)
-    # [agri-edition:sale] promised repayment date (harvest) for credit sales
-    harvest_due_date = models.DateField(null=True, blank=True, db_index=True)
-    harvest_note = models.CharField(max_length=200, blank=True, default='')
 
     class Meta:
         verbose_name_plural = '5. Sales'
@@ -148,20 +145,8 @@ class Sale(models.Model):
                 import logging
                 logging.getLogger(__name__).warning(f"Cash update failed for sale {self.bill_no}: {e}")
 
-        # ============================================
-        # 📱 WHATSAPP INVOICE AUTO-SEND
-        # ============================================
-        if is_new_sale:
-            try:
-                from ..whatsapp_utils import WhatsAppSender
-                if self.customer.contact_number:
-                    WhatsAppSender.send_invoice(
-                        self.customer.contact_number,
-                        self.bill_no,
-                        self.total_amount()
-                    )
-            except Exception:
-                pass  # If WhatsApp fails, the sale must not stop
+        # (The old WhatsApp invoice block was removed: it only built a link that was thrown away.
+        #  Send WhatsApp invoices from the Admin action instead.)
 
 
 class SaleItem(models.Model):
@@ -189,7 +174,7 @@ class SaleItem(models.Model):
         warehouse = self.sale.warehouse
         if not warehouse:
             raise ValidationError(f"Warehouse must be specified for sale {self.sale.bill_no}.")
-        batches = StockBatch.get_batches_for_sale(self.product, self.qty, warehouse, skip_expired=True)  # [agri-edition:sale-fifo]
+        batches = StockBatch.get_batches_for_sale(self.product, self.qty, warehouse)
         total_cost = sum(Decimal(qty_in_batch) * batch.price for batch, qty_in_batch in batches)
         total_qty = sum(qty_in_batch for _, qty_in_batch in batches)
         if total_qty < self.qty:
@@ -229,10 +214,12 @@ class SaleItem(models.Model):
                 f"Available: {current_stock}, Requested: {self.qty}"
             )
         
-        batches = StockBatch.get_batches_for_sale(self.product, self.qty, warehouse, skip_expired=True)  # [agri-edition:sale-stock]
+        batches = StockBatch.get_batches_for_sale(self.product, self.qty, warehouse)
         remaining_qty = self.qty
         total_cost = Decimal('0.0')
         used_batches = []
+        # Per-batch split (batch, qty, cost price) - saved as SaleItemBatchUsage after the item is saved
+        self._batch_allocation = []
 
         for batch, qty_in_batch in batches:
             if remaining_qty <= 0:
@@ -242,25 +229,40 @@ class SaleItem(models.Model):
             total_cost += Decimal(qty_in_batch) * batch.price
             remaining_qty -= qty_in_batch
             used_batches.append(batch)
+            self._batch_allocation.append((batch, qty_in_batch, batch.price))
 
         Inventory.update_stock(self.product, -self.qty, warehouse)
         return total_cost, used_batches
+
+    def _release_previous_stock(self, warehouse):
+        """Undo what this line took the last time it was saved (batches + inventory).
+        Runs inside save()'s atomic block, so if the new save fails everything rolls back."""
+        old = SaleItem.objects.select_for_update().get(pk=self.pk)
+        usages = list(old.batch_usages.select_related('batch'))
+        if not usages:
+            raise ValidationError(
+                "This sale line has no saved batch split (it was made before batch tracking), "
+                "so its stock cannot be safely re-calculated. Delete the line and add it again."
+            )
+        for usage in usages:
+            batch = StockBatch.objects.select_for_update().get(pk=usage.batch_id)
+            batch.remaining_qty += usage.qty
+            batch.save()
+        Inventory.update_stock(old.product, old.qty, warehouse)
+        old.batch_usages.all().delete()
 
     # ============================================
     # PROFIT CALCULATION
     # ============================================
     def calculate_profit(self, total_cost):
-        """Calculate profit with batch selling price support"""
-        if self.pk and self.batches_used.exists():
-            total_batch_profit = Decimal('0.0')
-            for batch in self.batches_used.all():
-                if batch.selling_price and batch.selling_price > 0:
-                    batch_profit = (batch.selling_price - batch.price) * Decimal(str(self.qty))
-                    total_batch_profit += batch_profit
-            if total_batch_profit > 0:
-                return total_batch_profit
-        
-        return self.total_amt - total_cost
+        """Profit = what the customer really pays - what the goods really cost (batch by batch).
+
+        total_cost already adds up (qty taken from each batch) x (that batch's cost), so a sale of
+        6 from batch A + 4 from batch B is costed per batch. The old code multiplied the WHOLE qty by
+        every batch's (selling price - cost) and used the batch selling price instead of the real
+        price, which overstated profit on multi-batch lines and on re-saves.
+        """
+        return (self.total_amt - Decimal(total_cost)).quantize(Decimal('0.01'))
 
     # ============================================
     # ✅ SAVE METHOD (FIXED - FIFO first, stock after)
@@ -277,6 +279,11 @@ class SaleItem(models.Model):
         warehouse = self.sale.warehouse
         if not warehouse:
             raise ValidationError(f"Warehouse is not set for sale {self.sale.bill_no}.")
+
+        # Re-saving a line that already took stock: give back what it took first, otherwise
+        # the same goods are taken from stock a second time on every save.
+        if self.pk and SaleItem.objects.filter(pk=self.pk).exists():
+            self._release_previous_stock(warehouse)
 
         # ✅ STEP 1: First calculate the FIFO price (before consuming stock)
         fifo_price = self.get_fifo_price()
@@ -323,8 +330,37 @@ class SaleItem(models.Model):
         if used_batches:
             self.batches_used.set(used_batches)
 
+        # Remember how much came out of each batch (Batch Sale Report needs this)
+        allocation = getattr(self, '_batch_allocation', None)
+        if allocation:
+            self.batch_usages.all().delete()
+            SaleItemBatchUsage.objects.bulk_create([
+                SaleItemBatchUsage(sale_item=self, batch=b, qty=q, cost_price=cp)
+                for b, q, cp in allocation
+            ])
+
     def __str__(self):
         return f"{self.qty} x {self.product.name} at Rs. {self.price:,.2f}"
+
+
+class SaleItemBatchUsage(models.Model):
+    """How much of one sale line came out of which batch (like StoreIssueBatchUsage).
+
+    SaleItem.batches_used only says WHICH batches were touched, not how much of each.
+    A sale of 10 that took 6 from batch A and 4 from batch B has two rows here: 6 and 4.
+    """
+    sale_item = models.ForeignKey('SaleItem', on_delete=models.CASCADE, related_name='batch_usages')
+    batch = models.ForeignKey('StockBatch', on_delete=models.SET_NULL, null=True, blank=True,
+                              related_name='sale_usages')
+    qty = models.FloatField()
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+
+    class Meta:
+        verbose_name_plural = '5.2. Sale Item Batch Usage'
+        indexes = [models.Index(fields=['batch'], name='saleusage_batch_idx')]
+
+    def __str__(self):
+        return f"{self.qty} from batch #{self.batch_id} (sale item #{self.sale_item_id})"
 
 
 class ReportManager:

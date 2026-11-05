@@ -10,7 +10,7 @@ Tab keys:
   access   : 'superuser' | 'admin' (superuser ya staff) | 'owner' (superuser, Owner ya CEO)
   store    : where the data is saved ('system' | 'security' | 'delivery' | 'company' | None)
   fields   : generic fields (neeche)
-  special  : a special part that is not built by the generic form ('modules' | 'city_charges' | 'logo' | 'voice')
+  special  : a special part that is not built by the generic form ('modules' | 'shareholders' | 'city_charges' | 'logo' | 'voice')
   links    : [(label, url_name)] - tab ke neeche quick buttons
 
 Field keys:
@@ -29,22 +29,19 @@ TABS = [
     # ------------------------------------------------------------------ Modules
     {
         'key': 'modules', 'label': 'Modules', 'icon': 'bi-toggles',
-        'desc': 'Business mode and the Shop / Factory switch for each module',
+        'desc': 'Choose Full ERP or Lite and switch each module on or off',
         'access': 'superuser', 'store': 'system', 'special': 'modules',
-        'fields': [
-            {'name': 'business_mode', 'label': 'Business Mode', 'type': 'select', 'default': 'both',
-             'choices': [('both', 'Both (Shop + Factory)'), ('shop', 'Shop only'), ('factory', 'Factory only')],
-             'help': 'In Shop mode the Shop switches apply, in Factory mode the Factory ones, and in Both the module shows if any is ON.',
-             'group': 'Business Mode'},
-        ],
+        'fields': [],
     },
     # ------------------------------------------------------- Shareholders / Dividends
     {
         'key': 'shareholders', 'label': 'Shareholders', 'icon': 'bi-people',
         'desc': 'Purchase deduction and dividend rules',
-        'access': 'superuser', 'store': 'system',
+        'access': 'superuser', 'store': 'system', 'special': 'shareholders',
         'links': [('Bulk Process Deductions', 'bulk_process_deductions'),
-                  ('Deduction Report', 'shareholder_deduction_report')],
+                  ('Deduction Report', 'shareholder_deduction_report'),
+                  ('Balance Dividend Reports', 'balance_dividend_report'),
+                  ('All Balance Dividends', 'balance_dividend_list')],
         'fields': [
             {'name': 'enable_shareholder_purchase_deduction', 'label': 'Purchase par shareholder deduction', 'type': 'bool',
              'default': True, 'group': 'Purchase Deduction',
@@ -117,6 +114,19 @@ TABS = [
             {'name': 'free_delivery_enabled', 'label': 'Free Delivery on', 'type': 'bool', 'default': True, 'group': 'Pickup & Free Delivery'},
             {'name': 'free_delivery_threshold', 'label': 'Free Delivery Threshold', 'type': 'decimal', 'default': '1000.00', 'min': 0,
              'prefix': 'Rs.', 'group': 'Pickup & Free Delivery', 'help': 'Delivery is free on orders above this amount.'},
+        ],
+    },
+    # ------------------------------------------------------------------ Pricing
+    {
+        'key': 'pricing', 'label': 'Pricing', 'icon': 'bi-tags',
+        'desc': 'Minimum profit margin allowed when setting selling prices',
+        'access': 'owner', 'store': 'system',
+        'links': [('Stock Batches', 'batch_list'), ('Price History', 'price_history')],
+        'fields': [
+            {'name': 'min_margin_percent', 'label': 'Minimum margin (company rule)', 'type': 'decimal', 'default': '0',
+             'min': 0, 'max': 1000, 'suffix': '%', 'group': 'Margin Policy',
+             'help': 'No selling price may be lower than cost + this %. 0 = no minimum (the price can still never be below cost). '
+                     'A category can override this in Admin > Product Category > Minimum margin %.'},
         ],
     },
     # ----------------------------------------------------------------- Security

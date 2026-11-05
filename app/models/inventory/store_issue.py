@@ -19,6 +19,25 @@ class StoreProfile(models.Model):
     code = models.CharField(max_length=10, unique=True)
     store_type = models.CharField(max_length=5, choices=STORE_TYPES, default='GEN')
     can_issue = models.BooleanField(default=True, help_text="Internal issue is allowed from this store")
+    # What this store is allowed to do (chosen when the store is created / edited)
+    can_transfer_out = models.BooleanField(default=True, help_text="This store can send goods to other stores")
+    can_transfer_in = models.BooleanField(default=True, help_text="This store can receive goods from other stores")
+    can_receive_purchase = models.BooleanField(default=True, help_text="Purchase / GRN goods can be received in this store")
+    can_count = models.BooleanField(default=True, help_text="Physical stock count is allowed in this store")
+    can_return = models.BooleanField(default=True, help_text="Goods can be returned back to this store")
+
+    # (field, short label, description) - used by the Store form, list and checks
+    CAPABILITIES = [
+        ('can_issue', 'Issue', 'Give stock to departments / production'),
+        ('can_transfer_out', 'Transfer out', 'Send goods to other stores'),
+        ('can_transfer_in', 'Transfer in', 'Receive goods from other stores'),
+        ('can_receive_purchase', 'Purchase receive', 'Receive Purchase / GRN goods here'),
+        ('can_count', 'Stock count', 'Physical count and adjustment'),
+        ('can_return', 'Return to store', 'Take back unused issued goods'),
+    ]
+
+    def capability_list(self):
+        return [(f, lbl, getattr(self, f)) for f, lbl, _ in self.CAPABILITIES]
     keeper = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
                                related_name='kept_stores', verbose_name="Store keeper")
     BUSINESS_UNIT_CHOICES = [('', 'Store type ka default'), ('shop', 'Shop'), ('factory', 'Factory'),
@@ -132,9 +151,6 @@ class StoreIssueBatchUsage(models.Model):
                               related_name='store_issue_usages')
     qty = models.FloatField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
-    # [agri-edition:usage-snapshot] batch no / expiry copied here, so they survive if the batch row is deleted
-    batch_no = models.CharField(max_length=50, null=True, blank=True)
-    expiry_date = models.DateField(null=True, blank=True)
 
     class Meta:
         verbose_name_plural = "Store Issue Batch Usage"

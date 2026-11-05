@@ -151,11 +151,6 @@ MODULES = {
     'ai/shareholder_ai': (spec(('use_ai', 'view_shareholders'), 'manage_ai_ops'), []),
     'ai/board_cso': (one('view_board_room'), []),
     'system/chat': (one('manage_system'), []),
-    'inventory/store_issue': (spec(('view_warehouse', 'manage_store_issue'), 'manage_store_issue'), [
-        (r'^store_dashboard$', 'view_warehouse'), (r'^store_(access|profile_list|profile_form)$', 'manage_warehouse')]),
-    'inventory/store_transfer': (spec(('view_warehouse', 'manage_transfers'), 'manage_transfers'), []),
-    'inventory/store_ops': (spec(('view_warehouse', 'manage_store_ops'), 'manage_store_ops'), [
-        (r'^store_settings$', 'manage_warehouse')]),
     'finance/profit_analysis': (one('view_profit'), []),
     'finance/subledger': (one('view_accounting'), []),
     'pos_sales/pos': (one('use_pos'), []),

@@ -462,6 +462,11 @@ class CustomerProfile(models.Model):
     
     def should_skip_order_otp(self):
         """Check if customer can skip order OTP"""
+        # OTP filhal band hai. Dobara chalane ke liye settings.py mein
+        # ORDER_OTP_REQUIRED = True kar dein.
+        from django.conf import settings as dj_settings
+        if not getattr(dj_settings, 'ORDER_OTP_REQUIRED', False):
+            return True
         if not self.is_trusted:
             return False
         if self.failed_orders >= 3:

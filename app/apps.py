@@ -9,4 +9,3 @@ class AppConfig(AppConfig):
         import app.signals
         import app.security.signals_security  
         import app.ledger.signals_gl
-        import app.checks  # MySQL-only system check

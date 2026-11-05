@@ -5,30 +5,55 @@ import sys
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# ============================================
+# ✅ .env FILE LOAD
+# ============================================
+from dotenv import load_dotenv
+load_dotenv(BASE_DIR / '.env')
 
-def _req(name):
-    """Zaroori environment variable. Na ho to khamoshi se default/SQLite nahi, seedha error."""
-    v = os.environ.get(name)
-    if not v:
-        from django.core.exceptions import ImproperlyConfigured
-        raise ImproperlyConfigured(f"{name} set nahi hai (koi fallback allowed nahi)")
-    return v
+from django.core.exceptions import ImproperlyConfigured
 
-# --- DATABASE DRIVER SETUP ---
-import pymysql
-pymysql.install_as_MySQLdb()
+
+def _env_bool(name, default=False):
+    return os.environ.get(name, str(default)).strip().lower() in ('true', '1', 'yes', 't')
+
+
+# Production-safe defaults: with no .env a fresh install is DEBUG=False and refuses to start without
+# real secrets. For development put DEBUG=True (and RUNNING_IN_TERMUX=true on Termux) in your .env.
+DEBUG = _env_bool('DEBUG', False)
+IS_TERMUX = _env_bool('RUNNING_IN_TERMUX', False)
+HTTPS = _env_bool('HTTPS', False)                 # true when the site is served over https
+BEHIND_PROXY = _env_bool('BEHIND_PROXY', False)   # true only behind nginx/caddy/IIS that sets X-Forwarded-*
 
 # --- KEYS & GENERAL CONFIGURATION ---
-SECRET_KEY = _req('DJANGO_SECRET_KEY')
-SALT_KEY = os.environ.get('DJANGO_SALT_KEY')
-DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', '')
+SALT_KEY = os.environ.get('DJANGO_SALT_KEY', '')
+if not DEBUG:
+    for _name, _value in (('DJANGO_SECRET_KEY', SECRET_KEY), ('DJANGO_SALT_KEY', SALT_KEY)):
+        if not _value or 'insecure' in _value or 'fallback' in _value or 'change-me' in _value:
+            raise ImproperlyConfigured(f'{_name} is missing or a placeholder. Run deploy/setup_install.py (it writes a .env '
+                                       f'with random keys) or set it in the .env file.')
+else:
+    SECRET_KEY = SECRET_KEY or 'django-insecure-dev-only-key'
+    SALT_KEY = SALT_KEY or 'dev-only-salt-key'
+
+# Software license (see app/licensing). The PUBLIC key is not a secret, but keep it here in the code,
+# not in .env, so that deleting a .env line cannot switch licensing off. Empty = licensing off (development).
+# Paste the key printed by:  python make_license.py keygen
+LICENSE_PUBLIC_KEY = '642aed2cdc7df044a4658c69d67c2c09067f60d82c0a65dfdd852bded199fed5'
 
 # --- ALLOWED HOSTS ---
 env_allowed = os.environ.get('ALLOWED_HOSTS', '')
 if env_allowed:
     ALLOWED_HOSTS = [h.strip() for h in env_allowed.split(',') if h.strip()]
-else:
+elif DEBUG:
     ALLOWED_HOSTS = []
+else:
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]']
+    try:
+        ALLOWED_HOSTS.append(socket.gethostname())
+    except Exception:
+        pass
 
 # Automatic Local IP Resolution
 try:
@@ -42,30 +67,30 @@ try:
 except Exception:
     pass
 
+# This computer itself must always work, even when ALLOWED_HOSTS in .env lists only other addresses.
+if '*' not in ALLOWED_HOSTS:
+    for _loopback in ('localhost', '127.0.0.1', '[::1]'):
+        if _loopback not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(_loopback)
+
 # --- CSRF TRUSTED ORIGINS ---
 CSRF_TRUSTED_ORIGINS = []
 env_csrf = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
 if env_csrf:
     CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in env_csrf.split(',') if origin.strip()]
 
-USE_X_FORWARDED_HOST = True
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+if BEHIND_PROXY:
+    USE_X_FORWARDED_HOST = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-
-import os
-
-
-EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+# --- EMAIL CONFIGURATION ---
+EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp-relay.brevo.com')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() in ('true', '1', 't')
-
-
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'info@uqn88.store')
-
-
 
 # --- SESSION CONFIGURATION ---
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
@@ -74,7 +99,11 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_SAVE_EVERY_REQUEST = False
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
-SESSION_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = HTTPS
+CSRF_COOKIE_SECURE = HTTPS
+SECURE_SSL_REDIRECT = HTTPS and not DEBUG
+SECURE_HSTS_SECONDS = 31536000 if (HTTPS and not DEBUG) else 0
+SECURE_CONTENT_TYPE_NOSNIFF = True
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -94,17 +123,15 @@ INSTALLED_APPS = [
     'ceo_module',
 ]
 
-# --- CLOUDINARY CONFIGURATION (FROM ENVIRONMENT/GIT SECRETS) ---
+# --- CLOUDINARY CONFIGURATION ---
 CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': _req('CLOUDINARY_CLOUD_NAME'),
-    'API_KEY': _req('CLOUDINARY_API_KEY'),
-    'API_SECRET': _req('CLOUDINARY_API_SECRET'),
-    'SECURE': True,
+    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
 }
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -113,12 +140,20 @@ MIDDLEWARE = [
     'app.middleware.SecurityMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-
+    'app.middleware.license_gate.LicenseMiddleware',
+    
     # Custom Middleware
     'app.middleware.ShareholderRestrictionMiddleware',
+    'app.security.security_2fa.TwoFactorMiddleware',
     'app.middleware.LiveVisitorMiddleware',
     'app.middleware.AdminActivityMiddleware',
 ]
+
+try:                                   # serves /static/ when DEBUG is False (pip install whitenoise)
+    import whitenoise  # noqa: F401
+    MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
+except ImportError:
+    pass
 
 AUTHENTICATION_BACKENDS = [
     'axes.backends.AxesStandaloneBackend',
@@ -150,33 +185,30 @@ TEMPLATES = [
 WSGI_APPLICATION = 'P1.wsgi.application'
 
 # ==========================================
-# DATABASE: sirf MySQL (GitHub runner service). SQLite fallback KHATAM.
+# ✅ DATABASE - SQLite (LOCAL TERMUX)
 # ==========================================
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': _req('DB_NAME'),
-        'USER': _req('DB_USER'),
-        'PASSWORD': _req('DB_PASS'),
-        'HOST': _req('DB_HOST'),
-        'PORT': os.environ.get('DB_PORT', '3306'),
-        'CONN_MAX_AGE': 60,
-        'CONN_HEALTH_CHECKS': True,
-        'OPTIONS': {
-            'charset': 'utf8mb4',
-            'connect_timeout': 10,
-            # Ek hi valid SET statement (MySQL 8.4): isolation Django ke option se lagta hai.
-            'isolation_level': 'read committed',
-            'init_command': (
-                "SET sql_mode='STRICT_TRANS_TABLES', "
-                "SESSION innodb_lock_wait_timeout=50"
-            ),
-        },
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+        'OPTIONS': {'timeout': 30},        # wait up to 30s for a lock instead of "database is locked"
     }
 }
 
+if not IS_TERMUX:
+    # WAL lets readers and one writer work at the same time (several cashiers). Not used on Termux/shared
+    # storage where WAL files are not supported. The backup system uses SQLite's own backup API, so it is safe with WAL.
+    from django.db.backends.signals import connection_created
+
+    def _sqlite_pragmas(sender, connection, **kwargs):
+        if connection.vendor == 'sqlite':
+            cursor = connection.cursor()
+            cursor.execute('PRAGMA journal_mode=WAL;')
+            cursor.execute('PRAGMA synchronous=NORMAL;')
+
+    connection_created.connect(_sqlite_pragmas)
+
 # --- DB BACKUP CONFIGURATION ---
-# Asal snapshot/restore GitHub workflow (scripts/ci) karta hai, GitHub Cache mein.
 DBBACKUP_STORAGE = 'django.core.files.storage.FileSystemStorage'
 DBBACKUP_STORAGE_OPTIONS = {
     'location': BASE_DIR / 'dbbackup',
@@ -216,38 +248,59 @@ USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
-import os
-
 # ============================================
 # STATIC FILES & MEDIA
 # ============================================
-
-import os
-from pathlib import Path
-
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-WHITENOISE_USE_FINDERS = True
 
-# Media: sab kuch Cloudinary par. MEDIA_URL sirf cloudinary_storage ke liye hai,
-# MEDIA_ROOT par koi file save nahi hoti.
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'  # sirf purane code ke import ke liye; use nahi hota
-os.makedirs(STATIC_ROOT, exist_ok=True)
+MEDIA_ROOT = BASE_DIR / 'media'
 
-# Django 5.1+ ismein STATICFILES_STORAGE ignore karta hai, lekin django-cloudinary-storage ka
-# collectstatic command ise seedha padhta hai (na ho to AttributeError). Isliye lazmi rakhein.
-STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
+os.makedirs(STATIC_ROOT, exist_ok=True)
+os.makedirs(MEDIA_ROOT, exist_ok=True)
+
+# ============================================
+# ✅ STORAGE (Local FileSystem)
+# ============================================
+# Media (logo, documents) is stored on this computer unless MEDIA_STORAGE=cloudinary is set in .env
+# (cloudinary needs internet and the CLOUDINARY_* keys).
+if IS_TERMUX:
+    DEFAULT_FILE_STORAGE_BACKEND = "app.custom_storage.TermuxFileSystemStorage"
+elif os.environ.get('MEDIA_STORAGE', 'local').strip().lower() == 'cloudinary':
+    DEFAULT_FILE_STORAGE_BACKEND = "cloudinary_storage.storage.MediaCloudinaryStorage"
+else:
+    DEFAULT_FILE_STORAGE_BACKEND = "django.core.files.storage.FileSystemStorage"
+if DEBUG:
+    print(f"[STORAGE] {DEFAULT_FILE_STORAGE_BACKEND}")
 
 STORAGES = {
     "default": {
-        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+        "BACKEND": DEFAULT_FILE_STORAGE_BACKEND,
     },
     "staticfiles": {
         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
+
+# Django 5.1 removed these two settings, but django-cloudinary-storage's collectstatic still reads them
+# ("AttributeError: 'Settings' object has no attribute 'STATICFILES_STORAGE'"). Keep them in step with STORAGES.
+STATICFILES_STORAGE = STORAGES["staticfiles"]["BACKEND"]
+DEFAULT_FILE_STORAGE = STORAGES["default"]["BACKEND"]
+
+# ============================================
+# ✅ TERMUX FILE LOCKING FIX
+# ============================================
+if IS_TERMUX:                      # shared storage on Android has no file locks; never disable them on a real server
+    try:
+        import django.core.files.locks as locks_module
+        locks_module.lock = lambda f, flags: True
+        locks_module.unlock = lambda f: True
+        locks_module.is_locked = lambda f: False
+        print("✅ [TERMUX FIX] File locking disabled")
+    except Exception as e:
+        print(f"⚠️ [TERMUX FIX] Failed: {e}")
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -259,20 +312,16 @@ LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {message}',
-            'style': '{',
-        },
-        'simple': {
-            'format': '{levelname} {asctime} {message}',
-            'style': '{',
-        },
+        'verbose': {'format': '{levelname} {asctime} {module} {message}', 'style': '{'},
+        'simple': {'format': '{levelname} {asctime} {message}', 'style': '{'},
     },
     'handlers': {
         'backup_file': {
             'level': 'INFO',
-            'class': 'logging.FileHandler',
+            'class': 'logging.handlers.RotatingFileHandler',
             'filename': BASE_DIR / 'logs/backup.log',
+            'maxBytes': 5 * 1024 * 1024,
+            'backupCount': 5,
             'formatter': 'simple',
         },
         'console': {
@@ -282,8 +331,10 @@ LOGGING = {
         },
         'file': {
             'level': 'DEBUG',
-            'class': 'logging.FileHandler',
+            'class': 'logging.handlers.RotatingFileHandler',
             'filename': BASE_DIR / 'logs/debug.log',
+            'maxBytes': 10 * 1024 * 1024,
+            'backupCount': 5,
             'formatter': 'verbose',
         },
     },
@@ -303,26 +354,25 @@ LOGGING = {
 # ============================================ #
 # ✅ DJANGO ADMIN - FILE UPLOAD & FIELD LIMITS #
 # ============================================ #
-DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000  # Default: 1000
-DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB (Default: 2.5 MB)
-FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB
-
-
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000
+DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800
+FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800
 
 LOGS_DIR = BASE_DIR / 'logs'
 os.makedirs(LOGS_DIR, exist_ok=True)
 
-RCLONE_ENABLED = False  # Google Drive backup band; snapshot GitHub Cache mein jata hai
+RCLONE_ENABLED = True
 RCLONE_REMOTE_NAME = 'gdrive'
 RCLONE_REMOTE_DIR = 'TermuxBackups'
 
-__all__ = [
-    'BACKUP_DIR',
-    'BACKUP_PROGRESS_FILE',
-    'RCLONE_ENABLED',
-    'RCLONE_REMOTE_NAME',
-    'RCLONE_REMOTE_DIR',
-]
+# ============================================ #
+# ✅ PROFESSIONAL BACKUP SYSTEM (app/backup_service.py)
+# ============================================ #
+# Retention (GFS): 7 daily, 4 weekly, 12 monthly. Pichle 24 ghante ke sab backups rehte hain.
+BACKUP_KEEP = {'daily': 7, 'weekly': 4, 'monthly': 12, 'recent_hours': 24}
+BACKUP_INCLUDE_MEDIA = True       # media/ folder (logo, documents) bhi backup ho
+BACKUP_MAX_AGE_HOURS = 26         # is se purana last backup = "unhealthy"
+BACKUP_NOTIFY_EMAIL = []          # backup fail ho to email, e.g. ['owner@example.com']
 
 PWA_APP_NAME = 'Business Management System'
 PWA_APP_SHORT_NAME = 'BMS App'
@@ -335,16 +385,8 @@ PWA_APP_ORIENTATION = 'any'
 PWA_APP_START_URL = '/'
 PWA_APP_STATUS_BAR_COLOR = 'default'
 PWA_APP_ICONS = [
-    {
-        'src': '/static/ceo/images/icon-192.png',
-        'sizes': '192x192',
-        'type': 'image/png'
-    },
-    {
-        'src': '/static/ceo/images/icon-512.png',
-        'sizes': '512x512',
-        'type': 'image/png'
-    }
+    {'src': '/static/ceo/images/icon-192.png', 'sizes': '192x192', 'type': 'image/png'},
+    {'src': '/static/ceo/images/icon-512.png', 'sizes': '512x512', 'type': 'image/png'}
 ]
 PWA_APP_DIR = 'ltr'
 PWA_APP_LANG = 'en-US'

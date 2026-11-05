@@ -75,7 +75,7 @@ def dispatch_transfer(*, user, from_warehouse, to_warehouse, purpose, items, tra
             continue
         batches = list(StockBatch.objects.select_for_update()
                        .filter(product=product, warehouse=from_warehouse, remaining_qty__gt=0)
-                       .order_by(F('expiry_date').asc(nulls_last=True), 'id'))  # [agri-edition:fefo]
+                       .order_by('id'))
         takes, short = allocate_fifo([(b.pk, b.remaining_qty) for b in batches], qty)
         if short > EPS:
             shortages.append(f"{product.name}: batch records cover only {qty - short:g} (audit the stock)")
@@ -97,8 +97,7 @@ def dispatch_transfer(*, user, from_warehouse, to_warehouse, purpose, items, tra
         for batch_id, take in takes:
             batch = batch_map[batch_id]
             StockBatch.objects.filter(pk=batch_id).update(remaining_qty=F('remaining_qty') - take)
-            StoreTransferBatchUsage.objects.create(item=item, batch_id=batch_id, qty=take, price=batch.price,
-                                                   batch_no=batch.batch_no, expiry_date=batch.expiry_date)  # [agri-edition:usage-snapshot]
+            StoreTransferBatchUsage.objects.create(item=item, batch_id=batch_id, qty=take, price=batch.price)
             item_total += _d(take) * batch.price
         item.total_cost = item_total.quantize(Decimal('0.01'), ROUND_HALF_UP)
         item.unit_cost = (item_total / _d(qty)).quantize(Decimal('0.0001'), ROUND_HALF_UP)
@@ -120,8 +119,7 @@ def _return_to_source(usage, qty, source_wh, product):
     if usage.batch_id and StockBatch.objects.filter(pk=usage.batch_id).exists():
         StockBatch.objects.filter(pk=usage.batch_id).update(remaining_qty=F('remaining_qty') + qty)
     else:
-        StockBatch.objects.create(product=product, warehouse=source_wh, qty=qty, remaining_qty=qty, price=usage.price,
-                                  batch_no=usage.batch_no, expiry_date=usage.expiry_date)  # [agri-edition:usage-snapshot]
+        StockBatch.objects.create(product=product, warehouse=source_wh, qty=qty, remaining_qty=qty, price=usage.price)
 
 
 def _add_stock(inv_wh, product, qty):

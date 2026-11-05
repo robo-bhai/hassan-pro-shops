@@ -18,7 +18,7 @@ from django.template.loader import render_to_string
 from django.db import models
 from decimal import Decimal
 from django.shortcuts import redirect
-from ..store.barcode_utils import generate_barcode_image, generate_multiple_labels
+from ..barcode_utils import generate_barcode_image, generate_multiple_labels
 from ..models import Expense
 
 
@@ -127,9 +127,6 @@ class ProductAdmin(ImportExportModelAdmin, admin.ModelAdmin):
         ('Stock Settings', {
             'fields': ('low_stock_threshold',),
             'description': 'Set minimum stock level for alerts.'
-        }),
-        ('Agri details', {      # [agri-edition:admin-product]
-            'fields': ('active_ingredient', 'registration_no', 'pack_size', 'target_crops'),
         }),
     )
     
@@ -470,7 +467,7 @@ class StockBatchAdmin(admin.ModelAdmin):
     list_display = ('product', 'warehouse', 'qty', 'price', 'selling_price', 
                     'profit_display', 'profit_percent_display', 'remaining_qty', 
                     'batch_value_display', 'selling_value_display',
-                    'get_purchase_bill_no', 'get_sale_bill_no', 'batch_no', 'expiry_date')  # [agri-edition:admin-list]
+                    'get_purchase_bill_no', 'get_sale_bill_no')
     list_editable = ('selling_price',)
     search_fields = (
         'product__name', 'purchase_item__purchase__bill_no', 
@@ -480,7 +477,7 @@ class StockBatchAdmin(admin.ModelAdmin):
     list_filter = ('warehouse',)
     change_list_template = "admin/button.html"
     
-    fields = ('product', 'warehouse', 'qty', 'price', 'selling_price', 'remaining_qty', 'purchase_item', 'batch_no', 'expiry_date')  # [agri-edition:admin-fields]
+    fields = ('product', 'warehouse', 'qty', 'price', 'selling_price', 'remaining_qty', 'purchase_item')
     readonly_fields = ('product', 'warehouse', 'qty', 'price', 'remaining_qty', 'purchase_item')
 
     def has_add_permission(self, request):

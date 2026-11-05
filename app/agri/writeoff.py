@@ -25,8 +25,7 @@ def writeoff_value(qty, unit_cost):
 @transaction.atomic
 def write_off_batch(batch_id, user, reason='expired', note='', qty=None):
     """Write off `qty` (default: everything left) of one batch. Returns the ExpiryWriteOff row."""
-    from ..models import ExpiryWriteOff, Inventory, StockBatch, StoreJournalLink
-    from ..store import store_accounting as acc
+    from ..models import ExpiryWriteOff, Inventory, StockBatch
 
     if reason not in REASONS:
         raise WriteOffError('Wajah (reason) sahi nahi hai.')
@@ -55,12 +54,4 @@ def write_off_batch(batch_id, user, reason='expired', note='', qty=None):
         expiry_date=batch.expiry_date, qty=take, unit_cost=batch.price, value=value, reason=reason,
         note=(note or '')[:200], created_by=user)
 
-    if value > 0 and acc.enabled():
-        label = dict(row.REASONS).get(reason, reason)
-        loss = acc._simple_account('count_loss', 'Stock loss')
-        inv_acc = acc.inventory_account(batch.warehouse)
-        acc._post(row.created_at.date(), 'AGRI-WO-%06d' % row.pk,
-                  'Agri write-off (%s): %s x %g' % (label, batch.product.name, take),
-                  [(loss, True, value, batch.product.name), (inv_acc, False, value, batch.warehouse.name)],
-                  user, 'agri_writeoff', row.pk)
     return row

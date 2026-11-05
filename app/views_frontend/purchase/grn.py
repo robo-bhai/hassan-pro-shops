@@ -13,8 +13,6 @@ from django.http import HttpResponse
 from io import BytesIO
 from django.db import transaction
 from ...models import CompanyInfo, Purchase
-from ...store import store_access as _sa
-from ...store import store_receive as _sr
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib import colors
@@ -53,7 +51,7 @@ def grn_list(request):
         grns = grns.filter(converted_to_purchase=False)
     
     # Warehouse filter
-    grns = _sa.hide_other_stores(request.user, grns, 'warehouse')
+    grns = grns
     selected_warehouse = request.GET.get('warehouse', '')
     if selected_warehouse:
         grns = grns.filter(warehouse_id=selected_warehouse)
@@ -77,7 +75,7 @@ def grn_list(request):
         'search': search,
         'selected_status': selected_status,
         'selected_warehouse': selected_warehouse,
-        'warehouses': _sa.hide_other_stores(request.user, Warehouse.objects.all()),
+        'warehouses': Warehouse.objects.all(),
         'total_grns': total_grns,
         'converted_count': converted_count,
         'pending_count': pending_count,
@@ -155,9 +153,6 @@ def grn_convert_to_purchase(request, pk):
         messages.error(request, '❌ Access denied! Only admins can convert GRN.')
         return redirect('grn_detail', pk=grn.pk)
 
-    if not _sr.can_receive(request.user, grn.warehouse_id):
-        messages.error(request, f'❌ You do not have the right to add stock to {grn.warehouse.name} (you are not a keeper/manager of that store team).')
-        return redirect('grn_detail', pk=grn.pk)
     
     try:
         with db_transaction.atomic():
@@ -187,8 +182,6 @@ def grn_convert_to_purchase(request, pk):
                     product=item.product,
                     qty=float(item.qty),
                     price=item.price,
-                    batch_no=item.batch_no,          # [agri-edition:grn-convert]
-                    expiry_date=item.expiry_date,
                 )
                 items_created += 1
             

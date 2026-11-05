@@ -4,7 +4,6 @@ from django.views.decorators.http import require_POST
 from django.db.models.functions import Coalesce
 from django.db.models import Subquery, OuterRef
 from ...models import *
-from ...agri import calc as agri_calc, rules as agri_rules      # [agri-edition:sale]
 import logging
 from reportlab.lib.units import inch
 from django.shortcuts import render, redirect, get_object_or_404
@@ -429,190 +428,6 @@ def sale_list(request):
 
 
 @login_required
-@perm_required('create_sales')
-def sale_create(request):
-    if request.method == 'POST':
-        try:
-            customer_id = request.POST.get('customer')
-            warehouse_id = request.POST.get('warehouse')
-            paid = request.POST.get('paid', 0)
-            discount = request.POST.get('discount', 0)
-            
-            # ✅ Installment fields
-            is_installment = request.POST.get('is_installment') == 'true'
-            installment_plan_id = request.POST.get('installment_plan_id')
-            down_payment_received = Decimal(request.POST.get('down_payment', 0))
-            
-            if not customer_id:
-                messages.error(request, 'Please select a customer!')
-                return redirect('sale_create')
-            if not warehouse_id:
-                messages.error(request, 'Please select a warehouse!')
-                return redirect('sale_create')
-            
-            product_ids = request.POST.getlist('product_id[]')
-            if not product_ids or not any(product_ids):
-                messages.error(request, 'Please add at least one product!')
-                return redirect('sale_create')
-            
-            # [agri-edition:sale-credit] harvest date check + credit limit, BEFORE anything is saved
-            _ok_due, _due = agri_calc.parse_date(request.POST.get('harvest_due_date'))
-            if not _ok_due:
-                raise ValueError('Wapsi ki tareekh ghalat hai.')
-            if not is_installment:
-                _q = request.POST.getlist('qty[]'); _p = request.POST.getlist('price[]')
-                _bill = sum((agri_calc.to_dec(_q[i]) * agri_calc.to_dec(_p[i])
-                             for i in range(len(product_ids)) if product_ids[i] and i < len(_q) and i < len(_p)),
-                            Decimal('0')) - agri_calc.to_dec(discount)
-                _cust = Customer.objects.filter(pk=customer_id).first()
-                _warn = agri_rules.check_credit_limit(_cust, _bill - agri_calc.to_dec(paid),
-                                                      can_override=bool(request.user.is_superuser or request.user.is_staff))
-                if _warn:
-                    messages.warning(request, '⚠️ ' + _warn)
-
-            # ✅ SALE CREATE KARO
-            sale = Sale.objects.create(
-                customer_id=customer_id,
-                warehouse_id=warehouse_id,
-                paid=Decimal(paid),
-                discount_value=Decimal(discount),
-                created_by=request.user,
-                is_installment=is_installment,
-            )
-            
-            qtys = request.POST.getlist('qty[]')
-            prices = request.POST.getlist('price[]')
-            
-            for i in range(len(product_ids)):
-                if product_ids[i]:
-                    SaleItem.objects.create(
-                        sale=sale,
-                        product_id=product_ids[i],
-                        qty=float(qtys[i]),
-                        price=Decimal(prices[i])
-                    )
-            
-            if _due and sale.outstanding_balance() > 0:           # [agri-edition:sale-due]
-                agri_rules.apply_harvest_due(sale, request.POST.get('harvest_due_date'),
-                                             request.POST.get('harvest_note') or '')
-
-            # ✅ ============================================
-            # ✅ CASH BALANCE UPDATE - ADD THIS
-            # ✅ ============================================
-            total_amount = sale.total_amount()  # Total sale amount
-            
-            # Calculate cash received (paid amount)
-            cash_received = sale.paid  # whatever cash the customer gave
-            
-            # Cash method payment record create karo
-            cash_method, _ = PaymentMethod.objects.get_or_create(
-                name='cash', 
-                defaults={'is_active': True}
-            )
-            
-            # SalePayment record banao
-            SalePayment.objects.get_or_create(
-                sale=sale,
-                method=cash_method,
-                amount=cash_received,
-                defaults={'created_by': request.user}
-            )
-            
-            # ✅ Cash Balance UPDATE - Total received amount add karo
-            if cash_received > 0:
-                CashBalance.update_balance(
-                    amount=cash_received,
-                    transaction_type='sale',
-                    user=request.user,
-                    description=f"Sale #{sale.bill_no} from {sale.customer.name}"
-                )
-                messages.info(request, f'💰 Rs. {cash_received:,.2f} added to cash balance!')
-            
-            # ✅ INSTALLMENT LOGIC (existing code)
-            installment_created = False
-            if is_installment and installment_plan_id:
-                try:
-                    plan = InstallmentPlan.objects.get(id=installment_plan_id, is_active=True)
-                    calculation = plan.calculate_emi(total_amount)
-                    
-                    if down_payment_received < calculation['down_payment']:
-                        down_payment_received = calculation['down_payment']
-                    
-                    installment = SaleInstallment.objects.create(
-                        sale=sale,
-                        plan=plan,
-                        total_amount=total_amount,
-                        down_payment_amount=calculation['down_payment'],
-                        down_payment_paid=(down_payment_received >= calculation['down_payment']),
-                        loan_amount=calculation['loan_amount'],
-                        emi_amount=calculation['emi'],
-                        total_interest=calculation['total_interest'],
-                        total_payable=calculation['total_payable'],
-                        start_date=now().date(),
-                        created_by=request.user,
-                        status='partial' if down_payment_received > 0 else 'pending'
-                    )
-                    
-                    sale.down_payment_received = down_payment_received
-                    sale.installment_plan = plan
-                    sale.save()
-                    
-                    sale.paid += down_payment_received
-                    sale.save()
-                    
-                    # EMI schedule generate karo
-                    for i in range(1, plan.duration_months + 1):
-                        due_date = installment.start_date + timedelta(days=30 * i)
-                        EmiPayment.objects.create(
-                            installment=installment,
-                            installment_number=i,
-                            due_date=due_date,
-                            amount_due=calculation['emi']
-                        )
-                    
-                    installment_created = True
-                    messages.success(request, f'✅ Sale #{sale.bill_no} created with {plan.name} installment plan! EMI: Rs. {calculation["emi"]:,.2f}/month')
-                    
-                except Exception as e:
-                    messages.warning(request, f'⚠️ Sale created but installment error: {str(e)}')
-            else:
-                messages.success(request, f'✅ Sale #{sale.bill_no} of Rs. {total_amount:,.2f} created successfully!')
-            
-            # ✅ Send notification
-            from ...models import Notification
-            Notification.send_sale_notification(request.user, sale)
-            
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({
-                    'success': True,
-                    'sale_id': sale.id,
-                    'bill_no': sale.bill_no,
-                    'total_amount': str(total_amount),
-                    'installment_created': installment_created,
-                    'message': 'Sale created successfully!' + (' Installment plan attached.' if installment_created else '')
-                })
-            
-            return redirect('sale_detail', pk=sale.id)
-            
-        except Exception as e:
-            print(f"Sale creation error: {str(e)}")
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'success': False, 'message': str(e)})
-            messages.error(request, f'❌ Error: {str(e)}')
-            return redirect('sale_create')
-    
-    # GET request - existing code
-    context = {
-        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
-        'customers': Customer.objects.all().order_by('customer_code'),
-        'warehouses': Warehouse.objects.all(),
-        'products': Product.objects.all().order_by('name')[:50],
-        'installment_plans': InstallmentPlan.objects.filter(is_active=True),
-    }
-    return render(request, 'sales/create.html', context)
-
-
-@login_required
 @perm_required('view_sales')
 def sale_detail(request, pk):
     sale = get_object_or_404(
@@ -787,9 +602,6 @@ def customer_create(request):
                 address=address,
                 profit_margin=profit_margin,
                 group_id=group_id,
-                village=(request.POST.get('village') or '').strip()[:100] or None,       # [agri-edition:customer-create]
-                main_crop=(request.POST.get('main_crop') or '').strip()[:100] or None,
-                credit_limit=max(agri_calc.to_dec(request.POST.get('credit_limit')), Decimal('0')),
             )
             customer.save()
             
@@ -890,10 +702,6 @@ def customer_update(request, pk):
             customer.address = address
             customer.profit_margin = profit_margin
             customer.group_id = group_id
-            if 'credit_limit' in request.POST:        # [agri-edition:customer-update] keep old values if the form has no farmer fields
-                customer.village = (request.POST.get('village') or '').strip()[:100] or None
-                customer.main_crop = (request.POST.get('main_crop') or '').strip()[:100] or None
-                customer.credit_limit = max(agri_calc.to_dec(request.POST.get('credit_limit')), Decimal('0'))
             customer.save()
             
             # ========================================== #

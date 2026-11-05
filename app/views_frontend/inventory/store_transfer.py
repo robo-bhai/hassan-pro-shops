@@ -50,16 +50,17 @@ def _st_stores_qs(ids=None):
 
 
 def _st_send_stores(user):
-    """Stores from which this user can send goods (keeper+ and the store has can_issue)."""
+    """Stores from which this user can send goods (keeper+ and the store has can_transfer_out)."""
     ids = _sa.allowed_ids(user, 'keeper')
     qs = _st_stores_qs(ids).filter(Q(store_profile__isnull=True) |
-                                   Q(store_profile__is_active=True, store_profile__can_issue=True))
+                                   Q(store_profile__is_active=True, store_profile__can_transfer_out=True))
     return list(qs)
 
 
 def _st_dest_stores():
     """Goods can be sent to any active store (even a store of another team - they are the ones who will receive)."""
-    return list(_st_stores_qs().filter(Q(store_profile__isnull=True) | Q(store_profile__is_active=True)))
+    return list(_st_stores_qs().filter(Q(store_profile__isnull=True) |
+                                       Q(store_profile__is_active=True, store_profile__can_transfer_in=True)))
 
 
 def _st_can_see(user, transfer):
