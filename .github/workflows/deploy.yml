@@ -34,11 +34,11 @@ jobs:
       CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
       CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
       CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
-      DB_HOST: ${{ secrets.DB_HOST }}
-      DB_NAME: ${{ secrets.DB_NAME }}
-      DB_USER: ${{ secrets.DB_USER }}
-      DB_PASS: ${{ secrets.DB_PASS }}
-      DB_PORT: ${{ secrets.DB_PORT }}
+      DB_HOST: "127.0.0.1"
+      DB_NAME: "local_django_db"
+      DB_USER: "root"
+      DB_PASS: "root"
+      DB_PORT: "3306"
       BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
       DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
       DJANGO_SALT_KEY: ${{ secrets.DJANGO_SALT_KEY }}
@@ -132,49 +132,18 @@ jobs:
       - name: Force Execute Remote Migration (Repository Dispatch)
         if: ${{ github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now' }}
         env:
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_PORT: ${{ secrets.DB_PORT }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASS: ${{ secrets.DB_PASS }}
-          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_HOST: "127.0.0.1"
+          DB_PORT: "3306"
+          DB_USER: "root"
+          DB_PASS: "root"
+          DB_NAME: "local_django_db"
         run: |
           echo "=================================================="
-          echo " FORCING MIGRATION (CLOUD & HARDCODED LOCAL DB) "
+          echo " FORCING MIGRATION (LOCAL RUNNER DB ONLY) "
           echo "=================================================="
           python manage.py makemigrations --merge || true
           python manage.py makemigrations
-          echo "--- 1. APPLYING MIGRATIONS & ENSURING SUPERUSER TO CLOUD (VIA SECRETS) ---"
-          if python manage.py migrate --noinput; then
-            echo "Cloud migration passed successfully!"
-          else
-            echo "Cloud migration conflict detected. Forcing state sync..."
-            python manage.py migrate --fake --noinput || true
-            python manage.py migrate --run-syncdb --noinput
-          fi
-
-          python manage.py shell -c "
-          import os
-          from django.contrib.auth import get_user_model
-          User = get_user_model()
-          username = os.environ.get('SUPERUSER_NAME')
-          email = os.environ.get('SUPERUSER_EMAIL')
-          password = os.environ.get('SUPERUSER_PASSWORD')
-          if username and password:
-              user, created = User.objects.get_or_create(username=username, defaults={'email': email})
-              user.set_password(password)
-              user.is_staff = True
-              user.is_superuser = True
-              user.save()
-              print(f'CLOUD DB: Superuser \'{username}\' verified and saved successfully.')
-          else:
-              print('CLOUD DB: Skipping superuser creation (Credentials not set in secrets).')
-          "
-          echo "--- 2. APPLYING MIGRATIONS & ENSURING SUPERUSER TO LOCAL (HARDCODED) ---"
-          export DB_HOST="127.0.0.1"
-          export DB_PORT="3306"
-          export DB_USER="root"
-          export DB_PASS="root"
-          export DB_NAME="local_django_db"
+          echo "--- APPLYING MIGRATIONS & ENSURING SUPERUSER TO LOCAL RUNNER DB ---"
           if python manage.py migrate --noinput; then
             echo "Local migration passed successfully!"
           else
@@ -200,18 +169,18 @@ jobs:
           else:
               print('LOCAL DB: Skipping superuser creation (Credentials not set in secrets).')
           "
-          curl -d "Forced Django Migrations & Superuser Verification Executed Successfully for Both Cloud & Local! 🚀" ntfy.sh/hshshehgag
+          curl -d "Forced Django Migrations & Superuser Verification Executed Successfully on Local DB! 🚀" ntfy.sh/hshshehgag
           echo "Forced migration & superuser dispatch complete."
           exit 0
 
       - name: Force Restore Database from Google Drive Snapshot
         if: env.RESTORE_REQUESTED == 'true'
         env:
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_PORT: ${{ secrets.DB_PORT }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASS: ${{ secrets.DB_PASS }}
-          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_HOST: "127.0.0.1"
+          DB_PORT: "3306"
+          DB_USER: "root"
+          DB_PASS: "root"
+          DB_NAME: "local_django_db"
           RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
           BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
         run: |
@@ -265,21 +234,15 @@ jobs:
           "
 
           gunzip -c restored_snapshot.sql.gz > restored_snapshot.sql
+
+          echo "Ensuring local database schema and tables exist before restoring data dump..."
           python manage.py migrate --noinput || true
 
-          MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED -e "DROP DATABASE IF EXISTS \`$DB_NAME\`; CREATE DATABASE \`$DB_NAME\`;"
-          MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME" < restored_snapshot.sql
-          
-          export DB_HOST="127.0.0.1"
-          export DB_PORT="3306"
-          export DB_USER="root"
-          export DB_PASS="root"
-          export DB_NAME="local_django_db"
-          python manage.py migrate --noinput || true
-
+          echo "Wiping and applying data to Local DB..."
           MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root -e "DROP DATABASE IF EXISTS local_django_db; CREATE DATABASE local_django_db;"
           MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < restored_snapshot.sql
-          echo "Forced Database Restoration Completed Successfully!"
+
+          echo "Forced Database Restoration Completed Successfully on Local DB!"
 
       - name: Restore Local DB Cache
         if: ${{ env.RESTORE_REQUESTED != 'true' && !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now') }}
@@ -287,84 +250,42 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: |
-            cloud_data_dump.sql.gz
+            local_data_dump.sql.gz
             cache_time.txt
           key: mysql-db-cache-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             mysql-db-cache-${{ runner.os }}-
 
-      - name: Apply Migrations & Create Superuser on Cloud Aiven MySQL
-        if: ${{ env.RESTORE_REQUESTED != 'true' && !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now') }}
-        env:
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_PORT: ${{ secrets.DB_PORT }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASS: ${{ secrets.DB_PASS }}
-          DB_NAME: ${{ secrets.DB_NAME }}
-          BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
-        run: |
-          python manage.py makemigrations
-          if python manage.py migrate; then
-            echo "Cloud DB migrations applied successfully!"
-          else
-            python manage.py migrate --fake
-          fi
-
-          python manage.py shell -c "
-          import os
-          from django.contrib.auth import get_user_model
-          User = get_user_model()
-          username = os.environ.get('SUPERUSER_NAME')
-          email = os.environ.get('SUPERUSER_EMAIL')
-          password = os.environ.get('SUPERUSER_PASSWORD')
-          if username and password:
-              user, created = User.objects.get_or_create(username=username, defaults={'email': email})
-              user.set_password(password)
-              user.is_staff = True
-              user.is_superuser = True
-              user.save()
-          "
-
       - name: Smart Cache Validation & Safe Database Restore
         if: ${{ env.RESTORE_REQUESTED != 'true' && !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now') }}
         run: |
-          echo "=== CHECKING CACHE VALIDITY ==="
+          echo "=== CHECKING CACHE VALIDITY FOR LOCAL DB ==="
           python -c "
           import os
 
-          CACHE_FILE = 'cloud_data_dump.sql.gz'
-          TIME_FILE = 'cache_time.txt'
+          CACHE_FILE = 'local_data_dump.sql.gz'
           use_cache = False
 
           if os.path.exists(CACHE_FILE) and os.path.getsize(CACHE_FILE) > 10240:
-              print('VALID CACHE FOUND: Restoring latest snapshot.')
+              print('VALID CACHE FOUND: Restoring latest snapshot into Local DB.')
               use_cache = True
           else:
-              print('NO VALID CACHE: Downloading fresh dump from Cloud MySQL.')
+              print('NO CACHE FOUND: Initializing clean Local DB.')
 
           with open('cache_decision.txt', 'w') as f:
-              f.write('USE_CACHE' if use_cache else 'DOWNLOAD_FRESH')
+              f.write('USE_CACHE' if use_cache else 'FRESH_START')
           "
 
           DECISION=$(cat cache_decision.txt)
 
           if [ "$DECISION" = "USE_CACHE" ]; then
             echo "=== SAFE RESTORE: Loading Valid Cache into Local MySQL ==="
-            gunzip -c cloud_data_dump.sql.gz > cloud_data_dump.sql
-            MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < cloud_data_dump.sql
-            echo "Safe Cache Restoration Completed."
+            gunzip -c local_data_dump.sql.gz > local_data_dump.sql
+            MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < local_data_dump.sql
+            echo "Safe Cache Restoration Completed on Local DB."
           else
-            echo "=== DOWNLOADING FRESH SAFE DUMP FROM CLOUD MYSQL ==="
-            MYSQL_PWD="$DB_PASS" mysqldump -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" \
-              --ssl-mode=REQUIRED \
-              --set-gtid-purged=OFF \
-              --column-statistics=0 \
-              --single-transaction \
-              --replace "$DB_NAME" > cloud_fresh_dump.sql
-
-            MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < cloud_fresh_dump.sql
-            rm -f cloud_fresh_dump.sql
-            echo "Fresh Safe Cloud Data Applied to Local MySQL Successfully."
+            echo "=== FRESH START: Running base migrations for clean Local DB ==="
+            python manage.py migrate --noinput || true
           fi
 
       - name: Sync Migrations & Ensure Superuser on Local DB
@@ -377,12 +298,15 @@ jobs:
           DB_NAME: "local_django_db"
           BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
         run: |
+          echo "=== 1. APPLYING MIGRATIONS TO LOCAL DB ==="
           if python manage.py migrate; then
             echo "Local DB migrations applied successfully!"
           else
+            echo "Conflict detected on Local DB. Forcing state sync with --fake..."
             python manage.py migrate --fake
           fi
 
+          echo "=== 2. ENSURING SUPERUSER CREATION ON LOCAL DB ==="
           python manage.py shell -c "
           import os
           from django.contrib.auth import get_user_model
@@ -396,6 +320,9 @@ jobs:
               user.is_staff = True
               user.is_superuser = True
               user.save()
+              print(f'LOCAL DB: Superuser \'{username}\' verified and saved successfully.')
+          else:
+              print('LOCAL DB: Skipping superuser creation (Credentials not set in secrets).')
           "
 
       - name: Process & Place PWA Icons from Project Root
@@ -504,7 +431,7 @@ jobs:
       - name: Get Public IP & Send Notification to ntfy
         run: |
           PUBLIC_IP=$(curl -s ifconfig.me || curl -s api.ipify.org)
-          MESSAGE="Django App Live! 🚀 (Superuser Verified on Cloud & Local DBs)
+          MESSAGE="Django App Live! 🚀 (Running strictly on Local Runner DB)
           Domain: https://shops.hadi88.online
           Direct IP: http://$PUBLIC_IP:8000"
           curl -d "$MESSAGE" ntfy.sh/hshshehgag
@@ -521,8 +448,8 @@ jobs:
             for s in {1..60}; do
               LATEST_RUN_ID=$(gh api "repos/$REPO/actions/runs?branch=$BRANCH&per_page=1" --jq '.workflow_runs[0].id' 2>/dev/null || echo "$CURRENT_RUN_ID")
               if [ "$LATEST_RUN_ID" -gt "$CURRENT_RUN_ID" ]; then
-                echo "A newer workflow run ($LATEST_RUN_ID) detected! Creating emergency DB snapshot before exiting..."
-                MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root --set-gtid-purged=OFF --column-statistics=0 --single-transaction --replace local_django_db | gzip > cloud_data_dump.sql.gz
+                echo "A newer workflow run ($LATEST_RUN_ID) detected! Creating emergency Local DB snapshot before exiting..."
+                MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root --set-gtid-purged=OFF --column-statistics=0 --single-transaction --replace local_django_db | gzip > local_data_dump.sql.gz
                 date +%s > cache_time.txt
                 exit 0
               fi
@@ -538,17 +465,17 @@ jobs:
             echo "------------------------------------------"
           done || true
 
-      - name: Sync Local Runner MySQL Back to Cloud Aiven MySQL
+      - name: Save Updated Local DB Snapshot to GitHub Cache
         if: always()
         run: |
           echo "=========================================="
-          echo " 1. CREATING SAFE CACHE DUMP FOR FUTURE RUNS "
+          echo " CREATING SAFE LOCAL DB CACHE SNAPSHOT FOR FUTURE RUNS "
           echo "=========================================="
           MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
             --set-gtid-purged=OFF \
             --column-statistics=0 \
             --single-transaction \
-            --replace local_django_db | gzip > cloud_data_dump.sql.gz
+            --replace local_django_db | gzip > local_data_dump.sql.gz
 
           python -c "
           import time
@@ -556,39 +483,11 @@ jobs:
               f.write(str(time.time()))
           "
 
-          echo "=========================================="
-          echo " 2. PUSHING UPDATED LOCAL DATA TO CLOUD MYSQL SAFELY "
-          echo "=========================================="
-          python manage.py migrate --noinput || true
-
-          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
-            --set-gtid-purged=OFF \
-            --column-statistics=0 \
-            --no-create-info \
-            --replace local_django_db > runner_updated_data.sql
-
-          gzip -f runner_updated_data.sql
-
-          if gunzip -c runner_updated_data.sql.gz | MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME"; then
-            echo "Data sync completed successfully without dropping tables!"
-          else
-            echo "Table structure mismatch detected! Forcing one-time schema recreation..."
-            MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
-              --set-gtid-purged=OFF \
-              --column-statistics=0 \
-              --single-transaction \
-              --add-drop-table \
-              local_django_db > runner_full_dump.sql
-            gzip -f runner_full_dump.sql
-            gunzip -c runner_full_dump.sql.gz | MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" --ssl-mode=REQUIRED "$DB_NAME"
-          fi
-          echo "Sync Up Back to Cloud Completed Successfully!"
-
       - name: Save Updated DB Dump & Timestamp to GitHub Cache
         if: always()
         uses: actions/cache/save@v4
         with:
           path: |
-            cloud_data_dump.sql.gz
+            local_data_dump.sql.gz
             cache_time.txt
           key: mysql-db-cache-${{ runner.os }}-${{ github.run_id }}
