@@ -24,7 +24,7 @@ jobs:
           MYSQL_DATABASE: local_django_db
         ports:
           - 3306:3306
-        options: "--health-cmd=\"mysqladmin ping\" --health-interval=10s --health-timeout=5s --health-retries=3"
+        options: "--health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3"
 
     env:
       EMAIL_HOST_USER: ${{ secrets.EMAIL_HOST_USER }}
@@ -73,11 +73,11 @@ jobs:
           BRANCH="${{ github.ref_name }}"
 
           while true; do
-            OLDER_RUNS=$(gh api "repos/$REPO/actions/runs?branch=$BRANCH&per_page=20" --jq "[.workflow_runs[] | select(.id < $CURRENT_RUN_ID and (.status == "in_progress" or .status == "queued")) | .id]")
-            TOTAL_PENDING=$(echo "$OLDER_RUNS" | jq 'length')
+            # Pure shell logic with string comparison to avoid jq filter parsing issues
+            OLDER_RUNS=$(gh api "repos/$REPO/actions/runs?branch=$BRANCH&per_page=20"               --jq ".workflow_runs[] | select(.id < $CURRENT_RUN_ID) | select(.status == "in_progress" or .status == "queued") | .id")
 
-            if [ "${TOTAL_PENDING:-0}" -gt 0 ]; then
-              echo "Older workflow run(s) $OLDER_RUNS detected. Holding this run (ID: $CURRENT_RUN_ID)... Checking again in 10 seconds."
+            if [ -n "$OLDER_RUNS" ]; then
+              echo "Older workflow run(s) detected: $OLDER_RUNS. Holding this run (ID: $CURRENT_RUN_ID)... Checking again in 10 seconds."
               sleep 10
             else
               echo "No older active runs found. Proceeding with execution!"
@@ -312,12 +312,7 @@ jobs:
             echo "Persistent Cache Restoration Completed."
           else
             echo "=== DOWNLOADING FRESH DUMP FROM CLOUD MYSQL ==="
-            MYSQL_PWD="$DB_PASS" mysqldump -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" \
-              --ssl-mode=REQUIRED \
-              --set-gtid-purged=OFF \
-              --column-statistics=0 \
-              --single-transaction \
-              --quick "$DB_NAME" > cloud_fresh_dump.sql
+            MYSQL_PWD="$DB_PASS" mysqldump -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER"               --ssl-mode=REQUIRED               --set-gtid-purged=OFF               --column-statistics=0               --single-transaction               --quick "$DB_NAME" > cloud_fresh_dump.sql
 
             MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < cloud_fresh_dump.sql
             rm -f cloud_fresh_dump.sql
@@ -462,11 +457,7 @@ jobs:
           TIMESTAMP=$(date +"%d-%m-%y_%H-%M")
           SNAPSHOT_FILENAME="db_snapshot_${TIMESTAMP}.sql.gz.enc"
 
-          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
-            --set-gtid-purged=OFF \
-            --column-statistics=0 \
-            --single-transaction \
-            local_django_db | gzip > raw_snapshot.sql.gz
+          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root             --set-gtid-purged=OFF             --column-statistics=0             --single-transaction             local_django_db | gzip > raw_snapshot.sql.gz
 
           python -c "
           import os, base64
@@ -494,10 +485,7 @@ jobs:
           BACKUP_SIZE=$(du -h "$SNAPSHOT_FILENAME" | awk '{print $1}')
           CURRENT_TIME=$(date +"%Y-%m-%d %H:%M:%S")
 
-          curl -H "Title: 📦 Database Backup Successful" \
-            -H "Tags: white_check_mark,database,floppy_disk" \
-            -H "Markdown: yes" \
-            -d "Encrypted database backup uploaded successfully.
+          curl -H "Title: 📦 Database Backup Successful"             -H "Tags: white_check_mark,database,floppy_disk"             -H "Markdown: yes"             -d "Encrypted database backup uploaded successfully.
 
           **Filename (Copyable):**
           \`$SNAPSHOT_FILENAME\`
@@ -505,8 +493,7 @@ jobs:
           * **Size:** $BACKUP_SIZE
           * **Timestamp:** $CURRENT_TIME
           * **Destination:** \`${RCLONE_REMOTE}hassan_shops/$SNAPSHOT_FILENAME\`
-          * **Database:** local_django_db" \
-            ntfy.sh/hassan_shops_db
+          * **Database:** local_django_db"             ntfy.sh/hassan_shops_db
 
       - name: Start Django Server & Permanent Cloudflare Tunnel
         env:
@@ -565,13 +552,7 @@ jobs:
           echo "=========================================="
           echo " CREATING 101% COMPLETE SNAPSHOT BEFORE EXIT "
           echo "=========================================="
-          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
-            --set-gtid-purged=OFF \
-            --column-statistics=0 \
-            --single-transaction \
-            --add-drop-table \
-            --extended-insert \
-            --quick local_django_db | gzip > cloud_data_dump.sql.gz
+          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root             --set-gtid-purged=OFF             --column-statistics=0             --single-transaction             --add-drop-table             --extended-insert             --quick local_django_db | gzip > cloud_data_dump.sql.gz
 
           python -c "
           import time
