@@ -1,0 +1,46 @@
+{% extends 'customer_portal/rider/base.html' %}
+{% block title %}Kamai{% endblock %}
+{% block header %}<div class="top"><div class="nm">💰 Meri kamai</div><div class="hi">{{ rider.name }} · {{ rider.phone }}</div></div>{% endblock %}
+{% block body %}
+<div class="stats">
+  <div class="stat"><b>{{ today.deliveries }}</b><small>Aaj</small></div>
+  <div class="stat"><b>{{ week.deliveries }}</b><small>7 din</small></div>
+  <div class="stat"><b>{{ b.deliveries }}</b><small>Kul deliveries</small></div>
+</div>
+<div class="wrap">
+  <div class="card">
+    <div class="row"><span>Aaj ki kamai</span><b>Rs. {{ today.earned|floatformat:0 }}</b></div>
+    <div class="row"><span>Pichle 7 din</span><b>Rs. {{ week.earned|floatformat:0 }}</b></div>
+    <div class="row"><span>Kul kamai</span><b>Rs. {{ b.earned|floatformat:0 }}</b></div>
+    <div class="row"><span>Mil chuki</span><b>Rs. {{ b.paid_out|floatformat:0 }}</b></div>
+    <div class="sep"></div>
+    <div class="row"><span><b>Aap ko milna baaqi</b></span><span class="fee">Rs. {{ b.due|floatformat:0 }}</span></div>
+  </div>
+
+  <div class="card">
+    <div class="row"><span>⭐ Customer rating</span>
+      <b>{% if rating.avg %}<span style="color:#f59e0b">{{ rating.avg }}/5 ★</span> <small>({{ rating.count }})</small>{% else %}—{% endif %}</b></div>
+  </div>
+
+  <div class="card">
+    <div class="row"><span>COD cash jo liya</span><b>Rs. {{ b.cash_collected|floatformat:0 }}</b></div>
+    <div class="row"><span>Admin ko jama kiya</span><b>Rs. {{ b.cash_deposited|floatformat:0 }}</b></div>
+    <div class="sep"></div>
+    <div class="row"><span><b>Aap ke paas cash</b></span><span class="fee" style="color:#c2410c">Rs. {{ b.cash_in_hand|floatformat:0 }}</span></div>
+    <div class="cod">Yeh cash company ka hai — admin ko jama karwayein.</div>
+  </div>
+
+  <h3>Hisab ki history</h3>
+  <div class="card">
+    <table>
+      {% for s in settlements %}
+      <tr><td>{{ s.created_at|date:"d M, h:i A" }}<br><small style="color:#6b7280">{{ s.note }}</small></td>
+          <td>{% if s.kind == 'cash_in' %}Cash jama{% else %}Kamai mili{% endif %}</td>
+          <td style="text-align:right"><b>Rs. {{ s.amount|floatformat:0 }}</b></td></tr>
+      {% empty %}<tr><td class="empty" colspan="3">Abhi koi hisab darj nahi.</td></tr>{% endfor %}
+    </table>
+  </div>
+
+  <a href="{% url 'rider_logout' %}" class="btn l" style="margin-top:6px">Logout</a>
+</div>
+{% endblock %}

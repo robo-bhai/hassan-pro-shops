@@ -380,8 +380,12 @@ def _um_split_name(full_name, fallback=('', '')):
 
 
 def _um_staff_users():
-    """Staff accounts only: customer-portal logins are managed elsewhere."""
-    return User.objects.filter(customer_profile__isnull=True)
+    """Staff accounts only: customer, vendor and rider logins are managed in their own pages."""
+    return User.objects.filter(
+        customer_profile__isnull=True,
+        vendor_profile__isnull=True,
+        rider_profile__isnull=True,
+    )
 
 
 def _um_base_queryset():

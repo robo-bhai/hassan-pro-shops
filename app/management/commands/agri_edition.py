@@ -16,7 +16,7 @@ from django.core.management.base import BaseCommand
 
 from app.models import SystemSetting
 
-HIDE = ['production', 'store_issue', 'installment', 'supply_chain', 'services', 'operations',
+HIDE = ['production', 'installment', 'supply_chain', 'services', 'operations',
         'loans', 'budgets', 'shareholders', 'dividends', 'hr', 'bi', 'ai', 'audit',
         'documents', 'testing']
 SHOW = ['inventory', 'purchase', 'sales', 'accounts', 'cash', 'whatsapp', 'reports', 'backup', 'agri']

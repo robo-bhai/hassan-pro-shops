@@ -1,0 +1,271 @@
+{% extends 'customer_portal/base_shop.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - {{ company_name }}{% endblock %}
+
+{% block content %}
+<style>
+    .pf-wrap { max-width: 700px; margin: 30px auto; padding: 0 15px; }
+    .pf-card { background: #fff; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,.08); overflow: hidden; }
+    .pf-head { background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); color: #fff; padding: 26px 30px; }
+    .pf-head h3 { margin: 0; font-weight: 700; }
+    .pf-body { padding: 28px 30px; }
+    .pf-group { margin-bottom: 18px; }
+    .pf-group label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; }
+    .pf-group input, .pf-group select, .pf-group textarea {
+        width: 100%; padding: 11px 14px; border: 2px solid #e5e7eb; border-radius: 12px; font-size: 15px; }
+    .pf-group input:focus, .pf-group select:focus, .pf-group textarea:focus { outline: 0; border-color: #2563eb; }
+    .pf-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 576px) { .pf-row { grid-template-columns: 1fr; } }
+    .pf-help { font-size: 12px; color: #777; margin-top: 4px; }
+    .pf-btn { width: 100%; padding: 13px; border: 0; border-radius: 12px; color: #fff; font-weight: 700; font-size: 16px;
+              background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); cursor: pointer; }
+    .pf-back { display: inline-block; margin-top: 14px; color: #2563eb; text-decoration: none; }
+    .pf-alert { padding: 11px 15px; border-radius: 12px; margin-bottom: 10px; background: #f8d7da; color: #721c24; }
+    .pf-current { width: 90px; height: 90px; object-fit: cover; border-radius: 12px; margin-bottom: 8px; }
+    .pf-req { color: #dc3545; }
+    .pf-ig { display: flex; gap: 8px; }
+    .pf-ig select { flex: 1; min-width: 0; }
+    .pf-plus { flex: 0 0 48px; border: 0; border-radius: 12px; color: #fff; font-size: 20px; cursor: pointer;
+               background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); }
+    .pf-hint { font-size: 12px; color: #198754; margin-top: 4px; min-height: 0; }
+
+    @media (max-width: 576px) {
+        .pf-wrap { margin: 14px auto; padding: 0 10px; }
+        .pf-head { padding: 20px 18px; }
+        .pf-head h3 { font-size: 20px; }
+        .pf-body { padding: 18px 16px; }
+        .pf-group input, .pf-group select, .pf-group textarea { font-size: 16px; }  /* iOS zoom na ho */
+        .pf-plus { flex: 0 0 44px; }
+        .pf-btn { padding: 14px; }
+    }
+
+    .pf-card, .pf-wrap > div { border-radius: 20px; }
+    body { background: #fff; }
+</style>
+
+<div class="pf-wrap">
+  <div class="pf-card">
+    <div class="pf-head"><h3><i class="bi bi-box-seam"></i> {{ page_title }}</h3></div>
+    <div class="pf-body">
+
+      <form method="post" enctype="multipart/form-data" id="productForm">
+        {% csrf_token %}
+
+        <div class="pf-group">
+          <label for="name">Product Name <span class="pf-req">*</span></label>
+          <input type="text" name="name" id="name" maxlength="100" required value="{{ v.name }}">
+        </div>
+
+        <div class="pf-row">
+          <div class="pf-group">
+            <label for="category">Category <span class="pf-req">*</span></label>
+            <div class="pf-ig">
+              <select name="category" id="category" required>
+                <option value="">-- Select --</option>
+                {% for c in categories %}
+                  <option value="{{ c.id }}" {% if v.category|stringformat:"s" == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+              </select>
+              <button type="button" class="pf-plus" title="Naya Category add karein" onclick="openMaster('category')">
+                <i class="bi bi-plus-lg"></i>
+              </button>
+            </div>
+            <div class="pf-hint" id="hint_category"></div>
+          </div>
+          <div class="pf-group">
+            <label for="brand">Brand</label>
+            <div class="pf-ig">
+              <select name="brand" id="brand">
+                <option value="">-- None --</option>
+                {% for b in brands %}
+                  <option value="{{ b.id }}" {% if v.brand|stringformat:"s" == b.id|stringformat:"s" %}selected{% endif %}>{{ b.name }}</option>
+                {% endfor %}
+              </select>
+              <button type="button" class="pf-plus" title="Naya Brand add karein" onclick="openMaster('brand')">
+                <i class="bi bi-plus-lg"></i>
+              </button>
+            </div>
+            <div class="pf-hint" id="hint_brand"></div>
+          </div>
+        </div>
+
+        <div class="pf-group">
+            <label for="unit">Unit</label>
+            <div class="pf-ig">
+              <select name="unit" id="unit">
+                <option value="">-- None --</option>
+                {% for u in units %}
+                  <option value="{{ u.id }}" {% if v.unit|stringformat:"s" == u.id|stringformat:"s" %}selected{% endif %}>{{ u.name }}</option>
+                {% endfor %}
+              </select>
+              <button type="button" class="pf-plus" title="Naya Unit add karein" onclick="openMaster('unit')">
+                <i class="bi bi-plus-lg"></i>
+              </button>
+            </div>
+            <div class="pf-hint" id="hint_unit"></div>
+        </div>
+
+        <div class="pf-group">
+          <label for="description">Description</label>
+          <textarea name="description" id="description" rows="4" maxlength="2000">{{ v.description }}</textarea>
+        </div>
+
+        <div class="pf-group">
+          <label for="price">Selling Price (Rs.) <span class="pf-req">*</span></label>
+          <input type="number" name="price" id="price" min="0.01" step="0.01" required value="{{ v.price|stringformat:'s' }}">
+          <div class="pf-help">Customer shop par isi rate par kharidega. Cost price likhne ki zaroorat nahi.</div>
+        </div>
+
+        <div class="pf-row">
+          <div class="pf-group">
+            <label for="discount_percentage">Discount %</label>
+            <input type="number" name="discount_percentage" id="discount_percentage" min="0" max="90" step="0.01" value="{{ v.discount_percentage|stringformat:'s' }}">
+          </div>
+          <div class="pf-group">
+            <label for="stock">{% if product %}Add Stock (Quantity){% else %}Stock Quantity <span class="pf-req">*</span>{% endif %}</label>
+            <input type="number" name="stock" id="stock" min="0" step="any" {% if not product %}required{% endif %} value="{{ v.stock|stringformat:'s' }}">
+            <div class="pf-help">
+              {% if product %}Maujooda stock: <b>{{ current_stock|floatformat:"-2" }}</b>. Naya maal bhejna ho to yahan quantity likhein.
+              {% else %}Kitni quantity aap supply kar sakte hain.{% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div class="pf-group" id="earnBox" data-commission="{{ commission_percent|stringformat:'s' }}"
+             style="background:#eef2ff; border-radius:12px; padding:14px 16px;">
+          <div style="font-weight:700; margin-bottom:6px;">💰 Aap ko kitna milega</div>
+          <div class="pf-help" style="margin:0 0 8px;">Shop har bikri par <b>{{ commission_percent|floatformat:"-2" }}%</b> commission rakhta hai; baaqi aap ka.</div>
+          <div class="pf-row" style="gap:8px;">
+            <div>Customer ki price: <b id="earnPay">-</b></div>
+            <div>Shop commission: <b id="earnFee">-</b></div>
+          </div>
+          <div style="margin-top:6px; font-size:16px;">Har unit par aap ko: <b id="earnYou" style="color:#198754;">-</b></div>
+        </div>
+
+        <div class="pf-group">
+          <label for="image">Product Image {% if not product %}<span class="pf-req">*</span>{% endif %}</label>
+          {% if product and product.image %}<div><img class="pf-current" src="{{ product.image.url }}" alt=""></div>{% endif %}
+          <input type="file" name="image" id="image" accept="image/*" {% if not product %}required{% endif %}>
+          <div class="pf-help">JPG/PNG/WEBP, 5 MB tak.{% if product %} Nayi image dene par product dobara review hoga.{% endif %}</div>
+        </div>
+
+        <button type="submit" class="pf-btn" id="saveBtn">{% if product %}Save Changes{% else %}Submit Product{% endif %}</button>
+      </form>
+
+      <a class="pf-back" href="{% url 'vendor_dashboard' %}"><i class="bi bi-arrow-left"></i> Back to dashboard</a>
+    </div>
+  </div>
+</div>
+
+<script>
+
+// Live: customer ki price, commission aur vendor ka hissa
+(function () {
+    var box = document.getElementById('earnBox');
+    if (!box) return;
+    var pct = parseFloat(box.dataset.commission) || 0;
+    var price = document.getElementById('price'), disc = document.getElementById('discount_percentage');
+    function rs(n) { return 'Rs. ' + Math.round(n); }
+    function calc() {
+        var p = parseFloat(price.value), d = parseFloat(disc.value) || 0;
+        if (!(p > 0)) { ['earnPay', 'earnFee', 'earnYou'].forEach(function (i) { document.getElementById(i).textContent = '-'; }); return; }
+        var pay = p * (100 - d) / 100, fee = pay * pct / 100;
+        document.getElementById('earnPay').textContent = rs(pay);
+        document.getElementById('earnFee').textContent = rs(fee);
+        document.getElementById('earnYou').textContent = rs(pay - fee);
+    }
+    price.addEventListener('input', calc); disc.addEventListener('input', calc); calc();
+})();
+document.getElementById('productForm').addEventListener('submit', function () {
+    var b = document.getElementById('saveBtn');
+    b.disabled = true;
+    b.textContent = 'Saving...';
+});
+</script>
+
+<!-- + button popup (Category / Brand / Unit) -->
+<div class="modal fade" id="masterModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:16px; overflow:hidden;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); color:#fff;">
+        <h5 class="modal-title" id="masterTitle">Add New</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label fw-semibold" id="masterLabel">Name</label>
+        <input type="text" id="masterInput" class="form-control form-control-lg" maxlength="100" autocomplete="off">
+        <div class="text-danger small mt-2" id="masterError"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="masterSave">Add</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+    var LABELS = {category: 'Category', brand: 'Brand', unit: 'Unit'};
+    var current = null, modal = null;
+
+    function csrf() {
+        var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+        return m ? decodeURIComponent(m[1]) : document.querySelector('[name=csrfmiddlewaretoken]').value;
+    }
+
+    window.openMaster = function (kind) {
+        current = kind;
+        document.getElementById('masterTitle').textContent = 'Add New ' + LABELS[kind];
+        document.getElementById('masterLabel').textContent = LABELS[kind] + ' Name';
+        document.getElementById('masterInput').value = '';
+        document.getElementById('masterError').textContent = '';
+        modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('masterModal'));
+        modal.show();
+        setTimeout(function () { document.getElementById('masterInput').focus(); }, 300);
+    };
+
+    function save() {
+        var input = document.getElementById('masterInput');
+        var err = document.getElementById('masterError');
+        var btn = document.getElementById('masterSave');
+        var name = input.value.trim();
+        err.textContent = '';
+        if (name.length < 2) { err.textContent = LABELS[current] + ' ka naam likhein.'; input.focus(); return; }
+
+        btn.disabled = true;
+        fetch('/shop/vendor/api/create/' + current + '/', {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrf(), 'Content-Type': 'application/json'},
+            body: JSON.stringify({name: name})
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            btn.disabled = false;
+            if (!d.success) { err.textContent = d.message || 'Error aa gaya.'; return; }
+            var sel = document.getElementById(current), found = null;
+            for (var i = 0; i < sel.options.length; i++) {
+                if (sel.options[i].value == d.id) { found = sel.options[i]; break; }
+            }
+            if (!found) {
+                found = document.createElement('option');
+                found.value = d.id; found.textContent = d.name;
+                sel.appendChild(found);
+            }
+            sel.value = d.id;
+            document.getElementById('hint_' + current).textContent = d.existed
+                ? '✔ "' + d.name + '" pehle se maujood tha, select kar liya'
+                : '✅ "' + d.name + '" add ho gaya';
+            modal.hide();
+        })
+        .catch(function () { btn.disabled = false; err.textContent = 'Network error, dobara koshish karein.'; });
+    }
+
+    document.getElementById('masterSave').addEventListener('click', save);
+    document.getElementById('masterInput').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); save(); }
+    });
+})();
+</script>
+{% endblock %}

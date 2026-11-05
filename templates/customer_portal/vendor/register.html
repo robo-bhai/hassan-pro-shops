@@ -1,0 +1,625 @@
+{% extends 'customer_portal/base_shop.html' %}
+{% load static %}
+
+{% block title %}Vendor Registration - {{ company_name }}{% endblock %}
+
+{% block content %}
+
+<style>
+    .register-container {
+        max-width: 550px;
+        margin: 40px auto;
+        padding: 0 15px;
+    }
+    
+    .register-card {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+    }
+    
+    .register-header {
+        background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+        color: white;
+        padding: 40px 30px 30px;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .register-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -30%;
+        width: 200px;
+        height: 200px;
+        background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+        border-radius: 50%;
+    }
+    
+    .register-icon {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 15px;
+        font-size: 32px;
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        position: relative;
+        z-index: 1;
+    }
+    
+    .register-header h3 {
+        margin: 0;
+        font-weight: 700;
+        font-size: 22px;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .register-header p {
+        margin: 8px 0 0;
+        opacity: 0.9;
+        font-size: 13px;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .register-body {
+        padding: 30px;
+    }
+    
+    .form-group {
+        margin-bottom: 18px;
+    }
+    
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        color: #1a1a2e;
+        margin-bottom: 8px;
+        font-size: 14px;
+    }
+    
+    .form-group label i {
+        color: #2563eb;
+        margin-right: 6px;
+    }
+    
+    .form-group label .required {
+        color: #dc3545;
+        margin-left: 3px;
+    }
+    
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        padding: 14px 16px;
+        border: 2px solid #e0e3eb;
+        border-radius: 12px;
+        font-size: 15px;
+        transition: all 0.2s ease;
+        background: #f3f5ff;
+        font-family: inherit;
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+        outline: none;
+        border-color: #2563eb;
+        background: white;
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+    }
+    
+    .form-group textarea {
+        resize: vertical;
+        min-height: 80px;
+    }
+    
+    .form-group .help-text {
+        font-size: 12px;
+        color: #6b7280;
+        margin-top: 5px;
+    }
+    
+    /* Two columns */
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+    
+    @media (max-width: 500px) {
+        .form-row {
+            grid-template-columns: 1fr;
+            gap: 0;
+        }
+    }
+    
+    /* Password toggle */
+    .password-wrapper {
+        position: relative;
+    }
+    
+    .password-toggle {
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #9ca3af;
+        cursor: pointer;
+        font-size: 18px;
+        padding: 5px;
+    }
+    
+    .password-toggle:hover {
+        color: #2563eb;
+    }
+    
+    .btn-register {
+        width: 100%;
+        padding: 15px;
+        background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 10px;
+    }
+    
+    .btn-register:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(37, 99, 235, 0.4);
+    }
+    
+    .btn-register:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    .register-footer {
+        text-align: center;
+        padding: 20px 30px;
+        background: #f3f5ff;
+        border-top: 1px solid #e0e3eb;
+    }
+    
+    .register-footer p {
+        margin: 0;
+        font-size: 14px;
+        color: #6b7280;
+    }
+    
+    .register-footer a {
+        color: #2563eb;
+        font-weight: 700;
+        text-decoration: none;
+    }
+    
+    .register-footer a:hover {
+        text-decoration: underline;
+    }
+    
+    /* Alerts */
+    .alert-message {
+        padding: 12px 15px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        font-size: 14px;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        animation: fadeIn 0.3s ease;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-5px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .alert-error {
+        background: #f8d7da;
+        color: #721c24;
+        border-left: 4px solid #dc3545;
+    }
+    
+    .alert-success {
+        background: #d4edda;
+        color: #155724;
+        border-left: 4px solid #28a745;
+    }
+    
+    .alert-warning {
+        background: #fff3cd;
+        color: #856404;
+        border-left: 4px solid #ffc107;
+    }
+    
+    .alert-info {
+        background: #d1ecf1;
+        color: #0c5460;
+        border-left: 4px solid #17a2b8;
+    }
+    
+    /* Section Divider */
+    .section-divider {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 25px 0 20px;
+        color: #6b7280;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .section-divider::before,
+    .section-divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: #e0e3eb;
+    }
+    
+    .section-divider i {
+        color: #2563eb;
+    }
+
+    @media (max-width: 480px) {
+        .register-container { margin: 16px auto; padding: 0 10px; }
+        .register-card input, .register-card select, .register-card textarea { font-size: 16px; }  /* iOS zoom na ho */
+        .register-header { padding: 28px 18px 22px; }
+        .register-body { padding: 20px 16px; }
+        .register-footer { padding: 16px; }
+    }
+
+    body { background: #f3f5ff; }
+    .register-card { border-radius: 28px; }
+    .register-header { border-radius: 0 0 30px 30px; }
+    .form-group input, .form-group select, .form-group textarea { border-radius: 16px; }
+    .btn-register { border-radius: 30px; }
+</style>
+
+<div class="register-container">
+    
+    <div class="register-card">
+        
+        <!-- Header -->
+        <div class="register-header">
+            <div class="register-icon">
+                <i class="bi bi-shop-window"></i>
+            </div>
+            <h3>Become a Vendor</h3>
+            <p>Apni products hamari shop par list karein</p>
+        </div>
+        
+        <!-- Body -->
+        <div class="register-body">
+            
+            <!-- Messages -->
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert-message 
+                        {% if message.tags == 'error' %}alert-error
+                        {% elif message.tags == 'success' %}alert-success
+                        {% elif message.tags == 'warning' %}alert-warning
+                        {% else %}alert-info{% endif %}">
+                        <i class="bi bi-{% if message.tags == 'error' %}exclamation-circle-fill{% elif message.tags == 'success' %}check-circle-fill{% elif message.tags == 'warning' %}exclamation-triangle-fill{% else %}info-circle-fill{% endif %}"></i>
+                        <span>{{ message }}</span>
+                    </div>
+                {% endfor %}
+            {% endif %}
+            
+            <!-- Register Form -->
+            <form method="POST" id="registerForm">
+                {% csrf_token %}
+                
+                <!-- ============================================ -->
+                <!-- PERSONAL INFORMATION                         -->
+                <!-- ============================================ -->
+                <div class="section-divider">
+                    <i class="bi bi-shop"></i>
+                    Business Information
+                </div>
+
+                <div class="form-group">
+                    <label for="business_name">
+                        <i class="bi bi-shop"></i> Business / Shop Name
+                        <span class="required">*</span>
+                    </label>
+                    <input type="text"
+                           name="business_name"
+                           id="business_name"
+                           placeholder="e.g. Khan Traders"
+                           required
+                           maxlength="100">
+                </div>
+
+                <div class="section-divider">
+                    <i class="bi bi-person-fill"></i>
+                    Owner Information
+                </div>
+                
+                <!-- Full Name -->
+                <div class="form-group">
+                    <label for="full_name">
+                        <i class="bi bi-person-fill"></i> Owner Name
+                        <span class="required">*</span>
+                    </label>
+                    <input type="text" 
+                           name="full_name" 
+                           id="full_name" 
+                           placeholder="e.g. Ali Khan"
+                           required
+                           autocomplete="name">
+                </div>
+                
+                <!-- Phone + Email Row -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="phone">
+                            <i class="bi bi-phone-fill"></i> Phone
+                            <span class="required">*</span>
+                        </label>
+                        <input type="tel" 
+                               name="phone" 
+                               id="phone" 
+                               placeholder="03XXXXXXXXX"
+                               required
+                               autocomplete="tel"
+                               inputmode="tel">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email">
+                            <i class="bi bi-envelope-fill"></i> Email
+                            <span class="required">*</span>
+                        </label>
+                        <input type="email" 
+                               name="email" 
+                               id="email" 
+                               placeholder="name@email.com"
+                               required
+                               autocomplete="email">
+                    </div>
+                </div>
+                
+                <!-- ============================================ -->
+                <!-- ADDRESS INFORMATION                          -->
+                <!-- ============================================ -->
+                <div class="section-divider">
+                    <i class="bi bi-geo-alt-fill"></i>
+                    Address Information
+                </div>
+                
+                <!-- Store category -->
+                <div class="form-group">
+                    <label for="store_category">
+                        <i class="bi bi-shop"></i> Store Type
+                    </label>
+                    <select name="store_category" id="store_category">
+                        <option value="">-- Select --</option>
+                        {% for c in store_categories %}<option value="{{ c.id }}">{{ c.icon }} {{ c.name }}</option>{% endfor %}
+                    </select>
+                    <div class="help-text">Restaurant, Grocery, Pharmacy...</div>
+                </div>
+
+                <!-- City -->
+                <div class="form-group">
+                    <label for="city">
+                        <i class="bi bi-building"></i> City
+                        <span class="required">*</span>
+                    </label>
+                    <input type="text" 
+                           name="city" 
+                           id="city" 
+                           placeholder="e.g. Lahore, Karachi"
+                           required
+                           autocomplete="address-level2">
+                    <div class="help-text">Your city</div>
+                </div>
+
+                <!-- Delivery areas (optional) -->
+                <div class="form-group">
+                    <label for="delivery_areas">
+                        <i class="bi bi-truck"></i> Delivery Areas
+                        <span style="color:#888;font-weight:400;">(optional)</span>
+                    </label>
+                    <textarea name="delivery_areas"
+                              id="delivery_areas"
+                              rows="2"
+                              maxlength="1000"
+                              placeholder="e.g. Gulberg, DHA, Johar Town"></textarea>
+                    <div class="help-text">Areas where you deliver, separated by commas. If left empty, customers in your city will see your store. You can change this later in Store Settings.</div>
+                </div>
+                
+                <!-- Complete Address -->
+                <div class="form-group">
+                    <label for="address">
+                        <i class="bi bi-house-fill"></i> Complete Address
+                        <span class="required">*</span>
+                    </label>
+                    <textarea name="address" 
+                              id="address" 
+                              rows="3"
+                              placeholder="House #, Street, Area, Landmark..."
+                              required
+                              autocomplete="street-address"></textarea>
+                    <div class="help-text">Mukammal pata - ghar number, gali, area</div>
+                </div>
+                
+                <!-- ============================================ -->
+                <!-- SECURITY                                     -->
+                <!-- ============================================ -->
+                <div class="section-divider">
+                    <i class="bi bi-shield-lock-fill"></i>
+                    Security
+                </div>
+                
+                <!-- Password -->
+                <div class="form-group">
+                    <label for="password">
+                        <i class="bi bi-lock-fill"></i> Password
+                        <span class="required">*</span>
+                    </label>
+                    <div class="password-wrapper">
+                        <input type="password" 
+                               name="password" 
+                               id="password" 
+                               placeholder="Min 6 characters"
+                               required
+                               minlength="6"
+                               autocomplete="new-password">
+                        <button type="button" 
+                                class="password-toggle"
+                                onclick="togglePassword('password', this)">
+                            <i class="bi bi-eye-fill"></i>
+                        </button>
+                    </div>
+                    <div class="help-text">Kam az kam 6 characters</div>
+                </div>
+                
+                <!-- Confirm Password -->
+                <div class="form-group">
+                    <label for="confirm_password">
+                        <i class="bi bi-lock-fill"></i> Confirm Password
+                        <span class="required">*</span>
+                    </label>
+                    <div class="password-wrapper">
+                        <input type="password" 
+                               name="confirm_password" 
+                               id="confirm_password" 
+                               placeholder="Re-enter password"
+                               required
+                               minlength="6"
+                               autocomplete="new-password">
+                        <button type="button" 
+                                class="password-toggle"
+                                onclick="togglePassword('confirm_password', this)">
+                            <i class="bi bi-eye-fill"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Submit Button -->
+                <button type="submit" class="btn-register" id="registerBtn">
+                    <i class="bi bi-person-check-fill"></i>
+                    <span>Register as Vendor</span>
+                </button>
+                
+            </form>
+            
+        </div>
+        
+        <!-- Footer -->
+        <div class="register-footer">
+            <p>
+                Already have an account? 
+                <a href="{% url 'vendor_login' %}">Vendor login</a>
+            </p>
+        </div>
+        
+    </div>
+    
+</div>
+
+<script>
+// ==========================================
+// PASSWORD TOGGLE
+// ==========================================
+function togglePassword(fieldId, btn) {
+    const field = document.getElementById(fieldId);
+    const icon = btn.querySelector('i');
+    
+    if (field.type === 'password') {
+        field.type = 'text';
+        icon.className = 'bi bi-eye-slash-fill';
+    } else {
+        field.type = 'password';
+        icon.className = 'bi bi-eye-fill';
+    }
+}
+
+// ==========================================
+// FORM VALIDATION
+// ==========================================
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('registerForm');
+    const btn = document.getElementById('registerBtn');
+    const phoneInput = document.getElementById('phone');
+    
+    // Phone input — only digits
+    phoneInput.addEventListener('input', function() {
+        this.value = this.value.replace(/[^0-9+\-\s]/g, '');
+    });
+    
+    // Form submit
+    form.addEventListener('submit', function(e) {
+        const businessName = document.getElementById('business_name').value.trim();
+        const fullName = document.getElementById('full_name').value.trim();
+        const phone = phoneInput.value.trim();
+        const city = document.getElementById('city').value.trim();
+        const address = document.getElementById('address').value.trim();
+        const password = document.getElementById('password').value;
+        const confirmPassword = document.getElementById('confirm_password').value;
+        
+        let error = '';
+        let focusField = null;
+        
+        if (!businessName || businessName.length < 3) {
+            error = '❌ Please enter your business name';
+            focusField = document.getElementById('business_name');
+        } else if (!fullName || fullName.length < 3) {
+            error = '❌ Please enter your full name (min 3 characters)';
+            focusField = document.getElementById('full_name');
+        } else if (!phone || phone.replace(/[^0-9]/g, '').length < 10) {
+            error = '❌ Please enter a valid phone number (min 10 digits)';
+            focusField = phoneInput;
+        } else if (!city) {
+            error = '❌ Please enter your city';
+            focusField = document.getElementById('city');
+        } else if (!address || address.length < 10) {
+            error = '❌ Please enter complete address (min 10 characters)';
+            focusField = document.getElementById('address');
+        } else if (!password || password.length < 6) {
+            error = '❌ Password must be at least 6 characters';
+            focusField = document.getElementById('password');
+        } else if (password !== confirmPassword) {
+            error = '❌ Passwords do not match!';
+            focusField = document.getElementById('confirm_password');
+        }
+        
+        if (error) {
+            e.preventDefault();
+            alert(error);
+            if (focusField) focusField.focus();
+            return false;
+        }
+        
+        // Disable button
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Registering...';
+    });
+});
+</script>
+
+{% endblock %}

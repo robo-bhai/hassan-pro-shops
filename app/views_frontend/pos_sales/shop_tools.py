@@ -264,11 +264,8 @@ def _restore_item(item, warehouse):
             left -= add
     if left > 1e-9:                      # the old batch is gone: make a new one at the latest cost
         last = StockBatch.objects.filter(product=item.product, warehouse=warehouse).order_by('-id').first()
-        _src = item.batches_used.order_by('id').first()          # [agri-edition:void]
         StockBatch.objects.create(product=item.product, warehouse=warehouse, qty=left, remaining_qty=left,
-                                  price=last.price if last else item.price,
-                                  batch_no=getattr(_src, 'batch_no', None),
-                                  expiry_date=getattr(_src, 'expiry_date', None))
+                                  price=last.price if last else item.price)
     Inventory.update_stock(item.product, float(item.qty), warehouse)
 
 

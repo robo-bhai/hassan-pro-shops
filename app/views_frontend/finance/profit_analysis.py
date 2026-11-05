@@ -10,8 +10,7 @@ from django.shortcuts import render
 from django.utils import timezone
 
 from ...models import Brand, Category, CompanyInfo, Customer, Product, SaleItem
-from ...store import store_access as _sa
-from ...store import store_exports as _ex
+from ... import report_exports as _ex
 
 _PA_GROUPS = {
     # group: (id field, name field, label, drill-down group)
@@ -39,12 +38,6 @@ def _pa_int(value):
 @login_required
 @perm_required('view_profit')
 def profit_analysis(request):
-    # store team members (who may have money hidden from them) cannot see profit
-    if _sa.module_scope(request.user) is not None:
-        from django.contrib import messages
-        from django.shortcuts import redirect
-        messages.error(request, 'Access denied! The profit report is not for the store team.')
-        return redirect('dashboard')
 
     group = request.GET.get('group', 'item')
     if group not in _PA_GROUPS:

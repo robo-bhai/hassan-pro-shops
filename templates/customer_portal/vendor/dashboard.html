@@ -1,0 +1,185 @@
+{% extends 'customer_portal/base_shop.html' %}
+{% load static %}
+
+{% block title %}Vendor Dashboard - {{ company_name }}{% endblock %}
+
+{% block content %}
+<style>
+    .vd-wrap { max-width: 1100px; margin: 30px auto; padding: 0 15px; }
+    .vd-head { background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); color: #fff;
+               border-radius: 20px; padding: 28px 30px; display: flex; flex-wrap: wrap;
+               justify-content: space-between; align-items: center; gap: 15px; }
+    .vd-head h3 { margin: 0 0 4px; font-weight: 700; }
+    .vd-head p { margin: 0; opacity: .9; }
+    .vd-btn { background: #fff; color: #2563eb; border: 0; border-radius: 12px; padding: 10px 20px;
+              font-weight: 600; text-decoration: none; display: inline-block; }
+    .vd-btn:hover { color: #7c3aed; }
+    .vd-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin: 20px 0; }
+    .vd-stat { background: #fff; border-radius: 16px; padding: 18px; box-shadow: 0 4px 20px rgba(0,0,0,.06); text-align: center; }
+    .vd-stat b { display: block; font-size: 28px; }
+    .vd-card { background: #fff; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,.06); overflow: hidden; }
+    .vd-table { width: 100%; border-collapse: collapse; }
+    .vd-table th, .vd-table td { padding: 12px 14px; border-bottom: 1px solid #f0f0f0; text-align: left; vertical-align: middle; }
+    .vd-table th { background: #fafafa; font-size: 13px; color: #666; }
+    .vd-thumb { width: 48px; height: 48px; object-fit: cover; border-radius: 8px; background: #f3f3f3; }
+    .vd-badge { padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .vd-approved { background: #d4edda; color: #155724; }
+    .vd-pending { background: #fff3cd; color: #856404; }
+    .vd-rejected { background: #f8d7da; color: #721c24; }
+    .vd-hidden { background: #e2e3e5; color: #383d41; }
+    .vd-alert { padding: 12px 16px; border-radius: 12px; margin-bottom: 12px; }
+    .vd-alert.ok { background: #d4edda; color: #155724; }
+    .vd-alert.err { background: #f8d7da; color: #721c24; }
+    .vd-alert.warn { background: #fff3cd; color: #856404; }
+    .vd-alert.info { background: #d1ecf1; color: #0c5460; }
+    .vd-note { font-size: 12px; color: #a94442; }
+    .vd-scroll { overflow-x: auto; }
+    .vd-act { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+    .vd-act a, .vd-act button { border: 1px solid #ddd; background: #fff; border-radius: 8px; padding: 4px 10px;
+                                font-size: 13px; text-decoration: none; color: #333; cursor: pointer; }
+
+    /* ---------- Mobile ---------- */
+    .vd-stat b { overflow-wrap: anywhere; }
+    @media (max-width: 768px) {
+        .vd-wrap { margin: 16px auto; padding: 0 12px; }
+        .vd-head { padding: 20px 18px; border-radius: 16px; }
+        .vd-head h3 { font-size: 20px; }
+        .vd-head-btns { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+        .vd-head-btns .vd-btn { flex: 1 1 30%; text-align: center; padding: 11px 10px; white-space: nowrap; }
+        .vd-stats { grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 14px 0; }
+        .vd-stat { padding: 14px 10px; font-size: 13px; }
+        .vd-stat b { font-size: 20px; }
+
+        /* table -> product cards */
+        .vd-card { background: transparent; box-shadow: none; overflow: visible; }
+        .vd-scroll { overflow: visible; }
+        .vd-table, .vd-table tbody, .vd-table tr, .vd-table td { display: block; width: 100%; box-sizing: border-box; }
+        .vd-table thead { display: none; }
+        .vd-table tr { background: #fff; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,.06);
+                       margin-bottom: 12px; padding: 12px 14px; position: relative; }
+        .vd-table td { border: 0; padding: 4px 0; }
+        .vd-table td[data-label]:not([data-label=""]) { display: flex; justify-content: space-between; gap: 10px;
+                       font-size: 14px; text-align: right; }
+        .vd-table td[data-label]:not([data-label=""])::before { content: attr(data-label); color: #888; font-weight: 600;
+                       text-align: left; }
+        .vd-c-img { position: absolute; top: 12px; right: 14px; width: auto !important; }
+        .vd-c-name { padding-right: 62px !important; margin-bottom: 6px; }
+        .vd-act { width: 100%; margin-top: 6px; }
+        .vd-act a, .vd-act button { padding: 8px 16px; font-size: 14px; }
+        .vd-table tr.vd-empty { box-shadow: none; background: #fff; }
+    }
+
+    body { background: #f3f5ff; }
+    .vd-head { border-radius: 26px; }
+    .vd-btn { border-radius: 24px; font-weight: 700; }
+    .vd-stat, .vd-card { border-radius: 22px; box-shadow: 0 6px 20px rgba(0,0,0,.06); }
+    .vd-badge { border-radius: 20px; }
+</style>
+
+<div class="vd-wrap">
+
+    <div class="vd-head">
+        <div>
+            <h3><i class="bi bi-shop-window"></i> {{ profile.business_name }}</h3>
+            <p>{{ profile.vendor.vendor_code }}{% if profile.city %} &middot; {{ profile.city }}{% endif %}</p>
+        </div>
+        <div class="vd-head-btns">
+            <a href="{% url 'vendor_orders' %}" class="vd-btn"><i class="bi bi-bag-check"></i> Orders{% if new_orders %} <span class="vd-badge" style="background:#dc3545;color:#fff;">{{ new_orders }}</span>{% endif %}</a>
+            <a href="{% url 'vendor_store_settings' %}" class="vd-btn"><i class="bi bi-gear"></i> Store</a>
+            {% if profile.is_approved %}
+                <a href="{% url 'vendor_product_add' %}" class="vd-btn"><i class="bi bi-plus-circle"></i> Add Products</a>
+            {% endif %}
+            <a href="{% url 'vendor_logout' %}" class="vd-btn" style="background:rgba(255,255,255,.2);color:#fff;">Logout</a>
+        </div>
+    </div>
+
+    {% if not profile.is_approved %}
+        <div class="vd-alert warn" style="margin-top:20px;">
+            <i class="bi bi-hourglass-split"></i>
+            Aap ka vendor account admin approval ke intezar mein hai. Approve hote hi aap products list kar sakenge.
+        </div>
+    {% endif %}
+
+    <div class="vd-stats">
+        <div class="vd-stat"><b>{{ products|length }}</b>Total Products</div>
+        <div class="vd-stat"><b style="color:#28a745;">{{ counts.approved }}</b>Approved</div>
+        <div class="vd-stat"><b style="color:#e0a800;">{{ counts.pending }}</b>Pending</div>
+        <div class="vd-stat"><b style="color:#dc3545;">{{ counts.rejected }}</b>Rejected</div>
+    </div>
+
+    <div class="vd-stats">
+        <div class="vd-stat"><b>{{ earnings.units|floatformat:"-2" }}</b>Units Sold</div>
+        <div class="vd-stat"><b>Rs. {{ earnings.sales|floatformat:0 }}</b>Total Sales</div>
+        <div class="vd-stat"><b style="color:#dc3545;">Rs. {{ earnings.commission|floatformat:0 }}</b>Shop Commission ({{ commission_percent|floatformat:"-2" }}%)</div>
+        <div class="vd-stat"><b style="color:#28a745;">Rs. {{ earnings.payable|floatformat:0 }}</b>Aap ka Hissa</div>
+    </div>
+
+    <div class="vd-card">
+        <h5 style="margin:0 0 8px;">⭐ Customer ki rating:
+            {% if rating.avg %}<b style="color:#f59e0b;">{{ rating.avg }}/5</b> <small>({{ rating.count }} reviews)</small>
+            {% else %}<small>abhi koi rating nahi</small>{% endif %}</h5>
+        {% for rv in recent_reviews %}
+            <div style="border-top:1px dashed #e5e7eb;padding:8px 0;">
+                <b style="color:#f59e0b;">{{ rv.vendor_rating }} ★</b>
+                <small style="color:#6b7280;">#{{ rv.sale_order.order_no }} · {{ rv.created_at|date:"d M" }}</small>
+                {% if rv.vendor_comment %}<div>{{ rv.vendor_comment }}</div>{% endif %}
+            </div>
+        {% endfor %}
+    </div>
+
+    <div class="vd-card">
+        <div class="vd-scroll">
+        <table class="vd-table">
+            <thead>
+                <tr><th></th><th>Product</th><th>Price (Rs.)</th><th>Stock</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody>
+            {% for p in products %}
+                <tr>
+                    <td data-label="" class="vd-c-img">{% if p.image %}<img class="vd-thumb" src="{{ p.image.url }}" alt="">{% else %}<div class="vd-thumb"></div>{% endif %}</td>
+                    <td class="vd-c-name">
+                        <b>{{ p.name }}</b><br>
+                        <small class="text-muted">{{ p.category.name|default:"-" }}</small>
+                        {% if p.approval_status == 'rejected' and p.rejection_reason %}
+                            <div class="vd-note">Reason: {{ p.rejection_reason }}</div>
+                        {% endif %}
+                    </td>
+                    <td data-label="Price (Rs.)">
+                        {{ p.price|floatformat:0 }}
+                        {% if p.discount_percentage %}<br><small class="text-muted">{{ p.discount_percentage|floatformat:0 }}% off</small>{% endif %}
+                    </td>
+                    <td data-label="Stock">{{ p.total_stock|default:0|floatformat:"-2" }}</td>
+                    <td data-label="Status">
+                        {% if p.approval_status == 'approved' %}
+                            {% if p.is_active %}<span class="vd-badge vd-approved">Live on shop</span>
+                            {% else %}<span class="vd-badge vd-hidden">Hidden</span>{% endif %}
+                        {% elif p.approval_status == 'pending' %}
+                            <span class="vd-badge vd-pending">Pending review</span>
+                        {% else %}
+                            <span class="vd-badge vd-rejected">Rejected</span>
+                        {% endif %}
+                    </td>
+                    <td class="vd-c-act">
+                        <div class="vd-act">
+                            {% if profile.is_approved %}<a href="{% url 'vendor_product_edit' p.pk %}">Edit</a>{% endif %}
+                            {% if p.approval_status == 'approved' %}
+                            <form method="post" action="{% url 'vendor_product_toggle' p.pk %}" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit">{% if p.is_active %}Hide{% else %}Show{% endif %}</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr class="vd-empty"><td colspan="6" style="text-align:center;padding:40px;color:#888;">
+                    Abhi koi product list nahi hua.
+                    {% if profile.is_approved %}<br><a href="{% url 'vendor_product_add' %}">Pehle products add karein</a>{% endif %}
+                </td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

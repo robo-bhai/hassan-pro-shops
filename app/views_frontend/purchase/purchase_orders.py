@@ -9,8 +9,6 @@ from django.core.paginator import Paginator
 from django.contrib import messages
 from django.db import transaction
 from ...models import CompanyInfo, Product
-from ...store import store_access as _sa
-from ...store import store_receive as _sr
 
 
 # ============================================
@@ -44,7 +42,7 @@ def purchase_order_list(request):
     if status:
         orders = orders.filter(status=status)
     
-    orders = _sa.hide_other_stores(request.user, orders, 'warehouse')
+    orders = orders
     warehouse_id = request.GET.get('warehouse', '')
     if warehouse_id:
         orders = orders.filter(warehouse_id=warehouse_id)
@@ -76,7 +74,7 @@ def purchase_order_list(request):
         'search': search,
         'selected_status': status,
         'selected_warehouse': warehouse_id,
-        'warehouses': _sa.hide_other_stores(request.user, Warehouse.objects.all()),
+        'warehouses': Warehouse.objects.all(),
         'total_orders': total_orders,
         'pending_count': pending_count,
         'confirmed_count': confirmed_count,
@@ -102,9 +100,6 @@ def purchase_order_create(request):
             
             if not vendor_id or not warehouse_id:
                 messages.error(request, 'Vendor and Warehouse required!')
-                return redirect('purchase_order_create')
-            if not _sr.can_receive(request.user, warehouse_id):
-                messages.error(request, '❌ You cannot create an order for this store (you are not a keeper/manager of that store team).')
                 return redirect('purchase_order_create')
             
             product_ids = request.POST.getlist('product_id[]')
@@ -146,7 +141,7 @@ def purchase_order_create(request):
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'vendors': Vendor.objects.all().order_by('vendor_code'),
-        'warehouses': _sr.receivable_warehouses(request.user),
+        'warehouses': Warehouse.objects.order_by('name'),
         'products': Product.objects.all().order_by('name')[:50],
     }
     return render(request, 'orders/purchase_order_create.html', context)
@@ -205,9 +200,6 @@ def purchase_order_quick_status(request, pk, status):
 def purchase_order_create_grn(request, pk):
     """Create GRN from Purchase Order"""
     order = get_object_or_404(PurchaseOrder, pk=pk)
-    if not _sr.can_receive(request.user, order.warehouse_id):
-        messages.error(request, '❌ You do not have the right to receive goods in this store.')
-        return redirect('purchase_order_detail', pk=order.pk)
     
     if order.status not in ['confirmed', 'processing', 'shipped', 'partially_received']:
         messages.error(request, '❌ Order must be Confirmed to create GRN!')

@@ -1,0 +1,239 @@
+{% extends 'customer_portal/base_shop.html' %}
+{% load static %}
+
+{% block title %}Orders - {{ company_name }}{% endblock %}
+
+{% block content %}
+<style>
+    .vo-wrap { max-width: 900px; margin: 24px auto; padding: 0 12px; }
+    .vo-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+    .vo-top h3 { margin: 0; font-weight: 700; }
+    .vo-back { text-decoration: none; border: 1px solid #ddd; background: #fff; border-radius: 10px; padding: 6px 14px; color: #333; }
+    .vo-tabs { display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; }
+    .vo-tab { flex: 1 0 auto; text-align: center; text-decoration: none; padding: 10px 14px; border-radius: 12px;
+              background: #fff; color: #444; font-weight: 600; box-shadow: 0 2px 10px rgba(0,0,0,.05); white-space: nowrap; }
+    .vo-tab.active { background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); color: #fff; }
+    .vo-tab .n { display: inline-block; min-width: 22px; padding: 1px 7px; border-radius: 20px; font-size: 12px;
+                 background: rgba(0,0,0,.1); margin-left: 4px; }
+    .vo-tab.active .n { background: rgba(255,255,255,.3); }
+    .vo-card { background: #fff; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,.06); padding: 16px; margin-bottom: 14px; }
+    .vo-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+    .vo-no { font-weight: 700; font-size: 17px; }
+    .vo-time { font-size: 13px; color: #777; }
+    .vo-badge { padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .vo-pending { background: #fff3cd; color: #856404; }
+    .vo-confirmed { background: #d1ecf1; color: #0c5460; }
+    .vo-ready { background: #d4edda; color: #155724; }
+    .vo-cancelled { background: #f8d7da; color: #721c24; }
+    .vo-delivered, .vo-invoiced, .vo-partially_delivered, .vo-processing { background: #e2e3e5; color: #383d41; }
+    .vo-cust { margin: 10px 0; font-size: 14px; line-height: 1.6; }
+    .vo-items { border-top: 1px dashed #e5e5e5; border-bottom: 1px dashed #e5e5e5; padding: 8px 0; margin: 8px 0; }
+    .vo-item { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; padding: 3px 0; }
+    .vo-sum { font-size: 14px; }
+    .vo-sum div { display: flex; justify-content: space-between; }
+    .vo-sum .tot { font-weight: 700; font-size: 16px; border-top: 1px solid #eee; margin-top: 4px; padding-top: 4px; }
+    .vo-pay { font-size: 12px; padding: 2px 8px; border-radius: 8px; background: #f0f0f0; }
+    .vo-note { margin-top: 8px; padding: 8px 12px; border-radius: 10px; font-size: 13px; }
+    .vo-note.rej { background: #f8d7da; color: #721c24; }
+    .vo-note.info { background: #d1ecf1; color: #0c5460; }
+    .vo-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; align-items: center; }
+    .vo-btn { border: 0; border-radius: 10px; padding: 10px 18px; font-weight: 600; cursor: pointer; text-decoration: none; font-size: 14px; }
+    .vo-accept { background: #28a745; color: #fff; }
+    .vo-reject { background: #fff; color: #dc3545; border: 1px solid #dc3545; }
+    .vo-readybtn { background: #0d6efd; color: #fff; }
+    .vo-wa { background: #25d366; color: #fff; }
+    .vo-call { background: #fff; color: #333; border: 1px solid #ddd; }
+    .vo-form { margin-top: 10px; padding: 12px; background: #fafafa; border-radius: 12px; display: none; }
+    .vo-form.open { display: block; }
+    .vo-form label { font-size: 13px; font-weight: 600; display: block; margin: 6px 0 4px; }
+    .vo-form input, .vo-form select, .vo-form textarea { width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 8px; }
+    .vo-empty { text-align: center; color: #888; padding: 40px 10px; background: #fff; border-radius: 16px; }
+    .vo-alert { padding: 12px 16px; border-radius: 12px; margin-bottom: 12px; }
+    .vo-alert.success { background: #d4edda; color: #155724; }
+    .vo-alert.error, .vo-alert.danger { background: #f8d7da; color: #721c24; }
+    .vo-alert.warning { background: #fff3cd; color: #856404; }
+    .vo-alert.info { background: #d1ecf1; color: #0c5460; }
+    #voNewBanner { display: none; position: sticky; top: 8px; z-index: 20; background: #dc3545; color: #fff; border-radius: 12px;
+                   padding: 12px 16px; margin-bottom: 12px; font-weight: 700; cursor: pointer; text-align: center; }
+    @media (max-width: 600px) {
+        .vo-acts .vo-btn { flex: 1 1 45%; text-align: center; }
+    }
+
+    body { background: #f3f5ff; }
+    .vo-card { border-radius: 22px; box-shadow: 0 6px 20px rgba(0,0,0,.06); }
+    .vo-btn { border-radius: 24px; }
+</style>
+
+<div class="vo-wrap">
+    <div class="vo-top">
+        <h3><i class="bi bi-bag-check"></i> {{ profile.business_name }} &mdash; Orders</h3>
+        <a href="{% url 'vendor_dashboard' %}" class="vo-back"><i class="bi bi-arrow-left"></i> Dashboard</a>
+    </div>
+
+    {% if not profile.is_approved %}
+        <div class="vo-alert warning">Account approve hone ke baad hi aap orders handle kar sakenge.</div>
+    {% endif %}
+
+    <div id="voNewBanner" onclick="location.href='{% url 'vendor_orders' %}?tab=new'">
+        🔔 Naya order aaya hai! Dekhne ke liye yahan tap karein
+    </div>
+
+    <div class="vo-tabs">
+        {% for key, label, n in tabs %}
+            <a class="vo-tab {% if key == tab %}active{% endif %}" href="?tab={{ key }}">{{ label }}<span class="n">{{ n }}</span></a>
+        {% endfor %}
+    </div>
+
+    {% for row in orders %}
+    {% with o=row.order %}
+    <div class="vo-card" id="order-{{ o.id }}">
+        <div class="vo-head">
+            <div>
+                <div class="vo-no">#{{ o.order_no }}</div>
+                <div class="vo-time">{{ o.order_date|date:"d M, h:i A" }}</div>
+            </div>
+            <span class="vo-badge vo-{{ o.status }}">{{ o.get_status_display }}</span>
+        </div>
+
+        <div class="vo-cust">
+            <b><i class="bi bi-person"></i> {{ o.customer.name }}</b>
+            {% if o.customer.contact_number %} &middot; {{ o.customer.contact_number }}{% endif %}
+            {% if o.customer.address %}<br><i class="bi bi-geo-alt"></i> {{ o.customer.address }}{% endif %}
+        </div>
+
+        <div class="vo-items">
+            {% for it in row.items %}
+                <div class="vo-item">
+                    <span>{{ it.qty|floatformat:"-2" }} &times; {{ it.product.name }}</span>
+                    <span>Rs. {{ it.total_amt|floatformat:0 }}</span>
+                </div>
+            {% endfor %}
+        </div>
+
+        <div class="vo-sum">
+            <div><span>Items</span><span>Rs. {{ row.subtotal|floatformat:0 }}</span></div>
+            <div><span>Delivery fee</span><span>Rs. {{ o.delivery_fee|floatformat:0 }}</span></div>
+            <div class="tot"><span>Total</span><span>Rs. {{ row.total|floatformat:0 }}</span></div>
+        </div>
+        <div style="margin-top:6px;">
+            <span class="vo-pay">{% if row.is_cod %}💵 Cash on Delivery &mdash; customer se cash lein{% else %}📱 {{ o.payment_method|title }} (online){% endif %}</span>
+        </div>
+
+        {% if o.status == 'confirmed' and o.prep_minutes %}
+            <div class="vo-note info">Aap ne tayyari ka time ~{{ o.prep_minutes }} minute bataya hai.</div>
+        {% endif %}
+        {% if o.status == 'cancelled' and o.reject_reason %}
+            <div class="vo-note rej">Reject wajah: {{ o.reject_reason }}</div>
+        {% endif %}
+
+        <div class="vo-acts">
+            {% if o.status == 'pending' and profile.is_approved %}
+                <button type="button" class="vo-btn vo-accept" onclick="voToggle('acc-{{ o.id }}')">✅ Accept</button>
+                <button type="button" class="vo-btn vo-reject" onclick="voToggle('rej-{{ o.id }}')">❌ Reject</button>
+            {% elif o.status == 'confirmed' or o.status == 'processing' %}
+                {% if profile.is_approved %}
+                <form method="post" action="{% url 'vendor_order_action' o.id 'ready' %}" style="display:inline;">
+                    {% csrf_token %}<input type="hidden" name="tab" value="{{ tab }}">
+                    <button type="submit" class="vo-btn vo-readybtn">📦 Ready</button>
+                </form>
+                {% endif %}
+            {% elif o.status == 'ready' and profile.is_approved %}
+                {% if row.delivery and row.delivery.rider %}
+                    <div class="vo-note info" style="flex-basis:100%;">
+                        🏍️ Rider: <b>{{ row.delivery.rider.name }}</b> ({{ row.delivery.rider.phone }}) —
+                        {% if row.delivery.status == 'assigned' %}maal lene aa raha hai{% else %}maal le kar raaste mein hai{% endif %}
+                    </div>
+                {% endif %}
+                {% if not row.delivery or row.delivery.status == 'assigned' or not row.delivery.rider %}
+                    {% if riders %}
+                    <form method="post" action="{% url 'vendor_assign_rider' o.id %}" style="display:inline-flex;gap:6px;align-items:center;">
+                        {% csrf_token %}
+                        <select name="rider_id" required style="padding:8px;border-radius:10px;border:1px solid #cbd5e1;">
+                            <option value="">🏍️ Rider chunein</option>
+                            {% for r in riders %}<option value="{{ r.id }}" {% if row.delivery.rider_id == r.id %}selected{% endif %}>{{ r.name }}{% if r.is_online %} 🟢{% endif %}</option>{% endfor %}
+                        </select>
+                        <button type="submit" class="vo-btn vo-readybtn">{% if row.delivery.rider %}Badlein{% else %}Rider do{% endif %}</button>
+                    </form>
+                    {% endif %}
+                {% endif %}
+                {% if not row.delivery or not row.delivery.rider %}
+                <form method="post" action="{% url 'vendor_order_action' o.id 'delivered' %}" style="display:inline;"
+                      onsubmit="return confirm('Kya order customer tak pahunch gaya{% if row.is_cod %} aur cash (Rs. {{ row.total|floatformat:0 }}) mil gaya{% endif %}?');">
+                    {% csrf_token %}<input type="hidden" name="tab" value="{{ tab }}">
+                    <button type="submit" class="vo-btn vo-accept">🎉 Deliver ho gaya (khud){% if row.is_cod %} / Cash mil gaya{% endif %}</button>
+                </form>
+                {% endif %}
+            {% endif %}
+            {% if row.wa_url %}<a class="vo-btn vo-wa" href="{{ row.wa_url }}" target="_blank" rel="noopener"><i class="bi bi-whatsapp"></i> Customer ko WhatsApp</a>{% endif %}
+            {% if row.call_phone %}<a class="vo-btn vo-call" href="tel:{{ row.call_phone }}"><i class="bi bi-telephone"></i> Call</a>{% endif %}
+        </div>
+
+        {% if o.status == 'pending' %}
+        <form class="vo-form" id="acc-{{ o.id }}" method="post" action="{% url 'vendor_order_action' o.id 'accept' %}">
+            {% csrf_token %}<input type="hidden" name="tab" value="{{ tab }}">
+            <label for="prep-{{ o.id }}">Tayyar hone mein kitne minute? (optional)</label>
+            <input type="number" id="prep-{{ o.id }}" name="prep_minutes" min="1" max="600" placeholder="jaise 20">
+            <div style="margin-top:10px;"><button type="submit" class="vo-btn vo-accept">Order qubool karein</button></div>
+        </form>
+
+        <form class="vo-form" id="rej-{{ o.id }}" method="post" action="{% url 'vendor_order_action' o.id 'reject' %}">
+            {% csrf_token %}<input type="hidden" name="tab" value="{{ tab }}">
+            <label for="rc-{{ o.id }}">Reject karne ki wajah (customer ko dikhegi)</label>
+            <select id="rc-{{ o.id }}" name="reason_code" required>
+                <option value="">-- wajah chunein --</option>
+                {% for code, label in reject_reasons %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
+            </select>
+            <label for="rn-{{ o.id }}">Mazeed batayein (optional; "Doosri wajah" mein zaroori)</label>
+            <textarea id="rn-{{ o.id }}" name="reason_note" rows="2" maxlength="150"></textarea>
+            <div style="margin-top:10px;"><button type="submit" class="vo-btn vo-reject">Order reject karein</button></div>
+        </form>
+        {% endif %}
+    </div>
+    {% endwith %}
+    {% empty %}
+        <div class="vo-empty">
+            <i class="bi bi-inbox" style="font-size:36px;"></i>
+            <p class="mb-0 mt-2">Is list mein abhi koi order nahi.</p>
+        </div>
+    {% endfor %}
+</div>
+
+<script>
+function voToggle(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var wasOpen = el.classList.contains('open');
+    document.querySelectorAll('.vo-form.open').forEach(function (f) { f.classList.remove('open'); });
+    if (!wasOpen) el.classList.add('open');
+}
+
+/* Naye order ka intezar: har 30 second mein poochho, naya aaye to beep + banner */
+(function () {
+    var known = {{ new_count|default:0 }};
+    var banner = document.getElementById('voNewBanner');
+    function beep() {
+        try {
+            var C = window.AudioContext || window.webkitAudioContext;
+            var ctx = new C(), o = ctx.createOscillator(), g = ctx.createGain();
+            o.connect(g); g.connect(ctx.destination);
+            o.frequency.value = 880; g.gain.value = 0.2;
+            o.start(); setTimeout(function () { o.stop(); ctx.close(); }, 450);
+        } catch (e) {}
+    }
+    function poll() {
+        fetch('{% url "vendor_orders_poll" %}', {credentials: 'same-origin'})
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (d.new > known) {
+                    banner.style.display = 'block';
+                    banner.textContent = '🔔 Naya order aaya hai! (' + d.new + ' naye) - dekhne ke liye tap karein';
+                    beep();
+                    if (navigator.vibrate) navigator.vibrate(300);
+                }
+                known = d.new;
+            }).catch(function () {});
+    }
+    setInterval(poll, 30000);
+})();
+</script>
+{% endblock %}

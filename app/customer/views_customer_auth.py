@@ -128,13 +128,25 @@ def auto_place_order(request, customer):
                 if stock < item['quantity']:
                     return None, f"Not enough stock for {product.name}"
             
+            # Step 5b: Store ke qaide (band store, minimum order, mixed cart) + delivery fee
+            from . import store_orders
+            from .views_customer_portal import calculate_cart_data
+            delivery_type = request.session.get('delivery_type', 'standard')
+            cart_data = calculate_cart_data(cart, customer=customer, delivery_type=delivery_type)
+            store_error = store_orders.validate_cart_for_order(cart, cart_data['subtotal'])
+            if store_error:
+                return None, store_error
+            delivery_charges = cart_data['delivery_charges']
+
             # Step 6: Create order
             order = SaleOrder.objects.create(
+                **store_orders.store_order_fields(cart, cart_data, payment_method),
                 customer=customer,
                 warehouse=warehouse,
                 order_date=now(),
                 status='pending',
-                notes=f"🌐 WEB ORDER (OTP Verified) | Payment: {payment_method}",
+                notes=(f"🌐 WEB ORDER (OTP Verified) | Payment: {payment_method} | "
+                       f"Delivery: {delivery_type} Rs. {delivery_charges}"),
                 discount_value=Decimal('0.00'),
                 advance_payment=Decimal('0.00'),
                 created_by=customer.portal_profile.user,
@@ -177,8 +189,12 @@ def auto_place_order(request, customer):
             request.session.pop('order_otp_id', None)
             request.session.pop('order_token', None)
             request.session.pop('selected_payment', None)
+            request.session.pop('delivery_type', None)
             request.session.modified = True
             request.session.save()
+
+            # Step 9b: Store (vendor) ko naye order ki khabar
+            store_orders.notify_vendor_new_order(order)
             
             # Step 10: Notify admin
             try:
@@ -894,6 +910,16 @@ def place_order_direct(request):
                 'message': 'OTP verification is required'
             })
         
+        # Checkout page ka chuna hua payment/delivery (JSON body) session mein rakho
+        try:
+            body = json.loads(request.body) if request.body else {}
+        except (ValueError, TypeError):
+            body = {}
+        if body.get('payment_method') in ('cod', 'jazzcash', 'easypaisa', 'bank'):
+            request.session['selected_payment'] = body['payment_method']
+        if body.get('delivery_type') in ('standard', 'express', 'pickup'):
+            request.session['delivery_type'] = body['delivery_type']
+
         # Auto order place
         order, error = auto_place_order(request, customer)
         

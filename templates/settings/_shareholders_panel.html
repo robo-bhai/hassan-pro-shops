@@ -1,0 +1,103 @@
+{# Shareholders tab extras: live stats, eligible check and the dividend guide.
+   (These used to live on the old Module Settings page.) #}
+<div class="sc-group">
+    <div class="sc-group-head"><h6 class="sc-group-title">Deduction Overview</h6></div>
+    <div class="sc-group-body">
+        <div class="row g-3">
+            <div class="col-md-4"><div class="sc-switch-box text-center"><div class="text-muted small">Active Shareholders</div><div class="fs-4 fw-bold">{{ total_shareholders }}</div></div></div>
+            <div class="col-md-4"><div class="sc-switch-box text-center"><div class="text-muted small">Total Balance</div><div class="fs-4 fw-bold">Rs. {{ total_balance|floatformat:0 }}</div></div></div>
+            <div class="col-md-4"><div class="sc-switch-box text-center"><div class="text-muted small">Pending Deductions</div><div class="fs-4 fw-bold">{{ pending_purchases }}</div></div></div>
+        </div>
+    </div>
+</div>
+
+<div class="sc-group">
+    <div class="sc-group-head"><h6 class="sc-group-title">Balance Dividend Overview</h6></div>
+    <div class="sc-group-body">
+        <div class="sc-note">
+            <i class="bi bi-info-circle"></i>
+            <div>
+                <strong>How balance-based dividend works:</strong>
+                profit is shared by <strong>balance used</strong> in purchases. Only active shareholders whose balance was used get profit
+                (more balance used = more profit, zero balance = no profit).
+                Create it from <strong>Sidebar &rarr; Shareholders &rarr; Dividends &rarr; Create Balance Dividend</strong>.
+            </div>
+        </div>
+        <div class="row g-3">
+            <div class="col-6 col-md-3"><div class="sc-switch-box text-center"><div class="text-muted small">Total Shareholders</div><div class="fs-4 fw-bold">{{ total_shareholders }}</div></div></div>
+            <div class="col-6 col-md-3"><div class="sc-switch-box text-center"><div class="text-muted small">Eligible for Dividend</div><div class="fs-4 fw-bold" id="eligibleCount">{{ eligible_shareholders }}</div></div></div>
+            <div class="col-6 col-md-3"><div class="sc-switch-box text-center"><div class="text-muted small">Total Balance Used</div><div class="fs-4 fw-bold">Rs. {{ total_balance_used|floatformat:0 }}</div></div></div>
+            <div class="col-6 col-md-3"><div class="sc-switch-box text-center"><div class="text-muted small">Pending Dividends</div><div class="fs-4 fw-bold">{{ pending_balance_dividends }}</div></div></div>
+        </div>
+        <div class="mt-3 d-flex flex-wrap align-items-center gap-2">
+            <button type="button" class="btn btn-outline-primary" id="scCalcEligible"><i class="bi bi-calculator me-1"></i>Calculate Eligible</button>
+            <span class="small text-muted" id="scEligibleMsg">Uses the Minimum Balance Used and Minimum Holding Period values above (even if not saved yet).</span>
+        </div>
+    </div>
+</div>
+
+<div class="sc-group">
+    <div class="sc-group-head"><h6 class="sc-group-title">Dividend Types Comparison</h6></div>
+    <div class="sc-group-body">
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle mb-0">
+                <thead>
+                    <tr><th>Feature</th><th class="text-center">Share-Based Dividend</th><th class="text-center">Balance-Based Dividend</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Basis</td><td class="text-center">Number of shares held</td><td class="text-center">Balance used in purchases</td></tr>
+                    <tr><td>Eligibility</td><td class="text-center">All shareholders with shares</td><td class="text-center">Only active shareholders with balance usage</td></tr>
+                    <tr><td>Shares required?</td><td class="text-center">Yes</td><td class="text-center">No</td></tr>
+                    <tr><td>Who gets profit?</td><td class="text-center">All shareholders</td><td class="text-center">Only those who contributed (balance used)</td></tr>
+                    <tr><td>Create from</td><td class="text-center"><code>/dividends/create/</code></td><td class="text-center">Sidebar &rarr; Shareholders &rarr; Dividends</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var enable = document.getElementById('f_enable_balance_dividend');
+    var depend = ['default_dividend_type', 'default_dividend_percentage', 'min_balance_for_dividend',
+                  'min_holding_months', 'auto_process_days'];
+
+    // When Balance-based dividend is OFF, grey out the dividend fields (their values are still saved).
+    function syncDividendFields() {
+        if (!enable) return;
+        depend.forEach(function (n) {
+            var el = document.getElementById('f_' + n);
+            var col = el && el.closest('[class*="col-"]');
+            if (col) { col.style.opacity = enable.checked ? '1' : '0.5'; }
+        });
+    }
+    if (enable) { enable.addEventListener('change', syncDividendFields); syncDividendFields(); }
+
+    var btn = document.getElementById('scCalcEligible');
+    var msg = document.getElementById('scEligibleMsg');
+    var count = document.getElementById('eligibleCount');
+    function val(id) { var e = document.getElementById('f_' + id); return e ? (parseFloat(e.value) || 0) : 0; }
+
+    function calculateEligible() {
+        if (!btn) return;
+        btn.disabled = true;
+        fetch('{% url "eligible_shareholders_api" %}?min_balance=' + encodeURIComponent(val('min_balance_for_dividend')) +
+              '&min_months=' + encodeURIComponent(Math.floor(val('min_holding_months'))),
+              { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (d.success) {
+                    if (count) count.textContent = d.count;
+                    msg.textContent = d.count + ' shareholder(s) eligible for dividend.';
+                    msg.className = 'small text-success';
+                } else {
+                    msg.textContent = 'Error: ' + (d.message || 'Unknown error');
+                    msg.className = 'small text-danger';
+                }
+            })
+            .catch(function (e) { msg.textContent = 'Network error: ' + e; msg.className = 'small text-danger'; })
+            .then(function () { btn.disabled = false; });
+    }
+    if (btn) btn.addEventListener('click', calculateEligible);
+})();
+</script>

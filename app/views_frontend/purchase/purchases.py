@@ -17,8 +17,6 @@ from django.http import JsonResponse, HttpResponse
 from io import BytesIO
 from django.db import transaction
 from ...models import CashBalance, Location, CompanyInfo, Purchase, PurchaseRetrnItem, Product
-from ...store import store_access as _sa
-from ...store import store_receive as _sr
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib import colors
@@ -107,9 +105,6 @@ def purchase_create(request):
                 if not warehouse_id:
                     messages.error(request, 'Please select a warehouse!')
                     return redirect('purchase_create')
-                if not _sr.can_receive(request.user, warehouse_id):
-                    messages.error(request, '❌ You cannot receive goods in this store (you are not a keeper/manager of that store team).')
-                    return redirect('purchase_create')
                 
                 product_ids = request.POST.getlist('product_id[]')
                 if not product_ids or not any(product_ids):
@@ -155,13 +150,6 @@ def purchase_create(request):
                 
                 qtys = request.POST.getlist('qty[]')
                 prices = request.POST.getlist('price[]')
-                batch_nos = request.POST.getlist('batch_no[]')  # [agri-edition:view-lists]
-                expiry_dates = request.POST.getlist('expiry_date[]')
-
-                def _agri_exp(i):
-                    v = (expiry_dates[i] if i < len(expiry_dates) else '').strip()
-                    return datetime.strptime(v, '%Y-%m-%d').date() if v else None
-
                 
                 for i in range(len(product_ids)):
                     if product_ids[i]:
@@ -170,8 +158,6 @@ def purchase_create(request):
                             product_id=product_ids[i],
                             qty=float(qtys[i]),
                             price=Decimal(prices[i]),
-                            batch_no=((batch_nos[i] if i < len(batch_nos) else '').strip()[:50] or None),  # [agri-edition:view-create]
-                            expiry_date=_agri_exp(i),
                         )
                 
                 # ✅ If cash was used, deduct the cash balance
@@ -194,7 +180,7 @@ def purchase_create(request):
     context = {
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'vendors': Vendor.objects.all().order_by('vendor_code'),
-        'warehouses': _sr.receivable_warehouses(request.user),
+        'warehouses': Warehouse.objects.order_by('name'),
         'products': Product.objects.all().order_by('name')[:50],
         'cash_balance': CashBalance.get_balance(),
         'today': date.today(),  
@@ -598,7 +584,7 @@ def purchase_list(request):
     Total, paid and due come from ONE annotated query (no per-row queries).
     """
     from django.db.models import ExpressionWrapper
-    from ...store import store_exports as _ex
+    from ... import report_exports as _ex
 
     money = DecimalField(max_digits=20, decimal_places=2)
     purchases = Purchase.objects.select_related(
@@ -612,7 +598,7 @@ def purchase_list(request):
     )
 
     # --- store-wise access + filters -------------------------------------------------
-    purchases = _sa.hide_other_stores(request.user, purchases, 'warehouse')
+    purchases = purchases
 
     search = (request.GET.get('search') or '').strip()
     if search:
@@ -722,7 +708,7 @@ def purchase_list(request):
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'page_obj': page_obj,
         'search': search,
-        'warehouses': _sa.hide_other_stores(request.user, Warehouse.objects.all()),
+        'warehouses': Warehouse.objects.all(),
         'vendors': Vendor.objects.order_by('name').only('id', 'name', 'vendor_code'),
         'selected_warehouse': warehouse_id,
         'selected_vendor': vendor_id,

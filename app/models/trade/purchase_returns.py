@@ -754,8 +754,6 @@ class PurchaseRetrnItem(models.Model):
                     remaining_qty=remaining_qty_to_adjust,
                     price=self.price,
                     purchase_item=purchase_item,
-                    batch_no=getattr(purchase_item, 'batch_no', None),      # [agri-edition:purchase-return]
-                    expiry_date=getattr(purchase_item, 'expiry_date', None),
                 )
 
     def validate_purchase_item(self):
@@ -774,6 +772,17 @@ class PurchaseRetrnItem(models.Model):
         if self.qty > Decimal(str(purchase_item.qty)) + Decimal('0.005'):
             raise ValidationError(
                 f"Quantity exceeds purchase limit: Purchased quantity is {purchase_item.qty}, but return quantity is {self.qty}."
+            )
+
+        # Everything already returned against this bill for this product counts too,
+        # otherwise two smaller returns can add up to more than was ever bought.
+        already_returned = PurchaseRetrnItem.objects.filter(
+            purchase_return__purchase=purchase, product=self.product
+        ).exclude(pk=self.pk).aggregate(t=Sum('qty'))['t'] or Decimal('0')
+        if already_returned + self.qty > Decimal(str(purchase_item.qty)) + Decimal('0.005'):
+            raise ValidationError(
+                f"Total returned would exceed the purchase: bought {purchase_item.qty}, "
+                f"already returned {already_returned}, this return {self.qty}."
             )
 
     def __str__(self):

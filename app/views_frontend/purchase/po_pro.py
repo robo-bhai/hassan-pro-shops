@@ -27,8 +27,6 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.timezone import localdate
 from django.views.decorators.http import require_POST
 
-from ...store import store_access as _sa
-from ...store import store_receive as _sr
 from ...models import (CompanyInfo, GoodsReceivedItem, GoodsReceivedNote, Product, PurchaseItem,
                       PurchaseOrder, PurchaseOrderItem, Vendor, Warehouse)
 
@@ -124,7 +122,7 @@ def _percent(done, total):
 @perm_required('view_purchases', 'manage_purchase_orders')
 def purchase_order_list(request):
     today = localdate()
-    base = _sa.hide_other_stores(request.user, PurchaseOrder.objects.all(), 'warehouse')
+    base = PurchaseOrder.objects.all()
 
     # ----- KPI cards (whole store-visible data, not the filtered page)
     counts = base.aggregate(
@@ -211,7 +209,7 @@ def purchase_order_list(request):
         'search': search, 'selected_status': status, 'selected_warehouse': warehouse_id,
         'selected_vendor': vendor_id, 'sort': sort,
         'date_from': request.GET.get('from', ''), 'date_to': request.GET.get('to', ''),
-        'warehouses': _sa.hide_other_stores(request.user, Warehouse.objects.all()),
+        'warehouses': Warehouse.objects.all(),
         'vendors': Vendor.objects.order_by('name'),
         'status_choices': PurchaseOrder.ORDER_STATUS,
         'counts': counts, 'open_value': open_value, 'filtered_value': filtered_value,
@@ -255,8 +253,6 @@ def _save_from_post(request, order=None):
     warehouse = Warehouse.objects.filter(pk=request.POST.get('warehouse')).first()
     if not vendor or not warehouse:
         raise ValueError('Vendor and warehouse are required.')
-    if not _sr.can_receive(request.user, warehouse.pk):
-        raise ValueError('You cannot create an order for this store.')
 
     status = request.POST.get('status', 'pending')
     if status not in ('pending', 'confirmed'):
@@ -304,7 +300,7 @@ def _form_context(request, order=None, rows=None, copy_of=None):
         'company_name': _company_name(),
         'order': order, 'copy_of': copy_of,
         'vendors': Vendor.objects.order_by('name'),
-        'warehouses': _sr.receivable_warehouses(request.user),
+        'warehouses': Warehouse.objects.order_by('name'),
         'rows': rows or [],
         'today': localdate(),
     }
@@ -344,7 +340,7 @@ def purchase_order_create(request):
 @login_required
 @perm_required('manage_purchase_orders')
 def purchase_order_edit(request, pk):
-    order = get_object_or_404(_sa.hide_other_stores(request.user, PurchaseOrder.objects.all(), 'warehouse'), pk=pk)
+    order = get_object_or_404(PurchaseOrder.objects.all(), pk=pk)
     if order.status not in EDITABLE or order.grns.exists():
         messages.error(request, 'Only pending or confirmed orders without any GRN can be edited.')
         return redirect('purchase_order_detail', pk=order.pk)
@@ -392,7 +388,7 @@ def purchase_order_products(request):
 # ---------------------------------------------------------------- detail / print
 def _detail_data(request, pk):
     order = get_object_or_404(
-        _sa.hide_other_stores(request.user, PurchaseOrder.objects.all(), 'warehouse')
+        PurchaseOrder.objects.all()
         .select_related('vendor', 'warehouse', 'created_by').prefetch_related('items__product__unit'), pk=pk)
     got = _received_by_product(order)
     rows, t_ord, t_rec = [], 0.0, 0.0
@@ -442,7 +438,7 @@ def purchase_order_print(request, pk):
 @perm_required('manage_purchase_orders')
 @require_POST
 def purchase_order_quick_status(request, pk, status):
-    order = get_object_or_404(_sa.hide_other_stores(request.user, PurchaseOrder.objects.all(), 'warehouse'), pk=pk)
+    order = get_object_or_404(PurchaseOrder.objects.all(), pk=pk)
     allowed = {a[0] for a in TRANSITIONS.get(order.status, [])}
     back = request.POST.get('next') or ''
     target = back if back.startswith('/') and not back.startswith('//') else None
@@ -468,12 +464,9 @@ def purchase_order_quick_status(request, pk, status):
 @login_required
 @perm_required('manage_purchase_orders')
 def purchase_order_create_grn(request, pk):
-    order = get_object_or_404(_sa.hide_other_stores(request.user, PurchaseOrder.objects.all(), 'warehouse'), pk=pk)
+    order = get_object_or_404(PurchaseOrder.objects.all(), pk=pk)
     if request.method != 'POST':
         return redirect(f"/orders/purchase/{order.pk}/#receive")
-    if not _sr.can_receive(request.user, order.warehouse_id):
-        messages.error(request, 'You do not have the right to receive goods in this store.')
-        return redirect('purchase_order_detail', pk=order.pk)
     if order.status not in RECEIVABLE:
         messages.error(request, 'The order must be confirmed before goods can be received.')
         return redirect('purchase_order_detail', pk=order.pk)
@@ -495,13 +488,7 @@ def purchase_order_create_grn(request, pk):
                 continue
             if q - pending > EPS:
                 raise ValueError(f'{it.product.name}: only {pending:g} still pending, you entered {q:g}.')
-            _bn = (request.POST.get(f'batch_{it.pk}') or '').strip()[:50] or None   # [agri-edition:grn-recv]
-            _ex_raw = (request.POST.get(f'expiry_{it.pk}') or '').strip()
-            try:
-                _ex = datetime.strptime(_ex_raw, '%Y-%m-%d').date() if _ex_raw else None
-            except ValueError:
-                raise ValueError(f'{it.product.name}: expiry date is not valid.')
-            lines.append((it, q, _bn, _ex))
+            lines.append((it, q))
         if not lines:
             raise ValueError('Enter a received quantity for at least one item.')
         with transaction.atomic():
@@ -512,9 +499,8 @@ def purchase_order_create_grn(request, pk):
                 driver_name=(request.POST.get('driver_name') or '').strip()[:100] or None,
                 notes=(request.POST.get('notes') or '').strip() or None,
                 created_by=request.user)
-            for it, q, _bn, _ex in lines:
-                GoodsReceivedItem.objects.create(grn=grn, product=it.product, order_qty=it.qty, qty=q, price=it.price,
-                                                 batch_no=_bn, expiry_date=_ex)  # [agri-edition:grn-create]
+            for it, q in lines:
+                GoodsReceivedItem.objects.create(grn=grn, product=it.product, order_qty=it.qty, qty=q, price=it.price)
             order.update_receive_status()
         _audit(request, order, 'grn', {'grn': grn.grn_no, 'lines': len(lines)})
         order.refresh_from_db()

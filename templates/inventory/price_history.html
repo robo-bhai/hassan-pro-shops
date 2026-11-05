@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block title %}Price History{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h4 class="mb-0">🕘 Price History <span class="badge bg-secondary">{{ total }}</span></h4>
+    <div class="d-flex gap-2">
+      <a class="btn btn-sm btn-outline-success" href="?{{ querystring }}{% if querystring %}&{% endif %}export=csv">⬇ CSV</a>
+      {% if run_uuid and can_undo %}<a class="btn btn-sm btn-warning" href="{% url 'price_undo_run' run_uuid %}">↩ Undo this whole run</a>{% endif %}
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'batch_list' %}">← Stock Batches</a>
+    </div>
+  </div>
+
+  <form method="get" class="row g-2 mb-3">
+    <div class="col-6 col-md-3"><input name="q" value="{{ f.q }}" class="form-control form-control-sm" placeholder="Product / batch # / reason"></div>
+    <div class="col-6 col-md-2"><input name="user" value="{{ f.user }}" class="form-control form-control-sm" placeholder="Changed by"></div>
+    <div class="col-6 col-md-2">
+      <select name="field" class="form-select form-select-sm">
+        <option value="">All prices</option>
+        {% for k, v in field_choices %}<option value="{{ k }}" {% if f.field == k %}selected{% endif %}>{{ v }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-6 col-md-2">
+      <select name="source" class="form-select form-select-sm">
+        <option value="">All sources</option>
+        {% for k, v in source_choices %}<option value="{{ k }}" {% if f.source == k %}selected{% endif %}>{{ v }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-6 col-md-1"><input type="date" name="from" value="{{ f.from }}" class="form-control form-control-sm" title="From"></div>
+    <div class="col-6 col-md-1"><input type="date" name="to" value="{{ f.to }}" class="form-control form-control-sm" title="To"></div>
+    <div class="col-12 col-md-1"><button class="btn btn-sm btn-primary w-100">Filter</button></div>
+  </form>
+
+  <div class="table-responsive">
+    <table class="table table-sm table-striped align-middle">
+      <thead>
+        <tr><th>When</th><th>Product</th><th>Batch</th><th>What</th><th class="text-end">Old</th><th class="text-end">New</th>
+            <th class="text-end">Change</th><th class="text-end">Cost</th><th>By</th><th>Source</th>{% if can_undo %}<th></th>{% endif %}</tr>
+      </thead>
+      <tbody>
+      {% for r in page_obj %}
+        <tr>
+          <td class="text-nowrap">{{ r.changed_at|date:"d M Y H:i" }}</td>
+          <td>{{ r.product_name|default:"—" }}{% if r.reason %}<div class="small text-muted">{{ r.reason }}</div>{% endif %}</td>
+          <td>{{ r.batch_ref|default:"—" }}</td>
+          <td>{{ r.get_price_field_display }}</td>
+          <td class="text-end">{{ r.old_value|default_if_none:"—" }}</td>
+          <td class="text-end fw-bold">{{ r.new_value|default_if_none:"—" }}</td>
+          <td class="text-end {% if r.difference and r.difference > 0 %}text-success{% elif r.difference and r.difference < 0 %}text-danger{% endif %}">
+            {% if r.difference is not None %}{{ r.difference|floatformat:2 }}{% if r.change_percent is not None %} ({{ r.change_percent|floatformat:1 }}%){% endif %}{% else %}—{% endif %}
+          </td>
+          <td class="text-end">{{ r.cost_price|default_if_none:"—" }}</td>
+          <td>{{ r.changed_by_name|default:"—" }}{% if r.ip_address %}<div class="small text-muted">{{ r.ip_address }}</div>{% endif %}</td>
+          <td>{{ r.get_source_display }}{% if r.run_id %}<div class="small"><a href="?run={{ r.run_id }}" title="All rows of this bulk apply">run {{ r.run_id|slice:":8" }}</a></div>{% endif %}</td>
+          {% if can_undo %}<td class="text-end">{% if r.price_field == 'batch_selling_price' and r.batch_id %}<a class="btn btn-sm btn-outline-warning py-0" href="{% url 'price_undo_change' r.pk %}" title="Revert this price change">↩ Undo</a>{% endif %}</td>{% endif %}
+        </tr>
+      {% empty %}
+        <tr><td colspan="11" class="text-center text-muted py-4">No price changes recorded yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page_obj.has_other_pages %}
+  <nav class="d-flex justify-content-center gap-2">
+    {% if page_obj.has_previous %}<a class="btn btn-sm btn-outline-secondary" href="?{{ querystring }}&page={{ page_obj.previous_page_number }}">‹ Prev</a>{% endif %}
+    <span class="align-self-center small">Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}<a class="btn btn-sm btn-outline-secondary" href="?{{ querystring }}&page={{ page_obj.next_page_number }}">Next ›</a>{% endif %}
+  </nav>
+  {% endif %}
+</div>
+{% endblock %}

@@ -54,6 +54,7 @@ from ..models import (
 
 from ..decorators import customer_login_required
 from ..security.security_utils import safe_error
+from . import store_orders
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +143,56 @@ def extract_city_from_address(address):
             return city
     
     return 'other'
+
+
+# ============================================
+# DELIVERY AREA ("Deliver to ...")
+# ============================================
+
+AREA_SESSION_KEY = 'delivery_area'
+
+
+def get_delivery_area(request):
+    """
+    Customer ka "Deliver to" location.
+    1) session mein jo customer ne khud chuna
+    2) login customer ka default address ka shehar
+    3) address text mein se pehchana hua shehar
+    Kuch na mile to '' (page par "Select location" dikhta hai).
+    """
+    chosen = (request.session.get(AREA_SESSION_KEY) or '').strip()
+    if chosen:
+        return chosen
+    try:
+        if request.user.is_authenticated and hasattr(request.user, 'customer_profile'):
+            customer = request.user.customer_profile.customer
+            addr = customer.addresses.filter(is_default=True).first() if hasattr(customer, 'addresses') else None
+            if addr and addr.city:
+                return addr.city.strip()[:100]
+            city = extract_city_from_address(customer.address)
+            if city != 'other':
+                return city.title()
+    except Exception as exc:
+        logger.warning(f"Delivery area lookup error: {exc}")
+    return ''
+
+
+@require_POST
+def set_delivery_area(request):
+    """Customer apna "Deliver to" location chunta (ya clear karta) hai. Sirf session mein save hota hai."""
+    area = (request.POST.get('area') or '').strip()
+    if not area and request.body:
+        try:
+            area = (json.loads(request.body).get('area') or '').strip()
+        except (ValueError, AttributeError):
+            area = ''
+    area = ' '.join(area.split())[:100]        # extra spaces hatao, lambai 100 tak
+    if area:
+        request.session[AREA_SESSION_KEY] = area
+    else:
+        request.session.pop(AREA_SESSION_KEY, None)
+    request.session.modified = True
+    return JsonResponse({'success': True, 'area': area})
 
 
 def calculate_delivery_charges(subtotal, customer=None, delivery_type='standard'):
@@ -402,6 +453,7 @@ def calculate_cart_data(cart, customer=None, delivery_type='standard'):
             'delivery_info': None,
             'delivery_options': [],
             'free_delivery_progress': None,
+            'store': None,
         }
     
     # Calculate items
@@ -430,6 +482,26 @@ def calculate_cart_data(cart, customer=None, delivery_type='standard'):
         
         cart_items.append(cart_item)
     
+    # ✅ Store ke qaide (vendor store: apni delivery fee + minimum order)
+    store = store_orders.cart_store_rules(cart, subtotal)
+
+    if store['is_vendor_store']:
+        delivery_info = store_orders.vendor_delivery_info(store)
+        delivery_charges = delivery_info['charges']
+        delivery_options = store_orders.vendor_delivery_options(store)
+        free_delivery_progress = None
+        total_amount = subtotal + delivery_charges
+        return {
+            'cart_items': cart_items,
+            'subtotal': subtotal,
+            'delivery_charges': delivery_charges,
+            'total_amount': total_amount,
+            'delivery_info': delivery_info,
+            'delivery_options': delivery_options,
+            'free_delivery_progress': free_delivery_progress,
+            'store': store,
+        }
+
     # ✅ Delivery charges
     delivery_info = calculate_delivery_charges(subtotal, customer, delivery_type)
     delivery_charges = delivery_info['charges']
@@ -468,6 +540,7 @@ def calculate_cart_data(cart, customer=None, delivery_type='standard'):
         'delivery_info': delivery_info,
         'delivery_options': delivery_options,
         'free_delivery_progress': free_delivery_progress,
+        'store': store,
     }
 
 
@@ -571,6 +644,16 @@ def enrich_recently_viewed_with_prices(recently_viewed, cart=None):
         product.cart_quantity = cart_quantities.get(product.id, 0)
     
     return recently_viewed
+
+
+def store_closed_message(product):
+    """Vendor ka store abhi band ho to message, warna None (shop ki apni products par kabhi nahi)."""
+    if not product.vendor_id:
+        return None
+    vp = getattr(product.vendor, 'portal_profile', None)
+    if vp is not None and not vp.is_open_now:
+        return f'{vp.business_name} abhi band hai, baad mein order karein.'
+    return None
 
 
 def get_product_final_price(product):
@@ -773,8 +856,32 @@ def shop_home(request):
     
     # ✅ Delivery settings for banner
     delivery_settings = get_delivery_settings()
-    
+
+    # Talabat-style home: admin banners + featured stores (sirf kharab hone par khali, page nahi tootta)
+    banners, featured_stores = [], []
+    try:
+        from ..models import ShopBanner, VendorProfile
+        banners = list(ShopBanner.live()[:8])
+        for b in banners:
+            b.target = b.get_link()
+        live_vendors = Product.objects.filter(
+            is_active=True, approval_status='approved', vendor__isnull=False
+        ).values('vendor')
+        featured_stores = list(
+            VendorProfile.objects.filter(is_approved=True, vendor__in=live_vendors)
+            .select_related('vendor').order_by('business_name')[:12]
+        )
+        order = {'open': 0, 'busy': 1, 'closed': 2}
+        for st in featured_stores:
+            st.status = st.status_label
+        featured_stores.sort(key=lambda x: order.get(x.status, 3))
+    except Exception as e:
+        logger.error(f"Shop home banners/stores error: {e}")
+        banners, featured_stores = [], []
+
     context = {
+        'banners': banners,
+        'featured_stores': featured_stores,
         'company_name': company.name if company else 'Shop',
         'company': company,
         'products': page_obj,
@@ -794,6 +901,8 @@ def shop_home(request):
         'recently_viewed': recently_viewed,
         'live_visitor_count': live_visitor_count,
         'delivery_settings': delivery_settings,
+        'delivery_area': get_delivery_area(request),
+        'delivery_cities': [c.title() for c in (delivery_settings.get('city_charges') or {}).keys() if c != 'other'],
     }
     return render(request, 'customer_portal/shop.html', context)
 
@@ -894,10 +1003,19 @@ def product_detail(request, pk):
     company = CompanyInfo.objects.first()
     delivery_settings = get_delivery_settings()
     
+    in_cart_qty = 0
+    for item in cart.values():
+        try:
+            if int(item.get('product_id')) == product.id:
+                in_cart_qty += int(item.get('quantity', 0))
+        except (ValueError, TypeError):
+            pass
+    
     context = {
         'company_name': company.name if company else 'Shop',
         'company': company,
         'product': product,
+        'in_cart_qty': in_cart_qty,
         'related_products': related,
         'recently_viewed': recently_viewed,
         'cart_count': get_cart_count_value(request),
@@ -914,7 +1032,12 @@ def buy_now(request, product_id):
     """Buy Now — Single product direct checkout"""
     try:
         product = get_object_or_404(Product, id=product_id, is_active=True)
-        
+
+        closed_msg = store_closed_message(product)
+        if closed_msg:
+            messages.error(request, closed_msg)
+            return redirect('shop_product_detail', pk=product.id)
+
         total_stock = Inventory.objects.filter(product=product).aggregate(
             total=Sum('stock')
         )['total'] or 0
@@ -932,6 +1055,7 @@ def buy_now(request, product_id):
                 'price': float(final_price),
                 'quantity': 1,
                 'image': product.image.url if product.image else None,
+                'vendor_id': product.vendor_id or 0,
             }
         }
         
@@ -983,7 +1107,11 @@ def add_to_cart(request):
             return JsonResponse({'success': False, 'message': 'Quantity is too high (max 1000)'})
         
         product = get_object_or_404(Product, id=product_id, is_active=True)
-        
+
+        closed_msg = store_closed_message(product)
+        if closed_msg:
+            return JsonResponse({'success': False, 'message': closed_msg})
+
         total_stock = Inventory.objects.filter(product=product).aggregate(
             total=Sum('stock')
         )['total'] or 0
@@ -995,6 +1123,22 @@ def add_to_cart(request):
         
         cart = request.session.get('cart', {})
         product_key = str(product_id)
+
+        # ✅ Ek waqt mein ek hi store: doosre store ka maal aaye to poochho
+        new_store = product.vendor_id or 0
+        current_store = store_orders.cart_store_id(cart)
+        if cart and current_store is not None and current_store != new_store:
+            replace = str(data.get('replace_cart', '')).lower() in ('1', 'true', 'yes')
+            if not replace:
+                return JsonResponse({
+                    'success': False,
+                    'cart_conflict': True,
+                    'current_store': store_orders.store_name(current_store),
+                    'new_store': store_orders.store_name(new_store),
+                    'message': (f'Aap ke cart mein "{store_orders.store_name(current_store)}" ka maal hai. '
+                                f'Purana cart khali karun?'),
+                })
+            cart = {}
         
         if product_key in cart:
             new_qty = cart[product_key]['quantity'] + quantity
@@ -1017,6 +1161,7 @@ def add_to_cart(request):
                 'price': float(final_price),
                 'quantity': quantity,
                 'image': product.image.url if product.image else None,
+                'vendor_id': new_store,
             }
         
         request.session['cart'] = cart
@@ -1056,6 +1201,7 @@ def cart_view(request):
             'delivery_info': None,
             'delivery_options': [],
             'free_delivery_progress': None,
+            'store': None,
         }
         return render(request, 'customer_portal/cart.html', context)
     
@@ -1082,6 +1228,7 @@ def cart_view(request):
         'delivery_info': data['delivery_info'],
         'delivery_options': data['delivery_options'],
         'free_delivery_progress': data['free_delivery_progress'],
+        'store': data['store'],
         'selected_delivery': delivery_type,
         'cart_count': get_cart_count_value(request),
     }
@@ -1146,6 +1293,11 @@ def update_cart(request):
             'subtotal': float(data['subtotal']),
             'delivery': float(data['delivery_charges']),
             'total': float(data['total_amount']),
+            'store_min': {
+                'min_order': float(data['store']['min_order']),
+                'min_ok': data['store']['min_ok'],
+                'short_by': float(data['store']['short_by']),
+            } if data.get('store') and data['store']['is_vendor_store'] else None,
             'free_progress': {
                 'percent': data['free_delivery_progress']['percent'] if data['free_delivery_progress'] else 0,
                 'remaining': float(data['free_delivery_progress']['remaining']) if data['free_delivery_progress'] else 0,
@@ -1300,6 +1452,7 @@ def checkout(request):
         'delivery_info': data['delivery_info'],
         'delivery_options': data['delivery_options'],
         'free_delivery_progress': data['free_delivery_progress'],
+        'store': data['store'],
         'selected_delivery': delivery_type,
         'cart_count': sum(item['quantity'] for item in cart.values()),
         'customer': customer,
@@ -1412,9 +1565,16 @@ def place_order(request):
         # ✅ Calculate delivery
         cart_data = calculate_cart_data(cart, customer=customer, delivery_type=delivery_type)
         delivery_charges = cart_data['delivery_charges']
+
+        # ✅ Store ke qaide: band store / minimum order / mixed cart
+        store_error = store_orders.validate_cart_for_order(cart, cart_data['subtotal'])
+        if store_error:
+            messages.error(request, store_error)
+            return redirect('cart_view')
         
         # ✅ Create order
         order = SaleOrder.objects.create(
+            **store_orders.store_order_fields(cart, cart_data, payment_method),
             customer=customer,
             warehouse=warehouse,
             order_date=now(),
@@ -1459,6 +1619,9 @@ def place_order(request):
         
         # ✅ Final total with delivery
         final_total = total_amount + delivery_charges
+
+        # ✅ Vendor ko naye order ki khabar
+        store_orders.notify_vendor_new_order(order)
         
         profile.record_successful_order()
         
@@ -1654,7 +1817,9 @@ def my_orders(request):
     status_filter = request.GET.get('status', '')[:20]
     
     orders = SaleOrder.objects.filter(customer=customer).order_by('-order_date')
-    if status_filter:
+    if status_filter == 'delivered':
+        orders = orders.filter(status__in=['delivered', 'invoiced'])
+    elif status_filter:
         orders = orders.filter(status=status_filter)
     
     all_orders = SaleOrder.objects.filter(customer=customer)
@@ -1663,13 +1828,16 @@ def my_orders(request):
         'pending': all_orders.filter(
             status__in=['pending', 'confirmed', 'processing', 'ready']
         ).count(),
-        'delivered': all_orders.filter(status='delivered').count(),
+        'delivered': all_orders.filter(status__in=['delivered', 'invoiced']).count(),
         'cancelled': all_orders.filter(status='cancelled').count(),
     }
     
     paginator = Paginator(orders, 10)
     page = request.GET.get('page', 1)
     page_obj = paginator.get_page(page)
+    for _o in page_obj:           # sirf display: invoiced = delivered
+        if _o.status == 'invoiced':
+            _o.status = 'delivered'
     
     company = CompanyInfo.objects.first()
     cart = request.session.get('cart', {})
@@ -1701,6 +1869,14 @@ def order_detail_customer(request, order_id):
     
     order = get_object_or_404(SaleOrder, id=order_id, customer=customer)
     items = order.items.all().select_related('product')
+
+    # Invoice ban jane ke baad status 'invoiced' hota hai; customer ko "Delivered" hi dikhao (sirf display)
+    if order.status == 'invoiced':
+        order.status = 'delivered'
+
+    from ..models import DeliveryInfo, OrderReview
+    review = OrderReview.objects.filter(sale_order=order).first()
+    rider_di = DeliveryInfo.objects.filter(sale_order=order, rider__isnull=False).select_related('rider').first()
     
     status_steps = [
         ('pending', '⏳', 'Order Placed'),
@@ -1721,6 +1897,10 @@ def order_detail_customer(request, order_id):
     
     company = CompanyInfo.objects.first()
     cart = request.session.get('cart', {})
+
+    # ✅ Store ki maloomat; reject hua ho to refund note + doosre stores
+    is_store_order = bool(order.vendor_id)
+    store_rejected = is_store_order and order.status == 'cancelled' and bool(order.reject_reason)
     
     context = {
         'company_name': company.name if company else 'Shop',
@@ -1728,10 +1908,20 @@ def order_detail_customer(request, order_id):
         'order': order,
         'items': items,
         'total_amount': total_amount,
+        'is_store_order': is_store_order,
+        'store_name': store_orders.store_name(order.vendor_id) if is_store_order else '',
+        'grand_total': store_orders.order_payable_total(order),
+        'store_rejected': store_rejected,
+        'refund_note': store_orders.refund_note(order) if store_rejected else '',
+        'suggested_stores': store_orders.suggest_other_stores(order) if store_rejected else [],
         'status_steps': status_steps,
         'current_index': current_index,
         'cart_count': sum(item['quantity'] for item in cart.values()),
         'page_title': f'Order #{order.order_no}',
+        'review': review,
+        'can_review': order.status == 'delivered' and review is None and (is_store_order or rider_di is not None),
+        'review_rider': rider_di.rider if (rider_di and rider_di.status == 'delivered') else None,
+        'rider_di': rider_di,
     }
     return render(request, 'customer_portal/order_detail.html', context)
 
@@ -1756,7 +1946,12 @@ def cancel_order_customer(request, order_id):
     except SaleOrder.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Order not found'})
     
-    cancellable_statuses = ['pending', 'confirmed']
+    cancellable_statuses = ['pending'] if order.vendor_id else ['pending', 'confirmed']
+    if order.vendor_id and order.status == 'confirmed':
+        return JsonResponse({
+            'success': False,
+            'message': 'Store order qubool kar chuka hai. Cancel ke liye store se rabta karein.'
+        })
     if order.status not in cancellable_statuses:
         return JsonResponse({
             'success': False,

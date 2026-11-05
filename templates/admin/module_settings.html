@@ -29,27 +29,15 @@
                     <!-- ===== FORM FOR MODULE SETTINGS ===== -->
                     <form method="POST" action="{% url 'module_settings' %}">
                         {% csrf_token %}
-                        
-                        <!-- Business Mode -->
-                        <div class="card mb-4 border border-primary">
-                            <div class="card-body">
-                                <label class="form-label fw-bold" for="businessMode">Business Mode</label>
-                                <select name="business_mode" id="businessMode" class="form-select">
-                                    <option value="both"    {% if BUSINESS_MODE == 'both' %}selected{% endif %}>Both (Shop + Factory)</option>
-                                    <option value="shop"    {% if BUSINESS_MODE == 'shop' %}selected{% endif %}>Shop only (Production hidden)</option>
-                                    <option value="factory" {% if BUSINESS_MODE == 'factory' %}selected{% endif %}>Factory only (Installments hidden)</option>
-                                </select>
-                                <small class="text-muted">After changing the mode, click Save. Below, choose the Shop and Factory switches for each module yourself: in Shop mode the Shop ones apply, in Factory mode the Factory ones apply, and in Both mode a module shows if any of its switches is ON. Only modules whose switch is off are hidden.</small>
-                            </div>
-                        </div>
-                        
-                        <!-- Module Settings: Shop / Factory (saare modules) -->
+
+                        {% include 'settings/_edition.html' %}
+
+                        <!-- Module Settings: on / off (saare modules) -->
                         <div class="card mb-4">
                             <div class="card-header bg-white">
                                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-                                    <h6 class="mb-0"><i class="bi bi-toggles me-1"></i> All modules: choose for Shop and Factory
+                                    <h6 class="mb-0"><i class="bi bi-toggles me-1"></i> All modules: switch on / off
                                         <span class="badge bg-light text-dark border ms-1">{{ module_settings|length }} modules</span></h6>
-                                    <span class="badge bg-primary">Abhi mode: {{ BUSINESS_MODE|title }}</span>
                                 </div>
                                 <div class="mt-2">
                                     <input type="search" id="moduleFilter" class="form-control form-control-sm" placeholder="Module dhundo (jaise loans, hr, reports)">
@@ -61,19 +49,15 @@
                                         <tr>
                                             <th>Module</th>
                                             <th class="text-center" style="width:84px">
-                                                Shop<br>
+                                                On<br>
                                                 <input type="checkbox" class="form-check-input" data-col="shop" title="Shop: sab on/off">
-                                            </th>
-                                            <th class="text-center" style="width:84px">
-                                                Factory<br>
-                                                <input type="checkbox" class="form-check-input" data-col="factory" title="Factory: sab on/off">
                                             </th>
                                             <th class="text-center d-none d-md-table-cell" style="width:100px">Abhi</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                     {% for group in module_groups %}
-                                        <tr class="table-secondary module-group"><td colspan="4" class="small fw-bold text-uppercase">{{ group.name }}</td></tr>
+                                        <tr class="table-secondary module-group"><td colspan="3" class="small fw-bold text-uppercase">{{ group.name }}</td></tr>
                                         {% for setting in group.items %}
                                         <tr class="module-row" data-name="{{ setting.name|lower }} {{ setting.id }} {{ setting.description|lower }}">
                                             <td>
@@ -85,13 +69,6 @@
                                                     <input class="form-check-input" type="checkbox" data-unit="shop"
                                                            name="mode_shop_{{ setting.id }}" id="mode_shop_{{ setting.id }}"
                                                            {% if setting.shop %}checked{% endif %}>
-                                                </div>
-                                            </td>
-                                            <td class="text-center">
-                                                <div class="form-check form-switch d-inline-block m-0">
-                                                    <input class="form-check-input" type="checkbox" data-unit="factory"
-                                                           name="mode_factory_{{ setting.id }}" id="mode_factory_{{ setting.id }}"
-                                                           {% if setting.factory %}checked{% endif %}>
                                                 </div>
                                             </td>
                                             <td class="text-center d-none d-md-table-cell">
@@ -111,7 +88,7 @@
                         <script>
                         (function () {
                             var table = document.getElementById('moduleTable');
-                            // Column select-all (Shop / Factory)
+                            // Column select-all (on / off)
                             table.querySelectorAll('input[data-col]').forEach(function (master) {
                                 var unit = master.getAttribute('data-col');
                                 var boxes = table.querySelectorAll('input[data-unit="' + unit + '"]');
@@ -621,6 +598,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 console.log('✅ Balance Dividend settings initialized');
+
 </script>
 
 <style>

@@ -1,0 +1,346 @@
+{% extends 'customer_portal/base_shop.html' %}
+{% load static %}
+
+{% block title %}{{ store.business_name }} - {{ company_name }}{% endblock %}
+
+{% block content %}
+<style>
+    .sd-wrap { max-width: 1200px; width: 100%; min-width: 0; margin: 14px auto 110px; padding: 0 15px; }
+
+    /* ---- Header ---- */
+    .sd-hero { position: relative; border-radius: 20px 20px 0 0; overflow: hidden; height: 200px;
+               background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%) center/cover no-repeat; }
+    .sd-hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,.35), rgba(0,0,0,0) 55%); }
+    .sd-back { position: absolute; top: 12px; left: 12px; z-index: 2; width: 40px; height: 40px; border-radius: 50%; background: #fff;
+               display: flex; align-items: center; justify-content: center; color: #222; text-decoration: none; box-shadow: 0 2px 10px rgba(0,0,0,.2); }
+    .sd-closed-veil { position: absolute; inset: 0; z-index: 1; background: rgba(0,0,0,.45); color: #fff; font-weight: 800;
+                      letter-spacing: 1px; display: flex; align-items: center; justify-content: center; }
+    .sd-head { background: #fff; border-radius: 0 0 20px 20px; padding: 0 22px 18px; box-shadow: 0 4px 20px rgba(0,0,0,.07); margin-bottom: 14px; }
+    .sd-top { display: flex; gap: 16px; align-items: flex-end; }
+    .sd-logo { width: 84px; height: 84px; flex: 0 0 84px; border-radius: 18px; border: 4px solid #fff; background: #f1f3fd center/cover no-repeat;
+               margin-top: -42px; position: relative; z-index: 3; display: flex; align-items: center; justify-content: center;
+               font-weight: 800; font-size: 32px; color: #2563eb; box-shadow: 0 2px 10px rgba(0,0,0,.12); }
+    .sd-name { font-weight: 800; font-size: 24px; margin: 10px 0 2px; line-height: 1.2; }
+    .sd-sub { font-size: 14px; color: #777; }
+    .sd-badge { display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; vertical-align: middle; margin-left: 6px; }
+    .sd-open { background: #d4edda; color: #155724; }
+    .sd-busy { background: #fff3cd; color: #856404; }
+    .sd-closed { background: #f8d7da; color: #721c24; }
+    .sd-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 16px; }
+    .sd-stat { background: #eef1fd; border-radius: 14px; padding: 10px 12px; }
+    .sd-stat .k { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: .4px; }
+    .sd-stat .v { font-weight: 700; font-size: 15px; margin-top: 2px; color: #222; }
+    .sd-stat .v.free { color: #0a8f4d; }
+    .sd-stat i { color: #2563eb; margin-right: 4px; }
+    .sd-desc { margin-top: 12px; color: #666; font-size: 14px; }
+    .sd-alert { margin-top: 12px; padding: 10px 14px; border-radius: 12px; font-size: 14px; background: #f8d7da; color: #721c24; }
+    .sd-alert.busy { background: #fff3cd; color: #856404; }
+
+    /* ---- Search + sticky categories ---- */
+    .sd-search { display: flex; gap: 8px; margin-bottom: 10px; }
+    .sd-search input { flex: 1; min-width: 0; padding: 11px 14px; border: 2px solid #e5e7eb; border-radius: 12px; font-size: 15px; background: #fff; }
+    .sd-search button { border: 0; border-radius: 12px; padding: 0 18px; color: #fff; background: #2563eb; }
+    .sd-sticky { position: sticky; top: 62px; z-index: 50; background: #f8f9fb; padding: 8px 0; margin-bottom: 8px; }
+    .sd-tabs { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+    .sd-tabs::-webkit-scrollbar { display: none; }
+    .sd-tab { flex: 0 0 auto; white-space: nowrap; padding: 7px 16px; border-radius: 20px; background: #fff; border: 2px solid #e5e7eb; color: #444;
+              text-decoration: none; font-size: 14px; font-weight: 600; }
+    .sd-tab.on { background: #2563eb; color: #fff; border-color: #2563eb; }
+
+    /* ---- Products ---- */
+    .sd-sec { font-size: 18px; font-weight: 800; margin: 18px 0 10px; }
+    .sd-sec small { font-weight: 500; color: #888; font-size: 13px; margin-left: 6px; }
+    .sd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+    .sd-p { background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,.06); display: flex; flex-direction: column; position: relative; }
+    .sd-pimg { position: relative; display: block; }
+    .sd-p img, .sd-p .ph { width: 100%; aspect-ratio: 1/1; object-fit: cover; background: #f1f3fd; display: block; }
+    .sd-p.oos img, .sd-p.oos .ph { filter: grayscale(1); opacity: .6; }
+    .sd-off { position: absolute; top: 8px; left: 8px; background: #ff5a5f; color: #fff; font-size: 12px; font-weight: 800; padding: 3px 9px; border-radius: 20px; }
+    .sd-oos-tag { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,.65); color: #fff; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 20px; }
+    .sd-pb { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
+    .sd-pn { font-weight: 600; font-size: 14px; color: #222; text-decoration: none; line-height: 1.3;
+             display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .sd-pc { font-size: 12px; color: #888; }
+    .sd-price { font-weight: 800; color: #1e40af; font-size: 15px; }
+    .sd-old { text-decoration: line-through; color: #aaa; font-size: 12px; margin-left: 6px; font-weight: 400; }
+    .sd-act { margin-top: auto; padding-top: 6px; }
+    .sd-add { width: 100%; border: 0; border-radius: 10px; padding: 9px; font-weight: 700; color: #fff; cursor: pointer; background: #2563eb; }
+    .sd-add:disabled { background: #d1d5db; color: #6b7280; cursor: not-allowed; }
+    .sd-step { display: none; align-items: center; justify-content: space-between; border: 2px solid #2563eb; border-radius: 10px; overflow: hidden; }
+    .sd-step button { border: 0; background: #e8edff; color: #1e40af; width: 42px; height: 38px; font-size: 20px; font-weight: 800; cursor: pointer; }
+    .sd-step button:disabled { opacity: .35; cursor: not-allowed; }
+    .sd-step .q { font-weight: 800; min-width: 28px; text-align: center; }
+    .sd-p.has .sd-add { display: none; }
+    .sd-p.has .sd-step { display: flex; }
+    .sd-p.busy-req { pointer-events: none; opacity: .75; }
+    .sd-pager { text-align: center; margin: 22px 0; }
+    .sd-pager a { margin: 0 8px; color: #2563eb; font-weight: 600; text-decoration: none; }
+    .sd-empty { text-align: center; padding: 50px 10px; color: #888; }
+
+    /* ---- Cart bar ---- */
+    .cb { position: fixed; left: 0; right: 0; bottom: 0; z-index: 900; padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+          background: #fff; box-shadow: 0 -4px 20px rgba(0,0,0,.12); display: none; }
+    .cb.show { display: block; }
+    .cb-in { max-width: 1200px; margin: 0 auto; }
+    .cb-min { font-size: 13px; color: #856404; background: #fff3cd; border-radius: 10px; padding: 6px 12px; margin-bottom: 8px; display: none; }
+    .cb-min.show { display: block; }
+    .cb-btn { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #2563eb; color: #fff; text-decoration: none;
+              border-radius: 14px; padding: 12px 16px; font-weight: 700; }
+    .cb-btn:hover { color: #fff; background: #1e40af; }
+    .cb-n { background: #fff; color: #2563eb; border-radius: 8px; min-width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; padding: 0 6px; }
+    body.has-cart-bar .chat-toggle-btn { bottom: 96px !important; }
+    .sd-toast { position: fixed; left: 50%; bottom: 110px; transform: translateX(-50%); z-index: 1200; background: #222; color: #fff; padding: 10px 18px;
+                border-radius: 12px; font-size: 14px; max-width: 90vw; opacity: 0; pointer-events: none; transition: opacity .2s; }
+    .sd-toast.show { opacity: 1; }
+
+    @media (max-width: 576px) {
+        .sd-wrap { margin: 8px auto 110px; padding: 0 10px; }
+        .sd-hero { height: 140px; border-radius: 16px 16px 0 0; }
+        .sd-head { padding: 0 14px 14px; border-radius: 0 0 16px 16px; }
+        .sd-logo { width: 68px; height: 68px; flex-basis: 68px; margin-top: -34px; font-size: 26px; }
+        .sd-name { font-size: 20px; }
+        .sd-stats { grid-template-columns: repeat(2, 1fr); }
+        .sd-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .sd-search input { font-size: 16px; }
+        .sd-step button { width: 36px; }
+    }
+
+    :root { --primary: #2563eb; --secondary: #7c3aed; }
+    body { background: #fff; }
+    .sd-hero { height: 210px; }
+    .sd-logo { border-radius: 50%; background-color: #fff; }
+    .sd-tab { border: 0; background: #eef1fd; }
+    .sd-tab.on { background: #2563eb; color: #fff; }
+    .sd-sticky { background: #fff; }
+    .sd-p { border-radius: 18px; }
+    .sd-add { border-radius: 24px; }
+    .sd-off { background: #2563eb; }
+    .cb-btn { border-radius: 28px; }
+</style>
+
+<div class="sd-wrap">
+
+  <div class="sd-hero" {% if store.cover_image %}style="background-image:url('{{ store.cover_image.url }}')"{% endif %}>
+    <a class="sd-back" href="{% url 'store_list' %}" aria-label="Sab stores"><i class="bi bi-arrow-left"></i></a>
+    {% if status == 'closed' %}<div class="sd-closed-veil">CLOSED</div>{% endif %}
+  </div>
+
+  <div class="sd-head">
+    <div class="sd-top">
+      <div class="sd-logo" {% if store.logo %}style="background-image:url('{{ store.logo.url }}')"{% endif %}>{% if not store.logo %}{{ store.business_name|slice:":1"|upper }}{% endif %}</div>
+      <div style="min-width:0;">
+        <div class="sd-name">{{ store.business_name }}
+          <span class="sd-badge sd-{{ status }}">{% if status == 'open' %}Open{% elif status == 'busy' %}Busy{% else %}Closed{% endif %}</span>
+        </div>
+        <div class="sd-sub">{% if store.store_category %}<b>{{ store.store_category.icon }} {{ store.store_category.name }}</b>{% if store_tags or store.city %} &middot; {% endif %}{% endif %}{% if store_tags %}{{ store_tags|join:" &bull; " }}{% endif %}{% if store.city %}{% if store_tags %} &middot; {% endif %}<i class="bi bi-geo-alt"></i> {{ store.city }}{% endif %}</div>
+      </div>
+    </div>
+
+    <div class="sd-stats">
+      <div class="sd-stat"><div class="k">Rating</div><div class="v">{% if reviews.summary.avg %}<a href="#reviews" style="color:inherit;"><i class="bi bi-star-fill" style="color:#f59e0b;"></i> {{ reviews.summary.avg }} <small>({{ reviews.summary.count }})</small></a>{% else %}New{% endif %}</div></div>
+      <div class="sd-stat"><div class="k">Delivery time</div><div class="v"><i class="bi bi-clock"></i>{{ store.delivery_time_min }}-{{ store.delivery_time_max }} min</div></div>
+      <div class="sd-stat"><div class="k">Delivery fee</div>
+        <div class="v {% if store.delivery_fee <= 0 %}free{% endif %}"><i class="bi bi-bicycle"></i>{% if store.delivery_fee > 0 %}{{ currency }} {{ store.delivery_fee|floatformat:0 }}{% else %}Free{% endif %}</div></div>
+      <div class="sd-stat"><div class="k">Minimum order</div><div class="v"><i class="bi bi-basket"></i>{% if store.min_order_amount > 0 %}{{ currency }} {{ store.min_order_amount|floatformat:0 }}{% else %}None{% endif %}</div></div>
+      {% if store.opens_at and store.closes_at %}
+      <div class="sd-stat"><div class="k">Opening hours</div><div class="v"><i class="bi bi-calendar-check"></i>{{ store.opens_at|time:"H:i" }} - {{ store.closes_at|time:"H:i" }}</div></div>
+      {% endif %}
+    </div>
+
+    {% if store.delivery_areas %}<div class="sd-desc"><i class="bi bi-geo-alt-fill" style="color:#2563eb"></i> <b>Delivers to:</b> {{ store.delivery_areas }}</div>{% endif %}
+    {% if store.store_description %}<div class="sd-desc">{{ store.store_description|linebreaksbr }}</div>{% endif %}
+    {% if status == 'closed' %}<div class="sd-alert"><i class="bi bi-moon"></i> Ye store abhi band hai. Aap products dekh sakte hain, order store khulne par hoga.</div>
+    {% elif status == 'busy' %}<div class="sd-alert busy"><i class="bi bi-hourglass-split"></i> Store abhi busy hai, delivery mein kuch der lag sakti hai.</div>{% endif %}
+  </div>
+
+  <form class="sd-search" method="get">
+    {% if selected_category %}<input type="hidden" name="category" value="{{ selected_category }}">{% endif %}
+    <input type="text" name="q" value="{{ search }}" placeholder="Is store mein search karein...">
+    <button type="submit" aria-label="Search"><i class="bi bi-search"></i></button>
+  </form>
+
+  <div class="sd-sticky">
+    <div class="sd-tabs">
+      <a class="sd-tab {% if not selected_category %}on{% endif %}" href="?{% if search %}q={{ search|urlencode }}{% endif %}">All ({{ menu_total }})</a>
+      {% for m in menu %}
+        <a class="sd-tab {% if selected_category == m.category_id %}on{% endif %}" href="?category={{ m.category_id|default_if_none:'' }}{% if search %}&q={{ search|urlencode }}{% endif %}">{{ m.category__name|default:"Other" }} ({{ m.n }})</a>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if products %}
+    {% regroup products by category.name as groups %}
+    {% for g in groups %}
+    <div class="sd-sec">{{ g.grouper|default:"Other" }}<small>{{ g.list|length }} item{{ g.list|length|pluralize }}</small></div>
+    <div class="sd-grid">
+      {% for p in g.list %}
+      <div class="sd-p {% if p.stock_int <= 0 %}oos{% endif %}{% if p.cart_qty %} has{% endif %}" id="p{{ p.id }}"
+           data-id="{{ p.id }}" data-price="{{ p.final_price|stringformat:'.3f' }}" data-stock="{{ p.stock_int }}">
+        <a class="sd-pimg" href="{% url 'shop_product_detail' p.pk %}">
+          {% if p.image %}<img src="{{ p.image.url }}" alt="{{ p.name }}" loading="lazy">{% else %}<div class="ph"></div>{% endif %}
+          {% if p.has_discount and p.stock_int > 0 %}<span class="sd-off">-{{ p.discount_percentage|floatformat:0 }}%</span>{% endif %}
+          {% if p.stock_int <= 0 %}<span class="sd-oos-tag">Out of stock</span>{% endif %}
+        </a>
+        <div class="sd-pb">
+          <a class="sd-pn" href="{% url 'shop_product_detail' p.pk %}">{{ p.name }}</a>
+          {% if p.unit %}<div class="sd-pc">{{ p.unit.name }}</div>{% endif %}
+          <div class="sd-price">{{ currency }} {{ p.final_price|floatformat:0 }}{% if p.old_price %}<span class="sd-old">{{ p.old_price|floatformat:0 }}</span>{% endif %}</div>
+          <div class="sd-act">
+            {% if p.stock_int <= 0 %}
+              <button class="sd-add" disabled>Out of stock</button>
+            {% elif status == 'closed' %}
+              <button class="sd-add" disabled>Store closed</button>
+            {% else %}
+              <button class="sd-add" type="button" onclick="cartAdd({{ p.id }})"><i class="bi bi-plus-lg"></i> Add</button>
+              <div class="sd-step">
+                <button type="button" onclick="cartSet({{ p.id }}, -1)" aria-label="Kam karein">&minus;</button>
+                <span class="q">{{ p.cart_qty }}</span>
+                <button type="button" class="plus" onclick="cartSet({{ p.id }}, 1)" aria-label="Zyada karein">+</button>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+
+    {% if page_obj.has_other_pages %}
+    <div class="sd-pager">
+      {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if search %}&q={{ search|urlencode }}{% endif %}">&laquo; Pehle</a>{% endif %}
+      Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+      {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if search %}&q={{ search|urlencode }}{% endif %}">Agle &raquo;</a>{% endif %}
+    </div>
+    {% endif %}
+  {% else %}
+    <div class="sd-empty"><i class="bi bi-bag-x" style="font-size:40px;"></i><p class="mt-2">Is store mein koi product nahi mila.</p></div>
+  {% endif %}
+
+  <div id="reviews" style="margin-top:28px;background:#fff;border-radius:16px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.06);">
+    <h5 style="margin:0 0 12px;font-weight:800;">⭐ Ratings &amp; Reviews</h5>
+    {% if reviews.summary.avg %}
+    <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;">
+      <div style="text-align:center;min-width:90px;">
+        <div style="font-size:42px;font-weight:900;line-height:1;">{{ reviews.summary.avg }}</div>
+        <div style="color:#f59e0b;font-size:18px;">★★★★★</div>
+        <small style="color:#6b7280;">{{ reviews.summary.count }} rating{{ reviews.summary.count|pluralize }}</small>
+      </div>
+      <div style="flex:1;min-width:200px;">
+        {% for b in reviews.bars %}
+        <div style="display:flex;align-items:center;gap:8px;font-size:13px;margin:3px 0;">
+          <span style="width:22px;">{{ b.stars }}★</span>
+          <div style="flex:1;background:#eef0f4;border-radius:6px;height:8px;overflow:hidden;"><div style="width:{{ b.pct }}%;height:100%;background:#f59e0b;"></div></div>
+          <span style="width:30px;text-align:right;color:#6b7280;">{{ b.count }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% for rv in reviews.latest %}
+      {% if rv.comment or forloop.first %}
+      <div style="border-top:1px solid #f0f0f5;margin-top:12px;padding-top:10px;">
+        <div style="display:flex;justify-content:space-between;"><b>{{ rv.name }}</b><small style="color:#6b7280;">{{ rv.date|date:"d M Y" }}</small></div>
+        <div style="color:#f59e0b;">{% for i in "12345" %}{% if forloop.counter <= rv.stars %}★{% else %}<span style="color:#d1d5db;">★</span>{% endif %}{% endfor %}</div>
+        {% if rv.comment %}<div style="margin-top:2px;">{{ rv.comment }}</div>{% endif %}
+      </div>
+      {% endif %}
+    {% endfor %}
+    {% else %}
+    <p style="color:#6b7280;margin:0;">Abhi koi rating nahi. Pehla order dein aur rating likhein!</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Cart bar -->
+<div class="cb" id="cartBar">
+  <div class="cb-in">
+    <div class="cb-min" id="cbMin"></div>
+    <a class="cb-btn" href="{% url 'cart_view' %}">
+      <span><span class="cb-n" id="cbCount">0</span></span>
+      <span>View cart</span>
+      <span id="cbTotal">{{ currency }} 0</span>
+    </a>
+  </div>
+</div>
+<div class="sd-toast" id="sdToast" role="status" aria-live="polite"></div>
+
+{{ cart_state|json_script:"cartState" }}
+<script>
+(function () {
+  var CURRENCY = '{{ currency }}';
+  var MIN_ORDER = {{ store.min_order_amount|default:0|stringformat:"f" }};
+  var CART_OTHER = {% if cart_other %}true{% else %}false{% endif %};
+  var cart = JSON.parse(document.getElementById('cartState').textContent || '{}');   // { "12": {qty, price} }
+  var URL_ADD = '{% url "add_to_cart" %}', URL_UPD = '{% url "update_cart" %}';
+  var toastTimer = null;
+
+  function csrf() { var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/); return m ? decodeURIComponent(m[1]) : ''; }
+  function money(n) { return CURRENCY + ' ' + Math.round(n); }
+  function toast(msg) {
+    var t = document.getElementById('sdToast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2800);
+  }
+  function post(url, body) {
+    return fetch(url, { method: 'POST', headers: { 'X-CSRFToken': csrf(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); });
+  }
+
+  function paintCard(id) {
+    var el = document.getElementById('p' + id); if (!el) return;
+    var item = cart[id], qty = item ? item.qty : 0, stock = parseInt(el.dataset.stock, 10) || 0;
+    el.classList.toggle('has', qty > 0);
+    var q = el.querySelector('.q'); if (q) q.textContent = qty;
+    var plus = el.querySelector('.plus'); if (plus) plus.disabled = qty >= stock;
+  }
+  function paintAll() {
+    var count = 0, total = 0;
+    Object.keys(cart).forEach(function (k) { count += cart[k].qty; total += cart[k].qty * cart[k].price; });
+    Array.prototype.forEach.call(document.querySelectorAll('.sd-p'), function (el) { paintCard(el.dataset.id); });
+    var bar = document.getElementById('cartBar');
+    bar.classList.toggle('show', count > 0 && !CART_OTHER);
+    document.body.classList.toggle('has-cart-bar', count > 0 && !CART_OTHER);
+    document.getElementById('cbCount').textContent = count;
+    document.getElementById('cbTotal').textContent = money(total);
+    var min = document.getElementById('cbMin');
+    if (MIN_ORDER > 0 && total < MIN_ORDER) {
+      min.textContent = 'Minimum order ' + money(MIN_ORDER) + ' hai. ' + money(MIN_ORDER - total) + ' ka aur maal add karein.';
+      min.classList.add('show');
+    } else { min.classList.remove('show'); }
+    var badge = document.querySelector('.cart-count, #cartCount, .cart-badge');
+    if (badge && !CART_OTHER) badge.textContent = count;
+  }
+
+  function lock(id, on) { var el = document.getElementById('p' + id); if (el) el.classList.toggle('busy-req', on); }
+  function priceOf(id) { return parseFloat(document.getElementById('p' + id).dataset.price) || 0; }
+
+  window.cartAdd = function (id, replace) {
+    lock(id, true);
+    post(URL_ADD, { product_id: id, quantity: 1, replace_cart: !!replace }).then(function (d) {
+      lock(id, false);
+      if (!d.success && d.cart_conflict) {
+        if (confirm(d.message)) { cartAdd(id, true); }
+        return;
+      }
+      if (!d.success) { toast(d.message || 'Kuch masla aa gaya'); return; }
+      if (replace) { cart = {}; CART_OTHER = false; }
+      var cur = cart[id] ? cart[id].qty : 0;
+      cart[id] = { qty: cur + 1, price: priceOf(id) };
+      paintAll();
+    }).catch(function () { lock(id, false); toast('Network error, dobara koshish karein'); });
+  };
+
+  window.cartSet = function (id, delta) {
+    var cur = cart[id] ? cart[id].qty : 0, next = cur + delta;
+    if (next < 0) return;
+    lock(id, true);
+    post(URL_UPD, { product_id: id, quantity: next }).then(function (d) {
+      lock(id, false);
+      if (!d.success) { toast(d.message || 'Kuch masla aa gaya'); return; }
+      if (next === 0) { delete cart[id]; } else { cart[id] = { qty: next, price: cart[id] ? cart[id].price : priceOf(id) }; }
+      paintAll();
+    }).catch(function () { lock(id, false); toast('Network error, dobara koshish karein'); });
+  };
+
+  paintAll();
+})();
+</script>
+{% endblock %}

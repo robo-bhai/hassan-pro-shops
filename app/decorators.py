@@ -68,3 +68,25 @@ def staff_required(view_func):
         return view_func(request, *args, **kwargs)
     
     return wrapper
+
+def vendor_login_required(view_func):
+    """
+    Vendor portal pages ke liye.
+
+    - Login nahi -> vendor_login (next ke sath)
+    - Vendor account hai -> view chalao
+    - Koi aur user -> shop_home
+    """
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            messages.warning(request, '🔒 Please log in as a vendor first')
+            return redirect(f"{reverse('vendor_login')}?next={request.get_full_path()}")
+
+        if hasattr(request.user, 'vendor_profile'):
+            return view_func(request, *args, **kwargs)
+
+        messages.error(request, '❌ This page is for vendors only')
+        return redirect('shop_home')
+
+    return wrapper

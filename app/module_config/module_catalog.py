@@ -9,6 +9,9 @@ ONE single list of all switchable modules (single source of truth).
 
 To add a new module, just add one entry here.
 
+Administrator (superuser) is never limited by these switches: he always sees every module.
+The switches only limit the customer side (Owner + staff).
+
   key       : short name (settings key: show_<key>_module, mode_shop_<key>, mode_factory_<key>)
   shop/factory : default for the first time (before saving). All are True: until you turn a switch off yourself,
                  no module is hidden.
@@ -26,9 +29,6 @@ MODULE_CATALOG = [
     {'key': 'inventory', 'group': 'Operations', 'label': 'Inventory', 'icon': 'bi-box',
      'description': 'Stock, Products, Batches, Warehouses, Transfers', 'shop': True, 'factory': True,
      'prefixes': ['/inventory/', '/products/', '/warehouses/', '/batches/', '/transfers/']},
-    {'key': 'store_issue', 'group': 'Operations', 'label': 'Stores & Issue', 'icon': 'bi-buildings',
-     'description': 'PMS, RMS, FGS, Technical stores and internal stock issue', 'shop': True, 'factory': True,
-     'prefixes': ['/stores/', '/store-issue/', '/store-transfer/', '/store-receipts/', '/store-request/', '/store-count/', '/store-return/']},
     {'key': 'purchase', 'group': 'Operations', 'label': 'Purchase', 'icon': 'bi-cart-plus',
      'description': 'Purchases, Purchase Orders, GRN, Vendors, Returns', 'shop': True, 'factory': True,
      'prefixes': ['/purchases/', '/orders/purchase/', '/grn/', '/vendors/', '/returns/purchase/']},
@@ -47,10 +47,6 @@ MODULE_CATALOG = [
     {'key': 'operations', 'group': 'Operations', 'label': 'Operations Center', 'icon': 'bi-kanban',
      'description': 'Operations management and AI operation insights', 'shop': True, 'factory': True,
      'prefixes': ['/operations/']},
-
-    {'key': 'agri', 'group': 'Operations', 'label': 'Agri Edition', 'icon': 'bi-flower1',
-     'description': 'Expiry Manager, Kisan Udhaar (harvest credit), Agri dashboard', 'shop': True, 'factory': True,
-     'prefixes': ['/agri/']},
 
     # ---------------- Finance ----------------
     {'key': 'accounts', 'group': 'Finance', 'label': 'Accounts', 'icon': 'bi-calculator',
@@ -109,36 +105,22 @@ MODULE_CATALOG = [
     {'key': 'backup', 'group': 'System', 'label': 'Database Backup', 'icon': 'bi-hdd-stack',
      'description': 'Backup, Restore, Cloud Sync', 'shop': True, 'factory': True,
      'prefixes': ['/backup/', '/database-backup/']},
+    # Security: OFF by default (the Owner could never open these pages before). The Administrator turns it ON
+    # per customer in Settings > Modules; only the Owner of the account (and the Administrator) gets it.
+    {'key': 'security', 'group': 'System', 'label': 'Security', 'icon': 'bi-shield-lock',
+     'description': 'Security dashboard, 2FA, IP lists, logs, alerts, API keys (Owner only)',
+     'shop': False, 'factory': False, 'prefixes': ['/security/']},
+    # System tools: ON by default (nothing changes for existing installs); Shop Edition switches it OFF.
+    {'key': 'system_tools', 'group': 'System', 'label': 'System Tools', 'icon': 'bi-sliders',
+     'description': 'Whole System menu: users, settings, permission matrix, admin chat, support tickets',
+     'shop': True, 'factory': True,
+     'prefixes': ['/permission-matrix/', '/api/permission-matrix/', '/admin-chat/', '/admin/support/',
+                  '/otp-management/']},
 ]
 
 # These always work (no switch): login, dashboard, profile, users, settings (Module Settings),
-# security, notifications, admin chat, OTP, permission matrix, online shop (/shop/), /ajax/, /api/.
-ALWAYS_ON_NOTE = 'Login, Dashboard, Users, Settings, Security, Notifications, Online Shop'
-
-
-# ----------------------------------------------------------------------------
-# STORE-WISE MODULES
-# Members of a Store team (PMS / RMS / FGS / Technical ...) get in the sidebar and in the URL
-# ONLY the modules that are allowed for that store.
-#   * It comes from the default store type (below) and can be changed per store in admin
-#     (Store Profiles -> "Allowed modules").
-#   * If a user is in the team of several stores, the modules of all those stores are combined (union).
-#   * It makes no difference for superusers and users who are not in the team of any named store.
-# Dashboard, Profile, Password and Logout are always available.
-# ----------------------------------------------------------------------------
-STORE_TYPE_MODULES = {
-    'PMS':  ['inventory', 'store_issue', 'purchase', 'supply_chain', 'reports'],
-    'RMS':  ['inventory', 'store_issue', 'purchase', 'supply_chain', 'production', 'reports'],
-    'FGS':  ['inventory', 'store_issue', 'sales', 'production', 'reports'],
-    'TECH': ['inventory', 'store_issue', 'purchase', 'services', 'reports'],
-    'GEN':  ['inventory', 'store_issue', 'reports'],
-}
-
-# URLs without a module that are closed for store users (admin / configuration pages).
-STORE_USER_BLOCKED_PREFIXES = ['/users/', '/settings/', '/permission-matrix/', '/stores/access/', '/stores/profiles/', '/stores/settings/',
-                               '/api/permission-matrix/']
-
-STORE_MODULE_CHOICES = [(m['key'], m['label']) for m in MODULE_CATALOG]   # only static (old name)
+# notifications, online shop (/shop/), /ajax/, /api/.  (Security and System Tools now have their own switch.)
+ALWAYS_ON_NOTE = 'Login, Dashboard, Users, Settings, Notifications, Online Shop'
 
 
 # ----------------------------------------------------------------------------
@@ -161,7 +143,7 @@ def _discover_auto_modules():
     import re
     from django.urls import URLPattern, URLResolver, get_resolver
 
-    static_prefixes = [p for m in MODULE_CATALOG for p in m['prefixes']] + list(STORE_USER_BLOCKED_PREFIXES)
+    static_prefixes = [p for m in MODULE_CATALOG for p in m['prefixes']]
     routes = []
 
     def walk(patterns, base):
@@ -212,25 +194,3 @@ def get_module_catalog():
 
 def get_module_keys():
     return [m['key'] for m in get_module_catalog()]
-
-
-def get_store_module_choices():
-    return [(m['key'], m['label']) for m in get_module_catalog()]
-
-
-# ----------------------------------------------------------------------------
-# STORE TYPE -> BUSINESS UNIT (which company type it is for)
-#   shop    : visible only in Shop mode
-#   factory : visible only in Factory mode
-#   both    : visible in both (or all stores when business_mode = both)
-# Can be changed for each store from admin (Store Profiles -> Business unit).
-# Business mode is set in Module Settings (shop / factory / both).
-# ----------------------------------------------------------------------------
-BUSINESS_UNITS = [('shop', 'Shop'), ('factory', 'Factory'), ('both', 'Shop + Factory')]
-STORE_TYPE_UNITS = {
-    'PMS':  'factory',   # Packing Material Store
-    'RMS':  'factory',   # Raw Material Store
-    'FGS':  'both',      # Finished Goods Store - it makes goods for the factory and also sells for the shop
-    'TECH': 'both',      # Technical Store
-    'GEN':  'both',      # General Store
-}

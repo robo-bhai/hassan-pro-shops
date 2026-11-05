@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Camera Search Accuracy{% endblock %}
+{% block page_title %}🔤 Camera Search Accuracy{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ocrd-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .ocrd-card { background: #fff; border: 1px solid #eef0f5; border-radius: 12px; padding: 14px; }
+    .ocrd-card .num { font-size: 1.7rem; font-weight: 800; line-height: 1.1; }
+    .ocrd-card .lbl { font-size: .75rem; color: #6c757d; margin-top: 2px; }
+    .ocrd-card.good .num { color: #0f7a43; } .ocrd-card.bad .num { color: #b42318; } .ocrd-card.warn .num { color: #8a6100; }
+    .ocrd-box { background: #fff; border: 1px solid #eef0f5; border-radius: 12px; padding: 14px; margin-bottom: 18px; }
+    .ocrd-box h6 { font-weight: 700; margin-bottom: 10px; }
+    .ocrd-days a { margin-right: 6px; }
+    .ocrd-bars { display: flex; align-items: flex-end; gap: 3px; height: 120px; overflow-x: auto; padding-bottom: 4px; }
+    .ocrd-day { flex: 0 0 18px; height: 100%; display: flex; flex-direction: column-reverse; border-radius: 3px; overflow: hidden; background: #f4f5f9; }
+    .ocrd-day i { display: block; width: 100%; }
+    .ocrd-r { background: #2fb26a; } .ocrd-w { background: #f0a500; } .ocrd-n { background: #e5484d; }
+    .ocrd-legend span { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin: 0 4px 0 12px; }
+    .ocrd-table td, .ocrd-table th { font-size: .85rem; vertical-align: middle; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+        <div class="ocrd-days">
+            <a class="btn btn-sm {% if days == 7 %}btn-dark{% else %}btn-outline-dark{% endif %}" href="?days=7">7 days</a>
+            <a class="btn btn-sm {% if days == 30 %}btn-dark{% else %}btn-outline-dark{% endif %}" href="?days=30">30 days</a>
+            <a class="btn btn-sm {% if days == 90 %}btn-dark{% else %}btn-outline-dark{% endif %}" href="?days=90">90 days</a>
+        </div>
+        <small class="text-muted">Last {{ days }} days · {{ stats.total }} scans</small>
+    </div>
+
+    {% if not stats.total %}
+        <div class="alert alert-info">No camera scans in this period yet.</div>
+    {% else %}
+    <div class="ocrd-cards">
+        <div class="ocrd-card good"><div class="num">{{ stats.first_answer_right_pct }}%</div><div class="lbl">First answer was right</div></div>
+        <div class="ocrd-card"><div class="num">{{ stats.auto_added }}</div><div class="lbl">Added automatically ({{ stats.auto_added_pct }}%)</div></div>
+        <div class="ocrd-card warn"><div class="num">{{ stats.corrected }}</div><div class="lbl">Cashier corrected ({{ stats.corrected_pct }}%)</div></div>
+        <div class="ocrd-card bad"><div class="num">{{ stats.no_match }}</div><div class="lbl">Nothing found ({{ stats.no_match_pct }}%)</div></div>
+        <div class="ocrd-card"><div class="num">{{ stats.avg_conf }}</div><div class="lbl">Average text confidence (0-100)</div></div>
+    </div>
+
+    <div class="ocrd-box">
+        <h6>Per day
+            <span class="ocrd-legend small fw-normal">
+                <span class="ocrd-r"></span>right <span class="ocrd-w"></span>corrected <span class="ocrd-n"></span>not found
+            </span>
+        </h6>
+        <div class="ocrd-bars">
+            {% for d in daily %}
+            <div class="ocrd-day" title="{{ d.d|date:'d M' }}: {{ d.total }} scans, {{ d.right }} right, {{ d.wrong }} corrected, {{ d.none }} not found">
+                <i class="ocrd-r" style="height: {{ d.right_h }}%"></i><i class="ocrd-w" style="height: {{ d.wrong_h }}%"></i><i class="ocrd-n" style="height: {{ d.none_h }}%"></i>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="ocrd-box">
+        <h6>✅ Suggested aliases waiting for you <small class="text-muted fw-normal">(a suggestion is created when a cashier corrects the machine; after {{ auto_hits }} confirmations it becomes an alias by itself)</small></h6>
+        {% if pending %}
+        <div class="table-responsive">
+        <table class="table table-sm ocrd-table mb-0" id="ocrdPending">
+            <thead><tr><th>Text the camera read</th><th>Product</th><th class="text-end">Times</th><th></th></tr></thead>
+            <tbody>
+            {% for s in pending %}
+            <tr data-id="{{ s.id }}">
+                <td><b>{{ s.text }}</b></td>
+                <td>{{ s.product.name }}</td>
+                <td class="text-end">{{ s.hits }}</td>
+                <td class="text-end text-nowrap">
+                    {% if can_edit %}
+                    <button class="btn btn-sm btn-success" onclick="ocrdAct({{ s.id }}, 'approve', this)">Approve</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="ocrdAct({{ s.id }}, 'reject', this)">Reject</button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% else %}<div class="text-muted small">Nothing waiting. 🎉</div>{% endif %}
+    </div>
+
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="ocrd-box">
+                <h6>🔁 Mixed-up products <small class="text-muted fw-normal">(machine said A, cashier chose B)</small></h6>
+                {% if confused %}
+                <div class="table-responsive"><table class="table table-sm ocrd-table mb-0">
+                    <thead><tr><th>Machine said</th><th>Cashier chose</th><th class="text-end">Times</th></tr></thead>
+                    <tbody>{% for c in confused %}
+                        <tr><td>{{ c.top_product__name|default:"—" }}</td><td>{{ c.chosen_product__name|default:"—" }}</td><td class="text-end">{{ c.n }}</td></tr>
+                    {% endfor %}</tbody></table></div>
+                {% else %}<div class="text-muted small">No corrections in this period.</div>{% endif %}
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="ocrd-box">
+                <h6>❓ Texts with no product <small class="text-muted fw-normal">(missing product or missing alias)</small></h6>
+                {% if unmatched %}
+                <div class="table-responsive"><table class="table table-sm ocrd-table mb-0">
+                    <thead><tr><th>Text</th><th class="text-end">Times</th></tr></thead>
+                    <tbody>{% for u in unmatched %}
+                        <tr><td>{{ u.text }}</td><td class="text-end">{{ u.n }}</td></tr>
+                    {% endfor %}</tbody></table></div>
+                {% else %}<div class="text-muted small">Every scan found something.</div>{% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if by_source %}
+    <div class="small text-muted">By source:
+        {% for s in by_source %}{{ s.source }} {{ s.n }}{% if not forloop.last %} · {% endif %}{% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function ocrdCookie(n) { const m = document.cookie.match('(^|;)\\s*' + n + '\\s*=\\s*([^;]+)'); return m ? decodeURIComponent(m[2]) : ''; }
+    async function ocrdAct(id, action, btn) {
+        const row = btn.closest('tr');
+        row.querySelectorAll('button').forEach(b => b.disabled = true);
+        try {
+            const r = await fetch("{% url 'ocr_alias_action' %}", {
+                method: 'POST', headers: { 'X-CSRFToken': ocrdCookie('csrftoken') },
+                body: new URLSearchParams({ id: id, action: action })
+            });
+            const d = await r.json();
+            if (d.success) { row.remove(); }
+            else { alert(d.message || 'Could not save.'); row.querySelectorAll('button').forEach(b => b.disabled = false); }
+        } catch (e) { alert('Network error.'); row.querySelectorAll('button').forEach(b => b.disabled = false); }
+    }
+</script>
+{% endblock %}

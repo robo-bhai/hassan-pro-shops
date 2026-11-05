@@ -14,14 +14,14 @@ _MODULES = [
     "auth_admin",
     "budgeting",
     "catalog",
+    "price_log",
     "core",
     "purchasing",
     "sales",
     "services",
     "shareholders",
-    "store_issue",
-    "store_transfer",
-    "store_ops",
+    "ocr",
+    "vendor_portal",
     "registrations",
 ]
 

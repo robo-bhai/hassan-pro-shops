@@ -1,71 +1,387 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}POS - {{ company_name }}{% endblock %}
 {% block extra_css %}
 <style>
-.pos{--pos-gap:.65rem;padding:.6rem}
-.pos .card-lite{background:var(--bs-body-bg);border:1px solid var(--bs-border-color);border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
-.pos-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:var(--pos-gap);height:calc(100vh - 130px);min-height:540px}
+/* ================= POS – professional theme ================= */
+.pos{
+  --pos-gap:.75rem;--pos-r:14px;--pos-r-sm:10px;
+  --pos-surface:var(--bs-body-bg);--pos-soft:var(--bs-tertiary-bg);
+  --pos-line:var(--bs-border-color);--pos-muted:var(--bs-secondary-color);
+  --pos-accent:var(--bs-primary);--pos-ok:#16a34a;--pos-ok-d:#15803d;
+  --pos-shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
+  padding:.75rem;font-feature-settings:"tnum" 1;font-variant-numeric:tabular-nums;
+}
+body.dark-theme .pos{--pos-surface:#1b1f2a;--pos-soft:#232838;--pos-line:#2e3447;--pos-muted:#98a2b3;--pos-shadow:0 1px 3px rgba(0,0,0,.4)}
+.pos .card-lite{background:var(--pos-surface);border:1px solid var(--pos-line);border-radius:var(--pos-r);box-shadow:var(--pos-shadow)}
+
+/* ----- top bar ----- */
+.pos-top{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:var(--pos-gap);padding:.55rem .75rem}
+.pos-title{font-weight:700;font-size:1.05rem;display:flex;align-items:center;gap:.55rem;margin-right:.5rem;padding-right:.9rem;border-right:1px solid var(--pos-line);letter-spacing:.2px}
+.pos-title i{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--pos-accent),#4f46e5);color:#fff;font-size:1rem}
+.pos-top .form-select{width:auto;max-width:200px;border-radius:var(--pos-r-sm);font-weight:500}
+.pos-top .btn{border-radius:var(--pos-r-sm);font-weight:500;display:inline-flex;align-items:center;gap:.35rem;border-color:var(--pos-line)}
+.pos-top .btn-outline-secondary{color:var(--bs-body-color)}
+.pos-top .btn-outline-secondary:hover{background:var(--pos-soft);color:var(--bs-body-color);border-color:var(--pos-line)}
+.pos-top .btn-outline-danger{border-color:rgba(220,53,69,.45)}
+#shiftBadge{border-radius:999px;padding:.4rem .75rem;font-weight:600}
+.pos-top .form-check{display:flex;align-items:center;gap:.4rem;padding:.25rem .6rem .25rem 2.6rem;margin:0;border:1px solid var(--pos-line);border-radius:999px;background:var(--pos-soft)}
+.pos-top .form-check .form-check-input{cursor:pointer}
+.pos-top .form-check-label{cursor:pointer;white-space:nowrap}
+
+/* ----- layout ----- */
+.pos-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(360px,1fr);gap:var(--pos-gap);height:calc(100vh - 140px);min-height:540px}
 .pos-left,.pos-right{display:flex;flex-direction:column;min-height:0}
-.pos-top{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:var(--pos-gap);padding:.5rem .65rem}
-.pos-top .form-select{width:auto;max-width:200px}
-.pos-title{font-weight:700;display:flex;align-items:center;gap:.4rem;margin-right:.4rem}
-.pos-title i{color:var(--bs-primary)}
+.pos-left{padding:.85rem!important}
+.pos-right{overflow:hidden}
+
+/* ----- search ----- */
+.search-row{display:flex;gap:.5rem;align-items:stretch}
+.search-row .search-wrap{flex:1}
 .search-wrap{position:relative}
-.search-wrap i{position:absolute;left:.85rem;top:50%;transform:translateY(-50%);opacity:.5}
-#search{font-size:1.1rem;min-height:50px;padding-left:2.4rem;border-radius:12px}
-.hint{font-size:.74rem;opacity:.65;margin:.3rem .2rem 0}
-.chips{display:flex;gap:.4rem;overflow-x:auto;padding:.5rem 0;scrollbar-width:thin}
-.chip{border:1px solid var(--bs-border-color);background:transparent;color:inherit;border-radius:999px;padding:.25rem .85rem;white-space:nowrap;font-size:.85rem}
-.chip.on{background:var(--bs-primary);color:#fff;border-color:var(--bs-primary)}
-.tiles{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:.55rem;align-content:start;padding-bottom:.5rem}
-.tile{text-align:left;border:1px solid var(--bs-border-color);background:var(--bs-body-bg);color:inherit;border-radius:12px;padding:.65rem;min-height:92px;display:flex;flex-direction:column;justify-content:space-between;transition:border-color .12s,box-shadow .12s}
-.tile:hover{border-color:var(--bs-primary);box-shadow:0 2px 8px rgba(0,0,0,.08)}
-.tile:active{transform:scale(.98)}
-.tile .n{font-weight:600;font-size:.9rem;line-height:1.25}
-.tile .m{display:flex;justify-content:space-between;align-items:center;margin-top:.4rem}
-.tile .p{font-weight:700;font-size:.95rem}
-.stk{font-size:.72rem;padding:.1rem .45rem;border-radius:999px;background:var(--bs-success-bg-subtle);color:var(--bs-success-text-emphasis)}
+.search-wrap i{position:absolute;left:1rem;top:50%;transform:translateY(-50%);opacity:.55;font-size:1.15rem}
+#search{font-size:1.05rem;min-height:52px;padding-left:2.9rem;border-radius:12px;border:1.5px solid var(--pos-line);background:var(--pos-soft);transition:border-color .15s,box-shadow .15s,background .15s}
+#search:focus{background:var(--pos-surface);border-color:var(--pos-accent);box-shadow:0 0 0 4px rgba(var(--bs-primary-rgb),.15)}
+.hint{font-size:.76rem;color:var(--pos-muted);margin:.45rem .2rem .7rem}
+.hint b{background:var(--pos-soft);border:1px solid var(--pos-line);border-radius:5px;padding:0 .35rem;font-weight:600}
+
+/* ----- category chips ----- */
+.chips{display:flex;gap:.45rem;overflow-x:auto;padding:.7rem 0 .6rem;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{border:1px solid var(--pos-line);background:var(--pos-soft);color:inherit;border-radius:999px;padding:.32rem .95rem;white-space:nowrap;font-size:.84rem;font-weight:500;transition:all .12s}
+.chip:hover{border-color:var(--pos-accent);color:var(--pos-accent)}
+.chip.on{background:var(--pos-accent);color:#fff;border-color:var(--pos-accent);box-shadow:0 2px 6px rgba(var(--bs-primary-rgb),.35)}
+
+/* ----- product tiles ----- */
+.tiles{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:.65rem;align-content:start;padding:.15rem .15rem .5rem;scrollbar-width:thin}
+.tile{position:relative;text-align:left;border:1px solid var(--pos-line);border-left:4px solid var(--pos-accent);background:var(--pos-surface);color:inherit;border-radius:12px;padding:.7rem .75rem;min-height:98px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:var(--pos-shadow);transition:transform .12s,box-shadow .12s,border-color .12s}
+.tile:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(16,24,40,.12);border-color:var(--pos-accent)}
+.tile:active{transform:scale(.97)}
+.tile .n{font-weight:600;font-size:.9rem;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tile .m{display:flex;justify-content:space-between;align-items:center;gap:.4rem;margin-top:.55rem}
+.tile .p{font-weight:800;font-size:.98rem;color:var(--pos-accent)}
+.stk{font-size:.7rem;font-weight:600;padding:.15rem .5rem;border-radius:999px;background:var(--bs-success-bg-subtle);color:var(--bs-success-text-emphasis);white-space:nowrap}
 .stk.low{background:var(--bs-warning-bg-subtle);color:var(--bs-warning-text-emphasis)}
 .stk.zero{background:var(--bs-danger-bg-subtle);color:var(--bs-danger-text-emphasis)}
-.tile.out{opacity:.5}
-.cart-head{display:flex;justify-content:space-between;align-items:center;padding:.6rem .8rem;border-bottom:1px solid var(--bs-border-color)}
-.cart-head .ttl{font-weight:700}
-.cart{flex:1;overflow:auto}
-.line{padding:.6rem .8rem;border-bottom:1px solid var(--bs-border-color)}
+.tile.out{opacity:.55;border-left-color:var(--bs-danger);filter:grayscale(.4)}
+
+
+/* ----- clean start: no product names until you search/scan ----- */
+.pos-left:has(#search:placeholder-shown) .tiles{display:none}
+
+/* ----- cart ----- */
+.cart-head{display:flex;justify-content:space-between;align-items:center;padding:.8rem 1rem;border-bottom:1px solid var(--pos-line);background:var(--pos-soft)}
+.cart-head .ttl{font-weight:700;display:flex;align-items:center;gap:.5rem}
+.cart-head .ttl i{color:var(--pos-accent)}
+.cart-head #lines{display:inline-block;min-width:1.6rem;text-align:center;background:var(--pos-accent);color:#fff;border-radius:999px;font-weight:700;padding:0 .4rem}
+.cart{flex:1;overflow:auto;scrollbar-width:thin}
+.line{padding:.7rem 1rem;border-bottom:1px solid var(--pos-line);transition:background .12s}
+.line:hover{background:var(--pos-soft)}
 .line .top{display:flex;justify-content:space-between;gap:.5rem;align-items:flex-start}
-.line .nm{font-weight:600;font-size:.92rem;line-height:1.25}
-.line .del{border:0;background:transparent;color:var(--bs-danger);padding:0 .2rem}
-.line .bot{display:flex;align-items:center;gap:.4rem;margin-top:.4rem;flex-wrap:wrap}
-.line .bot .lbl{font-size:.75rem;opacity:.65}
+.line .nm{font-weight:600;font-size:.92rem;line-height:1.3}
+.line .del{border:0;background:transparent;color:var(--pos-muted);width:28px;height:28px;border-radius:8px;padding:0;flex:none;transition:all .12s}
+.line .del:hover{background:var(--bs-danger-bg-subtle);color:var(--bs-danger)}
+.line .bot{display:flex;align-items:center;gap:.45rem;margin-top:.5rem;flex-wrap:wrap}
+.line .bot .lbl{font-size:.78rem;color:var(--pos-muted)}
 .qty-box{display:flex;align-items:center}
-.qty-box input{width:84px;text-align:center;font-weight:700;min-height:36px;border-radius:0;padding:.15rem .3rem}
-.qty-box .qbtn{border-radius:8px 0 0 8px}
-.qty-box .qbtn.p{border-radius:0 8px 8px 0}
-.qbtn{width:36px;height:36px;border:1px solid var(--bs-border-color);background:var(--bs-tertiary-bg);color:inherit;font-weight:700;font-size:1.05rem}
-.qbtn:active{background:var(--bs-secondary-bg)}
-.line .pr{width:86px;text-align:right;min-height:36px;padding:.15rem .4rem}
-.line .tot{margin-left:auto;font-weight:800;font-size:1rem}
-.line .unit{font-size:.75rem;opacity:.7}
-.sum{padding:.75rem .8rem;border-top:1px solid var(--bs-border-color);background:var(--bs-tertiary-bg);border-radius:0 0 14px 14px}
-.sum .row2{display:flex;justify-content:space-between;align-items:center;margin-bottom:.3rem}
-.grand{font-size:2rem;font-weight:800;line-height:1.1}
-.pos-actions{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.6rem}
-.pos-actions .pay{grid-column:1/-1;min-height:56px;font-size:1.2rem;font-weight:700;border-radius:12px}
-.kbd{font-size:.7rem;opacity:.75;margin-left:.3rem;border:1px solid currentColor;border-radius:4px;padding:0 .25rem}
-.ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;display:none;align-items:center;justify-content:center;padding:.8rem}
+.qty-box input{width:76px;text-align:center;font-weight:700;min-height:36px;border-radius:0;padding:.15rem .3rem;border-left:0;border-right:0}
+.qty-box .qbtn{border-radius:9px 0 0 9px}
+.qty-box .qbtn.p{border-radius:0 9px 9px 0}
+.qbtn{width:36px;height:36px;border:1px solid var(--bs-border-color);background:var(--pos-soft);color:inherit;font-weight:700;font-size:1.05rem;transition:background .1s}
+.qbtn:hover{background:var(--pos-accent);border-color:var(--pos-accent);color:#fff}
+.qbtn:active{filter:brightness(.9)}
+.line .pr{width:86px;text-align:right;min-height:36px;padding:.15rem .5rem;border-radius:9px}
+.line .tot{margin-left:auto;font-weight:800;font-size:1.02rem}
+.line .unit{font-size:.75rem;color:var(--pos-muted)}
+.empty{text-align:center;color:var(--pos-muted);padding:3rem 1rem}
+.empty i{opacity:.35}
+
+/* ----- totals ----- */
+.sum{padding:.9rem 1rem 1rem;border-top:1px solid var(--pos-line);background:var(--pos-soft)}
+.sum .row2{display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;color:var(--pos-muted);font-size:.9rem}
+.sum .row2 b{color:var(--bs-body-color)}
+.sum .row2.total-row{margin:.55rem 0 0;padding-top:.7rem;border-top:2px dashed var(--pos-line);color:var(--bs-body-color)}
+.grand{font-size:2.2rem;font-weight:800;line-height:1.1;letter-spacing:-.5px}
+.pos-actions{display:grid;grid-template-columns:1fr 1fr;gap:.55rem;margin-top:.8rem}
+.pos-actions .btn{border-radius:12px;font-weight:600;min-height:44px}
+.pos-actions .pay{grid-column:1/-1;min-height:58px;font-size:1.25rem;font-weight:700;background:linear-gradient(135deg,var(--pos-ok),var(--pos-ok-d));border:0;box-shadow:0 6px 16px rgba(22,163,74,.35);transition:transform .1s,box-shadow .1s}
+.pos-actions .pay:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(22,163,74,.45)}
+.pos-actions .pay:active{transform:scale(.98)}
+.kbd{font-size:.68rem;font-weight:600;opacity:.8;margin-left:.3rem;border:1px solid currentColor;border-radius:5px;padding:0 .3rem;line-height:1.5}
+
+/* ----- dialogs ----- */
+.ov{position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);z-index:2000;display:none;align-items:center;justify-content:center;padding:.8rem}
 .ov.show{display:flex}
-.box{background:var(--bs-body-bg);color:var(--bs-body-color);border-radius:16px;width:100%;max-width:480px;max-height:92vh;overflow:auto;padding:1.1rem}
-.pm{display:grid;grid-template-columns:92px 1fr;gap:.4rem;align-items:center;margin-bottom:.5rem}
-.big{font-size:2.1rem;font-weight:800}
-.toast-pos{position:fixed;left:50%;transform:translateX(-50%);bottom:90px;background:#212529;color:#fff;padding:.5rem 1rem;border-radius:999px;z-index:3000;display:none;font-size:.9rem;max-width:90vw;text-align:center}
-.cust-res button{display:block;width:100%;text-align:left;padding:.55rem;border:0;border-bottom:1px solid var(--bs-border-color);background:transparent;color:inherit}
-.empty{text-align:center;opacity:.6;padding:2rem 1rem}
-@media (max-width:991px){
-  .pos-grid{grid-template-columns:1fr;height:auto}
-  .tiles{max-height:38vh}
-  .cart{max-height:42vh}
-  .grand{font-size:1.6rem}
+.box{background:var(--bs-body-bg);color:var(--bs-body-color);border-radius:18px;width:100%;max-width:480px;max-height:92vh;overflow:auto;padding:1.25rem;box-shadow:0 24px 60px rgba(0,0,0,.35);animation:posPop .16s ease-out}
+@keyframes posPop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+.box h5{font-weight:700}
+.box .form-control,.box .form-select{border-radius:10px}
+.pm{display:grid;grid-template-columns:104px 1fr;gap:.5rem;align-items:center;margin-bottom:.55rem;padding:.4rem .55rem;background:var(--pos-soft);border-radius:10px}
+.pm label{font-weight:600}
+.pm .form-control{border-radius:8px}
+.big{font-size:2.3rem;font-weight:800;letter-spacing:-.5px}
+#payOv .text-center.mb-3{background:linear-gradient(135deg,rgba(var(--bs-primary-rgb),.12),rgba(79,70,229,.12));border-radius:14px;padding:.8rem}
+#doneOv .fs-1{font-size:4rem!important}
+.toast-pos{position:fixed;left:50%;transform:translateX(-50%);bottom:90px;background:#0f172a;color:#fff;padding:.6rem 1.2rem;border-radius:999px;z-index:3000;display:none;font-size:.9rem;max-width:90vw;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.cust-res button{display:block;width:100%;text-align:left;padding:.65rem .6rem;border:0;border-bottom:1px solid var(--pos-line);background:transparent;color:inherit;border-radius:8px}
+.cust-res button:hover{background:var(--pos-soft)}
+
+/* ================= POS – premium visual layer ================= */
+.pos{
+  --pos-accent:#4f46e5;--pos-accent-2:#7c3aed;--pos-accent-rgb:79,70,229;
+  --pos-bg:linear-gradient(180deg,#f4f6fb 0%,#eceff7 100%);
+  --pos-ink:#0f172a;--pos-ok:#10b981;--pos-ok-d:#059669;
+  --pos-shadow:0 1px 2px rgba(15,23,42,.05),0 8px 24px -8px rgba(15,23,42,.10);
+  background:var(--pos-bg);border-radius:20px;padding:.9rem;
+  font-family:"Inter","Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
 }
+body.dark-theme .pos{--pos-bg:linear-gradient(180deg,#0f1320 0%,#131829 100%);--pos-ink:#e5e7eb;--pos-shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px -10px rgba(0,0,0,.6)}
+.pos .card-lite{border-radius:18px;border:1px solid rgba(148,163,184,.25)}
+
+/* top bar */
+.pos-top{background:var(--pos-surface);padding:.65rem .9rem;gap:.55rem}
+.pos-title{font-size:1.08rem;color:var(--pos-ink)}
+.pos-title i{width:40px;height:40px;border-radius:12px;font-size:1.15rem;background:linear-gradient(135deg,var(--pos-accent),var(--pos-accent-2));box-shadow:0 6px 14px rgba(var(--pos-accent-rgb),.4)}
+.pos-top .btn{background:var(--pos-soft);border:1px solid transparent;padding:.42rem .8rem;transition:all .15s}
+.pos-top .btn:hover{background:rgba(var(--pos-accent-rgb),.1);color:var(--pos-accent);border-color:rgba(var(--pos-accent-rgb),.25);transform:translateY(-1px)}
+.pos-top .btn-outline-danger{background:rgba(220,53,69,.08);color:#dc3545}
+.pos-top .btn-outline-danger:hover{background:#dc3545;color:#fff;border-color:#dc3545}
+.pos-top .form-select{background-color:var(--pos-soft);border-color:transparent;font-weight:600}
+#shiftBadge{background:rgba(16,185,129,.12)!important;color:#047857!important;border:1px solid rgba(16,185,129,.35)!important}
+#shiftBadge::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:#10b981;margin-right:.45rem;box-shadow:0 0 0 0 rgba(16,185,129,.6);animation:posPulse 1.8s infinite}
+@keyframes posPulse{70%{box-shadow:0 0 0 7px rgba(16,185,129,0)}100%{box-shadow:0 0 0 0 rgba(16,185,129,0)}}
+.pos-top .form-check{border-color:transparent}
+.pos-top .form-check-input:checked{background-color:var(--pos-accent);border-color:var(--pos-accent)}
+#heldCount{border-radius:999px}
+
+/* left panel */
+.pos-left{padding:1rem!important}
+#search{min-height:56px;font-size:1.08rem;font-weight:500;border-radius:14px;border:2px solid transparent;background:var(--pos-soft)}
+#search:focus{border-color:var(--pos-accent);box-shadow:0 0 0 5px rgba(var(--pos-accent-rgb),.14)}
+.search-wrap i{color:var(--pos-accent);opacity:.9}
+.btn-ocr{border-radius:14px!important;padding:0 1.1rem;box-shadow:0 6px 16px rgba(111,66,193,.35)}
+.hint{margin:.55rem .3rem .8rem}
+
+/* idle state */
+
+/* tiles */
+.tile{border:1px solid rgba(148,163,184,.28);border-left:1px solid rgba(148,163,184,.28);border-top:4px solid var(--pos-accent);border-radius:14px;padding:.8rem .85rem;min-height:108px;background:var(--pos-surface)}
+.tile:nth-child(4n+2){border-top-color:#0ea5e9}.tile:nth-child(4n+3){border-top-color:#f59e0b}.tile:nth-child(4n+4){border-top-color:#10b981}
+.tile:hover{transform:translateY(-3px);box-shadow:0 14px 28px -10px rgba(var(--pos-accent-rgb),.35);border-color:rgba(var(--pos-accent-rgb),.5)}
+.tile .p{color:var(--pos-ink);font-size:1.02rem}
+.tile.out{border-top-color:#ef4444}
+
+/* cart */
+.pos-right{background:var(--pos-surface)}
+.cart-head{background:linear-gradient(135deg,#1e1b4b,#4338ca 60%,#6d28d9);color:#fff;border:0;padding:.95rem 1.1rem}
+.cart-head .ttl{font-size:1.05rem}
+.cart-head .ttl i{color:#c7d2fe}
+.cart-head .small,.cart-head .text-muted{color:rgba(255,255,255,.8)!important}
+.cart-head #lines{background:rgba(255,255,255,.2);backdrop-filter:blur(4px)}
+.cart-head .kbd{border-color:rgba(255,255,255,.5)}
+.line{padding:.8rem 1.1rem}
+.line .nm{color:var(--pos-ink)}
+.line .tot{color:var(--pos-accent)}
+.qbtn:hover{background:var(--pos-accent);border-color:var(--pos-accent)}
+.empty i{color:var(--pos-accent);opacity:.3}
+
+/* totals */
+.sum{background:linear-gradient(180deg,var(--pos-soft),var(--pos-surface));padding:1rem 1.1rem 1.1rem}
+.grand{background:linear-gradient(135deg,var(--pos-accent),var(--pos-accent-2));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;font-size:2.4rem}
+.pos-actions .pay{min-height:62px;border-radius:14px;box-shadow:0 10px 22px -6px rgba(16,185,129,.55);letter-spacing:.3px}
+.pos-actions .btn-outline-warning{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.4);color:#b45309}
+.pos-actions .btn-outline-warning:hover{background:#f59e0b;color:#fff}
+.pos-actions .btn-outline-danger{background:rgba(220,53,69,.07)}
+
+/* dialogs */
+.ov{background:rgba(15,23,42,.6);backdrop-filter:blur(6px)}
+.box{border-radius:22px;padding:1.4rem;border:1px solid rgba(148,163,184,.25)}
+.box>.d-flex:first-child h5{font-size:1.15rem}
+.box .btn-primary{background:linear-gradient(135deg,var(--pos-accent),var(--pos-accent-2));border:0;font-weight:600;border-radius:12px;box-shadow:0 8px 18px -6px rgba(var(--pos-accent-rgb),.55)}
+.box .btn-success{background:linear-gradient(135deg,var(--pos-ok),var(--pos-ok-d));border:0;font-weight:700;border-radius:14px;box-shadow:0 10px 22px -6px rgba(16,185,129,.55)}
+.box .btn-danger{border-radius:12px;font-weight:600}
+.box .form-control:focus,.box .form-select:focus{border-color:var(--pos-accent);box-shadow:0 0 0 4px rgba(var(--pos-accent-rgb),.15)}
+.pm{border:1px solid rgba(148,163,184,.2)}
+.big{background:linear-gradient(135deg,var(--pos-accent),var(--pos-accent-2));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+#doneOv .box{background:linear-gradient(180deg,rgba(16,185,129,.08),transparent 40%),var(--bs-body-bg)}
+#doneOv .fs-1{filter:drop-shadow(0 8px 14px rgba(16,185,129,.4))}
+.toast-pos{background:linear-gradient(135deg,#0f172a,#1e293b);border:1px solid rgba(255,255,255,.1)}
+
+/* scrollbars */
+.tiles::-webkit-scrollbar,.cart::-webkit-scrollbar{width:8px}
+.tiles::-webkit-scrollbar-thumb,.cart::-webkit-scrollbar-thumb{background:rgba(148,163,184,.45);border-radius:8px}
+
+.rcpt-lang{display:flex;align-items:center;gap:.35rem;padding:.15rem .3rem .15rem .7rem;border-radius:999px;background:var(--pos-soft)}
+.rcpt-lang i{color:var(--pos-accent)}
+.rcpt-lang .form-select{border:0;background-color:transparent;font-weight:600;padding-top:.2rem;padding-bottom:.2rem;box-shadow:none;min-width:130px}
+/* ----- responsive ----- */
+@media (max-width:1199px){.pos-grid{grid-template-columns:minmax(0,1.2fr) minmax(320px,1fr)}}
+@media (max-width:991px){
+  .pos{padding:.5rem}
+  .pos-grid{grid-template-columns:1fr;height:auto}
+  .tiles{max-height:42vh}
+  .cart{max-height:42vh}
+  .grand{font-size:1.7rem}
+  .pos-title{border-right:0;padding-right:0}
+  .pos-top .form-check.ms-auto{margin-left:0!important}
+}
+@media (max-width:575px){
+  .tiles{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+  .pos-top .btn .kbd{display:none}
+}
+    /* ========== OCR (SCAN PRODUCT NAME) - professional scan window ========== */
+    .btn-ocr{background:linear-gradient(135deg,#6f42c1,#5b34a8);color:#fff;border:0;border-radius:12px;font-weight:600;white-space:nowrap}
+    .btn-ocr:hover{color:#fff;filter:brightness(1.08)}
+    /* ========== OCR SCAN WINDOW v3 - camera on top, Suggestions + Added below (mobile first) ========== */
+    #ocrModal .modal-content{border:0;border-radius:18px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+    #ocrModal .modal-header{background:linear-gradient(135deg,#6f42c1,#4c2a8f);color:#fff;border:0;padding:.7rem 1rem}
+    #ocrModal .modal-title{font-size:1.05rem;font-weight:700;display:flex;align-items:center;gap:.5rem}
+    #ocrModal .btn-close{filter:invert(1) grayscale(1) brightness(2);opacity:.9}
+    #ocrModal .modal-body{padding:.85rem 1rem;background:var(--bs-tertiary-bg,#f1f3f5);color:var(--bs-body-color,#212529)}
+    #ocrModal .modal-footer{display:flex;flex-wrap:nowrap;justify-content:space-between;align-items:center;gap:.75rem;border-top:1px solid var(--bs-border-color,#dee2e6);background:var(--bs-body-bg,#fff);padding:.65rem 1rem calc(.65rem + env(safe-area-inset-bottom,0px))}
+    #ocrModal .modal-footer .btn{min-height:44px;border-radius:12px;font-weight:700}
+
+    .ocr-layout{display:flex;flex-direction:column;gap:.8rem}
+    .ocr-scan,.ocr-panel{display:flex;flex-direction:column;gap:.7rem;min-width:0}
+    .ocr-card{background:var(--bs-body-bg,#fff);border:1px solid var(--bs-border-color,#dee2e6);border-radius:14px;padding:.7rem .8rem;min-width:0}
+
+    /* camera */
+    .ocr-video-wrap{position:relative;background:#0b0b10;border-radius:14px;overflow:hidden;aspect-ratio:4/3;max-height:42vh;max-height:42dvh;width:100%}
+    .ocr-video-wrap video{width:100%;height:100%;object-fit:cover;display:block}
+    .ocr-guide{position:absolute;left:7%;top:30%;width:86%;height:40%;border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,.45);pointer-events:none;overflow:hidden;
+      background:
+        linear-gradient(#ffc107,#ffc107) top left/26px 3px no-repeat,linear-gradient(#ffc107,#ffc107) top left/3px 26px no-repeat,
+        linear-gradient(#ffc107,#ffc107) top right/26px 3px no-repeat,linear-gradient(#ffc107,#ffc107) top right/3px 26px no-repeat,
+        linear-gradient(#ffc107,#ffc107) bottom left/26px 3px no-repeat,linear-gradient(#ffc107,#ffc107) bottom left/3px 26px no-repeat,
+        linear-gradient(#ffc107,#ffc107) bottom right/26px 3px no-repeat,linear-gradient(#ffc107,#ffc107) bottom right/3px 26px no-repeat}
+    .ocr-guide::after{content:"";position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#ffc107,transparent);animation:ocrscan 1.8s ease-in-out infinite}
+    @keyframes ocrscan{0%{top:4%}50%{top:94%}100%{top:4%}}
+    @media (prefers-reduced-motion:reduce){.ocr-guide::after{animation:none;top:50%}}
+    .ocr-guide.full{display:none}
+    .ocr-hint{position:absolute;left:0;right:0;bottom:8px;text-align:center;color:#fff;font-size:.74rem;opacity:.9;text-shadow:0 1px 3px #000;pointer-events:none;padding:0 .5rem}
+
+    /* status + what was read */
+    .ocr-status{padding:.55rem .75rem;border-radius:10px;font-size:.85rem;font-weight:600;background:var(--bs-secondary-bg,#e9ecef);color:var(--bs-body-color,#212529);display:flex;align-items:center;gap:.5rem;border-left:4px solid #adb5bd;line-height:1.3}
+    .ocr-status.ok{background:var(--bs-success-bg-subtle,#d1f2e0);color:var(--bs-success-text-emphasis,#0f7a43);border-color:#198754}
+    .ocr-status.err{background:var(--bs-danger-bg-subtle,#fde2e4);color:var(--bs-danger-text-emphasis,#b42318);border-color:#dc3545}
+    .ocr-status.warn{background:var(--bs-warning-bg-subtle,#fff3cd);color:var(--bs-warning-text-emphasis,#8a6100);border-color:#ffc107}
+    .ocr-status.busy{background:#e0e7ff;color:#3730a3;border-color:#6366f1}
+    .ocr-status.busy::before{content:"";width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:ocrspin .7s linear infinite;flex:none}
+    @keyframes ocrspin{to{transform:rotate(360deg)}}
+    .ocr-read{font-size:.78rem;color:var(--bs-secondary-color,#6c757d);word-break:break-word}
+    .ocr-read span{color:var(--bs-body-color,#212529);font-weight:600}
+
+    /* actions + switches */
+    .ocr-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:.5rem}
+    .ocr-actions .btn{min-height:44px;border-radius:12px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:.4rem;white-space:nowrap}
+    .ocr-controls{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;font-size:.8rem}
+    .ocr-controls select{flex:1 1 130px;width:auto;min-height:36px;border-radius:10px}
+    .ocr-chip{display:inline-flex;align-items:center;gap:.35rem;margin:0;padding:.3rem .65rem;min-height:36px;border:1px solid var(--bs-border-color,#dee2e6);border-radius:999px;background:var(--bs-body-bg,#fff);cursor:pointer;user-select:none;font-weight:600}
+    .ocr-chip input{margin:0;width:1rem;height:1rem;flex:none}
+    .ocr-chip:has(input:checked){border-color:#6f42c1;background:rgba(111,66,193,.10);color:#5b34a8}
+    .ocr-zoom{width:100%;display:flex;align-items:center;gap:.6rem}
+    .ocr-zoom input{flex:1}
+    .ocr-manual{display:flex;gap:.4rem}
+    .ocr-manual input{min-height:44px;border-radius:10px;font-size:16px}  /* 16px stops iOS from zooming the page */
+    .ocr-manual .btn{min-height:44px;border-radius:10px;font-weight:700;white-space:nowrap}
+
+    /* section headers */
+    .ocr-sec{font-size:.74rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--bs-secondary-color,#6c757d);margin:0 0 .5rem;display:flex;justify-content:space-between;align-items:center;gap:.5rem}
+    .ocr-sec .ttl{display:flex;align-items:center;gap:.45rem}
+    .ocr-count{min-width:22px;padding:.05rem .45rem;border-radius:999px;background:#6f42c1;color:#fff;font-size:.7rem;font-weight:800;text-align:center;letter-spacing:0}
+    .ocr-count.zero{background:var(--bs-secondary-bg,#dee2e6);color:var(--bs-secondary-color,#6c757d)}
+    .ocr-added-info{font-size:.78rem;font-weight:600;color:var(--bs-success-text-emphasis,#0f7a43);margin:-.2rem 0 .5rem;word-break:break-word}
+    .ocr-added-info:empty{display:none}
+
+    /* suggestions */
+    .ocr-matches{display:flex;flex-direction:column;gap:.5rem}
+    .ocr-match{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:.7rem;width:100%;min-height:64px;text-align:left;padding:.6rem .75rem;border:1.5px solid var(--bs-border-color,#dee2e6);border-radius:12px;background:var(--bs-body-bg,#fff);color:inherit;transition:border-color .12s,background .12s,transform .06s;-webkit-tap-highlight-color:transparent}
+    .ocr-match:hover{border-color:#6f42c1;background:rgba(111,66,193,.06)}
+    .ocr-match:active{transform:scale(.99);background:rgba(111,66,193,.14)}
+    .ocr-match:first-child{border-color:#6f42c1;box-shadow:0 0 0 3px rgba(111,66,193,.12)}
+    .ocr-match.oos{opacity:.62}
+    .ocr-rank{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--bs-secondary-bg,#e9ecef);color:var(--bs-secondary-color,#6c757d);font-weight:800;font-size:.78rem}
+    .ocr-match:first-child .ocr-rank{background:#6f42c1;color:#fff}
+    .ocr-match-main{min-width:0}
+    .ocr-match-name{font-weight:700;font-size:.9rem;line-height:1.25;overflow-wrap:anywhere}
+    .ocr-best{font-size:.62rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#5b34a8;background:rgba(111,66,193,.13);padding:.08rem .42rem;border-radius:999px;margin-left:.35rem;vertical-align:middle;white-space:nowrap}
+    .ocr-match-sub{font-size:.72rem;color:var(--bs-secondary-color,#6c757d);overflow-wrap:anywhere;margin-top:.1rem}
+    .ocr-match-meta{display:flex;flex-direction:column;align-items:flex-end;gap:.2rem;white-space:nowrap}
+    .ocr-price{font-weight:800;font-size:.95rem}
+    .ocr-stock{display:inline-flex;align-items:center;gap:.3rem;font-size:.7rem;font-weight:600;color:var(--bs-success-text-emphasis,#0f7a43)}
+    .ocr-stock::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+    .ocr-stock.low{color:var(--bs-warning-text-emphasis,#8a6100)}
+    .ocr-stock.zero{color:var(--bs-danger-text-emphasis,#b42318)}
+    .ocr-addbtn{display:inline-flex;align-items:center;gap:.25rem;padding:.28rem .75rem;border-radius:999px;background:#6f42c1;color:#fff;font-weight:700;font-size:.78rem;line-height:1.2}
+    .ocr-match.oos .ocr-addbtn{background:var(--bs-secondary-bg,#e9ecef);color:var(--bs-secondary-color,#6c757d)}
+    .ocr-badge{font-size:.66rem;padding:.08rem .42rem;border-radius:999px;background:#e0e7ff;color:#3730a3;font-weight:700}
+
+    /* added in this scan */
+    .ocr-undo{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin:0 0 .5rem;padding:.4rem .4rem .4rem .75rem;border-radius:10px;background:var(--bs-warning-bg-subtle,#fff7e6);border:1px solid var(--bs-warning-border-subtle,#ffe0a3);color:var(--bs-warning-text-emphasis,#6b4e00);font-size:.82rem;font-weight:600}
+    .ocr-undo .btn{min-height:36px;border-radius:9px;white-space:nowrap}
+    .ocr-cartlist{display:flex;flex-direction:column;gap:.45rem;max-height:34vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    .ocr-cartrow{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;align-items:center;gap:.4rem .7rem;padding:.55rem .7rem;border:1px solid var(--bs-border-color,#dee2e6);border-left:4px solid #198754;border-radius:12px;background:var(--bs-body-bg,#fff)}
+    .ocr-cartrow .info{min-width:0}
+    .ocr-cartrow .nm{font-weight:700;font-size:.87rem;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .ocr-cartrow .up{font-size:.72rem;color:var(--bs-secondary-color,#6c757d);margin-top:.1rem}
+    .ocr-cartrow .lt{font-weight:800;font-size:.92rem;min-width:76px;text-align:right}
+    .ocr-qty{display:flex;align-items:center;gap:.3rem}
+    .ocr-qty button{width:36px;height:36px;border-radius:50%;border:1px solid var(--bs-border-color,#dee2e6);background:var(--bs-tertiary-bg,#f1f3f5);color:inherit;font-weight:800;font-size:1.1rem;line-height:1;padding:0;-webkit-tap-highlight-color:transparent}
+    .ocr-qty button:active{background:var(--bs-secondary-bg,#dee2e6)}
+    .ocr-qty b{min-width:46px;text-align:center;font-size:.86rem}
+    .ocr-del{width:36px;height:36px;border-radius:10px;border:1px solid transparent;background:transparent;color:var(--bs-danger-text-emphasis,#b42318);padding:0;font-size:1rem;-webkit-tap-highlight-color:transparent}
+    .ocr-del:hover,.ocr-del:active{background:var(--bs-danger-bg-subtle,#fde2e4)}
+    .ocr-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.5rem;margin-top:.65rem}
+    .ocr-sum{padding:.45rem .6rem;border-radius:10px;background:var(--bs-tertiary-bg,#f1f3f5);text-align:center;min-width:0}
+    .ocr-sum small{display:block;font-size:.66rem;text-transform:uppercase;letter-spacing:.05em;color:var(--bs-secondary-color,#6c757d);font-weight:700}
+    .ocr-sum b{font-size:.95rem;overflow-wrap:anywhere}
+    .ocr-sum.tot{background:rgba(25,135,84,.12)}
+    .ocr-sum.tot b{color:var(--bs-success-text-emphasis,#0f7a43)}
+    .ocr-empty{font-size:.8rem;color:var(--bs-secondary-color,#6c757d);text-align:center;padding:1rem;border:1.5px dashed var(--bs-border-color,#dee2e6);border-radius:12px}
+    .ocr-foot-total{font-size:.82rem;color:var(--bs-secondary-color,#6c757d);line-height:1.2}
+    .ocr-foot-total b{display:block;color:var(--bs-body-color,#212529);font-size:1.15rem}
+
+    .ocr-details{font-size:.72rem;color:var(--bs-secondary-color,#6c757d)}
+    .ocr-details summary{cursor:pointer;padding:.25rem 0}
+    #ocrPreview{max-width:100%;max-height:90px;border:1px solid var(--bs-border-color,#dee2e6);border-radius:6px;display:block;margin-top:4px}
+    .ocr-details{background:var(--bs-body-bg,#fff);border:1px solid var(--bs-border-color,#dee2e6);border-radius:10px;padding:.2rem .6rem}
+    .ocr-details summary{display:flex;align-items:center;gap:.4rem;font-weight:700}
+    .ocr-live-tag{margin-left:auto;font-size:.6rem;font-weight:800;letter-spacing:.06em;color:#fff;background:#198754;border-radius:999px;padding:.05rem .4rem}
+    .ocr-live-dot{width:8px;height:8px;border-radius:50%;background:#adb5bd;flex:none}
+    .ocr-live-dot.on{background:#198754;animation:ocrPulse 1s ease-in-out infinite}
+    @keyframes ocrPulse{50%{opacity:.25}}
+    .ocr-debug{font:11px/1.35 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;max-height:8.4em;overflow-y:auto;padding:.2rem 0}
+    .ocr-debug .new{color:var(--bs-body-color,#212529);font-weight:700}
+    .ocr-liveline{font:700 11px/1.35 ui-monospace,Menlo,Consolas,monospace;color:#198754;padding:.15rem 0;border-bottom:1px dashed var(--bs-border-color,#dee2e6);margin-bottom:.15rem;overflow-wrap:anywhere}
+
+    /* quantity for tap-add */
+    .ocr-qtybar{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem;margin:0 0 .6rem;padding-bottom:.6rem;border-bottom:1px dashed var(--bs-border-color,#dee2e6)}
+    .ocr-qtylbl{font-size:.74rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--bs-secondary-color,#6c757d);margin-right:.2rem}
+    .ocr-qchip{min-width:44px;min-height:40px;padding:0 .7rem;border:1.5px solid var(--bs-border-color,#dee2e6);border-radius:999px;background:var(--bs-body-bg,#fff);color:inherit;font-weight:800;-webkit-tap-highlight-color:transparent}
+    .ocr-qchip.active{border-color:#6f42c1;background:#6f42c1;color:#fff}
+    .ocr-qtybar input{width:84px;min-height:40px;border-radius:10px;text-align:center;font-weight:700;font-size:16px}
+    .ocr-qtyhint{flex:1 1 100%;font-size:.7rem;color:var(--bs-secondary-color,#6c757d)}
+
+    /* phones: tighter, camera shorter so the lists stay in view; rows wrap to two lines */
+    @media (max-width:575.98px){
+      #ocrModal .modal-body{padding:.65rem .65rem}
+      #ocrModal .modal-header{padding:.6rem .85rem}
+      .ocr-video-wrap{aspect-ratio:16/10;max-height:30vh;max-height:30dvh}
+      .ocr-cartlist{max-height:none}
+      .ocr-cartrow{grid-template-columns:auto minmax(0,1fr) auto}
+      .ocr-cartrow .info{grid-column:1/-1}
+      .ocr-cartrow .nm{white-space:normal}
+      .ocr-cartrow .lt{text-align:right}
+      .ocr-match{gap:.55rem;padding:.55rem .6rem}
+      .ocr-hint{font-size:.7rem}
+    }
+    /* phone held sideways: very little height -> camera left, lists right */
+    @media (orientation:landscape) and (max-height:520px){
+      .ocr-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.8rem;align-items:start}
+      .ocr-video-wrap{max-height:52vh;max-height:52dvh}
+      .ocr-cartlist{max-height:26vh}
+    }
+.search-row{display:flex;gap:.4rem;align-items:stretch}.search-row .search-wrap{flex:1}
 </style>
 {% endblock %}
 
@@ -73,7 +389,7 @@
 {% csrf_token %}
 <div class="pos">
   <div class="pos-top card-lite">
-    <div class="pos-title"><i class="bi bi-lightning-charge-fill"></i> Fast Sale</div>
+    <div class="pos-title"><i class="bi bi-lightning-charge-fill"></i> <span>Point of Sale<small class="d-block text-muted fw-normal" style="font-size:.7rem;line-height:1">Fast Sale</small></span></div>
     <select id="wh" class="form-select form-select-sm" title="Store">{% for w in warehouses %}<option value="{{ w.pk }}">{{ w.name }}</option>{% endfor %}</select>
     <button class="btn btn-sm btn-outline-secondary" id="custBtn"><i class="bi bi-person"></i> <span id="custName">Walk-in Customer</span></button>
     <span class="badge bg-success-subtle text-success-emphasis border" id="shiftBadge" style="display:none"></span>
@@ -84,15 +400,17 @@
     <a class="btn btn-sm btn-outline-secondary" href="{% url 'stock_register' %}" title="Stock register"><i class="bi bi-journal-text"></i> Stock register</a>
     <div class="form-check form-switch ms-auto mb-0"><input class="form-check-input" type="checkbox" id="askQty"><label class="form-check-label small" for="askQty">Ask quantity</label></div>
     <div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" id="autoPrint"><label class="form-check-label small" for="autoPrint">Auto print</label></div>
+    <div class="rcpt-lang" title="Receipt language"><i class="bi bi-translate"></i><select id="rcptLang" class="form-select form-select-sm" aria-label="Receipt language"><option value="en">Receipt: English</option><option value="ur">رسید: اردو</option></select></div>
     <button class="btn btn-sm btn-outline-secondary" id="fsBtn" title="Fullscreen"><i class="bi bi-arrows-fullscreen"></i></button>
   </div>
 
   <div class="pos-grid">
     <div class="pos-left card-lite p-2">
-      <div class="search-wrap"><i class="bi bi-upc-scan"></i>
+      <div class="search-row"><div class="search-wrap"><i class="bi bi-upc-scan"></i>
         <input id="search" class="form-control" type="search" autocomplete="off" placeholder="Scan a barcode or type a product name   (F2)"></div>
+        <button class="btn btn-ocr" type="button" id="ocrBtn" onclick="openOcrScanner()" title="Scan product name with camera"><i class="bi bi-camera-fill"></i> Scan Name <span class="kbd">F3</span></button></div>
       <div class="hint">Tip: type <b>0.5*milk</b> or <b>2.25*barcode</b> and press Enter to add a decimal quantity.</div>
-      <div class="chips" id="chips"><button class="chip on" data-c="">All</button>{% for c in categories %}<button class="chip" data-c="{{ c.pk }}">{{ c.name }}</button>{% endfor %}</div>
+      <div class="chips" id="chips" style="display:none"></div>
       <div class="tiles" id="tiles"></div>
     </div>
 
@@ -104,7 +422,7 @@
         <div class="row2"><span>Discount</span>
           <span class="d-flex gap-1"><input id="disc" type="text" inputmode="decimal" class="form-control form-control-sm text-end" style="width:90px" value="0">
             <select id="discType" class="form-select form-select-sm" style="width:64px"><option value="amt">Rs</option><option value="pct">%</option></select></span></div>
-        <div class="row2"><span class="fw-semibold">TOTAL</span><span class="grand" id="grand">0</span></div>
+        <div class="row2 total-row"><span class="fw-semibold text-uppercase" style="letter-spacing:.5px">Total</span><span class="grand" id="grand">0</span></div>
         <div class="pos-actions">
           <button class="btn btn-success pay" id="payBtn"><i class="bi bi-credit-card-2-front"></i> Pay <span class="kbd">F4</span></button>
           <button class="btn btn-outline-warning" id="holdBtn"><i class="bi bi-pause-circle"></i> Hold <span class="kbd">F8</span></button>
@@ -136,7 +454,15 @@
 <!-- Payment -->
 <div class="ov" id="payOv"><div class="box">
   <div class="d-flex justify-content-between align-items-center mb-2"><h5 class="mb-0">Payment</h5><button class="btn-close" data-close></button></div>
-  <div class="text-center mb-3"><div class="text-muted small">Bill total</div><div class="big" id="pTotal">0</div></div>
+  <div class="text-center mb-2"><div class="text-muted small">Bill total</div><div class="big" id="pTotal">0</div>
+    <div class="small text-muted" id="pBal"></div></div>
+  <div class="border rounded p-2 mb-2" id="instBox">
+    <div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" id="instOn"><label class="form-check-label small fw-semibold" for="instOn"><i class="bi bi-calendar-check"></i> Installment (EMI) sale</label></div>
+    <div class="d-none mt-2" id="instBody">
+      <select id="instPlan" class="form-select form-select-sm mb-1"></select>
+      <div class="small" id="instInfo"></div>
+    </div>
+  </div>
   <div id="pmRows">
   {% for k, label, ic in methods %}
     <div class="pm"><label class="small"><i class="bi {{ ic }}"></i> {{ label }}</label>
@@ -145,17 +471,13 @@
   </div>
   <div class="d-flex gap-1 flex-wrap mb-3">
     <button class="btn btn-sm btn-outline-primary" id="exactBtn">Exact cash</button>
+    <button class="btn btn-sm btn-outline-success d-none" id="downBtn">Down payment</button>
     <button class="btn btn-sm btn-outline-secondary q" data-v="500">500</button>
     <button class="btn btn-sm btn-outline-secondary q" data-v="1000">1000</button>
     <button class="btn btn-sm btn-outline-secondary q" data-v="5000">5000</button>
   </div>
   <div class="d-flex justify-content-between"><span>Received</span><b id="pRecv">0</b></div>
   <div class="d-flex justify-content-between"><span id="pLbl">Balance due</span><b id="pDue" class="fs-5">0</b></div>
-  <div class="d-none mt-2" id="hvBox"><!-- agri-edition:harvest -->
-    <label class="small">Wapsi ki tareekh (fasal par) <span class="text-muted">(میعاد)</span></label>
-    <input type="date" id="hvDate" class="form-control form-control-sm mb-1">
-    <input type="text" id="hvNote" maxlength="200" class="form-control form-control-sm" placeholder="Note (maslan: gandum ki fasal par)">
-  </div>
   <div class="alert alert-danger py-1 mt-2 mb-0 d-none" id="pErr"></div>
   <button class="btn btn-success w-100 mt-3" style="min-height:54px;font-size:1.1rem" id="doPay">Complete sale <span class="kbd">Enter</span></button>
 </div></div>
@@ -226,9 +548,111 @@
   <div class="d-flex justify-content-between align-items-center mb-2"><h5 class="mb-0">Held bills</h5><button class="btn-close" data-close></button></div>
   <div id="heldList"></div>
 </div></div>
+<!-- ========================================= -->
+<!-- OCR MODAL: SCAN PRODUCT NAME WITH CAMERA   -->
+<!-- ========================================= -->
+<div class="modal fade" id="ocrModal" tabindex="-1" data-bs-backdrop="static" aria-labelledby="ocrTitle">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg modal-fullscreen-md-down">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="ocrTitle"><i class="bi bi-camera-fill"></i> Scan Product Name</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="ocr-layout">
+
+          <!-- 1) SCAN: camera, status, actions, settings, manual search -->
+          <div class="ocr-scan">
+            <div class="ocr-video-wrap">
+              <video id="ocrVideo" playsinline muted autoplay></video>
+              <div class="ocr-guide" id="ocrGuide"></div>
+              <div class="ocr-hint">Keep the product name or barcode inside the frame</div>
+            </div>
+            <details class="ocr-details" id="ocrDetails" open>
+              <summary><span class="ocr-live-dot" id="ocrLiveDot"></span> Details (for troubleshooting) <span class="ocr-live-tag">LIVE</span></summary>
+              <div id="ocrLiveLine" class="ocr-liveline">waiting for camera...</div>
+              <div id="ocrDebug" class="ocr-debug">—</div>
+              <canvas id="ocrPreview"></canvas>
+            </details>
+            <div>
+              <div class="ocr-status" id="ocrStatus" role="status" aria-live="polite">Starting camera...</div>
+              <div class="ocr-read mt-1">Read: <span id="ocrText">—</span></div>
+            </div>
+            <div class="ocr-actions">
+              <button type="button" class="btn btn-primary" onclick="ocrCaptureNow()"><i class="bi bi-camera"></i> Read now</button>
+              <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('ocrFile').click()"><i class="bi bi-image"></i> Photo</button>
+              <button type="button" class="btn btn-outline-secondary d-none" id="ocrTorchBtn" onclick="ocrToggleTorch()"><i class="bi bi-lightbulb"></i> Light</button>
+              <input type="file" id="ocrFile" accept="image/*" capture="environment" class="d-none">
+            </div>
+            <div class="ocr-controls">
+              <label class="ocr-chip"><input type="checkbox" id="ocrAuto" checked> Auto-add</label>
+              <label class="ocr-chip"><input type="checkbox" id="ocrSound" checked onchange="ocrSavePrefs()"> <i class="bi bi-volume-up"></i> Sound</label>
+              <label class="ocr-chip"><input type="checkbox" id="ocrBarcode" checked onchange="ocrSavePrefs()"> <i class="bi bi-upc-scan"></i> Barcode</label>
+              <label class="ocr-chip"><input type="checkbox" id="ocrAssist" checked onchange="ocrSavePrefs()"> <i class="bi bi-brightness-high"></i> Auto light/zoom</label>
+              <select id="ocrRegion" class="form-select form-select-sm" onchange="ocrRegionChanged()" aria-label="Scan area">
+                <option value="box">Box only</option><option value="full">Full frame</option>
+              </select>
+            </div>
+            <div class="ocr-controls d-none" id="ocrZoomRow">
+              <div class="ocr-zoom"><span><i class="bi bi-zoom-in"></i> Zoom</span>
+              <input type="range" id="ocrZoom" class="form-range" oninput="ocrSetZoom(this.value)"></div>
+            </div>
+            <div class="ocr-manual">
+              <input type="text" id="ocrManual" class="form-control" placeholder="Wrong reading? Type the name and press Enter" autocomplete="off" enterkeyhint="search">
+              <button type="button" class="btn btn-dark" onclick="ocrManualSearch()"><i class="bi bi-search"></i> Find</button>
+            </div>
+          </div>
+
+          <!-- 2) RESULTS: suggestions first, then what was added -->
+          <div class="ocr-panel">
+            <section class="ocr-card" aria-label="Suggestions">
+              <div class="ocr-sec"><span class="ttl"><i class="bi bi-stars"></i> Suggestions <span class="ocr-count zero" id="ocrSuggCount">0</span></span><span class="fw-normal text-lowercase" style="letter-spacing:0">tap to add</span></div>
+              <div class="ocr-qtybar" role="group" aria-label="Quantity used when you tap a suggestion">
+                <span class="ocr-qtylbl">Qty</span>
+                <button type="button" class="ocr-qchip active" data-q="1" onclick="ocrSetQty(1)">1</button>
+                <button type="button" class="ocr-qchip" data-q="2" onclick="ocrSetQty(2)">2</button>
+                <button type="button" class="ocr-qchip" data-q="5" onclick="ocrSetQty(5)">5</button>
+                <button type="button" class="ocr-qchip" data-q="10" onclick="ocrSetQty(10)">10</button>
+                <input type="number" id="ocrQtyInput" class="form-control" value="1" min="0.001" step="any" inputmode="decimal" aria-label="Custom quantity" oninput="ocrSetQty(this.value, true)" onchange="ocrQtyNormalize()">
+                <div class="ocr-qtyhint">Used when you tap a suggestion. Auto-add always adds 1. Resets to 1 after each add.</div>
+              </div>
+              <div id="ocrMatches" class="ocr-matches" aria-live="polite"></div>
+            </section>
+
+            <section class="ocr-card" aria-label="Added in this scan">
+              <div class="ocr-sec"><span class="ttl"><i class="bi bi-cart-check"></i> Added in this scan <span class="ocr-count zero" id="ocrAddedBadge">0</span></span></div>
+              <div id="ocrAddedInfo" class="ocr-added-info"></div>
+              <div class="ocr-undo d-none" id="ocrUndoBar">
+                <span id="ocrUndoText"></span>
+                <button type="button" class="btn btn-sm btn-warning" onclick="ocrUndo()"><i class="bi bi-arrow-counterclockwise"></i> Undo</button>
+              </div>
+              <div class="ocr-cartlist" id="ocrCartList"></div>
+              <div class="ocr-summary" id="ocrSummary">
+                <div class="ocr-sum"><small>Items</small><b id="ocrSumItems">0</b></div>
+                <div class="ocr-sum"><small>Qty</small><b id="ocrSumQty">0</b></div>
+                <div class="ocr-sum tot"><small>Total</small><b id="ocrSumTotal">0</b></div>
+              </div>
+            </section>
+
+          </div>
+
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div class="ocr-foot-total">Scanned total<b id="ocrTotal">Rs 0</b></div>
+        <button type="button" class="btn btn-success px-4" data-bs-dismiss="modal"><i class="bi bi-check2-circle"></i> Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
+<!-- Tesseract is loaded by ocrEnsureLib(): local static/tesseract/ first, CDN only as a fallback -->
+<script src="{% static 'ocr/ocr_match.js' %}"></script>
+<script src="{% static 'ocr/ocr_prep.js' %}"></script>
+<script src="{% static 'ocr/ocr_barcode.js' %}"></script>
 {{ company|json_script:"coData" }}
 <script>
 (function(){
@@ -382,16 +806,6 @@ function reset(){ S.cart = []; S.customer = {id:WALKIN, name:'Walk-in Customer'}
 function editTopQty(){ var i = $('cart').querySelector('input[data-a="qty"]'); if(i){ i.focus(); } else toast('The cart is empty', true); }
 
 /* ---------- search / scan ---------- */
-/* agri-edition: expiry line under the item (expired stock is never sold) */
-function agriExp(p){
-  var out = '';
-  if(p.expired_qty > 0) out += '<span class="small text-danger d-block">&#9888; '+fq(p.expired_qty)+' expired (sale nahi hogi)</span>';
-  if(p.expiry){
-    var c = p.exp_status === 'd30' ? 'text-danger' : (p.exp_status === 'd60' || p.exp_status === 'd90' ? 'text-warning' : 'text-muted');
-    out += '<span class="small d-block '+c+'">Exp '+esc(p.expiry)+(p.exp_days <= 90 ? ' ('+p.exp_days+' din)' : '')+'</span>';
-  }
-  return out;
-}
 function stkClass(p){ return p.stock <= 0 ? 'zero' : (p.stock <= 5 ? 'low' : ''); }
 function load(q){
   var wh = $('wh').value, seq = ++reqSeq;
@@ -401,7 +815,7 @@ function load(q){
      var t = $('tiles'); t.__rows = d.results || [];
      t.innerHTML = t.__rows.length ? t.__rows.map(function(p,i){
        return '<button class="tile'+(p.stock<=0?' out':'')+'" data-i="'+i+'"><span class="n">'+esc(p.name)+'</span>'+
-         '<span class="m"><span class="p">'+(p.price? 'Rs '+money(p.price) : 'No price')+'</span><span class="stk '+stkClass(p)+'">'+fq(p.stock)+' '+esc(p.unit)+'</span></span>'+agriExp(p)+'</button>';
+         '<span class="m"><span class="p">'+(p.price? 'Rs '+money(p.price) : 'No price')+'</span><span class="stk '+stkClass(p)+'">'+fq(p.stock)+' '+esc(p.unit)+'</span></span>'+'</button>';
      }).join('') : '<div class="text-muted p-3">No items found.</div>';
    }).catch(function(){ toast('Could not load items', true); });
 }
@@ -516,11 +930,14 @@ function payCalc(){
   if(a.paid > t + 0.005){ $('pLbl').textContent = 'Extra (bank)'; $('pDue').textContent = money(a.paid - t); }
   else if(a.change > 0){ $('pLbl').textContent = 'Change to return'; $('pDue').textContent = money(a.change); }
   else { $('pLbl').textContent = walk ? 'Balance due' : 'Balance due (credit)'; $('pDue').textContent = money(Math.max(diff,0)); }
-  var err = '';
+  var err = '', instOn = $('instOn').checked;
+  if(instOn) $('pLbl').textContent = 'Remaining (in EMIs)';
   if(a.other > t + 0.005) err = 'The bank amount is more than the bill total.';
-  else if(walk && diff > 0.005) err = 'A walk-in customer must pay the full bill (or select a customer).';
+  else if(instOn && walk) err = 'An installment sale needs a customer. Select a customer first.';
+  else if(instOn && !INST) err = 'Select an installment plan.';
+  else if(instOn && a.paid < INST.down - 0.005) err = 'Down payment must be at least Rs ' + money(INST.down) + '.';
+  else if(!instOn && walk && diff > 0.005) err = 'A walk-in customer must pay the full bill (or select a customer).';
   $('pErr').textContent = err; $('pErr').classList.toggle('d-none', !err);
-  $('hvBox').classList.toggle('d-none', !(diff > 0.005 && !walk));      /* agri: ask the repayment date for credit sales */
   return !err;
 }
 function openPay(){
@@ -528,7 +945,7 @@ function openPay(){
   if(S.cart.some(function(l){ return !(l.price > 0); })){ toast('Enter a price for every item', true); return; }
   if(S.cart.some(function(l){ return !(l.qty > 0); })){ toast('Enter a quantity for every item', true); return; }
   ins().forEach(function(i){ i.value=''; }); document.querySelectorAll('.pm-ref').forEach(function(i){ i.value=''; });
-  $('hvDate').value = ''; $('hvNote').value = '';
+  instReset(); loadBal();
   show('payOv'); payCalc(); var c = document.querySelector('.pm-in[data-m=cash]'); setTimeout(function(){ c.focus(); }, 50);
 }
 $('payBtn').addEventListener('click', openPay);
@@ -537,6 +954,51 @@ $('exactBtn').addEventListener('click', function(){ ins().forEach(function(i){ i
   document.querySelector('.pm-in[data-m=cash]').value = total(); payCalc(); });
 document.querySelectorAll('.q').forEach(function(b){ b.addEventListener('click', function(){
   document.querySelector('.pm-in[data-m=cash]').value = b.dataset.v; payCalc(); }); });
+
+/* ---------- installment (EMI) + customer balance ---------- */
+var INST = null, PLANS = null;
+function instReset(){ INST = null; $('instOn').checked = false; $('instBody').classList.add('d-none'); $('instInfo').textContent = ''; $('downBtn').classList.add('d-none'); }
+function loadBal(){
+  $('pBal').textContent = '';
+  if(S.customer.id === WALKIN) return;
+  var cid = S.customer.id;
+  fetch('{% url "get_customer_balance" %}?customer_id=' + cid).then(function(r){ return r.json(); }).then(function(d){
+    if(d && d.success && S.customer.id === cid){
+      var b = num(d.balance);
+      $('pBal').innerHTML = esc(d.name) + ' &middot; previous balance: <b class="' + (b > 0 ? 'text-danger' : 'text-success') + '">Rs ' + money(b) + '</b>';
+    }
+  }).catch(function(){});
+}
+function instCalc(){
+  INST = null; $('instInfo').textContent = ''; $('downBtn').classList.add('d-none');
+  var id = $('instPlan').value; if(!id){ payCalc(); return; }
+  fetch('{% url "get_installment_plan" %}?plan_id=' + encodeURIComponent(id) + '&total_amount=' + encodeURIComponent(total()))
+   .then(function(r){ return r.json(); }).then(function(d){
+     if(!d.success){ $('instInfo').textContent = d.message || 'Could not calculate.'; payCalc(); return; }
+     INST = {plan:+id, down:num(d.calculation.down_payment), emi:num(d.calculation.emi), months:+d.calculation.number_of_emis,
+             payable:num(d.calculation.total_payable)};
+     $('instInfo').innerHTML = 'Down payment <b>Rs ' + money(INST.down) + '</b> &middot; EMI <b>Rs ' + money(INST.emi) + '</b> x ' + INST.months +
+       ' months<br><span class="text-muted">Total payable Rs ' + money(INST.payable) + '</span>';
+     $('downBtn').classList.remove('d-none'); payCalc();
+   }).catch(function(){ $('instInfo').textContent = 'Network problem.'; });
+}
+$('instOn').addEventListener('change', function(){
+  var on = this.checked;
+  $('instBody').classList.toggle('d-none', !on);
+  if(!on){ INST = null; $('instInfo').textContent = ''; $('downBtn').classList.add('d-none'); payCalc(); return; }
+  if(S.customer.id === WALKIN){ payCalc(); }
+  if(PLANS){ instCalc(); return; }
+  fetch('{% url "get_available_plans" %}').then(function(r){ return r.json(); }).then(function(d){
+    PLANS = d.plans || [];
+    $('instPlan').innerHTML = '<option value="">Select plan...</option>' + PLANS.map(function(p){
+      return '<option value="'+p.id+'">'+esc(p.name)+' ('+p.duration_months+' months, '+num(p.down_payment_percent)+'% down)</option>'; }).join('');
+    if(!PLANS.length) $('instInfo').textContent = 'No active installment plan. Create one in Installments > Plans.';
+    payCalc();
+  }).catch(function(){ $('instInfo').textContent = 'Could not load plans.'; });
+});
+$('instPlan').addEventListener('change', instCalc);
+$('downBtn').addEventListener('click', function(){ if(!INST) return; ins().forEach(function(i){ i.value=''; });
+  document.querySelector('.pm-in[data-m=cash]').value = INST.down; payCalc(); });
 
 var busy = false;
 function complete(){
@@ -547,15 +1009,15 @@ function complete(){
   busy = true; $('doPay').disabled = true;
   fetch('{% url "pos_checkout" %}', {method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
     body: JSON.stringify({warehouse:$('wh').value, customer:S.customer.id, discount:Math.round(discount()*100)/100,
-      harvest_due_date: $('hvBox').classList.contains('d-none') ? '' : $('hvDate').value, harvest_note: $('hvNote').value,
-      items:S.cart.map(function(l){ return {product_id:l.id, qty:r3(l.qty), price:l.price}; }), payments:pays})})
+      items:S.cart.map(function(l){ return {product_id:l.id, qty:r3(l.qty), price:l.price}; }), payments:pays,
+      is_installment:$('instOn').checked, plan_id:INST ? INST.plan : null})})
    .then(function(r){ return r.json().then(function(d){ d.__ok = r.ok; return d; }); })
    .then(function(d){
      busy = false; $('doPay').disabled = false;
      if(!d.success){ $('pErr').textContent = d.message || 'The sale was not saved.'; $('pErr').classList.remove('d-none'); beep(false); return; }
      lastSale = d; lastSale.change = a.change; hide('payOv'); beep(true);
      $('dBill').textContent = d.bill_no; $('dChange').textContent = money(a.change);
-     $('dInfo').textContent = 'Total Rs ' + money(d.total) + (d.balance > 0 ? ' · Credit Rs ' + money(d.balance) : '') + (d.credit_warning ? ' · ⚠ ' + d.credit_warning : '');
+     $('dInfo').textContent = 'Total Rs ' + money(d.total) + (d.installment ? ' · EMI Rs ' + money(d.installment.emi) + ' x ' + d.installment.months : (d.balance > 0 ? ' · Credit Rs ' + money(d.balance) : ''));
      show('doneOv'); reset(); loadShift();
      if($('autoPrint').checked) printReceipt(lastSale);
    }).catch(function(){ busy = false; $('doPay').disabled = false; $('pErr').textContent = 'Network problem: the sale may not be saved. Check the sales list before trying again.'; $('pErr').classList.remove('d-none'); });
@@ -566,17 +1028,26 @@ $('newBtn').addEventListener('click', function(){ hide('doneOv'); focusSearch();
 $('printBtn').addEventListener('click', function(){ if(lastSale) printReceipt(lastSale); });
 document.querySelectorAll('[data-close]').forEach(function(b){ b.addEventListener('click', function(){ b.closest('.ov').classList.remove('show'); pending = null; focusSearch(); }); });
 
-/* ---------- receipt (80mm) ---------- */
+/* ---------- receipt (80mm) - English or Urdu ---------- */
+var RCPT = {
+  en:{dir:'ltr', bill:'Bill', cashier:'Cashier', customer:'Customer', sub:'Subtotal', disc:'Discount', total:'TOTAL', paid:'Paid', change:'Change', due:'Balance due', emi:'Monthly EMI', months:'Months', voided:'*** VOID ***', thanks:'Thank you! Please visit again.'},
+  ur:{dir:'rtl', bill:'بل نمبر', cashier:'کیشیئر', customer:'گاہک', sub:'سب ٹوٹل', disc:'رعایت', total:'کل رقم', paid:'ادا شدہ', change:'واپسی رقم', due:'باقی رقم', emi:'ماہانہ قسط', months:'مہینے', voided:'*** منسوخ ***', thanks:'شکریہ! دوبارہ تشریف لائیں۔'}
+};
+function rcptLang(){ return $('rcptLang') && $('rcptLang').value === 'ur' ? 'ur' : 'en'; }
 function printReceipt(s){
-  var rows = s.items.map(function(i){ return '<tr><td colspan="3">'+esc(i.name)+'</td></tr><tr><td>'+fq(i.qty)+' x '+money(i.price)+'</td><td></td><td class="r">'+money(i.total)+'</td></tr>'; }).join('');
-  var html = '<html><head><meta charset="utf-8"><style>@page{size:80mm auto;margin:3mm}body{font:12px monospace;width:74mm;margin:0}'+
-   'h3{text-align:center;margin:0 0 2px}.c{text-align:center}.r{text-align:right}table{width:100%;border-collapse:collapse}hr{border:0;border-top:1px dashed #000}'+
-   '.b{font-weight:bold;font-size:14px}</style></head><body><h3>'+esc(CO.name)+'</h3>'+(s.voided?'<div class="c b">*** VOID ***</div>':'')+'<div class="c">'+esc(CO.address)+'<br>'+esc(CO.phone)+'</div><hr>'+
-   'Bill: '+esc(s.bill_no)+'<br>'+esc(s.date)+'<br>Cashier: '+esc(s.cashier)+'<br>Customer: '+esc(s.customer)+'<hr><table>'+rows+'</table><hr><table>'+
-   '<tr><td>Subtotal</td><td class="r">'+money(s.subtotal)+'</td></tr>'+(s.discount?'<tr><td>Discount</td><td class="r">-'+money(s.discount)+'</td></tr>':'')+
-   '<tr class="b"><td>TOTAL</td><td class="r">'+money(s.total)+'</td></tr><tr><td>Paid</td><td class="r">'+money(s.paid)+'</td></tr>'+
-   (s.change?'<tr><td>Change</td><td class="r">'+money(s.change)+'</td></tr>':'')+(s.balance>0?'<tr><td>Balance due</td><td class="r">'+money(s.balance)+'</td></tr>':'')+
-   '</table><hr><div class="c">'+esc(CO.footer||'Thank you! Please visit again.')+'</div></body></html>';
+  var L = RCPT[rcptLang()], ur = rcptLang() === 'ur';
+  var rows = s.items.map(function(i){ return '<tr><td colspan="3">'+esc(i.name)+'</td></tr><tr><td><span class="n">'+fq(i.qty)+' x '+money(i.price)+'</span></td><td></td><td class="e"><span class="n">'+money(i.total)+'</span></td></tr>'; }).join('');
+  function row(lbl, val, cls){ return '<tr'+(cls?' class="'+cls+'"':'')+'><td>'+lbl+'</td><td class="e"><span class="n">'+val+'</span></td></tr>'; }
+  var html = '<html dir="'+L.dir+'"><head><meta charset="utf-8"><style>@page{size:80mm auto;margin:3mm}'+
+   'body{font:'+(ur?'13px "Noto Nastaliq Urdu","Jameel Noori Nastaleeq","Segoe UI",Tahoma,Arial,sans-serif;line-height:1.9':'12px monospace')+';width:74mm;margin:0;direction:'+L.dir+'}'+
+   'h3{text-align:center;margin:0 0 2px}.c{text-align:center}.e{text-align:'+(ur?'left':'right')+'}.n{direction:ltr;unicode-bidi:embed;display:inline-block}'+
+   'table{width:100%;border-collapse:collapse}hr{border:0;border-top:1px dashed #000}.b{font-weight:bold;font-size:14px}</style></head><body>'+
+   '<h3>'+esc(CO.name)+'</h3>'+(s.voided?'<div class="c b">'+L.voided+'</div>':'')+'<div class="c">'+esc(CO.address)+'<br><span class="n">'+esc(CO.phone)+'</span></div><hr>'+
+   L.bill+': <span class="n">'+esc(s.bill_no)+'</span><br><span class="n">'+esc(s.date)+'</span><br>'+L.cashier+': '+esc(s.cashier)+'<br>'+L.customer+': '+esc(s.customer)+'<hr><table>'+rows+'</table><hr><table>'+
+   row(L.sub, money(s.subtotal))+(s.discount?row(L.disc, '-'+money(s.discount)):'')+
+   row(L.total, money(s.total), 'b')+row(L.paid, money(s.paid))+
+   (s.change?row(L.change, money(s.change)):'')+(s.balance>0?row(L.due, money(s.balance)):'')+(s.installment?row(L.emi, money(s.installment.emi))+row(L.months, s.installment.months):'')+
+   '</table><hr><div class="c">'+esc(CO.footer||L.thanks)+'</div></body></html>';
   var f = document.createElement('iframe'); f.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0';
   document.body.appendChild(f); var d = f.contentWindow.document; d.open(); d.write(html); d.close();
   setTimeout(function(){ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){} setTimeout(function(){ f.remove(); }, 2000); }, 250);
@@ -584,14 +1055,17 @@ function printReceipt(s){
 
 /* ---------- keyboard + misc ---------- */
 document.addEventListener('keydown', function(e){
+  if(document.querySelector('.modal.show')){ return; }
   if(e.key==='Escape'){ var o = anyOpen(); if(o){ o.classList.remove('show'); pending = null; focusSearch(); } return; }
   if(e.key==='Enter' && $('doneOv').classList.contains('show')){ e.preventDefault(); hide('doneOv'); focusSearch(); return; }
-  var map = {F2:focusSearch, F4:openPay, F6:openRecent, F7:editTopQty, F8:hold, F9:function(){ heldList(); show('heldOv'); }};
+  var map = {F2:focusSearch, F3:function(){ openOcrScanner(); }, F4:openPay, F6:openRecent, F7:editTopQty, F8:hold, F9:function(){ heldList(); show('heldOv'); }};
   if(map[e.key]){ e.preventDefault(); if(!anyOpen() || e.key==='F2') map[e.key](); }
 });
 $('fsBtn').addEventListener('click', function(){ if(document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen(); });
 $('autoPrint').checked = !!lsGet('pos_autoprint', false);
 $('autoPrint').addEventListener('change', function(){ lsSet('pos_autoprint', this.checked); });
+$('rcptLang').value = lsGet('pos_rlang', 'en') === 'ur' ? 'ur' : 'en';
+$('rcptLang').addEventListener('change', function(){ lsSet('pos_rlang', this.value); focusSearch(); });
 $('askQty').checked = !!lsGet('pos_askqty', false);
 $('askQty').addEventListener('change', function(){ lsSet('pos_askqty', this.checked); focusSearch(); });
 $('shCash').addEventListener('input', function(){ var v = clean(this.value, 2); if(v !== this.value) this.value = v; });
@@ -625,6 +1099,1068 @@ $('mvGo').addEventListener('click', function(){
      if(!d.success){ $('mvErr').textContent = d.message; $('mvErr').classList.remove('d-none'); return; }
      hide('mvOv'); toast('Saved'); loadShift(); focusSearch(); });
 });
+
+
+    /* ---------- OCR: scan product name with the camera (same reader as the sale screen) ---------- */
+    function showToast(m, t){ toast(m, t === 'error' || t === 'warning'); }
+    // ========================================== //
+    // OCR: SCAN PRODUCT NAME WITH CAMERA (v2)     //
+    // ========================================== //
+    // Text is read in the browser (Tesseract.js, several passes per picture);
+    // /ajax/ocr-match-product/ finds the product. Auto-add needs the SAME product on 2 reads in a row.
+    // Offline use: host the Tesseract files yourself and fill OCR_OPTS, e.g.
+    // { workerPath: '/static/tesseract/worker.min.js', corePath: '/static/tesseract/', langPath: '/static/tesseract/lang/' }
+    // Files come from static/tesseract/ (run scripts/utilities/fetch_tesseract_assets.py once). If they are
+    // missing the page falls back to the CDN, so nothing breaks while you set it up.
+    const OCR_LOCAL = "{% static 'tesseract/' %}";
+    const OCR_OPTS = { workerPath: OCR_LOCAL + 'worker.min.js', corePath: OCR_LOCAL + 'core/',
+                       langPath: OCR_LOCAL + 'lang/', gzip: false, workerBlobURL: false };
+    // SPEED: the English-only reader loads fast and is used for the live camera. The Urdu+English reader loads
+    // quietly in the background and is only used by "Read now" / photo when the English reading is weak.
+    const OCR_LANGS = ['eng'];
+    const OCR_LANGS_URDU = ['eng+urd'];
+    const OCR_WARMUP_MS = 1200;       // the reader starts loading this long after the page opens (before the camera is touched)
+    const OCR_TICK_MS = 50;           // pause between two live reads (was 250, then 120)
+    const OCR_LIVE_W = 800;           // live picture width given to Tesseract (smaller = faster)
+    const OCR_PREP_URL = "{% static 'ocr/ocr_prep.js' %}";
+    const OCR_CATALOG_URL = '/ajax/ocr-catalog/';
+    const OCR_DARK = 45;              // average brightness (0-255) of the box below which the torch is switched on
+    const OCR_BRIGHT_OFF = 215;       // ...and above which an auto-torch is switched off again
+    const OCR_ZOOM_MIN_RATIO = 0.08;  // text lines shorter than this share of the box height -> zoom in a little
+    const OCR_ZOOM_MAX_RATIO = 0.55;  // taller than this -> zoom out a little
+    const OCR_ZOOM_MAX_SHARE = 0.6;   // auto-zoom never goes beyond this share of the camera's zoom range
+    const OCR_QUICK_CONF = 65;        // a live reading this good stops after the first pass
+    const OCR_LIB_URLS = [OCR_LOCAL + 'tesseract.min.js',
+                          'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js',
+                          'https://unpkg.com/tesseract.js@5.1.1/dist/tesseract.min.js'];
+    const OCR_COOLDOWN_MS = 6000;     // the same product is not auto-added again within this time
+    const OCR_MIN_SHARP = 40;         // below this the picture is too blurry to read (live mode only)
+    const OCR_SURE_SCORE = 92;        // a match this good is added on the first read
+    const OCR_SURE_SCORE2 = 85;       // ...or this good, when the text reading itself was also confident (>= OCR_SURE_CONF)
+    const OCR_SURE_CONF = 70;
+    const OCR_PASSES = [ { v: 'bin', psm: 6 }, { v: 'gray', psm: 6 }, { v: 'inv', psm: 6 } ];   // best single pass first; live reading usually stops after it
+
+    let ocrWorker = null, ocrWorkerLoading = null, ocrLoadingUI = false;
+    let ocrWorkerUr = null, ocrWorkerUrLoading = null;     // optional Urdu+English reader (background)
+    let ocrCamPromise = null;                              // camera request started the moment the button is tapped
+    let ocrAudio = null;                                   // beeps (created on the tap, browsers need a user gesture)
+    let ocrSession = [];                                   // [{id,name,unit}] products put into the cart by this scan window
+    let ocrUndoStack = [];                                 // [{id,name,delta}] newest last
+    let ocrSceneBreak = false;                             // the product left the picture since the last add
+    let ocrCaps = null, ocrTorchUser = false, ocrTorchAuto = false, ocrDark = 0, ocrBrightN = 0, ocrBright = 128, ocrZoomAt = 0;
+    let ocrPrepWorker = null, ocrPrepSeq = 0, ocrPrepWait = {};   // null = not tried yet, false = not available
+    let ocrNoMatchSent = '', ocrWarnText = '';
+    let ocrStream = null, ocrTimer = null;
+    let ocrActive = false, ocrBusy = false, ocrPaused = false, ocrHadRead = false;
+    let ocrAddedCount = 0, ocrRecent = {}, ocrVote = { id: 0, count: 0, t: 0 }, ocrSig = null, ocrLast = null;
+    let ocrLogId = 0;                                  // OcrScanLog row of the matches now on screen
+    const ocrCanvas = document.createElement('canvas');      // contrast-stretched gray
+    const ocrCanvasBin = document.createElement('canvas');   // black/white (Otsu)
+    const ocrCanvasInv = document.createElement('canvas');   // opposite polarity
+    const ocrSigCanvas = document.createElement('canvas');
+    ocrSigCanvas.width = 32; ocrSigCanvas.height = 18;
+
+    function ocrStatus(msg, type) {
+        const el = document.getElementById('ocrStatus');
+        if (!el) return;
+        if (el.textContent !== msg && type !== 'busy') ocrDebug('status: ' + msg);
+        el.textContent = msg;
+        el.className = 'ocr-status ' + (type || '');
+    }
+
+    // LIVE details: newest line first, last 6 kept. One textContent write only while the box is open (no speed cost when closed).
+    let ocrDbgLines = [];
+    function ocrDebug(msg) {
+        const t = new Date();
+        const hh = String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0') + ':' + String(t.getSeconds()).padStart(2, '0');
+        ocrDbgLines.unshift(hh + '  ' + msg);
+        if (ocrDbgLines.length > 6) ocrDbgLines.length = 6;
+        const det = document.getElementById('ocrDetails');
+        if (det && !det.open) return;
+        const el = document.getElementById('ocrDebug');
+        if (el) el.textContent = ocrDbgLines.join('\n');
+        const dot = document.getElementById('ocrLiveDot');
+        if (dot) { dot.classList.add('on'); clearTimeout(ocrDebug._t); ocrDebug._t = setTimeout(() => dot.classList.remove('on'), 1500); }
+    }
+    // HEARTBEAT: one line that changes on EVERY camera check (even when the scene is the same and nothing is read),
+    // so you can see the scanner is alive. Throttled to ~5 per second, only while the box is open.
+    let ocrBeatN = 0, ocrBeatAt = 0;
+    function ocrLive(state, extra) {
+        ocrBeatN++;
+        const now = performance.now();
+        if (now - ocrBeatAt < 200 && state !== 'reading' && state !== 'done') return;
+        ocrBeatAt = now;
+        const det = document.getElementById('ocrDetails');
+        if (det && !det.open) return;
+        const el = document.getElementById('ocrLiveLine');
+        if (el) el.textContent = '\u25CF ' + state + (extra ? ' | ' + extra : '') + ' | checks ' + ocrBeatN;
+        const dot = document.getElementById('ocrLiveDot');
+        if (dot) { dot.classList.add('on'); clearTimeout(ocrDebug._t); ocrDebug._t = setTimeout(() => dot.classList.remove('on'), 1500); }
+    }
+    document.addEventListener('toggle', function (e) {       // opened later -> show what we already have
+        if (e.target && e.target.id === 'ocrDetails' && e.target.open) {
+            const el = document.getElementById('ocrDebug');
+            if (el && ocrDbgLines.length) el.textContent = ocrDbgLines.join('\n');
+        }
+    }, true);
+
+    function openOcrScanner() {
+        const w = document.getElementById('wh').value;
+        if (!w) { showToast('⚠️ Select a store first!', 'warning'); return; }
+        document.getElementById('ocrAddedInfo').textContent = '';
+        ocrDbgLines = []; ocrBeatN = 0;
+        ocrRenderMatches([]);
+        document.getElementById('ocrText').textContent = '—';
+        document.getElementById('ocrManual').value = '';
+        ocrAddedCount = 0; ocrSetQty(1);
+        ocrAudioInit(); ocrLoadPrefs();
+        ocrSession = []; ocrUndoStack = []; ocrSceneBreak = false; ocrCaps = null;
+        ocrTorchUser = false; ocrTorchAuto = false; ocrDark = 0; ocrBrightN = 0; ocrNoMatchSent = ''; ocrWarnText = '';
+        ocrRenderSession(); ocrUpdateUndoBar();
+        ocrCamPromise = ocrOpenCamera();                 // camera + reader start NOW, in parallel with the modal opening
+        ocrLoadWorker().catch(() => {});
+        ocrWarmCatalog(); ocrPrepInit();
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('ocrModal')).show();
+    }
+
+    // ---------- library + worker ----------
+    function ocrEnsureLib() {
+        if (typeof Tesseract !== 'undefined') return Promise.resolve();
+        return OCR_LIB_URLS.reduce((p, url) => p.catch(() => new Promise((res, rej) => {
+            const sc = document.createElement('script');
+            sc.src = url;
+            sc.onload = () => (typeof Tesseract !== 'undefined' ? res() : rej(new Error('bad lib')));
+            sc.onerror = () => rej(new Error('load failed'));
+            document.head.appendChild(sc);
+        })), Promise.reject(new Error('start'))).catch(() => {
+            throw new Error('OCR library could not be loaded. Check the internet, or host Tesseract locally (OCR_OPTS).');
+        });
+    }
+
+    function ocrOnProgress(m) {
+        if (ocrLoadingUI && m && m.status && typeof m.progress === 'number') {
+            ocrStatus('Loading text reader: ' + m.status.replace(/_/g, ' ') + ' ' + Math.round(m.progress * 100) + '%', 'busy');
+        }
+    }
+
+    // tries: local files + eng+urd, local + eng, then CDN defaults + eng+urd, CDN + eng
+    async function ocrCreateWorker(langs) {
+        const sets = [OCR_OPTS, {}], errs = [];
+        for (const o of sets) {
+            for (const lang of (langs || OCR_LANGS)) {
+                try {
+                    const opts = Object.assign({ logger: ocrOnProgress }, o);
+                    const wk = await Promise.race([
+                        Tesseract.createWorker(lang, 1, opts),
+                        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 30000))
+                    ]);
+                    ocrDebug('reader: ' + lang + (o === OCR_OPTS ? ' (local files)' : ' (CDN)'));
+                    return wk;
+                } catch (e) { errs.push(lang + ': ' + (e && e.message || e)); }
+            }
+        }
+        throw new Error('Text reader could not start (' + errs.join('; ') + ')');
+    }
+
+    function ocrLoadWorker() {
+        if (ocrWorker) return Promise.resolve(ocrWorker);
+        if (ocrWorkerLoading) return ocrWorkerLoading;
+        ocrWorkerLoading = (async () => {
+            ocrLoadingUI = true;
+            await ocrEnsureLib();
+            const wk = await ocrCreateWorker(OCR_LANGS);
+            await wk.setParameters({ preserve_interword_spaces: '1', user_defined_dpi: '300' });
+            ocrWorker = wk;
+            ocrLoadingUI = false;
+            setTimeout(ocrLoadUrduWorker, 2500);          // Urdu support arrives quietly, never delays the first scan
+            return wk;
+        })();
+        ocrWorkerLoading.catch(() => { ocrWorkerLoading = null; ocrLoadingUI = false; });
+        return ocrWorkerLoading;
+    }
+
+    function ocrLoadUrduWorker() {
+        if (ocrWorkerUr || ocrWorkerUrLoading || !ocrWorker) return;
+        ocrWorkerUrLoading = (async () => {
+            const wk = await ocrCreateWorker(OCR_LANGS_URDU);
+            await wk.setParameters({ preserve_interword_spaces: '1', user_defined_dpi: '300' });
+            ocrWorkerUr = wk;
+        })();
+        ocrWorkerUrLoading.catch(() => { ocrWorkerUrLoading = null; });   // Urdu is optional - English keeps working
+    }
+
+    // Warm-up: download + start the reader while the cashier is still working, so the camera needs no waiting.
+    function ocrWarmUp() {
+        const go = () => { ocrWarmCatalog(); ocrPrepInit(); if (!ocrWorker && !ocrWorkerLoading) ocrLoadWorker().catch(() => {}); };
+        setTimeout(() => ('requestIdleCallback' in window ? requestIdleCallback(go, { timeout: 4000 }) : go()), OCR_WARMUP_MS);
+    }
+
+
+    // ---------- sound + vibration ----------
+    function ocrAudioInit() {
+        try {
+            if (!ocrAudio) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) ocrAudio = new AC(); }
+            if (ocrAudio && ocrAudio.state === 'suspended') ocrAudio.resume();
+        } catch (e) { ocrAudio = null; }
+    }
+    function ocrTone(freq, ms, delayMs, type, vol) {
+        if (!ocrAudio) return;
+        const t0 = ocrAudio.currentTime + (delayMs || 0) / 1000, o = ocrAudio.createOscillator(), g = ocrAudio.createGain();
+        o.type = type || 'sine'; o.frequency.value = freq;
+        g.gain.setValueAtTime(vol || 0.18, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + ms / 1000);
+        o.connect(g); g.connect(ocrAudio.destination); o.start(t0); o.stop(t0 + ms / 1000 + 0.02);
+    }
+    // kind: ok (added) | tick (+/-) | warn (check this) | err (not found / no stock) | undo
+    function ocrFeedback(kind) {
+        const on = document.getElementById('ocrSound');
+        if (on && !on.checked) return;
+        try {
+            if (kind === 'ok')        { ocrTone(1040, 90, 0); ocrTone(1400, 110, 90); if (navigator.vibrate) navigator.vibrate(40); }
+            else if (kind === 'tick') { ocrTone(900, 40, 0, 'sine', 0.1); if (navigator.vibrate) navigator.vibrate(15); }
+            else if (kind === 'undo') { ocrTone(700, 80, 0); ocrTone(520, 110, 80); if (navigator.vibrate) navigator.vibrate(30); }
+            else if (kind === 'warn') { ocrTone(520, 110, 0, 'triangle'); ocrTone(520, 110, 170, 'triangle'); if (navigator.vibrate) navigator.vibrate([60, 50, 60]); }
+            else if (kind === 'err')  { ocrTone(180, 320, 0, 'sawtooth', 0.14); if (navigator.vibrate) navigator.vibrate(220); }
+        } catch (e) { /* sound must never break scanning */ }
+    }
+    function ocrLoadPrefs() {
+        try {
+            const snd = localStorage.getItem('ocrSound'), ast = localStorage.getItem('ocrAssist'), bcd = localStorage.getItem('ocrBarcode');
+            if (bcd !== null && document.getElementById('ocrBarcode')) document.getElementById('ocrBarcode').checked = bcd !== '0';
+            if (snd !== null) document.getElementById('ocrSound').checked = snd !== '0';
+            if (ast !== null) document.getElementById('ocrAssist').checked = ast !== '0';
+        } catch (e) {}
+    }
+    function ocrSavePrefs() {
+        try {
+            localStorage.setItem('ocrSound', document.getElementById('ocrSound').checked ? '1' : '0');
+            localStorage.setItem('ocrAssist', document.getElementById('ocrAssist').checked ? '1' : '0');
+            localStorage.setItem('ocrBarcode', document.getElementById('ocrBarcode').checked ? '1' : '0');
+        } catch (e) {}
+        ocrAudioInit();
+        ocrBarcodeSync();
+    }
+    function ocrAssistOn() { const c = document.getElementById('ocrAssist'); return !c || c.checked; }
+
+    // ---------- undo + quick quantity ----------
+    function ocrCartIdx(id) { return S.cart.findIndex(i => i.id === id); }
+
+    // ---------- quantity used by a TAPPED suggestion (auto-add always adds 1; resets to 1 after each add) ----------
+    let ocrQty = 1;
+    function ocrSetQty(v, fromInput) {
+        let n = parseFloat(String(v).replace(',', '.'));
+        if (!(n > 0)) { if (fromInput) return; n = 1; }           // while typing: ignore empty / invalid, keep the last good value
+        ocrQty = Math.round(n * 1000) / 1000;
+        const inp = document.getElementById('ocrQtyInput');
+        if (inp && !fromInput) inp.value = ocrQty;
+        document.querySelectorAll('#ocrModal .ocr-qchip').forEach(c => c.classList.toggle('active', parseFloat(c.dataset.q) === ocrQty));
+    }
+    function ocrQtyNormalize() { const inp = document.getElementById('ocrQtyInput'); if (inp) inp.value = ocrQty; }
+
+    function ocrRecordAdd(p, delta) {
+        if (!(delta > 0)) return;
+        ocrUndoStack.push({ id: p.id, name: p.name, delta: delta });
+        if (ocrUndoStack.length > 30) ocrUndoStack.shift();
+        let s = ocrSession.find(x => x.id === p.id);
+        if (!s) ocrSession.push({ id: p.id, name: p.name, unit: p.unit || '' });
+        ocrRenderSession(); ocrUpdateUndoBar();
+    }
+
+    function ocrUpdateUndoBar() {
+        const bar = document.getElementById('ocrUndoBar'), last = ocrUndoStack[ocrUndoStack.length - 1];
+        if (!bar) return;
+        bar.classList.toggle('d-none', !last);
+        if (last) document.getElementById('ocrUndoText').textContent = 'Last added: ' + last.name + ' ×' + last.delta;
+    }
+
+    function ocrAfterCartChange() { render(); ocrRenderSession(); ocrUpdateUndoBar(); }
+
+    function ocrUndo() {
+        const u = ocrUndoStack.pop();
+        if (!u) return;
+        const idx = ocrCartIdx(u.id);
+        if (idx >= 0) {
+            const it = S.cart[idx];
+            it.qty = Math.round((it.qty - u.delta) * 1000) / 1000;
+            if (it.qty <= 0.0005) {
+                S.cart.splice(idx, 1);
+                ocrSession = ocrSession.filter(x => x.id !== u.id);
+            }
+        }
+        delete ocrRecent[u.id];                               // the same product may be scanned again at once
+        ocrAfterCartChange();
+        ocrStatus('↩️ Removed: ' + u.name + ' ×' + u.delta, 'warn');
+        ocrFeedback('undo');
+    }
+
+    // + / - in the scan window: change the quantity of a product that is already in the cart
+    function ocrBump(id, dir) {
+        const idx = ocrCartIdx(id);
+        if (idx < 0) { ocrRenderSession(); return; }
+        const it = S.cart[idx], q = Math.round((it.qty + dir) * 1000) / 1000;
+        if (q <= 0.0005) {
+            S.cart.splice(idx, 1);
+            ocrSession = ocrSession.filter(x => x.id !== id);
+            ocrUndoStack = ocrUndoStack.filter(x => x.id !== id);
+        } else {
+            if (it.stock != null && q > it.stock + 1e-9) {
+                showToast('⚠️ Only ' + it.stock + ' ' + (it.unit || '') + ' in stock', 'warning');
+                ocrFeedback('warn');
+                return;
+            }
+            it.qty = q;
+            if (dir > 0) { ocrUndoStack.push({ id: id, name: it.name, delta: 1 }); }
+        }
+        ocrAfterCartChange();
+        ocrFeedback('tick');
+    }
+
+    // trash button in the scan window: remove the product completely (all quantity)
+    function ocrRemove(id) {
+        const idx = ocrCartIdx(id);
+        if (idx >= 0) S.cart.splice(idx, 1);
+        ocrSession = ocrSession.filter(x => x.id !== id);
+        ocrUndoStack = ocrUndoStack.filter(x => x.id !== id);
+        delete ocrRecent[id];
+        ocrAfterCartChange();
+        ocrFeedback('tick');
+    }
+
+    function ocrRenderSession() {
+        const box = document.getElementById('ocrCartList');
+        if (!box) return;
+        box.innerHTML = '';
+        let total = 0, shown = 0, qtySum = 0;
+        ocrSession.forEach(s => {
+            const idx = ocrCartIdx(s.id);
+            if (idx < 0) return;
+            shown++;
+            const it = S.cart[idx], row = document.createElement('div');
+            row.className = 'ocr-cartrow';
+            total += it.qty * it.price; qtySum += it.qty;
+            const info = document.createElement('div'); info.className = 'info';
+            const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = s.name; nm.title = s.name;
+            const up = document.createElement('div'); up.className = 'up';
+            up.textContent = it.price > 0 ? 'Rs ' + money(it.price) + (s.unit ? ' / ' + s.unit : '') : 'No price set';
+            info.appendChild(nm); info.appendChild(up);
+            const q = document.createElement('div'); q.className = 'ocr-qty';
+            const minus = document.createElement('button'); minus.type = 'button'; minus.textContent = '\u2212'; minus.setAttribute('aria-label', 'Less');
+            minus.onclick = () => ocrBump(s.id, -1);
+            const val = document.createElement('b'); val.textContent = (Math.round(it.qty * 100) / 100) + (s.unit ? ' ' + s.unit : '');
+            const plus = document.createElement('button'); plus.type = 'button'; plus.textContent = '+'; plus.setAttribute('aria-label', 'More');
+            plus.onclick = () => ocrBump(s.id, 1);
+            q.appendChild(minus); q.appendChild(val); q.appendChild(plus);
+            const lt = document.createElement('span'); lt.className = 'lt'; lt.textContent = it.price > 0 ? money(it.qty * it.price) : '\u2014';
+            const del = document.createElement('button'); del.type = 'button'; del.className = 'ocr-del';
+            del.setAttribute('aria-label', 'Remove ' + s.name); del.innerHTML = '<i class="bi bi-trash3"></i>';
+            del.onclick = () => ocrRemove(s.id);
+            row.appendChild(info); row.appendChild(q); row.appendChild(lt); row.appendChild(del);
+            box.appendChild(row);
+        });
+        if (!shown) box.innerHTML = '<div class="ocr-empty"><i class="bi bi-cart"></i> Nothing scanned yet.</div>';
+        const badge = document.getElementById('ocrAddedBadge');
+        if (badge) { badge.textContent = shown; badge.classList.toggle('zero', !shown); }
+        const sm = document.getElementById('ocrSummary'); if (sm) sm.style.display = shown ? '' : 'none';
+        const si = document.getElementById('ocrSumItems'); if (si) si.textContent = shown;
+        const sq = document.getElementById('ocrSumQty'); if (sq) sq.textContent = Math.round(qtySum * 100) / 100;
+        const sT = document.getElementById('ocrSumTotal'); if (sT) sT.textContent = money(total);
+        const t = document.getElementById('ocrTotal'); if (t) t.textContent = 'Rs ' + money(total);
+    }
+
+    // ---------- local catalog (ranking happens on the phone; the server only adds stock / price) ----------
+    function ocrWarmCatalog() {
+        if (typeof OcrMatch === 'undefined') return;
+        OcrMatch.Local.load(OCR_CATALOG_URL).catch(() => {});       // no permission / offline first time -> server ranking is used
+    }
+
+    // &wc=word:confidence,... (at most 40 words) - the server re-scores with exactly what the phone used
+    function ocrWcParam(wc) {
+        const ks = Object.keys(wc || {}).slice(0, 40);
+        return ks.length ? '&wc=' + encodeURIComponent(ks.map(k => k + ':' + wc[k]).join(',')) : '';
+    }
+
+    // Same answer shape as fetch(): the rest of ocrMatch() does not care where the ranking was made.
+    async function ocrRequest(text, w, meta) {
+        const q = '?warehouse_id=' + encodeURIComponent(w) + '&source=' + (meta.source || 'camera') +
+                  (meta.conf != null ? '&conf=' + meta.conf : '') + ocrWcParam(meta.wc) + '&text=' + encodeURIComponent(text);
+        if (typeof OcrMatch !== 'undefined' && OcrMatch.Local.ready()) {
+            const lr = OcrMatch.Local.rank(text, meta.wc);
+            if (lr.text.length < 3) {
+                return { ok: true, status: 200, json: async () => ({ success: false, message: 'No readable text. Hold the product name steady.' }) };
+            }
+            if (!lr.ranked.length) {
+                // nothing found: no network wait, but the server still logs it (the dashboard lists such texts)
+                const letters = lr.text.replace(/[^a-z\u0600-\u06ff]/gi, '').length;
+                const worth = meta.source !== 'camera' || (letters >= 6 && (meta.conf || 0) >= 50);
+                if (worth && ocrNoMatchSent !== lr.text) {
+                    ocrNoMatchSent = lr.text;
+                    fetch('/ajax/ocr-details/' + q + '&ids=').catch(() => {});
+                }
+                return { ok: true, status: 200, json: async () => ({ success: false, text: lr.text, log_id: 0,
+                         message: 'No product found for "' + lr.text + '".' }) };
+            }
+            const ids = lr.ranked.slice(0, 10).map(x => x[1].id).join(',');
+            return fetch('/ajax/ocr-details/' + q + '&ids=' + ids);
+        }
+        return fetch('/ajax/ocr-match-product/' + q);            // local catalog not ready yet -> server ranks
+    }
+
+    // ---------- picture preparation in a web worker ----------
+    function ocrPrepInit() {
+        if (ocrPrepWorker !== null) return;
+        try {
+            if (typeof OffscreenCanvas === 'undefined' || typeof createImageBitmap !== 'function' || !window.Worker) { ocrPrepWorker = false; return; }
+            const wk = new Worker(OCR_PREP_URL);
+            wk.onmessage = ev => {
+                const m = ev.data, p = ocrPrepWait[m.id];
+                if (!p) return;
+                delete ocrPrepWait[m.id];
+                if (m.error) p.rej(new Error(m.error)); else p.res(m);
+            };
+            wk.onerror = () => { ocrPrepFail(new Error('prep worker error')); };
+            ocrPrepWorker = wk;
+        } catch (e) { ocrPrepWorker = false; }
+    }
+    function ocrPrepFail(err) {                                   // from now on: old main-thread path
+        if (ocrPrepWorker && ocrPrepWorker.terminate) { try { ocrPrepWorker.terminate(); } catch (e) {} }
+        ocrPrepWorker = false;
+        Object.keys(ocrPrepWait).forEach(k => { ocrPrepWait[k].rej(err); delete ocrPrepWait[k]; });
+    }
+    function ocrPrepCall(msg, transfer) {
+        return new Promise((res, rej) => {
+            const id = ++ocrPrepSeq;
+            ocrPrepWait[id] = { res: res, rej: rej };
+            msg.id = id;
+            ocrPrepWorker.postMessage(msg, transfer);
+            setTimeout(() => { if (ocrPrepWait[id]) { delete ocrPrepWait[id]; rej(new Error('prep timeout')); } }, 5000);
+        });
+    }
+    // crop + scale + grey + contrast + sharpness: in the worker when possible. Sets ocrCanvas / ocrLast like before.
+    async function ocrPrep(src, r, maxW) {
+        ocrPrepInit();
+        if (ocrPrepWorker) {
+            try {
+                const scale = r.sw > maxW ? maxW / r.sw : (r.sw < 600 ? 2 : 1);
+                const w = Math.max(8, Math.round(r.sw * scale)), h = Math.max(8, Math.round(r.sh * scale));
+                const bmp = await createImageBitmap(src, r.sx, r.sy, r.sw, r.sh, { resizeWidth: w, resizeHeight: h, resizeQuality: 'medium' });
+                const res = await ocrPrepCall({ bmp: bmp, w: w, h: h }, [bmp]);
+                const st = new Uint8ClampedArray(res.st);
+                ocrLast = { st: st, w: w, h: h, thr: res.thr, bin: res.bin ? new Uint8ClampedArray(res.bin) : null, q: res.q || null, box: res.box || null };
+                return { sharp: res.sharp, w: w, h: h, q: res.q || null };
+            } catch (e) {
+                console.warn('OCR prep worker disabled:', e && e.message || e);
+                ocrPrepFail(e);
+            }
+        }
+        return ocrRenderVariants(src, r.sx, r.sy, r.sw, r.sh, maxW);
+    }
+
+    // ---------- auto light + zoom ----------
+    function ocrSetTorch(on, auto) {
+        const track = ocrStream && ocrStream.getVideoTracks()[0];
+        if (!track) return;
+        const btn = document.getElementById('ocrTorchBtn');
+        track.applyConstraints({ advanced: [{ torch: on }] }).then(() => {
+            btn.dataset.on = on ? '1' : '0';
+            if (auto) { ocrTorchAuto = on; ocrStatus(on ? '💡 Light turned on (too dark)' : '💡 Light turned off', ''); }
+        }).catch(() => {});
+    }
+    function ocrAssistLight() {
+        if (!ocrAssistOn() || !ocrCaps || !ocrCaps.torch || ocrTorchUser) return;
+        const on = document.getElementById('ocrTorchBtn').dataset.on === '1';
+        if (!on) {
+            ocrDark = ocrBright < OCR_DARK ? ocrDark + 1 : 0;
+            if (ocrDark >= 3) { ocrDark = 0; ocrSetTorch(true, true); }
+        } else if (ocrTorchAuto) {
+            ocrBrightN = ocrBright > OCR_BRIGHT_OFF ? ocrBrightN + 1 : 0;
+            if (ocrBrightN >= 4) { ocrBrightN = 0; ocrSetTorch(false, true); }
+        }
+    }
+    // median height of the read words as a share of the picture height (null = not enough words to tell)
+    function ocrTextHeightRatio(d, canvasH) {
+        const ws = (d.words || []).filter(w => w.confidence >= 45 && w.bbox && w.text && w.text.trim().length >= 2);
+        if (ws.length < 2 || !canvasH) return null;
+        const hs = ws.map(w => w.bbox.y1 - w.bbox.y0).sort((a, b) => a - b);
+        return hs[Math.floor(hs.length / 2)] / canvasH;
+    }
+    function ocrAssistZoom(ratio) {
+        if (!ocrAssistOn() || !ocrCaps || !ocrCaps.zoom || ratio == null) return;
+        const now = Date.now();
+        if (now - ocrZoomAt < 1500) return;
+        const z = document.getElementById('ocrZoom'), zmin = ocrCaps.zoom.min, zmax = ocrCaps.zoom.max;
+        const span = zmax - zmin, step = Math.max(span * 0.15, ocrCaps.zoom.step || 0.1), cur = parseFloat(z.value) || zmin;
+        let next = null;
+        if (ratio < OCR_ZOOM_MIN_RATIO) next = Math.min(zmin + span * OCR_ZOOM_MAX_SHARE, cur + step);
+        else if (ratio > OCR_ZOOM_MAX_RATIO) next = Math.max(zmin, cur - step);
+        if (next === null || Math.abs(next - cur) < 1e-6) return;
+        ocrZoomAt = now;
+        z.value = next; ocrSetZoom(next);
+        ocrHadRead = false;                                       // read again with the new zoom
+        ocrStatus(next > cur ? '🔍 Text is small - zooming in a little' : '🔍 Text is large - zooming out a little', '');
+    }
+
+    // ---------- camera ----------
+    async function ocrOpenCamera() {
+        ocrDebug('camera: page ' + location.protocol + '//' + location.host + ' | secure ' + (window.isSecureContext ? 'yes' : 'NO') +
+                 ' | camera api ' + (navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? 'yes' : 'NO'));
+        if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            ocrDebug('camera blocked: the browser gives the camera only to https:// or localhost pages (this page is ' + location.protocol + '//' + location.host + ')');
+            return { msg: 'Live camera needs HTTPS (or localhost). Use the 🖼️ Photo button instead.' };
+        }
+        // 1st try: back camera, good size. If the phone refuses those settings, 2nd try: any camera, no settings.
+        const tries = [
+            { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } }, audio: false },
+            { video: { facingMode: 'environment' }, audio: false },
+            { video: true, audio: false }
+        ];
+        let lastErr = null;
+        for (let i = 0; i < tries.length; i++) {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia(tries[i]);
+                if (i) ocrDebug('camera opened with simpler settings (try ' + (i + 1) + ')');
+                return { stream: stream };
+            } catch (e) {
+                lastErr = e;
+                ocrDebug('camera try ' + (i + 1) + ' failed: ' + (e && e.name ? e.name : 'error') + (e && e.message ? ' - ' + e.message : ''));
+                if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError' || e.name === 'NotReadableError')) break;   // permission / camera in use: other settings will not help
+            }
+        }
+        const nm = lastErr && lastErr.name ? lastErr.name : 'error';
+        const why = nm === 'NotAllowedError' ? 'Camera permission is blocked: allow it in the browser (lock icon) and reload.'
+                  : nm === 'NotReadableError' ? 'Camera is in use by another app or tab. Close it and reopen the scanner.'
+                  : nm === 'NotFoundError' ? 'No camera found on this device.' : 'Allow the camera, or use 🖼️ Photo.';
+        return { msg: 'Camera not available (' + nm + '). ' + why };
+    }
+
+    async function startOcr() {
+        ocrActive = true; ocrPaused = false; ocrBusy = false; ocrHadRead = false; ocrSig = null;
+        ocrVote = { id: 0, count: 0, t: 0 };
+        const workerReady = ocrLoadWorker();                    // already loaded (warm-up) -> resolves instantly
+        workerReady.catch(() => {});
+
+        ocrStatus('Starting camera...', 'busy');
+        const camP = ocrCamPromise || ocrOpenCamera();
+        ocrCamPromise = null;
+        const cam = await camP;
+        let cameraOk = false;
+        if (cam.stream) {
+            if (!ocrActive) { cam.stream.getTracks().forEach(t => t.stop()); return; }
+            try {
+                ocrStream = cam.stream;
+                const v = document.getElementById('ocrVideo');
+                v.srcObject = ocrStream;
+                await v.play();
+                const tr = ocrStream.getVideoTracks()[0];
+                ocrDebug('video playing: ' + v.videoWidth + 'x' + v.videoHeight + (tr && tr.label ? ' | ' + tr.label : ''));
+                ocrSetupCameraControls();
+                cameraOk = true;
+                ocrBarcodeStart();
+            } catch (e) {
+                ocrStatus('Camera not available (' + (e && e.name ? e.name : 'error') + '). Allow the camera, or use 🖼️ Photo.', 'warn');
+            }
+        } else {
+            ocrStatus(cam.msg, 'warn');
+        }
+        if (!ocrActive) { stopOcr(); return; }
+
+        try {
+            if (!ocrWorker) ocrStatus('Loading text reader (first time only)...', 'busy');
+            await workerReady;
+        } catch (e) {
+            ocrStatus(e.message || 'Could not load the text reader', 'err');
+            return;
+        }
+        if (!ocrActive) return;
+        if (cameraOk) {
+            ocrStatus('Put the product name inside the box', '');
+            ocrTick();                                          // first read starts at once - no waiting for a steady frame
+        }
+    }
+
+    function stopOcr() {
+        ocrActive = false;
+        clearTimeout(ocrTimer);
+        ocrBarcodeStop();
+        if (ocrCamPromise) {                       // modal closed before the camera answered
+            ocrCamPromise.then(c => { if (c.stream) c.stream.getTracks().forEach(t => t.stop()); });
+            ocrCamPromise = null;
+        }
+        if (ocrStream) { ocrStream.getTracks().forEach(t => t.stop()); ocrStream = null; }
+        const v = document.getElementById('ocrVideo');
+        if (v) v.srcObject = null;
+        ocrSig = null;
+    }
+
+    function ocrSetupCameraControls() {
+        const track = ocrStream && ocrStream.getVideoTracks()[0];
+        const caps = (track && track.getCapabilities) ? track.getCapabilities() : {};
+        ocrCaps = caps;
+        const torchBtn = document.getElementById('ocrTorchBtn');
+        torchBtn.classList.toggle('d-none', !caps.torch);
+        torchBtn.dataset.on = '0';
+        if (track && caps.focusMode && caps.focusMode.indexOf('continuous') >= 0) {
+            track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {});
+        }
+        const zr = document.getElementById('ocrZoomRow'), z = document.getElementById('ocrZoom');
+        if (caps.zoom && caps.zoom.max > caps.zoom.min) {
+            z.min = caps.zoom.min; z.max = caps.zoom.max; z.step = caps.zoom.step || 0.1; z.value = caps.zoom.min;
+            zr.classList.remove('d-none');
+        } else {
+            zr.classList.add('d-none');
+        }
+    }
+
+    function ocrSetZoom(val) {
+        const track = ocrStream && ocrStream.getVideoTracks()[0];
+        if (track) track.applyConstraints({ advanced: [{ zoom: parseFloat(val) }] }).catch(() => {});
+    }
+
+    function ocrToggleTorch() {
+        const track = ocrStream && ocrStream.getVideoTracks()[0];
+        if (!track) return;
+        const btn = document.getElementById('ocrTorchBtn');
+        const on = btn.dataset.on !== '1';
+        ocrTorchUser = true; ocrTorchAuto = false;                // the cashier decides now - no more automatic light
+        track.applyConstraints({ advanced: [{ torch: on }] })
+            .then(() => { btn.dataset.on = on ? '1' : '0'; })
+            .catch(() => {});
+    }
+
+    function ocrRegionChanged() {
+        const full = document.getElementById('ocrRegion').value === 'full';
+        document.getElementById('ocrGuide').classList.toggle('full', full);
+        ocrHadRead = false;
+    }
+
+    // ---------- picture preparation ----------
+    function ocrVideoRect() {
+        const v = document.getElementById('ocrVideo');
+        const vw = v.videoWidth, vh = v.videoHeight;
+        if (!vw || !vh) return null;
+        const full = document.getElementById('ocrRegion').value === 'full';
+        const rw = full ? 1 : 0.86, rh = full ? 1 : 0.40;
+        const wrap = v.parentElement, W = wrap.clientWidth, H = wrap.clientHeight;
+        const sc = Math.max(W / vw, H / vh);                    // object-fit: cover
+        const visW = W / sc, visH = H / sc;
+        const offX = (vw - visW) / 2, offY = (vh - visH) / 2;
+        return {
+            sx: Math.round(offX + visW * (1 - rw) / 2), sy: Math.round(offY + visH * (1 - rh) / 2),
+            sw: Math.round(visW * rw), sh: Math.round(visH * rh)
+        };
+    }
+
+    // mean absolute difference to the previous frame (null on the first frame)
+    function ocrFrameDiff(src, r) {
+        const c = ocrSigCanvas.getContext('2d', { willReadFrequently: true });
+        c.drawImage(src, r.sx, r.sy, r.sw, r.sh, 0, 0, 32, 18);
+        const d = c.getImageData(0, 0, 32, 18).data;
+        const sig = new Uint8Array(576);
+        for (let i = 0, j = 0; i < d.length; i += 4, j++) sig[j] = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) | 0;
+        let bsum = 0;
+        for (let j = 0; j < 576; j++) bsum += sig[j];
+        ocrBright = bsum / 576;
+        let diff = null;
+        if (ocrSig) { let s = 0; for (let j = 0; j < 576; j++) s += Math.abs(sig[j] - ocrSig[j]); diff = s / 576; }
+        ocrSig = sig;
+        return diff;
+    }
+
+    // grey array -> canvas. box = {x0,y0,x1,y1} crops to the text region: Tesseract's time grows with the picture area
+    function ocrPutGray(canvas, arr, w, h, invert, box) {
+        const x0 = box ? box.x0 : 0, y0 = box ? box.y0 : 0, bw = box ? box.x1 - box.x0 : w, bh = box ? box.y1 - box.y0 : h;
+        canvas.width = bw; canvas.height = bh;
+        const ctx = canvas.getContext('2d');
+        const img = ctx.createImageData(bw, bh), px = img.data;
+        let i = 0;
+        for (let y = 0; y < bh; y++) {
+            let j = (y0 + y) * w + x0;
+            for (let x = 0; x < bw; x++, j++, i += 4) {
+                const g = invert ? 255 - arr[j] : arr[j];
+                px[i] = px[i + 1] = px[i + 2] = g; px[i + 3] = 255;
+            }
+        }
+        ctx.putImageData(img, 0, 0);
+    }
+
+    // Main-thread fallback (no OffscreenCanvas / Worker): crop + scale, then the SAME pipeline as the worker -
+    // static/ocr/ocr_prep.js (flatten light -> denoise/sharpen -> deskew -> adaptive black/white).
+    function ocrRenderVariants(src, sx, sy, sw, sh, maxW) {
+        const scale = sw > maxW ? maxW / sw : (sw < 600 ? 2 : 1);
+        const w = Math.max(8, Math.round(sw * scale)), h = Math.max(8, Math.round(sh * scale));
+        ocrCanvas.width = w; ocrCanvas.height = h;
+        const ctx = ocrCanvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(src, sx, sy, sw, sh, 0, 0, w, h);
+        const r = OcrPrep.process(ctx.getImageData(0, 0, w, h).data, w, h);
+        ocrLast = { st: r.st, w: w, h: h, thr: r.thr, bin: r.bin, q: r.q, box: r.box };   // inverted version is built only if needed
+        return { sharp: r.sharp, w: w, h: h, q: r.q };
+    }
+
+    // The picture for one OCR pass, built only when that pass runs, cropped to the text region.
+    function ocrCanvasFor(variant) {
+        const L = ocrLast, box = L.box || null;
+        if (variant === 'bin') {
+            let bin = L.bin;
+            if (!bin) { bin = new Uint8ClampedArray(L.st.length); for (let j = 0; j < bin.length; j++) bin[j] = L.st[j] > L.thr ? 255 : 0; }
+            ocrPutGray(ocrCanvasBin, bin, L.w, L.h, false, box);
+            return ocrCanvasBin;
+        }
+        if (variant === 'inv') { ocrPutGray(ocrCanvasInv, L.st, L.w, L.h, true, box); return ocrCanvasInv; }
+        ocrPutGray(ocrCanvas, L.st, L.w, L.h, false, box);
+        return ocrCanvas;
+    }
+
+    // ---------- reading ----------
+    function ocrCleanText(t) {
+        return (t || '').replace(/[\r\n]+/g, ' ')
+            .split(/\s+/)
+            .filter(w => /[a-z\u0600-\u06ff]{2,}/i.test(w) || /^\d+(\.\d+)?(ml|g|gm|kg|l|ltr)$/i.test(w) || /^\d{8,14}$/.test(w))
+            .map(w => w.replace(/[^a-z0-9.\-\u0600-\u06ff]/gi, ''))
+            .filter(w => w.length >= 2)
+            .slice(0, 18).join(' ');
+    }
+
+    function ocrTextFromData(d, minConf) {
+        let words;
+        if (d.words && d.words.length) words = d.words.filter(w => w.confidence >= minConf).map(w => w.text);
+        else words = (d.text || '').split(/\s+/);
+        return ocrCleanText(words.join(' '));
+    }
+
+    // how sure the camera was about each kept word: {word: 0-100}. The matcher trusts a clearly read word a little
+    // more and forgives a shaky one a little more (ocr_core.score, wconf). Same words as ocrTextFromData keeps.
+    function ocrWordConf(d, minConf) {
+        const out = Object.create(null);
+        (d.words || []).forEach(w => {
+            if (!w || !w.text || !(w.confidence >= minConf)) return;
+            String(w.text).toLowerCase().replace(/[^a-z0-9\u0600-\u06ff]+/g, ' ').trim().split(' ').forEach(t => {
+                if (t.length >= 3) out[t] = Math.min(out[t] === undefined ? 100 : out[t], Math.round(w.confidence));
+            });
+        });
+        return out;
+    }
+
+    async function ocrRecognize(canvas, psm, wk) {
+        wk = wk || ocrWorker;
+        if (wk._psm !== psm) { await wk.setParameters({ tessedit_pageseg_mode: String(psm) }); wk._psm = psm; }
+        const r = await wk.recognize(canvas);
+        return r.data;
+    }
+
+    // Runs up to 2 passes (live) or 3 passes (Read now / photo) and keeps the best reading.
+    async function ocrReadFrom(src, rect, force, maxW) {
+        const v = await ocrPrep(src, rect, maxW);
+        if (!force && v.sharp < OCR_MIN_SHARP) return { blurry: true, sharp: v.sharp };
+        // live frame with no text-like ink at all (product taken away, plain surface): skip Tesseract completely
+        if (!force && v.q && v.q.box === null) return { text: '', conf: 0, variant: 'empty', sharp: Math.round(v.sharp), hRatio: null, q: v.q, ms: 0 };
+        const tOcr = performance.now();
+        const passes = force ? OCR_PASSES : OCR_PASSES.slice(0, 2);
+        let best = null;
+        for (const ps of passes) {
+            if (!ocrActive) break;
+            const cv = ocrCanvasFor(ps.v);
+            const d = await ocrRecognize(cv, ps.psm);
+            const text = ocrTextFromData(d, 45);
+            const letters = text.replace(/[^a-z\u0600-\u06ff]/gi, '').length;
+            const conf = d.confidence || 0;
+            if (letters >= 4 && (!best || conf > best.conf)) best = { text: text, conf: conf, variant: ps.v + '/psm' + ps.psm, canvas: cv,
+                                                                       hRatio: ocrTextHeightRatio(d, ocrLast.h), wc: ocrWordConf(d, 45) };
+            if (best && best.conf >= (force ? 75 : OCR_QUICK_CONF) && letters >= (force ? 8 : 6)) break;
+            if (!force && conf < 25) break;                  // live + nothing like text on pass 1: a 2nd pass will not help, read the next frame instead
+        }
+        // weak reading on a manual / photo read -> try the Urdu+English reader once (if it has finished loading)
+        if (force && ocrActive && ocrWorkerUr && (!best || best.conf < 60)) {
+            try {
+                const d = await ocrRecognize(ocrCanvasFor('gray'), 6, ocrWorkerUr);
+                const text = ocrTextFromData(d, 45);
+                const letters = text.replace(/[^a-z\u0600-\u06ff]/gi, '').length;
+                if (letters >= 4 && (!best || (d.confidence || 0) > best.conf)) {
+                    best = { text: text, conf: d.confidence || 0, variant: 'urd/psm6', canvas: ocrCanvas, wc: ocrWordConf(d, 45) };
+                }
+            } catch (e) { console.warn('Urdu pass failed', e); }
+        }
+        const det = document.getElementById('ocrDetails');
+        if (best && det && det.open) {                       // live preview of the picture the reader saw (small copy = almost no cost)
+            const pv = document.getElementById('ocrPreview');
+            const sc = Math.min(1, 320 / best.canvas.width);
+            const pw = Math.max(1, Math.round(best.canvas.width * sc)), ph = Math.max(1, Math.round(best.canvas.height * sc));
+            if (pv.width !== pw) pv.width = pw;
+            if (pv.height !== ph) pv.height = ph;
+            pv.getContext('2d').drawImage(best.canvas, 0, 0, pw, ph);
+        }
+        return { text: best ? best.text : '', conf: best ? Math.round(best.conf) : 0, variant: best ? best.variant : '-', sharp: Math.round(v.sharp),
+                 hRatio: best ? best.hRatio : null, wc: best ? best.wc : null, q: v.q || null, ms: Math.round(performance.now() - tOcr) };
+    }
+
+    // picture-quality flags from ocr_prep.js -> one short, specific hint for the cashier ('' = nothing to say)
+    function ocrQualityHint(q) {
+        const f = (q && q.flags) || [];
+        if (f.indexOf('glare') >= 0) return 'Shiny reflection on the pack - tilt it a little.';
+        if (f.indexOf('dark') >= 0) return 'Too dark - tap 🔦 Light or move to better light.';
+        if (f.indexOf('low_contrast') >= 0) return 'Faded / low contrast - bring the pack closer to the light.';
+        if (f.indexOf('blurry') >= 0) return 'Blurry - hold steady or move a little back.';
+        return '';
+    }
+
+    async function ocrTick() {
+        if (!ocrActive) return;
+        if (ocrPaused) ocrLive('paused');
+        if (!ocrPaused && !ocrBusy) {
+            ocrBusy = true;
+            try { await ocrReadOnce(false); } catch (e) { console.error('OCR error', e); ocrStatus('Reader error: ' + (e.message || e), 'err'); }
+            ocrBusy = false;
+        }
+        if (ocrActive) ocrTimer = setTimeout(ocrTick, OCR_TICK_MS);
+    }
+
+    function ocrCaptureNow() {
+        if (!ocrWorker) { ocrStatus('Text reader is still loading...', 'busy'); return; }
+        if (!ocrStream) { document.getElementById('ocrFile').click(); return; }
+        if (ocrBusy) { showToast('Reading... one moment', 'info'); return; }
+        ocrBusy = true;
+        ocrReadOnce(true).catch(e => { console.error(e); ocrStatus('Reader error: ' + (e.message || e), 'err'); })
+            .finally(() => { ocrBusy = false; });
+    }
+
+    async function ocrReadOnce(force) {
+        const v = document.getElementById('ocrVideo');
+        const rect = ocrVideoRect();
+        if (!rect) return;
+        if (!force) {
+            const diff = ocrFrameDiff(v, rect);
+            ocrAssistLight();
+            if (diff !== null) {
+                if (diff >= 3) ocrHadRead = false;               // the scene changed -> read it again
+                if (diff > 22) { ocrSceneBreak = true; ocrStatus('Hold the phone steady...', ''); ocrLive('moving', 'change ' + diff.toFixed(1)); return; }
+                if (ocrHadRead) { ocrLive('same picture, already read', 'change ' + diff.toFixed(1) + ' | light ' + Math.round(ocrBright)); return; }   // same scene already handled
+            }
+        }
+        ocrStatus('Reading...', 'busy');
+        ocrLive('reading', force ? 'Read now' : 'live');
+        const tRead = performance.now();
+        const r = await ocrReadFrom(v, rect, force, force ? 1100 : OCR_LIVE_W);
+        if (!ocrActive) return;
+        ocrLive('done', 'took ' + Math.round(performance.now() - tRead) + ' ms | conf ' + (r.conf != null ? r.conf : '-') + ' | sharp ' + (r.sharp != null ? Math.round(r.sharp) : '-'));
+        if (r.blurry) {
+            if (!force) ocrSceneBreak = true;                    // blurry / empty picture = product taken away
+            ocrStatus(ocrQualityHint(r.q) || 'Picture is blurry or empty. Move a little back, hold steady, or tap 📷 Read now.', 'warn');
+            ocrDebug('sharpness ' + Math.round(r.sharp) + ' (needs ' + OCR_MIN_SHARP + ')' + (r.q ? ' | flags ' + r.q.flags.join(',') : ''));
+            return;
+        }
+        ocrDebug('text: "' + r.text + '" | confidence ' + r.conf + ' | ' + r.variant + ' | sharpness ' + r.sharp +
+                 (r.q ? ' | skew ' + r.q.skew + '° | noise ' + r.q.noise + ' | prep ' + r.q.ms + ' ms | read ' + r.ms + ' ms' + (r.q.flags.length ? ' | ' + r.q.flags.join(',') : '') : ''));
+        document.getElementById('ocrText').textContent = r.text || '—';
+        if (!force) ocrAssistZoom(r.hRatio);
+        if (!r.text || (r.conf < 40 && !force)) {
+            if (!force) ocrSceneBreak = true;                    // nothing readable = product taken away
+            ocrHadRead = true;
+            ocrStatus(ocrQualityHint(r.q) || 'Could not read the name. Try better light, or tap 🔦 / zoom / 🖼️ Photo.', force ? 'warn' : '');
+            return;
+        }
+        const pending = await ocrMatch(r.text, force, { source: 'camera', conf: r.conf, wc: r.wc });
+        ocrHadRead = !pending;                                    // waiting for the 2nd confirming read -> read again
+    }
+
+    // Photo / file (works without HTTPS too)
+    async function ocrOnFile(ev) {
+        const f = ev.target.files && ev.target.files[0];
+        ev.target.value = '';
+        if (!f) return;
+        if (!ocrWorker) {
+            try { ocrStatus('Loading text reader...', 'busy'); await ocrLoadWorker(); }
+            catch (e) { ocrStatus(e.message || 'Could not load the text reader', 'err'); return; }
+        }
+        if (ocrBusy) return;
+        ocrBusy = true;
+        try {
+            ocrStatus('Reading photo...', 'busy');
+            let bmp;
+            try { bmp = await createImageBitmap(f, { imageOrientation: 'from-image' }); }
+            catch (e) { bmp = await createImageBitmap(f); }
+            const rect = { sx: 0, sy: 0, sw: bmp.width, sh: bmp.height };
+            const r = await ocrReadFrom(bmp, rect, true, 1600);
+            ocrDebug('photo | text: "' + r.text + '" | confidence ' + r.conf + ' | ' + r.variant);
+            document.getElementById('ocrText').textContent = r.text || '—';
+            if (!r.text) { ocrStatus('Could not read any name from the photo.', 'warn'); }
+            else { await ocrMatch(r.text, true, { source: 'photo', conf: r.conf, wc: r.wc }); }
+        } catch (e) {
+            console.error(e);
+            ocrStatus('Photo error: ' + (e.message || e), 'err');
+        }
+        ocrBusy = false;
+    }
+
+    function ocrManualSearch() {
+        const v = document.getElementById('ocrManual').value.trim();
+        if (v.length < 2) { showToast('Type at least 2 letters', 'warning'); return; }
+        document.getElementById('ocrText').textContent = v;
+        ocrMatch(v, true, { source: 'manual' });
+    }
+
+    // ---------- matching + adding ----------
+    // returns true while a confident match still waits for its second confirming read
+    async function ocrMatch(text, force, meta) {
+        meta = meta || {};
+        const w = document.getElementById('wh').value;
+        ocrStatus('Searching "' + text + '"...', 'busy');
+        let d;
+        try {
+            const r = await ocrRequest(text, w, meta);
+            if (r.status === 429) { ocrStatus('Too many scans - wait a few seconds.', 'warn'); return false; }
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            d = await r.json();
+        } catch (e) { ocrStatus('Network/server error: ' + (e.message || e), 'err'); return false; }
+        if (!ocrActive) return false;
+        if (!d.success) {
+            ocrLogId = 0;
+            ocrRenderMatches([]);
+            ocrStatus((d.message || 'Product not found') + ' Tap 📷 Read now, or type the name below.', 'err');
+            if (force || (meta.source && meta.source !== 'camera')) ocrFeedback('err');   // live camera stays quiet
+            ocrVote = { id: 0, count: 0, t: 0 };
+            return false;
+        }
+        ocrLogId = d.log_id || 0;
+        ocrRenderMatches(d.products);
+        const top = d.products[0];
+        if (!d.confident) {
+            ocrVote = { id: 0, count: 0, t: 0 };
+            ocrStatus('Tap the correct product', 'warn');
+            if (ocrWarnText !== text) { ocrWarnText = text; ocrFeedback('warn'); }
+            return false;
+        }
+        const auto = document.getElementById('ocrAuto').checked;
+        if (!auto && !force) { ocrStatus('Tap the product to add it', 'warn'); return false; }
+        const now = Date.now();
+        if (ocrVote.id === top.id && now - ocrVote.t < 5000) ocrVote.count++; else ocrVote = { id: top.id, count: 1, t: now };
+        ocrVote.t = now;
+        const sure = top.score >= OCR_SURE_SCORE || (top.score >= OCR_SURE_SCORE2 && (meta.conf || 0) >= OCR_SURE_CONF);
+        if (force || ocrVote.count >= 2 || sure) {
+            ocrVote = { id: 0, count: 0, t: 0 };
+            ocrAddProduct(top, !force);
+            return false;
+        }
+        ocrStatus('Looks like "' + top.name + '" - keep steady to confirm...', 'busy');
+        return true;
+    }
+
+    function ocrRenderMatches(list) {
+        const box = document.getElementById('ocrMatches');
+        box.innerHTML = '';
+        const cnt = document.getElementById('ocrSuggCount');
+        if (cnt) { cnt.textContent = list.length; cnt.classList.toggle('zero', !list.length); }
+        if (!list.length) { box.innerHTML = '<div class="ocr-empty"><i class="bi bi-upc-scan"></i> Suggestions appear here after a reading.</div>'; return; }
+        list.forEach((p, n) => {
+            const st = parseFloat(p.stock) || 0, oos = st <= 0 && !(parseFloat(p.batch_remaining_qty) > 0);
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'ocr-match' + (oos ? ' oos' : '');
+            b.setAttribute('aria-label', 'Add ' + p.name);
+            const rank = document.createElement('span'); rank.className = 'ocr-rank'; rank.textContent = n + 1;
+            const left = document.createElement('span'); left.className = 'ocr-match-main';
+            const nm = document.createElement('div'); nm.className = 'ocr-match-name'; nm.textContent = p.name;
+            if (n === 0) { const best = document.createElement('span'); best.className = 'ocr-best'; best.textContent = 'Best match'; nm.appendChild(best); }
+            const sub = document.createElement('div'); sub.className = 'ocr-match-sub';
+            const bits = [p.barcode, p.unit].filter(Boolean);
+            if (typeof p.score === 'number') bits.push('Match ' + Math.round(p.score) + '%');
+            sub.textContent = bits.join(' \u00b7 ');
+            left.appendChild(nm); if (sub.textContent) left.appendChild(sub);
+            const right = document.createElement('span'); right.className = 'ocr-match-meta';
+            const pr = document.createElement('span'); pr.className = 'ocr-price';
+            pr.textContent = p.has_selling_price ? 'Rs ' + (parseFloat(p.price) || 0).toLocaleString('en-PK', { maximumFractionDigits: 2 }) : 'No price';
+            const sk = document.createElement('span'); sk.className = 'ocr-stock ' + (st <= 0 ? 'zero' : (st <= 5 ? 'low' : ''));
+            sk.textContent = st <= 0 ? 'Out of stock' : (st + (p.unit ? ' ' + p.unit : '') + (st <= 5 ? ' left' : ' in stock'));
+            const add = document.createElement('span'); add.className = 'ocr-addbtn';
+            add.innerHTML = oos ? '<i class="bi bi-slash-circle"></i> Empty' : '<i class="bi bi-plus-lg"></i> Add';
+            right.appendChild(pr); right.appendChild(sk); right.appendChild(add);
+            b.appendChild(rank); b.appendChild(left); b.appendChild(right);
+            b.onclick = () => ocrAddProduct(p, false);
+            box.appendChild(b);
+        });
+    }
+
+    // Tells the server which product was finally chosen (log + alias learning). Never blocks the sale.
+    function ocrSendFeedback(p, fromAuto) {
+        if (!ocrLogId) return;
+        const body = new URLSearchParams({ log_id: ocrLogId, product_id: p.id, how: fromAuto ? 'auto' : 'tap' });
+        ocrLogId = 0;
+        fetch('/ajax/ocr-feedback/', { method: 'POST', body: body,
+            headers: { 'X-CSRFToken': CSRF } }).catch(() => {});
+    }
+
+    function ocrAddProduct(p, fromAuto) {
+        const now = Date.now();
+        // Same product again: normally blocked for a few seconds (the camera still sees the same box), but if the
+        // product LEFT the picture and came back, it is a second item -> quantity +1.
+        const cooling = ocrRecent[p.id] && now - ocrRecent[p.id] < OCR_COOLDOWN_MS;
+        const comeBack = ocrSceneBreak && ocrRecent[p.id] && now - ocrRecent[p.id] > 1500;
+        if (fromAuto && cooling && !comeBack) {
+            ocrStatus('Already added: ' + p.name, 'warn');
+            ocrHadRead = true;
+            return;
+        }
+        ocrSendFeedback(p, fromAuto);
+        const remaining = parseFloat(p.batch_remaining_qty) || 0;
+        if (remaining <= 0 && !(parseFloat(p.stock) > 0)) {
+            ocrStatus('Out of stock: ' + p.name, 'err');
+            showToast('❌ Out of stock: ' + p.name, 'error');
+            ocrFeedback('err');
+            return;
+        }
+        const idx0 = ocrCartIdx(p.id), before = idx0 >= 0 ? S.cart[idx0].qty : 0;
+        const stockNow = parseFloat(p.stock) || 0;
+        let want = fromAuto ? 1 : ocrQty;                       // a tapped suggestion uses the Qty chosen above
+        if (stockNow > 0 && before + want > stockNow + 1e-9) {  // never put more in the cart than the stock
+            want = Math.round((stockNow - before) * 1000) / 1000;
+            if (want <= 0) { ocrStatus('Already at full stock: ' + p.name, 'warn'); ocrFeedback('warn'); return; }
+            showToast('⚠️ Only ' + stockNow + ' ' + (p.unit || '') + ' in stock - added ' + want, 'warning');
+        }
+        addProduct({ id: p.id, name: p.name, unit: p.unit || '', stock: stockNow,
+                     price: p.has_selling_price ? (parseFloat(p.price) || 0) : 0 }, want);
+        const ok = ocrCartIdx(p.id) >= 0 && S.cart[ocrCartIdx(p.id)].qty > before;
+        if (ok) {
+            ocrRecent[p.id] = now; ocrAddedCount++; ocrSceneBreak = false;
+            const idx1 = ocrCartIdx(p.id), after = idx1 >= 0 ? S.cart[idx1].qty : before;
+            ocrRecordAdd(p, after - before);
+            document.getElementById('ocrAddedInfo').textContent = '✅ ' + ocrAddedCount + ' added · last: ' + p.name;
+            ocrStatus((p.has_selling_price ? '✅ Added' : '⚠️ Added (enter the price in the cart)') + (after - before !== 1 ? ' ×' + (Math.round((after - before) * 100) / 100) : '') + ': ' + p.name + (after > 1 ? ' (×' + (Math.round(after * 100) / 100) + ' in cart)' : ''), 'ok');
+            ocrFeedback('ok');
+            ocrRenderMatches([]); ocrSetQty(1);
+            ocrPaused = true; ocrHadRead = true;
+            setTimeout(() => { ocrPaused = false; if (ocrActive) ocrStatus('Show the next product', ''); }, 1200);
+        } else {
+            ocrStatus('Could not add ' + p.name, 'err');
+            ocrFeedback('err');
+        }
+    }
+
+    // ---------- barcode (the browser's BarcodeDetector, runs next to the text reader) ----------
+    let ocrBc = null, ocrBcBusy = false;
+    function ocrBarcodeOn() { const c = document.getElementById('ocrBarcode'); return !c || c.checked; }
+    async function ocrBarcodeStart() {
+        if (typeof OcrBarcode === 'undefined' || !ocrActive || !ocrBarcodeOn()) return;
+        if (!ocrBc) ocrBc = OcrBarcode.create({ video: document.getElementById('ocrVideo'), onCode: ocrOnBarcode });
+        const ok = await ocrBc.start();
+        ocrDebug('barcode reader: ' + (ok ? 'on' : 'not supported in this browser (name reading still works)'));
+    }
+    function ocrBarcodeStop() { if (ocrBc) ocrBc.stop(); }
+    function ocrBarcodeSync() { if (!ocrActive) return; if (ocrBarcodeOn()) ocrBarcodeStart(); else ocrBarcodeStop(); }
+    // false = could not use this code right now (the reader offers it again on the next frame)
+    function ocrOnBarcode(code, info) {
+        if (!ocrActive || ocrPaused || ocrBcBusy || !ocrBarcodeOn()) return false;
+        ocrBcBusy = true;
+        if (info && info.again) ocrSceneBreak = true;          // the box left the picture and came back -> a second item
+        document.getElementById('ocrText').textContent = 'Barcode ' + code;
+        ocrMatch(code, false, { source: 'camera', conf: 100 }).catch(() => {}).finally(() => { ocrBcBusy = false; });
+        return true;
+    }
+
+    ocrWarmUp();
+    document.getElementById('ocrModal').addEventListener('shown.bs.modal', startOcr);
+    document.getElementById('ocrModal').addEventListener('hidden.bs.modal', stopOcr);
+    document.getElementById('ocrFile').addEventListener('change', ocrOnFile);
+    document.getElementById('ocrManual').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); ocrManualSearch(); }
+    });
+    window.openOcrScanner = openOcrScanner; window.ocrCaptureNow = ocrCaptureNow; window.ocrToggleTorch = ocrToggleTorch;
+    window.ocrRegionChanged = ocrRegionChanged; window.ocrSetZoom = ocrSetZoom; window.ocrManualSearch = ocrManualSearch;
+    window.ocrUndo = ocrUndo; window.ocrSavePrefs = ocrSavePrefs;
 
 /* ---------- init ---------- */
 var saved = lsGet('pos_cart', null), wh = lsGet('pos_wh', null);

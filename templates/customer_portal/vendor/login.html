@@ -1,0 +1,352 @@
+{% extends 'customer_portal/base_shop.html' %}
+{% load static %}
+
+{% block title %}Vendor Login - {{ company_name }}{% endblock %}
+
+{% block content %}
+
+<style>
+    .login-container {
+        max-width: 450px;
+        margin: 40px auto;
+        padding: 0 15px;
+    }
+    
+    .login-card {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+    }
+    
+    .login-header {
+        background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+        color: white;
+        padding: 40px 30px 30px;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .login-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -30%;
+        width: 200px;
+        height: 200px;
+        background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+        border-radius: 50%;
+    }
+    
+    .login-icon {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 15px;
+        font-size: 32px;
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        position: relative;
+        z-index: 1;
+    }
+    
+    .login-header h3 {
+        margin: 0;
+        font-weight: 700;
+        font-size: 22px;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .login-header p {
+        margin: 8px 0 0;
+        opacity: 0.9;
+        font-size: 13px;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .login-body {
+        padding: 30px;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        color: #1a1a2e;
+        margin-bottom: 8px;
+        font-size: 14px;
+    }
+    
+    .form-group label i {
+        color: #2563eb;
+        margin-right: 6px;
+    }
+    
+    .form-group input {
+        width: 100%;
+        padding: 14px 16px;
+        border: 2px solid #e0e3eb;
+        border-radius: 12px;
+        font-size: 15px;
+        transition: all 0.2s ease;
+        background: #f3f5ff;
+    }
+    
+    .form-group input:focus {
+        outline: none;
+        border-color: #2563eb;
+        background: white;
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+    }
+    
+    .btn-login {
+        width: 100%;
+        padding: 15px;
+        background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+    
+    .btn-login:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(37, 99, 235, 0.4);
+    }
+    
+    .btn-login:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    .login-footer {
+        text-align: center;
+        padding: 20px 30px;
+        background: #f3f5ff;
+        border-top: 1px solid #e0e3eb;
+    }
+    
+    .login-footer p {
+        margin: 0;
+        font-size: 14px;
+        color: #6b7280;
+    }
+    
+    .login-footer a {
+        color: #2563eb;
+        font-weight: 700;
+        text-decoration: none;
+    }
+    
+    .login-footer a:hover {
+        text-decoration: underline;
+    }
+    
+    /* Alerts */
+    .alert-message {
+        padding: 12px 15px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        font-size: 14px;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        animation: fadeIn 0.3s ease;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-5px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .alert-error {
+        background: #f8d7da;
+        color: #721c24;
+        border-left: 4px solid #dc3545;
+    }
+    
+    .alert-success {
+        background: #d4edda;
+        color: #155724;
+        border-left: 4px solid #28a745;
+    }
+    
+    .alert-warning {
+        background: #fff3cd;
+        color: #856404;
+        border-left: 4px solid #ffc107;
+    }
+    
+    .alert-info {
+        background: #d1ecf1;
+        color: #0c5460;
+        border-left: 4px solid #17a2b8;
+    }
+
+    @media (max-width: 480px) {
+        .login-container { margin: 16px auto; padding: 0 10px; }
+        .login-card input, .login-card select, .login-card textarea { font-size: 16px; }  /* iOS zoom na ho */
+        .login-header { padding: 28px 18px 22px; }
+        .login-body { padding: 20px 16px; }
+        .login-footer { padding: 16px; }
+    }
+
+    body { background: #f3f5ff; }
+    .login-card { border-radius: 28px; }
+    .login-header { border-radius: 0 0 30px 30px; }
+    .form-group input { border-radius: 16px; }
+    .btn-login { border-radius: 30px; }
+</style>
+
+<div class="login-container">
+    
+    <div class="login-card">
+        
+        <!-- Header -->
+        <div class="login-header">
+            <div class="login-icon">
+                <i class="bi bi-shop-window"></i>
+            </div>
+            <h3>Vendor Login</h3>
+            <p>Apni products manage karne ke liye login karein</p>
+        </div>
+        
+        <!-- Body -->
+        <div class="login-body">
+            
+            <!-- Messages -->
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert-message 
+                        {% if message.tags == 'error' %}alert-error
+                        {% elif message.tags == 'success' %}alert-success
+                        {% elif message.tags == 'warning' %}alert-warning
+                        {% else %}alert-info{% endif %}">
+                        <i class="bi bi-{% if message.tags == 'error' %}exclamation-circle-fill{% elif message.tags == 'success' %}check-circle-fill{% elif message.tags == 'warning' %}exclamation-triangle-fill{% else %}info-circle-fill{% endif %}"></i>
+                        <span>{{ message }}</span>
+                    </div>
+                {% endfor %}
+            {% endif %}
+            
+            <!-- Login Form -->
+            <form method="POST" id="loginForm">
+                {% csrf_token %}
+                
+                <!-- ✅ Hidden next field -->
+                {% if next %}
+                <input type="hidden" name="next" value="{{ next }}">
+                {% endif %}
+                
+                <!-- Phone -->
+                <div class="form-group">
+                    <label for="phone">
+                        <i class="bi bi-phone-fill"></i> Phone Number
+                    </label>
+                    <input type="tel" 
+                           name="phone" 
+                           id="phone" 
+                           placeholder="03XXXXXXXXX"
+                           required
+                           autocomplete="tel"
+                           inputmode="tel"
+                           autofocus>
+                </div>
+                
+                <!-- Password -->
+                <div class="form-group">
+                    <label for="password">
+                        <i class="bi bi-lock-fill"></i> Password
+                    </label>
+                    <input type="password" 
+                           name="password" 
+                           id="password" 
+                           placeholder="Enter your password"
+                           required
+                           autocomplete="current-password">
+                </div>
+                
+                <!-- Submit -->
+                <button type="submit" class="btn-login" id="loginBtn">
+                    <i class="bi bi-box-arrow-in-right"></i>
+                    <span>Login</span>
+                </button>
+                
+            </form>
+            
+        </div>
+        
+        <!-- Footer -->
+        <div class="login-footer">
+            <p>
+                Don't have an account? 
+                <a href="{% url 'vendor_register' %}">Register as vendor</a>
+            </p>
+        </div>
+        
+    </div>
+    
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Phone input — only digits
+    const phoneInput = document.getElementById('phone');
+    phoneInput.addEventListener('input', function() {
+        this.value = this.value.replace(/[^0-9+\-\s]/g, '');
+    });
+    
+    // Form submit — disable button
+    const form = document.getElementById('loginForm');
+    const btn = document.getElementById('loginBtn');
+    
+    form.addEventListener('submit', function(e) {
+        const phone = phoneInput.value.trim();
+        const password = document.getElementById('password').value;
+        
+        if (!phone || phone.replace(/[^0-9]/g, '').length < 10) {
+            e.preventDefault();
+            alert('❌ Please enter a valid phone number!');
+            phoneInput.focus();
+            return false;
+        }
+        
+        if (!password) {
+            e.preventDefault();
+            alert('❌ Please enter your password!');
+            document.getElementById('password').focus();
+            return false;
+        }
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Logging in...';
+    });
+    
+    // Enter key navigation
+    phoneInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('password').focus();
+        }
+    });
+});
+</script>
+
+{% endblock %}

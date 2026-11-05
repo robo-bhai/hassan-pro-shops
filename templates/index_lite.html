@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}ہوم · Home{% endblock %}
+{% block page_title %}ہوم · Home{% endblock %}
+
+{% block extra_css %}
+<style>
+    .lite { max-width: 980px; margin: 0 auto; }
+    .lite-hello { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+    .lite-hello h1 { font-size:1.25rem; margin:0; }
+    .lite-hello small { color:#6b7280; }
+    .lite-bill { display:inline-flex; align-items:center; gap:10px; padding:14px 26px; border-radius:14px; background:#16a34a;
+        color:#fff; font-size:1.15rem; font-weight:700; text-decoration:none; box-shadow:0 6px 18px rgba(22,163,74,.28); }
+    .lite-bill:hover { background:#15803d; color:#fff; }
+    .lite-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px; margin-bottom:18px; }
+    .lite-card { background:#fff; border:1px solid #e8ebf0; border-radius:16px; padding:18px; }
+    .lite-card .lbl { color:#6b7280; font-size:.9rem; margin-bottom:6px; }
+    .lite-card .val { font-size:1.7rem; font-weight:800; line-height:1.15; }
+    .lite-card .sub { color:#6b7280; font-size:.8rem; margin-top:4px; }
+    .lite-card.sale .val { color:#16a34a; }
+    .lite-card.owe .val { color:#dc2626; }
+    .lite-card.low .val { color:#d97706; }
+    .lite-card a.more { font-size:.8rem; text-decoration:none; }
+    .lite-two { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; }
+    .lite-list { list-style:none; margin:0; padding:0; }
+    .lite-list li { display:flex; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid #f1f3f5; }
+    .lite-list li:last-child { border-bottom:0; }
+    .lite-empty { color:#6b7280; padding:8px 0; }
+    .lite-quick { display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
+    .lite-quick a { padding:10px 16px; border-radius:12px; background:#f1f3f5; color:#1f2937; text-decoration:none; font-weight:600; font-size:.9rem; }
+    .lite-quick a:hover { background:#e5e7eb; }
+    .num { direction:ltr; unicode-bidi:isolate; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="lite">
+
+    <div class="lite-hello">
+        <div>
+            <h1>{{ company_name|default:'Dukaan' }}</h1>
+            <small>{{ today|date:"d M Y" }}</small>
+        </div>
+        <a class="lite-bill" href="{% url 'pos_screen' %}">🧾 نیا بل بنائیں · New Bill</a>
+    </div>
+
+    <div class="lite-grid">
+        <div class="lite-card sale">
+            <div class="lbl">آج کی سیل · Today's Sale</div>
+            <div class="val num">Rs. {{ today_sales|floatformat:0|intcomma }}</div>
+            <div class="sub">{{ today_count }} بل · bills</div>
+        </div>
+        <div class="lite-card">
+            <div class="lbl">آج وصول ہوئے · Received Today</div>
+            <div class="val num">Rs. {{ today_received|floatformat:0|intcomma }}</div>
+            <div class="sub">نقد / ادائیگی · cash &amp; paid</div>
+        </div>
+        <div class="lite-card">
+            <div class="lbl">آج کا منافع · Today's Profit</div>
+            <div class="val num">Rs. {{ today_profit|floatformat:0|intcomma }}</div>
+            <div class="sub">خرچہ · Expense: <span class="num">Rs. {{ today_expense|floatformat:0|intcomma }}</span></div>
+        </div>
+        <div class="lite-card owe">
+            <div class="lbl">کل ادھار باقی · Total Udhaar</div>
+            <div class="val num">Rs. {{ debtors_total|floatformat:0|intcomma }}</div>
+            <div class="sub">{{ debtors_count }} گاہک · customers</div>
+        </div>
+        <div class="lite-card low">
+            <div class="lbl">کم سٹاک · Low Stock</div>
+            <div class="val num">{{ low_count }}</div>
+            <div class="sub"><a class="more" href="{% url 'low_stock_report' %}">دیکھیں · View</a></div>
+        </div>
+    </div>
+
+    <div class="lite-two">
+        <div class="lite-card">
+            <div class="lbl"><strong>کس سے پیسے لینے ہیں · Who owes you</strong></div>
+            {% if top_debtors %}
+            <ul class="lite-list">
+                {% for c in top_debtors %}
+                <li>
+                    <a href="{% url 'customer_detail' c.pk %}">{{ c.name }}</a>
+                    <strong class="num">Rs. {{ c.outstanding|floatformat:0|intcomma }}</strong>
+                </li>
+                {% endfor %}
+            </ul>
+            <a class="more" href="{% url 'customer_outstanding_report' %}">پوری فہرست · Full list</a>
+            {% else %}
+            <div class="lite-empty">کوئی ادھار باقی نہیں 🎉 · No udhaar pending</div>
+            {% endif %}
+        </div>
+
+        <div class="lite-card">
+            <div class="lbl"><strong>ختم ہونے والا مال · Running out</strong></div>
+            {% if low_items %}
+            <ul class="lite-list">
+                {% for i in low_items %}
+                <li>
+                    <span>{{ i.product.name }}</span>
+                    <strong class="num">{{ i.stock|floatformat:"-2" }}{% if i.product.unit %} {{ i.product.unit }}{% endif %}</strong>
+                </li>
+                {% endfor %}
+            </ul>
+            <a class="more" href="{% url 'low_stock_report' %}">پوری فہرست · Full list</a>
+            {% else %}
+            <div class="lite-empty">سٹاک ٹھیک ہے ✅ · Stock is fine</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="lite-quick">
+        <a href="{% url 'customer_create' %}">➕ نیا گاہک · New Customer</a>
+        <a href="{% url 'product_create' %}">➕ نیا آئٹم · New Item</a>
+        <a href="{% url 'purchase_create' %}">🛒 نیا مال · New Purchase</a>
+        <a href="{% url 'expense_create' %}">🧮 خرچہ · Expense</a>
+        <a href="{% url 'shift_close' %}">🔒 شفٹ بند · Close Shift</a>
+    </div>
+
+</div>
+{% endblock %}

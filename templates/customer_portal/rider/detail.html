@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Rider - {{ r.name }}{% endblock %}
+{% block page_title %}🏍️ {{ r.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+  <a href="{% url 'rider_manage' %}" class="btn btn-sm btn-outline-secondary mb-3">← Riders</a>
+
+  <div class="row g-3">
+    <div class="col-6 col-lg-3"><div class="card shadow-sm"><div class="card-body py-2"><div class="text-muted small">Kul deliveries</div><div class="h4 mb-0">{{ b.deliveries }}</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card shadow-sm"><div class="card-body py-2"><div class="text-muted small">⭐ Rating</div><div class="h4 mb-0">{% if rating.avg %}{{ rating.avg }}/5 <small class="text-muted">({{ rating.count }})</small>{% else %}—{% endif %}</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card shadow-sm"><div class="card-body py-2"><div class="text-muted small">Kul kamai</div><div class="h4 mb-0">Rs. {{ b.earned|floatformat:0 }}</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card shadow-sm border-danger"><div class="card-body py-2"><div class="text-muted small">Rider ke paas COD cash</div><div class="h4 mb-0 text-danger">Rs. {{ b.cash_in_hand|floatformat:0 }}</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card shadow-sm border-primary"><div class="card-body py-2"><div class="text-muted small">Rider ko dene wali kamai</div><div class="h4 mb-0 text-primary">Rs. {{ b.due|floatformat:0 }}</div></div></div></div>
+  </div>
+
+  <div class="row g-3 mt-1">
+    <div class="col-lg-4">
+      <div class="card shadow-sm mb-3">
+        <div class="card-header fw-bold">💵 Rider se cash jama</div>
+        <div class="card-body">
+          <form method="post">{% csrf_token %}
+            <input type="hidden" name="action" value="cash_in">
+            <input class="form-control mb-2" name="amount" placeholder="Raqam (max Rs. {{ b.cash_in_hand|floatformat:0 }})" required>
+            <input class="form-control mb-2" name="note" placeholder="Note (optional)">
+            <button class="btn btn-danger w-100">Cash jama karein</button>
+          </form>
+        </div>
+      </div>
+      <div class="card shadow-sm mb-3">
+        <div class="card-header fw-bold">💰 Rider ko kamai ada karein</div>
+        <div class="card-body">
+          <form method="post">{% csrf_token %}
+            <input type="hidden" name="action" value="payout">
+            <input class="form-control mb-2" name="amount" placeholder="Raqam (max Rs. {{ b.due|floatformat:0 }})" required>
+            <input class="form-control mb-2" name="note" placeholder="Note (optional)">
+            <button class="btn btn-primary w-100">Kamai ada karein</button>
+          </form>
+        </div>
+      </div>
+      <div class="card shadow-sm">
+        <div class="card-header fw-bold">⚙️ Fee per delivery</div>
+        <div class="card-body">
+          <form method="post" class="d-flex gap-2">{% csrf_token %}
+            <input type="hidden" name="action" value="fee">
+            <input class="form-control" name="fee" value="{{ r.per_delivery_fee|floatformat:0 }}">
+            <button class="btn btn-outline-primary">Save</button>
+          </form>
+          <div class="small text-muted mt-2">Naye orders par lagu hogi.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-8">
+      <div class="card shadow-sm mb-3">
+        <div class="card-header fw-bold">Hisab ki history</div>
+        <div class="table-responsive"><table class="table table-sm mb-0">
+          <thead class="table-light"><tr><th>Waqt</th><th>Qism</th><th class="text-end">Raqam</th><th>Note</th><th>Ne darj kiya</th></tr></thead>
+          {% for s in settlements %}
+          <tr><td>{{ s.created_at|date:"d M Y, h:i A" }}</td>
+              <td>{% if s.kind == 'cash_in' %}<span class="badge bg-danger">Cash jama</span>{% else %}<span class="badge bg-primary">Kamai ada</span>{% endif %}</td>
+              <td class="text-end">Rs. {{ s.amount|floatformat:0 }}</td><td>{{ s.note|default:"—" }}</td><td>{{ s.created_by.username|default:"—" }}</td></tr>
+          {% empty %}<tr><td colspan="5" class="text-center text-muted py-3">Abhi koi hisab nahi.</td></tr>{% endfor %}
+        </table></div>
+      </div>
+
+      <div class="card shadow-sm mb-3">
+        <div class="card-header fw-bold">⭐ Customer reviews</div>
+        <div class="table-responsive"><table class="table table-sm mb-0">
+          {% for rv in reviews %}
+          <tr><td>#{{ rv.sale_order.order_no }}</td><td><b class="text-warning">{{ rv.rider_rating }} ★</b></td><td>{{ rv.rider_comment|default:"—" }}</td><td>{{ rv.created_at|date:"d M" }}</td></tr>
+          {% empty %}<tr><td class="text-center text-muted py-3">Abhi koi review nahi.</td></tr>{% endfor %}
+        </table></div>
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-header fw-bold">Aakhri deliveries</div>
+        <div class="table-responsive"><table class="table table-sm mb-0">
+          <thead class="table-light"><tr><th>Order</th><th>Waqt</th><th class="text-end">Kamai</th><th class="text-end">COD cash</th></tr></thead>
+          {% for d in deliveries %}
+          <tr><td>#{{ d.sale_order.order_no }}</td><td>{{ d.delivered_at|date:"d M, h:i A" }}</td>
+              <td class="text-end">Rs. {{ d.rider_fee|floatformat:0 }}</td><td class="text-end">Rs. {{ d.cash_collected|floatformat:0 }}</td></tr>
+          {% empty %}<tr><td colspan="4" class="text-center text-muted py-3">Abhi koi delivery nahi.</td></tr>{% endfor %}
+        </table></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

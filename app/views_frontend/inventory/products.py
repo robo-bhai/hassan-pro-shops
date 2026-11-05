@@ -1,9 +1,13 @@
 """Frontend views: products."""
-from ...security.permissions import perm_required
+from ...security.permissions import perm_required, has_matrix_perm
+from ...utils import pricing as pricing_rules
+from ...utils import price_audit
+from ...utils import batch_age
+from django.utils.timezone import localdate
+from ...utils.margin_policy import MarginPolicy
 from django.views.decorators.http import require_POST
 from django.db.models.functions import Coalesce
 from django.db.models import ExpressionWrapper
-from ...store import store_access as _sa      # store-wise: dusre store ka stock chhupao
 from ...models import *
 import json
 import openpyxl
@@ -271,134 +275,429 @@ def delete_product_alias(request):
     return JsonResponse({'success': False, 'message': 'Invalid request'})
 
 
-@login_required
-@perm_required('view_inventory', 'view_products')
-def batch_list(request):
-    """
-    Stock batches with stats
-    ✅ FIXED: ExpressionWrapper for FloatField * DecimalField
-    """
+# ---------------------------------------------------------------------------
+# Stock Batches page
+# ---------------------------------------------------------------------------
+BATCH_SORTS = {            # ?sort=<key>&dir=asc|desc  (whitelist: nothing else reaches order_by)
+    'id': 'id',
+    'product': 'product__name',
+    'remaining': 'remaining_qty',
+    'cost': 'price',
+    'selling': 'selling_price',
+    'value': 'annotated_stock_value',
+    'age': 'purchase_item__purchase__pur_date',   # age desc = OLDEST first (handled in _filtered_batches)
+}
+BATCH_PAGE_SIZES = (25, 50, 100, 200)
+BATCH_STOCK_EPS = batch_age.STOCK_EPS
+
+
+def _stale_cutoff():
+    return batch_age.stale_cutoff(localdate(), batch_age.STALE_DAYS)
+BATCH_EXPORT_LIMIT = 20000
+
+
+def _int_or_none(raw):
+    """'12' -> 12; '', 'abc', None -> None (a bad query string must never crash the page)."""
+    try:
+        return int(str(raw).strip())
+    except (TypeError, ValueError):
+        return None
+
+
+def _date_or_none(raw):
+    try:
+        return datetime.strptime(str(raw).strip(), '%Y-%m-%d').date()
+    except (TypeError, ValueError):
+        return None
+
+
+def _batch_filters(request):
+    """Every filter of the Stock Batches page, read once, validated, reused by list + export."""
+    g = request.GET
+    sort = g.get('sort', 'id')
+    direction = 'asc' if g.get('dir') == 'asc' else 'desc'
+    if sort not in BATCH_SORTS:
+        sort, direction = 'id', 'desc'
+    status = g.get('stock_status', '')
+    if status not in ('in_stock', 'sold', 'has_sp', 'no_sp', 'stale'):
+        status = ''
+    return {
+        'search': g.get('search', '').strip()[:100],
+        'warehouse': _int_or_none(g.get('warehouse')),
+        'category': _int_or_none(g.get('category')),
+        'vendor': _int_or_none(g.get('vendor')),
+        'date_from': _date_or_none(g.get('date_from')),
+        'date_to': _date_or_none(g.get('date_to')),
+        'stock_status': status,
+        'sort': sort,
+        'dir': direction,
+    }
+
+
+def _filtered_batches(f):
     batches = StockBatch.objects.select_related(
-        'product', 'warehouse', 'product__unit',
-        'purchase_item', 'purchase_item__purchase',
-        'purchase_item__purchase__vendor'
-    ).order_by('-id')
-    
-    batches = _sa.hide_other_stores(request.user, batches, 'warehouse')
-    search = request.GET.get('search', '')
-    if search:
-        batches = batches.filter(
-            Q(product__name__icontains=search) |
-            Q(purchase_item__purchase__bill_no__icontains=search) |
-            Q(product__serial_no__icontains=search)
-        )
-    
-    warehouse_id = request.GET.get('warehouse', '')
-    if warehouse_id:
-        batches = batches.filter(warehouse_id=warehouse_id)
-    
-    stock_status = request.GET.get('stock_status', '')
-    if stock_status == 'in_stock':
-        batches = batches.filter(remaining_qty__gt=0)
-    elif stock_status == 'sold':
-        batches = batches.filter(remaining_qty__lte=0)
-    elif stock_status == 'has_sp':
+        'product', 'product__unit', 'product__category', 'warehouse',
+        'purchase_item', 'purchase_item__purchase', 'purchase_item__purchase__vendor',
+    )
+    if f['search']:
+        q = (Q(product__name__icontains=f['search']) |
+             Q(product__serial_no__icontains=f['search']) |
+             Q(product__barcode__icontains=f['search']) |
+             Q(purchase_item__purchase__bill_no__icontains=f['search']) |
+             Q(purchase_item__purchase__vendor__name__icontains=f['search']))
+        if f['search'].isdigit():
+            q |= Q(id=int(f['search']))
+        batches = batches.filter(q)
+    if f['warehouse']:
+        batches = batches.filter(warehouse_id=f['warehouse'])
+    if f['category']:
+        batches = batches.filter(product__category_id=f['category'])
+    if f['vendor']:
+        batches = batches.filter(purchase_item__purchase__vendor_id=f['vendor'])
+    if f['date_from']:
+        batches = batches.filter(purchase_item__purchase__pur_date__date__gte=f['date_from'])
+    if f['date_to']:
+        batches = batches.filter(purchase_item__purchase__pur_date__date__lte=f['date_to'])
+
+    status = f['stock_status']
+    if status == 'in_stock':
+        batches = batches.filter(remaining_qty__gt=BATCH_STOCK_EPS)
+    elif status == 'sold':
+        batches = batches.filter(remaining_qty__lte=BATCH_STOCK_EPS)
+    elif status == 'has_sp':
         batches = batches.filter(selling_price__gt=0)
-    elif stock_status == 'no_sp':
-        batches = batches.filter(selling_price=0, remaining_qty__gt=0)
-    
-    # ✅ FIX: Use ExpressionWrapper
+    elif status == 'no_sp':
+        batches = batches.filter(selling_price=0, remaining_qty__gt=BATCH_STOCK_EPS)
+    elif status == 'stale':          # in stock and bought STALE_DAYS or more ago
+        batches = batches.filter(remaining_qty__gt=BATCH_STOCK_EPS,
+                                 purchase_item__purchase__pur_date__date__lte=_stale_cutoff())
+
     batches = batches.annotate(
         annotated_stock_value=ExpressionWrapper(
             F('remaining_qty') * F('price'),
             output_field=DecimalField(max_digits=20, decimal_places=2)
         ),
-        annotated_potential_profit=ExpressionWrapper(
-            (F('selling_price') - F('price')) * F('remaining_qty'),
-            output_field=DecimalField(max_digits=20, decimal_places=2)
-        ),
     )
-    
-    # ✅ Aggregate with ExpressionWrapper
-    stats = batches.aggregate(
-        total_batches=Count('id', distinct=True),
-        total_stock_value=Coalesce(
-            Sum(
-                ExpressionWrapper(
-                    F('remaining_qty') * F('price'),
-                    output_field=DecimalField(max_digits=20, decimal_places=2)
-                ),
-                filter=Q(remaining_qty__gt=0)
-            ),
-            Value(Decimal('0.00')),
-            output_field=DecimalField(max_digits=20, decimal_places=2)
-        ),
-        total_potential_profit=Coalesce(
-            Sum(
-                ExpressionWrapper(
-                    (F('selling_price') - F('price')) * F('remaining_qty'),
-                    output_field=DecimalField(max_digits=20, decimal_places=2)
-                ),
-                filter=Q(remaining_qty__gt=0, selling_price__gt=0)
-            ),
-            Value(Decimal('0.00')),
-            output_field=DecimalField(max_digits=20, decimal_places=2)
-        ),
-        active_batches=Count('id', filter=Q(remaining_qty__gt=0)),
+    field = BATCH_SORTS[f['sort']]
+    if f['sort'] == 'age':
+        # older purchase date = bigger age, so "desc" (biggest age first) sorts the date ascending
+        expr = F(field).asc(nulls_last=True) if f['dir'] == 'desc' else F(field).desc(nulls_last=True)
+        return batches.order_by(expr, '-id')
+    order = field if f['dir'] == 'asc' else '-' + field
+    return batches.order_by(order, '-id')
+
+
+def _batch_stats(batches):
+    money = DecimalField(max_digits=20, decimal_places=2)
+    zero = Value(Decimal('0.00'), output_field=money)
+    stale_q = Q(remaining_qty__gt=BATCH_STOCK_EPS,
+                purchase_item__purchase__pur_date__date__lte=_stale_cutoff())
+    return batches.aggregate(
+        total_batches=Count('id'),
+        active_batches=Count('id', filter=Q(remaining_qty__gt=BATCH_STOCK_EPS)),
+        sold_batches=Count('id', filter=Q(remaining_qty__lte=BATCH_STOCK_EPS)),
+        no_price_batches=Count('id', filter=Q(remaining_qty__gt=BATCH_STOCK_EPS, selling_price=0)),
+        total_stock_value=Coalesce(Sum(
+            ExpressionWrapper(F('remaining_qty') * F('price'), output_field=money),
+            filter=Q(remaining_qty__gt=BATCH_STOCK_EPS)), zero, output_field=money),
+        total_potential_profit=Coalesce(Sum(
+            ExpressionWrapper((F('selling_price') - F('price')) * F('remaining_qty'), output_field=money),
+            filter=Q(remaining_qty__gt=BATCH_STOCK_EPS, selling_price__gt=0)), zero, output_field=money),
+        # Dead stock: still in stock and STALE_DAYS or more since the purchase (cash stuck on the shelf)
+        slow_batches=Count('id', filter=stale_q),
+        slow_stock_value=Coalesce(Sum(
+            ExpressionWrapper(F('remaining_qty') * F('price'), output_field=money),
+            filter=stale_q), zero, output_field=money),
     )
-    
-    paginator = Paginator(batches, 50)
-    page = request.GET.get('page', 1)
-    page_obj = paginator.get_page(page)
-    
+
+
+@login_required
+@perm_required('view_inventory', 'view_products')
+def batch_list(request):
+    """Stock batches: filters, sorting, stats, inline selling-price editing (see update views below)."""
+    f = _batch_filters(request)
+    batches = _filtered_batches(f)
+    stats = _batch_stats(batches)
+
+    # Light call used by the page after a price edit: numbers only, no page render.
+    if request.GET.get('stats') == '1':
+        return JsonResponse({
+            'total_batches': f"{stats['total_batches']:,}",
+            'active_batches': f"{stats['active_batches']:,}",
+            'no_price_batches': f"{stats['no_price_batches']:,}",
+            'total_stock_value': f"{stats['total_stock_value']:,.0f}",
+            'total_potential_profit': f"{stats['total_potential_profit']:,.0f}",
+            'slow_stock_value': f"{stats['slow_stock_value']:,.0f}",
+            'slow_batches': f"{stats['slow_batches']:,}",
+        })
+
+    per_page = _int_or_none(request.GET.get('per_page'))
+    if per_page not in BATCH_PAGE_SIZES:
+        per_page = 50
+    page_obj = Paginator(batches, per_page).get_page(request.GET.get('page', 1))
+
+    # Lowest allowed selling price for each row (cost + the minimum-margin policy) + display flags
+    policy = MarginPolicy.load()
+    rows = list(page_obj.object_list)
+    today = localdate()
+    for b in rows:
+        pur = b.purchase_item.purchase.pur_date if b.purchase_item_id and b.purchase_item else None
+        b.age_days = batch_age.age_days(pur, today)
+        b.is_slow = batch_age.is_slow_moving(pur, b.remaining_qty, today, batch_age.STALE_DAYS)
+        b.min_pct = policy.for_product(b.product)
+        b.min_price = pricing_rules.min_price_for(b.price, b.min_pct)
+        b.is_sold_out = b.remaining_qty <= BATCH_STOCK_EPS
+        b.no_price = b.selling_price <= 0
+        b.below_min = 0 < b.selling_price < b.min_price      # policy was raised after the price was set
+        b.sold_pct = round((b.qty - b.remaining_qty) / b.qty * 100) if b.qty else 0
+        b.cost_value = Decimal(str(b.remaining_qty)) * b.price
+    page_obj.object_list = rows
+
+    company = CompanyInfo.objects.first()
+    user = request.user
     context = {
-        'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
+        'company_name': company.name if company else 'ERP System',
+        'min_margin_company': policy.company,
         'page_obj': page_obj,
-        'search': search,
-        'warehouses': _sa.hide_other_stores(request.user, Warehouse.objects.all()),
-        'selected_warehouse': warehouse_id,
-        'stock_status': stock_status,
+        'f': f,
+        'search': f['search'],
+        'warehouses': Warehouse.objects.all(),
+        'categories': Category.objects.order_by('name'),
+        'vendors': Vendor.objects.order_by('name'),
+        'selected_warehouse': str(f['warehouse'] or ''),
+        'selected_category': str(f['category'] or ''),
+        'selected_vendor': str(f['vendor'] or ''),
+        'stock_status': f['stock_status'],
+        'per_page': per_page,
+        'page_sizes': BATCH_PAGE_SIZES,
+        'has_filters': any([f['search'], f['warehouse'], f['category'], f['vendor'],
+                            f['date_from'], f['date_to'], f['stock_status']]),
+        'can_edit_prices': has_matrix_perm(user, 'manage_products'),
+        'can_export': has_matrix_perm(user, 'export_reports'),
+        'can_view_reports': has_matrix_perm(user, 'view_reports'),
         'total_batches': stats['total_batches'],
+        'active_batches': stats['active_batches'],
+        'sold_batches': stats['sold_batches'],
+        'no_price_batches': stats['no_price_batches'],
         'total_stock_value': stats['total_stock_value'],
         'total_potential_profit': stats['total_potential_profit'],
-        'active_batches': stats['active_batches'],
+        'slow_batches': stats['slow_batches'],
+        'slow_stock_value': stats['slow_stock_value'],
+        'stale_days': batch_age.STALE_DAYS,
     }
     return render(request, 'inventory/batches.html', context)
+
+
+def _csv_safe(value):
+    """Stop spreadsheet formula injection (=, +, -, @ at the start of a text cell)."""
+    s = '' if value is None else str(value)
+    return "'" + s if s[:1] in ('=', '+', '-', '@', '\t', '\r') else s
+
+
+@login_required
+@perm_required('export_reports')
+def batch_export(request):
+    """CSV of the batches the page is currently showing (same filters + sort)."""
+    f = _batch_filters(request)
+    batches = _filtered_batches(f)[:BATCH_EXPORT_LIMIT]
+    policy = MarginPolicy.load()
+    today = localdate()
+
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="stock_batches_{datetime.now():%Y%m%d_%H%M}.csv"'
+    response.write('\ufeff')                       # lets Excel open UTF-8 (Urdu names) correctly
+    w = csv.writer(response)
+    w.writerow(['Batch ID', 'Purchase Date', 'Bill No', 'Vendor', 'Product', 'Serial No', 'Category',
+                'Warehouse', 'Qty', 'Remaining', 'Cost Price', 'Selling Price', 'Min Price',
+                'Margin %', 'Stock Value (cost)', 'Stock Value (selling)', 'Age (days)'])
+    for b in batches:
+        purchase = b.purchase_item.purchase if b.purchase_item_id and b.purchase_item else None
+        min_price = pricing_rules.min_price_for(b.price, policy.for_product(b.product))
+        margin = b.profit_margin_percent() if b.selling_price > 0 else ''
+        w.writerow([
+            b.id,
+            purchase.pur_date.strftime('%Y-%m-%d') if purchase and purchase.pur_date else '',
+            _csv_safe(purchase.bill_no) if purchase else '',
+            _csv_safe(purchase.vendor.name) if purchase else '',
+            _csv_safe(b.product.name), _csv_safe(b.product.serial_no),
+            _csv_safe(b.product.category.name if b.product.category else ''),
+            _csv_safe(b.warehouse.name),
+            b.qty, b.remaining_qty, b.price, b.selling_price, min_price,
+            f'{margin:.2f}' if margin != '' else '',
+            f'{Decimal(str(b.remaining_qty)) * b.price:.2f}', f'{b.selling_value():.2f}',
+            batch_age.age_days(purchase.pur_date if purchase else None, today) if purchase else '',
+        ])
+    return response
+
+
+def _batch_price_payload(batch):
+    """Numbers the Stock Batches page needs to redraw one row after a price change."""
+    sp = batch.selling_price
+    return {
+        'batch_id': batch.id,
+        'selling_price': f'{sp:.2f}',
+        'profit_per_unit': f'{batch.profit_per_unit():.2f}',
+        'margin_percent': f'{batch.profit_margin_percent():.2f}' if sp > 0 else '0.00',
+        'selling_value': f'{batch.selling_value():.2f}',
+        'has_price': sp > 0,
+    }
+
+
+def _read_json(request):
+    try:
+        data = json.loads(request.body or b'{}')
+    except (ValueError, UnicodeDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
 
 
 @require_POST
 @login_required
 @perm_required('manage_products')
 def update_batch_selling_price(request):
-    """AJAX: Update batch selling price"""
-    import json
-    data = json.loads(request.body)
-    batch_id = data.get('batch_id')
-    selling_price = data.get('selling_price')
-    
-    if not batch_id or not selling_price:
-        return JsonResponse({'success': False, 'message': 'Missing data'})
-    
+    """AJAX: set the selling price of ONE batch (0 clears it)."""
+    data = _read_json(request)
+    if data is None:
+        return JsonResponse({'success': False, 'message': 'Invalid request.'}, status=400)
+
     try:
-        batch = StockBatch.objects.get(id=batch_id)
-        sp = Decimal(str(selling_price))
-        
-        if sp < batch.price:
-            return JsonResponse({
-                'success': False, 
-                'message': f'Selling price (Rs. {sp:,.2f}) cannot be less than cost price (Rs. {batch.price:,.2f})!'
-            })
-        
-        batch.selling_price = sp
-        batch.save()
-        
-        return JsonResponse({
-            'success': True,
-            'profit': str(batch.profit_per_unit()),
-            'message': f'✅ Selling price updated to Rs. {sp:,.2f}'
-        })
-    except StockBatch.DoesNotExist:
-        return JsonResponse({'success': False, 'message': 'Batch not found'})            
+        batch_id = int(data.get('batch_id'))
+    except (TypeError, ValueError):
+        return JsonResponse({'success': False, 'message': 'Batch is missing.'}, status=400)
+
+    try:
+        new_price = pricing_rules.parse_money(data.get('selling_price'), 'Selling price')
+    except pricing_rules.PriceError as exc:
+        return JsonResponse({'success': False, 'message': str(exc)}, status=400)
+
+    with transaction.atomic():
+        batch = StockBatch.objects.select_for_update().filter(pk=batch_id).first()
+        if batch is None:
+            return JsonResponse({'success': False, 'message': 'Batch not found.'}, status=404)
+        min_pct = MarginPolicy.load().for_product(batch.product)
+        try:
+            new_price = pricing_rules.check_selling_price(batch.price, new_price, min_pct)
+        except pricing_rules.PriceError as exc:
+            return JsonResponse({'success': False, 'message': str(exc),
+                                 'min_price': f'{pricing_rules.min_price_for(batch.price, min_pct):.2f}'}, status=400)
+
+        old_price = batch.selling_price
+        if price_audit.is_real_change(old_price, new_price):
+            batch.selling_price = new_price
+            batch.save(update_fields=['selling_price'])
+            # Same transaction: a price can never change without its history row.
+            price_audit.record([price_audit.build_entry(
+                price_field='batch_selling_price', source='single',
+                old=old_price, new=new_price, product=batch.product, batch=batch, cost=batch.price,
+                user=request.user, ip=price_audit.client_ip(request),
+                reason=str(data.get('reason') or '')[:255])])
+
+    if new_price == 0:
+        message = 'Selling price cleared.'
+    elif new_price == old_price:
+        message = 'Selling price unchanged.'
+    else:
+        message = f'Selling price updated to {pricing_rules.fmt(new_price)}.'
+    payload = _batch_price_payload(batch)
+    payload.update({'success': True, 'message': message, 'changed': new_price != old_price})
+    return JsonResponse(payload)
+
+
+@require_POST
+@login_required
+@perm_required('manage_products')
+def bulk_update_batch_selling_price(request):
+    """AJAX: apply one pricing rule to many batches.
+
+    JSON: {batch_ids: [..], mode: percent|amount|fixed, value: "20", rounding: none|1|5|10,
+           only_in_stock: true, dry_run: true|false}
+    dry_run=true only reports what would happen (nothing is saved).
+    """
+    data = _read_json(request)
+    if data is None:
+        return JsonResponse({'success': False, 'message': 'Invalid request.'}, status=400)
+
+    ids = data.get('batch_ids')
+    if not isinstance(ids, list) or not ids:
+        return JsonResponse({'success': False, 'message': 'Select at least one batch.'}, status=400)
+    if len(ids) > 500:
+        return JsonResponse({'success': False, 'message': 'Please select at most 500 batches at a time.'}, status=400)
+    try:
+        ids = sorted({int(i) for i in ids})
+    except (TypeError, ValueError):
+        return JsonResponse({'success': False, 'message': 'Invalid batch selection.'}, status=400)
+
+    mode = data.get('mode')
+    rounding = data.get('rounding') or 'none'
+    only_in_stock = data.get('only_in_stock', True) is not False
+    dry_run = bool(data.get('dry_run'))
+
+    # Validate the rule itself once, before touching any batch.
+    try:
+        if mode not in pricing_rules.MODES:
+            raise pricing_rules.PriceError('Choose how to set the price (percent, amount or fixed).')
+        pricing_rules.parse_money(data.get('value'), 'Value')
+        pricing_rules.round_up(Decimal('1'), rounding)
+    except pricing_rules.PriceError as exc:
+        return JsonResponse({'success': False, 'message': str(exc)}, status=400)
+
+    updated, unchanged, skipped = [], 0, []
+    run_id = price_audit.new_run_id()
+    rule = price_audit.rule_dict(mode, data.get('value'), rounding, only_in_stock)
+    ip = price_audit.client_ip(request)
+    log_entries = []
+    policy = MarginPolicy.load()   # company + per-category minimum margin, read once
+    with transaction.atomic():
+        batches = StockBatch.objects.select_for_update().select_related('product').filter(pk__in=ids)
+        found = {b.id: b for b in batches}
+        for bid in ids:
+            batch = found.get(bid)
+            if batch is None:
+                skipped.append({'batch_id': bid, 'reason': 'Batch not found'})
+                continue
+            if only_in_stock and batch.remaining_qty <= BATCH_STOCK_EPS:
+                skipped.append({'batch_id': bid, 'product': batch.product.name, 'reason': 'Sold out'})
+                continue
+            try:
+                new_price = pricing_rules.compute_selling_price(batch.price, mode, data.get('value'), rounding,
+                                                                   min_margin=policy.for_product(batch.product))
+            except pricing_rules.PriceError as exc:
+                skipped.append({'batch_id': bid, 'product': batch.product.name, 'reason': str(exc)})
+                continue
+            if new_price == batch.selling_price:
+                unchanged += 1
+                continue
+            if not dry_run:
+                old_price = batch.selling_price
+                batch.selling_price = new_price
+                batch.save(update_fields=['selling_price'])
+                log_entries.append(price_audit.build_entry(
+                    price_field='batch_selling_price', source='bulk',
+                    old=old_price, new=new_price, product=batch.product, batch=batch, cost=batch.price,
+                    user=request.user, ip=ip, run_id=run_id, rule=rule,
+                    reason=str(data.get('reason') or '')[:255]))
+            row = _batch_price_payload(batch) if not dry_run else {'batch_id': batch.id}
+            row['new_price'] = f'{new_price:.2f}'
+            updated.append(row)
+        # One query, still inside the transaction: all prices + all log rows, or nothing.
+        price_audit.record(log_entries)
+
+    verb = 'would be updated' if dry_run else 'updated'
+    message = f'{len(updated)} batch(es) {verb}'
+    if unchanged:
+        message += f', {unchanged} already at that price'
+    if skipped:
+        message += f', {len(skipped)} skipped'
+    return JsonResponse({
+        'success': True,
+        'dry_run': dry_run,
+        'updated_count': len(updated),
+        'unchanged_count': unchanged,
+        'skipped_count': len(skipped),
+        'skipped': skipped[:20],
+        'run_id': str(run_id) if (updated and not dry_run) else None,
+        'message': message + '.',
+    })
 
 
 @login_required
@@ -412,8 +711,6 @@ def product_update(request, pk):
             product.serial_no = request.POST.get('serial_no', '') or None
             product.description = request.POST.get('description', '')
             product.used = request.POST.get('used', '')
-            for _f in ('active_ingredient', 'registration_no', 'pack_size', 'target_crops'):   # [agri-edition:product-update]
-                setattr(product, _f, (request.POST.get(_f) or '').strip() or None)
             product.low_stock_threshold = float(request.POST.get('low_stock_threshold', 10))
             product.unit_id = request.POST.get('unit') or None
             product.category_id = request.POST.get('category') or None
@@ -471,7 +768,7 @@ def inventory_list(request):
         'product__brand', 'product__unit', 'product__location'
     ).order_by('product__name')
     
-    items = _sa.hide_other_stores(request.user, items, 'warehouse')
+    items = items
     # ✅ Search
     search = request.GET.get('search', '')
     if search:
@@ -550,7 +847,7 @@ def inventory_list(request):
         'company_name': CompanyInfo.objects.first().name if CompanyInfo.objects.exists() else 'ERP System',
         'page_obj': page_obj,
         'search': search,
-        'warehouses': _sa.hide_other_stores(request.user, Warehouse.objects.all()),
+        'warehouses': Warehouse.objects.all(),
         'selected_warehouse': warehouse_id,
         'stock_status': stock_status,
         'total_items': total_items,
@@ -634,7 +931,7 @@ def get_product_by_barcode(request):
             price = Decimal('0.0')
             has_selling_price = False
         
-        stock = sum(inv.stock for inv in _sa.hide_other_stores(request.user, Inventory.objects.filter(product=product), 'warehouse'))
+        stock = sum(inv.stock for inv in Inventory.objects.filter(product=product))
     
     return JsonResponse({
         'success': True,
@@ -663,10 +960,6 @@ def product_create(request):
                 description=request.POST.get('description', ''),
                 barcode=request.POST.get('barcode', '') or None,
                 used=request.POST.get('used', ''),
-                active_ingredient=(request.POST.get('active_ingredient') or '').strip() or None,   # [agri-edition:product-create]
-                registration_no=(request.POST.get('registration_no') or '').strip() or None,
-                pack_size=(request.POST.get('pack_size') or '').strip() or None,
-                target_crops=(request.POST.get('target_crops') or '').strip() or None,
                 low_stock_threshold=float(request.POST.get('low_stock_threshold', 10)),
                 unit_id=request.POST.get('unit') or None,
                 category_id=request.POST.get('category') or None,
@@ -1010,7 +1303,7 @@ def product_export_csv(request):
         
         if request.GET.get('with_stock') == 'true':
             # Get total stock across all warehouses
-            total_stock = _sa.hide_other_stores(request.user, Inventory.objects.filter(product=product), 'warehouse').aggregate(
+            total_stock = Inventory.objects.filter(product=product).aggregate(
                 total=django_models.Sum('stock')
             )['total'] or 0
             row.append(str(total_stock))
@@ -1099,7 +1392,7 @@ def product_export_excel(request):
             row.append(float(product.price))
         
         if request.GET.get('with_stock') == 'true':
-            total_stock = _sa.hide_other_stores(request.user, Inventory.objects.filter(product=product), 'warehouse').aggregate(
+            total_stock = Inventory.objects.filter(product=product).aggregate(
                 total=django_models.Sum('stock')
             )['total'] or 0
             row.append(float(total_stock))

@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Shop Banners{% endblock %}
+{% block page_title %}🖼️ Shop Banners{% endblock %}
+
+{% block extra_css %}
+<style>
+  .bn-stat { border: 0; border-radius: 14px; padding: 14px 16px; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+  .bn-stat .n { font-size: 26px; font-weight: 800; line-height: 1; }
+  .bn-stat .l { font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: .4px; margin-top: 4px; }
+  .bn-row { background: #fff; border-radius: 16px; box-shadow: 0 2px 10px rgba(0,0,0,.06); padding: 12px; display: flex; gap: 16px; align-items: center; margin-bottom: 12px; }
+  .bn-row.is-dim { opacity: .65; }
+  .bn-thumb { flex: 0 0 240px; aspect-ratio: 3 / 1; border-radius: 12px; overflow: hidden; background: #ece9ff; }
+  .bn-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .bn-info { flex: 1; min-width: 0; }
+  .bn-title { font-weight: 700; font-size: 16px; margin: 0 0 4px; }
+  .bn-meta { font-size: 13px; color: #6b7280; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .bn-acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: flex-end; }
+  .bn-acts form { margin: 0; }
+  .bn-badge { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 20px; display: inline-block; }
+  .bn-live { background: #d4edda; color: #155724; }
+  .bn-scheduled { background: #dbeafe; color: #1e40af; }
+  .bn-expired { background: #f3f4f6; color: #4b5563; }
+  .bn-off { background: #fee2e2; color: #991b1b; }
+  .bn-empty { background: #fff; border-radius: 18px; text-align: center; padding: 50px 20px; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+  @media (max-width: 768px) {
+    .bn-row { flex-direction: column; align-items: stretch; }
+    .bn-thumb { flex-basis: auto; width: 100%; }
+    .bn-acts { justify-content: flex-start; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+  <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+    <div>
+      <h5 class="mb-0">Promo banners</h5>
+      <small class="text-muted">Yeh banners shop ke Stores page ke upar slider mein dikhte hain.</small>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'store_list' %}" target="_blank" class="btn btn-outline-secondary">👁️ Shop page dekhein</a>
+      <a href="{% url 'shop_banner_create' %}" class="btn btn-primary">➕ Add Banner</a>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3"><div class="bn-stat"><div class="n text-success">{{ counts.live }}</div><div class="l">Live</div></div></div>
+    <div class="col-6 col-md-3"><div class="bn-stat"><div class="n text-primary">{{ counts.scheduled }}</div><div class="l">Scheduled</div></div></div>
+    <div class="col-6 col-md-3"><div class="bn-stat"><div class="n text-secondary">{{ counts.expired }}</div><div class="l">Expired</div></div></div>
+    <div class="col-6 col-md-3"><div class="bn-stat"><div class="n text-danger">{{ counts.off }}</div><div class="l">Off</div></div></div>
+  </div>
+
+  {% if banners %}
+    {% for b in banners %}
+    <div class="bn-row {% if b.state != 'live' %}is-dim{% endif %}">
+      <div class="bn-thumb"><img src="{{ b.image.url }}" alt="{{ b.title }}" loading="lazy"></div>
+
+      <div class="bn-info">
+        <p class="bn-title">{{ b.title }}
+          <span class="bn-badge bn-{{ b.state }} ms-1">
+            {% if b.state == 'live' %}● Live{% elif b.state == 'scheduled' %}🕒 Scheduled{% elif b.state == 'expired' %}Expired{% else %}Off{% endif %}
+          </span>
+        </p>
+        <div class="bn-meta">
+          <span>🔗
+            {% if b.store %}Store: <strong>{{ b.store.business_name }}</strong>
+            {% elif b.link_url %}<span class="text-break">{{ b.link_url|truncatechars:50 }}</span>
+            {% else %}Koi link nahi{% endif %}
+          </span>
+          <span>📅
+            {% if b.starts_on or b.ends_on %}
+              {% if b.starts_on %}{{ b.starts_on|date:"d M Y" }}{% else %}Abhi{% endif %} &rarr; {% if b.ends_on %}{{ b.ends_on|date:"d M Y" }}{% else %}Hamesha{% endif %}
+            {% else %}Hamesha{% endif %}
+          </span>
+          <span>#{{ forloop.counter }}</span>
+        </div>
+      </div>
+
+      <div class="bn-acts">
+        <form method="post" action="{% url 'shop_banner_move' b.pk %}">{% csrf_token %}
+          <input type="hidden" name="direction" value="up">
+          <button class="btn btn-sm btn-outline-secondary" title="Upar" {% if forloop.first %}disabled{% endif %}>▲</button>
+        </form>
+        <form method="post" action="{% url 'shop_banner_move' b.pk %}">{% csrf_token %}
+          <input type="hidden" name="direction" value="down">
+          <button class="btn btn-sm btn-outline-secondary" title="Neeche" {% if forloop.last %}disabled{% endif %}>▼</button>
+        </form>
+        <form method="post" action="{% url 'shop_banner_toggle' b.pk %}">{% csrf_token %}
+          <button class="btn btn-sm {% if b.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}">
+            {% if b.is_active %}⏸ Turn off{% else %}▶ Turn on{% endif %}
+          </button>
+        </form>
+        <a href="{% url 'shop_banner_edit' b.pk %}" class="btn btn-sm btn-outline-primary">✏️ Edit</a>
+        <form method="post" action="{% url 'shop_banner_delete' b.pk %}"
+              onsubmit="return confirm('Banner &quot;{{ b.title|escapejs }}&quot; delete karna hai? Yeh wapas nahi aayega.');">{% csrf_token %}
+          <button class="btn btn-sm btn-outline-danger">🗑️</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="bn-empty">
+      <div style="font-size:46px;">🖼️</div>
+      <h5 class="mt-2">Abhi koi banner nahi</h5>
+      <p class="text-muted mb-3">Offers aur promotions dikhane ke liye pehla banner add karein.<br>
+        Behtareen size: <strong>1200 x 400 px</strong> (JPG, PNG ya WEBP, 4 MB tak).</p>
+      <a href="{% url 'shop_banner_create' %}" class="btn btn-primary">➕ Add your first banner</a>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

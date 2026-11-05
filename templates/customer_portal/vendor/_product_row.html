@@ -1,0 +1,94 @@
+{# Ek product ki card. `row` = {id, v, errors}. id '__ID__' wala copy JS template ke liye hai. #}
+{% with v=row.v %}
+<div class="pf-prow" data-row>
+  <input type="hidden" name="row_ids" value="{{ row.id }}">
+  <div class="pf-prow-head">
+    <span class="pf-prow-title"><i class="bi bi-box-seam"></i> Product <span data-num>#</span></span>
+    <button type="button" class="pf-remove" data-remove title="Ye product hatayein"><i class="bi bi-trash"></i> Remove</button>
+  </div>
+
+  {% if row.errors %}
+  <div class="pf-alert">{% for e in row.errors %}<div>❌ {{ e }}</div>{% endfor %}</div>
+  {% endif %}
+
+  <div class="pf-group">
+    <label>Product Name <span class="pf-req">*</span></label>
+    <input type="text" name="p{{ row.id }}-name" maxlength="100" required value="{{ v.name }}">
+  </div>
+
+  <div class="pf-row">
+    <div class="pf-group">
+      <label>Category <span class="pf-req">*</span></label>
+      <div class="pf-ig">
+        <select name="p{{ row.id }}-category" class="sel-category" required>
+          <option value="">-- Select --</option>
+          {% for c in categories %}
+            <option value="{{ c.id }}" {% if v.category|stringformat:"s" == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+        <button type="button" class="pf-plus" title="Naya Category add karein" data-master="category"><i class="bi bi-plus-lg"></i></button>
+      </div>
+      <div class="pf-hint" data-hint="category"></div>
+    </div>
+    <div class="pf-group">
+      <label>Brand</label>
+      <div class="pf-ig">
+        <select name="p{{ row.id }}-brand" class="sel-brand">
+          <option value="">-- None --</option>
+          {% for b in brands %}
+            <option value="{{ b.id }}" {% if v.brand|stringformat:"s" == b.id|stringformat:"s" %}selected{% endif %}>{{ b.name }}</option>
+          {% endfor %}
+        </select>
+        <button type="button" class="pf-plus" title="Naya Brand add karein" data-master="brand"><i class="bi bi-plus-lg"></i></button>
+      </div>
+      <div class="pf-hint" data-hint="brand"></div>
+    </div>
+  </div>
+
+  <div class="pf-row">
+    <div class="pf-group">
+      <label>Unit</label>
+      <div class="pf-ig">
+        <select name="p{{ row.id }}-unit" class="sel-unit">
+          <option value="">-- None --</option>
+          {% for u in units %}
+            <option value="{{ u.id }}" {% if v.unit|stringformat:"s" == u.id|stringformat:"s" %}selected{% endif %}>{{ u.name }}</option>
+          {% endfor %}
+        </select>
+        <button type="button" class="pf-plus" title="Naya Unit add karein" data-master="unit"><i class="bi bi-plus-lg"></i></button>
+      </div>
+      <div class="pf-hint" data-hint="unit"></div>
+    </div>
+    <div class="pf-group">
+      <label>Product Image <span class="pf-req">*</span></label>
+      <input type="file" name="p{{ row.id }}-image" accept="image/*" required>
+      <div class="pf-help">JPG/PNG/WEBP, 5 MB tak.</div>
+    </div>
+  </div>
+
+  <div class="pf-group">
+    <label>Description</label>
+    <textarea name="p{{ row.id }}-description" rows="2" maxlength="2000">{{ v.description }}</textarea>
+  </div>
+
+  <div class="pf-row3">
+    <div class="pf-group">
+      <label>Selling Price (Rs.) <span class="pf-req">*</span></label>
+      <input type="number" name="p{{ row.id }}-price" data-price min="0.01" step="0.01" required value="{{ v.price|stringformat:'s' }}">
+    </div>
+    <div class="pf-group">
+      <label>Discount %</label>
+      <input type="number" name="p{{ row.id }}-discount_percentage" data-disc min="0" max="90" step="0.01" value="{{ v.discount_percentage|stringformat:'s' }}">
+    </div>
+    <div class="pf-group">
+      <label>Stock Qty <span class="pf-req">*</span></label>
+      <input type="number" name="p{{ row.id }}-stock" min="0" step="any" required value="{{ v.stock|stringformat:'s' }}">
+    </div>
+  </div>
+
+  <div class="pf-earn">
+    💰 Customer price: <b data-pay>-</b> &nbsp;·&nbsp; Commission: <b data-fee>-</b>
+    &nbsp;·&nbsp; Aap ko har unit par: <b data-you class="pf-you">-</b>
+  </div>
+</div>
+{% endwith %}

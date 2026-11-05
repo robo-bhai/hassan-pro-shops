@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ff5a00">
+<title>{% block title %}Rider{% endblock %} - {{ company_name }}</title>
+<style>
+  :root{--brand:#ff5a00;--brand2:#ff8a3d;--ink:#1f2937;--mut:#6b7280;--bg:#f4f5f7;--ok:#16a34a;--card:#fff}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);padding-bottom:84px}
+  a{color:inherit;text-decoration:none}
+  .top{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;padding:14px 16px 18px;border-radius:0 0 22px 22px}
+  .top-row{display:flex;justify-content:space-between;align-items:center}
+  .hi{font-size:13px;opacity:.9}
+  .nm{font-size:20px;font-weight:800}
+  .sw{border:0;border-radius:30px;padding:9px 16px;font-weight:800;font-size:14px;color:#fff;background:rgba(0,0,0,.28)}
+  .sw.on{background:#16a34a}
+  .wrap{padding:14px 14px 0;max-width:640px;margin:0 auto}
+  .flash{margin:12px 14px 0;padding:12px 14px;border-radius:12px;font-size:14px;font-weight:600;max-width:640px;margin-left:auto;margin-right:auto}
+  .flash.success{background:#dcfce7;color:#166534}.flash.error{background:#fee2e2;color:#991b1b}
+  .flash.warning,.flash.info{background:#fef3c7;color:#92400e}
+  .card{background:var(--card);border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:-14px 14px 4px;position:relative;max-width:640px;margin-left:auto;margin-right:auto}
+  .stat{background:#fff;border-radius:14px;padding:10px 6px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.08)}
+  .stat b{display:block;font-size:17px}.stat small{color:var(--mut);font-size:11px}
+  h3{margin:16px 2px 8px;font-size:15px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:4px 0;font-size:14px}
+  .no{font-weight:800;font-size:16px}
+  .pill{font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;background:#ffedd5;color:#c2410c}
+  .pill.g{background:#dcfce7;color:#166534}.pill.b{background:#dbeafe;color:#1d4ed8}
+  .sep{border-top:1px dashed #e5e7eb;margin:10px 0}
+  .cod{background:#fef3c7;color:#92400e;border-radius:10px;padding:8px 10px;font-weight:700;font-size:14px;margin-top:8px}
+  .paid{background:#dcfce7;color:#166534;border-radius:10px;padding:8px 10px;font-weight:700;font-size:14px;margin-top:8px}
+  .acts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .btn{flex:1;min-width:110px;text-align:center;padding:13px 10px;border-radius:12px;border:0;font-weight:800;font-size:15px;color:#fff;background:var(--ok);display:block;width:100%}
+  .btn.o{background:var(--brand)}.btn.l{background:#fff;color:var(--ink);border:1px solid #d1d5db;font-weight:700}
+  .btn.s{padding:9px;font-size:13px;min-width:0}
+  .empty{text-align:center;color:var(--mut);padding:30px 10px}
+  .fee{font-size:20px;font-weight:900;color:var(--ok)}
+  .nav{position:fixed;left:0;right:0;bottom:0;background:#fff;display:flex;border-top:1px solid #e5e7eb;padding-bottom:env(safe-area-inset-bottom,0)}
+  .nav a{flex:1;text-align:center;padding:9px 0 8px;font-size:12px;color:var(--mut);font-weight:700;position:relative}
+  .nav a span{display:block;font-size:22px}
+  .nav a.on{color:var(--brand)}
+  .badge{position:absolute;top:4px;left:calc(50% + 8px);background:#dc2626;color:#fff;border-radius:10px;font-size:11px;padding:0 6px;line-height:16px}
+  table{width:100%;border-collapse:collapse;font-size:14px}td{padding:8px 2px;border-bottom:1px solid #f1f5f9}
+  .toast{position:fixed;top:12px;left:12px;right:12px;background:#111827;color:#fff;padding:14px;border-radius:14px;font-weight:700;z-index:50;display:none;text-align:center}
+</style>
+</head>
+<body>
+{% block header %}
+<div class="top">
+  <div class="top-row">
+    <div><div class="hi">Salam 👋</div><div class="nm">{{ rider.name }}</div></div>
+    <form method="post" action="{% url 'rider_toggle_online' %}">{% csrf_token %}
+      <button class="sw {% if rider.is_online %}on{% endif %}">{% if rider.is_online %}🟢 Online{% else %}⚫ Offline{% endif %}</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% for m in messages %}<div class="flash {{ m.tags }}">{{ m }}</div>{% endfor %}
+{% block body %}{% endblock %}
+
+<div class="toast" id="toast"></div>
+<nav class="nav">
+  <a href="{% url 'rider_home' %}" class="{% if nav == 'orders' %}on{% endif %}"><span>🛵</span>Orders{% if active_count %}<i class="badge">{{ active_count }}</i>{% endif %}</a>
+  <a href="{% url 'rider_history' %}" class="{% if nav == 'history' %}on{% endif %}"><span>🧾</span>History</a>
+  <a href="{% url 'rider_earnings' %}" class="{% if nav == 'earnings' %}on{% endif %}"><span>💰</span>Kamai</a>
+</nav>
+
+<script>
+(function(){
+  var last = null, audioCtx = null;
+  function beep(){
+    try{
+      audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+      [0,.25,.5].forEach(function(t){
+        var o=audioCtx.createOscillator(), g=audioCtx.createGain();
+        o.frequency.value=880; o.connect(g); g.connect(audioCtx.destination);
+        g.gain.setValueAtTime(.25,audioCtx.currentTime+t); o.start(audioCtx.currentTime+t); o.stop(audioCtx.currentTime+t+.18);
+      });
+    }catch(e){}
+    if(navigator.vibrate){navigator.vibrate([300,150,300,150,300]);}
+  }
+  function toast(t){var el=document.getElementById('toast');el.textContent=t;el.style.display='block';setTimeout(function(){el.style.display='none'},5000);}
+  // browser awaaz tab chalne deta hai jab user ne page ko ek dafa touch kiya ho
+  document.addEventListener('touchstart',function(){try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();audioCtx.resume();}catch(e){}},{once:true});
+  function poll(){
+    fetch("{% url 'rider_poll' %}",{credentials:'same-origin'}).then(function(r){return r.json()}).then(function(d){
+      var key = d.offers+'|'+d.assigned;
+      if(last!==null && key!==last){
+        if(d.offers>(+last.split('|')[0])){beep();toast('🆕 Naya order available!');}
+        else if(d.assigned>(+last.split('|')[1])){beep();toast('🏍️ Aap ko naya order diya gaya!');}
+        if(window.location.pathname.replace(/\/$/,'').endsWith('/rider')){setTimeout(function(){location.reload()},1500);}
+      }
+      last=key;
+    }).catch(function(){});
+  }
+  poll(); setInterval(poll,12000);
+})();
+</script>
+</body>
+</html>

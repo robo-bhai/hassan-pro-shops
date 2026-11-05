@@ -1,0 +1,218 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if banner %}Edit Banner{% else %}Add Banner{% endif %}{% endblock %}
+{% block page_title %}🖼️ {% if banner %}Edit Banner{% else %}Add Banner{% endif %}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .bf-card { background: #fff; border-radius: 16px; box-shadow: 0 2px 10px rgba(0,0,0,.06); padding: 20px; }
+  .bf-drop { display: block; border: 2px dashed #c7c3f3; border-radius: 14px; background: #faf9ff; padding: 22px 14px; text-align: center;
+             cursor: pointer; transition: all .15s; }
+  .bf-drop:hover, .bf-drop.drag { border-color: #5a4fcf; background: #efedff; }
+  .bf-drop .big { font-size: 34px; line-height: 1; }
+  .bf-seg { display: inline-flex; border: 2px solid #e5e7eb; border-radius: 12px; overflow: hidden; }
+  .bf-seg label { margin: 0; cursor: pointer; }
+  .bf-seg input { display: none; }
+  .bf-seg span { display: block; padding: 8px 16px; font-size: 14px; font-weight: 600; color: #4b5563; }
+  .bf-seg input:checked + span { background: #5a4fcf; color: #fff; }
+  .bf-prev { aspect-ratio: 3 / 1; border-radius: 14px; overflow: hidden; background: #ece9ff; display: flex; align-items: center;
+             justify-content: center; color: #8b87c9; font-size: 14px; }
+  .bf-prev img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .bf-prev.mobile { aspect-ratio: 2 / 1; max-width: 300px; }
+  .bf-note { font-size: 13px; }
+  .bf-sticky { position: sticky; top: 80px; }
+  .bf-err { color: #dc3545; font-size: 13px; margin-top: 4px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+  <form method="post" enctype="multipart/form-data" id="bannerForm" novalidate>
+    {% csrf_token %}
+    <div class="row g-4">
+
+      <!-- ============ LEFT: form ============ -->
+      <div class="col-lg-7">
+        <div class="bf-card">
+
+          {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+          <!-- Image -->
+          <div class="mb-4">
+            <label class="form-label fw-bold">Banner image <span class="text-danger">*</span></label>
+            <label for="id_image" class="bf-drop" id="dropZone">
+              <div class="big">📤</div>
+              <div class="fw-semibold mt-2">Image yahan drop karein ya click karke chunein</div>
+              <div class="text-muted bf-note mt-1">JPG, PNG ya WEBP &middot; {{ max_mb }} MB tak &middot; behtareen <strong>1200 x 400 px</strong></div>
+              <div class="bf-note mt-2 fw-semibold text-primary" id="fileName"></div>
+            </label>
+            {{ form.image }}
+            <div class="bf-err" id="imageClientError"></div>
+            {% for e in form.image.errors %}<div class="bf-err">{{ e }}</div>{% endfor %}
+            <div class="bf-note mt-2" id="imageInfo"></div>
+          </div>
+
+          <!-- Title -->
+          <div class="mb-4">
+            <label class="form-label fw-bold" for="{{ form.title.id_for_label }}">Title <span class="text-danger">*</span></label>
+            {{ form.title }}
+            <div class="form-text">Sirf aap ko list mein dikhega, aur image ka alt text banega.</div>
+            {% for e in form.title.errors %}<div class="bf-err">{{ e }}</div>{% endfor %}
+          </div>
+
+          <!-- Link -->
+          <div class="mb-4">
+            <label class="form-label fw-bold d-block">Click karne par kya khule?</label>
+            <div class="bf-seg mb-3" id="linkMode">
+              <label><input type="radio" name="link_mode" value="none" {% if link_mode == 'none' %}checked{% endif %}><span>Kuch nahi</span></label>
+              <label><input type="radio" name="link_mode" value="store" {% if link_mode == 'store' %}checked{% endif %}><span>Store</span></label>
+              <label><input type="radio" name="link_mode" value="url" {% if link_mode == 'url' %}checked{% endif %}><span>Link</span></label>
+            </div>
+            <div id="modeStore">
+              {{ form.store }}
+              <div class="form-text">Sirf approved stores. Banner par click se is store ka page khulega.</div>
+              {% for e in form.store.errors %}<div class="bf-err">{{ e }}</div>{% endfor %}
+            </div>
+            <div id="modeUrl">
+              {{ form.link_url }}
+              <div class="form-text">Apni site ka path, jaise <code>/shop/stores/?free=1</code> (free delivery wale stores), ya <code>https://</code> link.</div>
+              {% for e in form.link_url.errors %}<div class="bf-err">{{ e }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <!-- Schedule -->
+          <div class="mb-4">
+            <label class="form-label fw-bold">Schedule <small class="text-muted fw-normal">(optional)</small></label>
+            <div class="row g-2">
+              <div class="col-6">
+                <div class="form-text mt-0 mb-1">Shuru</div>
+                {{ form.starts_on }}
+                {% for e in form.starts_on.errors %}<div class="bf-err">{{ e }}</div>{% endfor %}
+              </div>
+              <div class="col-6">
+                <div class="form-text mt-0 mb-1">Khatam</div>
+                {{ form.ends_on }}
+                {% for e in form.ends_on.errors %}<div class="bf-err">{{ e }}</div>{% endfor %}
+              </div>
+            </div>
+            <div class="form-text">Khali chhorein to banner abhi se hamesha tak dikhega.</div>
+          </div>
+
+          <!-- Active -->
+          <div class="form-check form-switch mb-4">
+            {{ form.is_active }}
+            <label class="form-check-label fw-semibold" for="{{ form.is_active.id_for_label }}">Banner active (shop par dikhao)</label>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary px-4">💾 Save banner</button>
+            <a href="{% url 'shop_banner_list' %}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ RIGHT: live preview ============ -->
+      <div class="col-lg-5">
+        <div class="bf-sticky">
+          <div class="bf-card mb-3">
+            <div class="fw-bold mb-2">Preview &mdash; computer</div>
+            <div class="bf-prev" id="prevDesktop">
+              {% if banner and banner.image %}<img src="{{ banner.image.url }}" alt="">{% else %}Image chunne par yahan dikhegi{% endif %}
+            </div>
+          </div>
+          <div class="bf-card">
+            <div class="fw-bold mb-2">Preview &mdash; mobile</div>
+            <div class="bf-prev mobile" id="prevMobile">
+              {% if banner and banner.image %}<img src="{{ banner.image.url }}" alt="">{% else %}Preview{% endif %}
+            </div>
+            <div class="text-muted bf-note mt-2">Image ke kinare kat sakte hain (computer par 3:1, mobile par 2:1). Zaroori text/logo beech mein rakhein.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var MAX = {{ max_mb }} * 1024 * 1024, MIN_W = {{ min_width }};
+  var input = document.getElementById('id_image');
+  var drop = document.getElementById('dropZone');
+  var err = document.getElementById('imageClientError');
+  var info = document.getElementById('imageInfo');
+  var fname = document.getElementById('fileName');
+  var pd = document.getElementById('prevDesktop'), pm = document.getElementById('prevMobile');
+  var form = document.getElementById('bannerForm');
+
+  function show(url) {
+    [pd, pm].forEach(function (box) {
+      box.innerHTML = '';
+      var im = document.createElement('img'); im.src = url; im.alt = ''; box.appendChild(im);
+    });
+  }
+
+  function check(file) {
+    err.textContent = ''; info.textContent = ''; fname.textContent = '';
+    if (!file) return;
+    if (['image/jpeg', 'image/png', 'image/webp'].indexOf(file.type) < 0) {
+      err.textContent = 'Sirf JPG, PNG ya WEBP image allowed hai.'; input.value = ''; return;
+    }
+    if (file.size > MAX) {
+      err.textContent = 'Image {{ max_mb }} MB se chhoti honi chahiye (abhi ' + (file.size / 1048576).toFixed(1) + ' MB).';
+      input.value = ''; return;
+    }
+    var url = URL.createObjectURL(file);
+    var probe = new Image();
+    probe.onload = function () {
+      var w = probe.naturalWidth, h = probe.naturalHeight, ratio = w / h;
+      if (w < MIN_W) {
+        err.textContent = 'Image bohot chhoti hai (' + w + 'px). Kam az kam ' + MIN_W + 'px chaudi chahiye.';
+        input.value = ''; return;
+      }
+      fname.textContent = '✔ ' + file.name;
+      var msg = w + ' x ' + h + ' px';
+      if (w < 1200) msg += ' — thodi dhundli ho sakti hai, behtar 1200 px chaudi.';
+      else if (Math.abs(ratio - 3) > 0.6) msg += ' — shape 3:1 se alag hai, kinare kat sakte hain.';
+      else msg += ' — ✅ perfect size.';
+      info.textContent = msg;
+      show(url);
+    };
+    probe.src = url;
+  }
+
+  input.addEventListener('change', function () { check(input.files[0]); });
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('drag'); });
+  });
+  ['dragleave', 'drop'].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('drag'); });
+  });
+  drop.addEventListener('drop', function (e) {
+    if (e.dataTransfer && e.dataTransfer.files.length) {
+      try { input.files = e.dataTransfer.files; } catch (x) {}
+      check(input.files[0]);
+    }
+  });
+
+  // ---- "Click karne par kya khule" selector ----
+  var modeBoxes = { store: document.getElementById('modeStore'), url: document.getElementById('modeUrl') };
+  function applyMode() {
+    var m = (document.querySelector('input[name=link_mode]:checked') || {}).value || 'none';
+    modeBoxes.store.style.display = m === 'store' ? '' : 'none';
+    modeBoxes.url.style.display = m === 'url' ? '' : 'none';
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('input[name=link_mode]'), function (r) {
+    r.addEventListener('change', applyMode);
+  });
+  applyMode();
+
+  form.addEventListener('submit', function (e) {
+    if (err.textContent) { e.preventDefault(); drop.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+  });
+})();
+</script>
+{% endblock %}

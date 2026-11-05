@@ -1,0 +1,199 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Vendor Approvals{% endblock %}
+{% block page_title %}✅ Vendor Approvals{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+  <!-- Tabs -->
+  <ul class="nav nav-pills mb-3">
+    <li class="nav-item">
+      <a class="nav-link {% if tab == 'accounts' %}active{% endif %}" href="?tab=accounts&status=pending">
+        🏢 Vendor Accounts
+        {% if counts.acc_pending %}<span class="badge bg-danger ms-1">{{ counts.acc_pending }}</span>{% endif %}
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link {% if tab == 'products' %}active{% endif %}" href="?tab=products&status=pending">
+        📦 Vendor Products
+        {% if counts.prod_pending %}<span class="badge bg-danger ms-1">{{ counts.prod_pending }}</span>{% endif %}
+      </a>
+    </li>
+  </ul>
+
+  <!-- Filters -->
+  <form method="get" class="row g-2 mb-3">
+    <input type="hidden" name="tab" value="{{ tab }}">
+    <div class="col-12 col-md-3">
+      <select name="status" class="form-select" onchange="this.form.submit()">
+        <option value="all" {% if status == 'all' %}selected{% endif %}>All</option>
+        <option value="pending" {% if status == 'pending' %}selected{% endif %}>
+          ⏳ Pending ({% if tab == 'accounts' %}{{ counts.acc_pending }}{% else %}{{ counts.prod_pending }}{% endif %})
+        </option>
+        <option value="approved" {% if status == 'approved' %}selected{% endif %}>
+          ✅ Approved ({% if tab == 'accounts' %}{{ counts.acc_approved }}{% else %}{{ counts.prod_approved }}{% endif %})
+        </option>
+        {% if tab == 'accounts' %}
+        <option value="suspended" {% if status == 'suspended' %}selected{% endif %}>⛔ Suspended ({{ counts.acc_suspended }})</option>
+        {% else %}
+        <option value="rejected" {% if status == 'rejected' %}selected{% endif %}>❌ Rejected ({{ counts.prod_rejected }})</option>
+        {% endif %}
+      </select>
+    </div>
+    <div class="col-12 col-md-6">
+      <input type="text" name="search" value="{{ search }}" class="form-control" placeholder="Search...">
+    </div>
+    <div class="col-12 col-md-3"><button class="btn btn-primary w-100">🔍 Search</button></div>
+  </form>
+
+  {% if tab == 'accounts' %}
+  <!-- ================= ACCOUNTS ================= -->
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr><th>Business</th><th>Vendor</th><th>Contact</th><th>City</th><th>Delivers to</th><th>Commission %</th><th>Sales / Vendor ka hissa</th><th>Status</th><th class="text-end">Action</th></tr>
+        </thead>
+        <tbody>
+        {% for p in page_obj %}
+          <tr>
+            <td><strong>{{ p.business_name }}</strong><br><small class="text-muted">{{ p.user.email }}</small></td>
+            <td>{{ p.vendor.name }}</td>
+            <td>{{ p.vendor.contact_number|default:"-" }}</td>
+            <td>{{ p.city|default:"-" }}</td>
+            <td style="max-width:200px;"><small title="{{ p.delivery_areas }}">{% if p.delivery_areas %}{{ p.delivery_areas|truncatechars:60 }}{% else %}<span class="text-muted">Only {{ p.city|default:"own city" }}</span>{% endif %}</small></td>
+            <td style="min-width:150px">
+              <form method="post" action="{% url 'vendor_commission_update' p.pk %}" class="d-flex gap-1">
+                {% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <input type="number" name="commission" step="0.01" min="0" max="50" class="form-control form-control-sm"
+                       value="{% if p.commission_percent is not None %}{{ p.commission_percent|stringformat:'s' }}{% endif %}"
+                       placeholder="{{ default_commission|floatformat:'-2' }} (default)">
+                <button class="btn btn-sm btn-outline-primary" title="Save commission">💾</button>
+              </form>
+              <small class="text-muted">Lagu: {{ p.commission_effective|floatformat:"-2" }}%</small>
+            </td>
+            <td>
+              Rs. {{ p.earn.sales|floatformat:2 }}<br>
+              <small class="text-success">Hissa: Rs. {{ p.earn.payable|floatformat:2 }}</small>
+              <small class="text-muted">| Commission: Rs. {{ p.earn.commission|floatformat:2 }}</small>
+            </td>
+            <td>
+              {% if p.is_approved %}<span class="badge bg-success">Approved</span>
+              {% elif p.approved_at %}<span class="badge bg-secondary">Suspended</span>
+              {% else %}<span class="badge bg-warning text-dark">Pending</span>{% endif %}
+            </td>
+            <td class="text-end text-nowrap">
+              {% if not p.is_approved %}
+              <form method="post" action="{% url 'vendor_account_action' p.pk 'approve' %}" class="d-inline">
+                {% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button class="btn btn-sm btn-success">✅ Approve</button>
+              </form>
+              {% else %}
+              <form method="post" action="{% url 'vendor_account_action' p.pk 'suspend' %}" class="d-inline"
+                    onsubmit="return confirm('Suspend karne se is vendor ke saare products shop se hat jayenge. Continue?');">
+                {% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button class="btn btn-sm btn-outline-danger">⛔ Suspend</button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="9" class="text-center text-muted py-4">Koi vendor account nahi mila.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% else %}
+  <!-- ================= PRODUCTS ================= -->
+  <form method="post" action="{% url 'vendor_approvals_bulk' %}" id="bulkForm">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <input type="hidden" name="reason" id="bulkReason">
+    <div class="d-flex flex-wrap gap-2 mb-2">
+      <button type="submit" name="action" value="approve" class="btn btn-sm btn-success">✅ Approve selected</button>
+      <button type="button" class="btn btn-sm btn-outline-danger"
+              onclick="var r=prompt('Reject reason (optional):', ''); if(r!==null){document.getElementById('bulkReason').value=r; var i=document.createElement('input'); i.type='hidden'; i.name='action'; i.value='reject'; document.getElementById('bulkForm').appendChild(i); document.getElementById('bulkForm').submit();}">
+        ❌ Reject selected
+      </button>
+    </div>
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th style="width:30px"><input type="checkbox" onclick="document.querySelectorAll('.pick').forEach(c=>c.checked=this.checked)"></th>
+              <th>Product</th><th>Vendor</th><th>Category</th><th class="text-end">Price</th><th>Submitted</th><th>Status</th><th class="text-end">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for p in page_obj %}
+            <tr>
+              <td><input type="checkbox" class="pick" name="ids" value="{{ p.pk }}"></td>
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  {% if p.image %}<img src="{{ p.image.url }}" alt="" style="width:44px;height:44px;object-fit:cover;border-radius:6px;">{% endif %}
+                  <div><strong>{{ p.name }}</strong>{% if p.description %}<br><small class="text-muted">{{ p.description|truncatechars:60 }}</small>{% endif %}</div>
+                </div>
+              </td>
+              <td>{{ p.vendor.name }}</td>
+              <td>{{ p.category|default:"-" }}</td>
+              <td class="text-end">{{ p.price }}</td>
+              <td>{{ p.created_at|date:"d M Y"|default:"-" }}</td>
+              <td>
+                {% if p.approval_status == 'approved' %}<span class="badge bg-success">Approved</span>
+                {% elif p.approval_status == 'rejected' %}<span class="badge bg-danger">Rejected</span>
+                  {% if p.rejection_reason %}<br><small class="text-muted">{{ p.rejection_reason }}</small>{% endif %}
+                {% else %}<span class="badge bg-warning text-dark">Pending</span>{% endif %}
+              </td>
+              <td class="text-end text-nowrap">
+                {% if p.approval_status != 'approved' %}
+                <button type="submit" class="btn btn-sm btn-success"
+                        formaction="{% url 'vendor_product_action' p.pk 'approve' %}" formnovalidate>✅</button>
+                {% endif %}
+                {% if p.approval_status != 'rejected' %}
+                <button type="button" class="btn btn-sm btn-outline-danger"
+                        onclick="rejectOne('{% url 'vendor_product_action' p.pk 'reject' %}')">❌</button>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="8" class="text-center text-muted py-4">Koi product nahi mila.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </form>
+
+  <!-- single reject (alag form, nested form se bachne ke liye) -->
+  <form method="post" id="rejectOneForm" class="d-none">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <input type="hidden" name="reason" id="rejectOneReason">
+  </form>
+  <script>
+    function rejectOne(url) {
+      var r = prompt('Reject reason (optional):', '');
+      if (r === null) return;
+      var f = document.getElementById('rejectOneForm');
+      f.action = url;
+      document.getElementById('rejectOneReason').value = r;
+      f.submit();
+    }
+  </script>
+  {% endif %}
+
+  <!-- Pagination -->
+  {% if page_obj.has_other_pages %}
+  <nav class="mt-3"><ul class="pagination justify-content-center">
+    {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?tab={{ tab }}&status={{ status }}&search={{ search }}&page={{ page_obj.previous_page_number }}">«</a></li>{% endif %}
+    <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+    {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?tab={{ tab }}&status={{ status }}&search={{ search }}&page={{ page_obj.next_page_number }}">»</a></li>{% endif %}
+  </ul></nav>
+  {% endif %}
+</div>
+{% endblock %}

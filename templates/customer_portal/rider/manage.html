@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Riders{% endblock %}
+{% block page_title %}🏍️ Riders{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="row g-3 mb-1">
+    <div class="col-6 col-lg-3"><div class="card shadow-sm"><div class="card-body py-2">
+      <div class="text-muted small">Riders ke paas COD cash</div><div class="h4 mb-0 text-danger">Rs. {{ total_cash|floatformat:0 }}</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card shadow-sm"><div class="card-body py-2">
+      <div class="text-muted small">Riders ko dene wali kamai</div><div class="h4 mb-0 text-primary">Rs. {{ total_due|floatformat:0 }}</div></div></div></div>
+  </div>
+
+  <div class="row g-3 mt-0">
+    <div class="col-lg-4">
+      <div class="card shadow-sm">
+        <div class="card-header fw-bold">➕ Naya Rider</div>
+        <div class="card-body">
+          <form method="post">{% csrf_token %}
+            <input type="hidden" name="action" value="add">
+            <div class="mb-2"><input class="form-control" name="name" placeholder="Naam" required></div>
+            <div class="mb-2"><input class="form-control" name="phone" placeholder="Phone (03XX XXXXXXX) — yehi login hai" required></div>
+            <div class="mb-2"><input class="form-control" name="vehicle" placeholder="Gaari / bike (optional)"></div>
+            <div class="mb-2"><input class="form-control" name="fee" value="50" placeholder="Har delivery par kamai (Rs.)" required></div>
+            <div class="mb-3"><input class="form-control" type="password" name="password" placeholder="Password (kam az kam 6 harf)" minlength="6" required></div>
+            <button class="btn btn-primary w-100" type="submit">Rider banayein</button>
+          </form>
+          <div class="small text-muted mt-3">Rider is link se login karega:<br><b>/shop/rider/login/</b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-8">
+      <div class="card shadow-sm">
+        <div class="card-header fw-bold">Riders ({{ riders|length }})</div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr><th>Rider</th><th class="text-center">Khule</th><th class="text-center">Deliveries</th><th class="text-center">⭐</th>
+                  <th class="text-end">Cash paas</th><th class="text-end">Kamai baaqi</th><th></th></tr>
+            </thead>
+            <tbody>
+            {% for r in riders %}
+              <tr>
+                <td>
+                  {% if not r.is_active %}<span class="badge bg-secondary">Band</span>
+                  {% elif r.live %}<span class="badge bg-success">🟢 Online</span>
+                  {% else %}<span class="badge bg-light text-dark border">⚫ Offline</span>{% endif %}
+                  <a href="{% url 'rider_detail' r.id %}" class="fw-semibold">{{ r.name }}</a><br>
+                  <small class="text-muted">{{ r.phone }}{% if r.vehicle %} · {{ r.vehicle }}{% endif %} · Rs. {{ r.per_delivery_fee|floatformat:0 }}/delivery</small>
+                </td>
+                <td class="text-center">{{ r.open_count }}</td>
+                <td class="text-center">{{ r.bal.deliveries }}</td>
+                <td class="text-center">{% if r.rating.avg %}{{ r.rating.avg }}{% else %}—{% endif %}</td>
+                <td class="text-end {% if r.bal.cash_in_hand > 0 %}text-danger fw-bold{% endif %}">Rs. {{ r.bal.cash_in_hand|floatformat:0 }}</td>
+                <td class="text-end {% if r.bal.due > 0 %}text-primary fw-bold{% endif %}">Rs. {{ r.bal.due|floatformat:0 }}</td>
+                <td class="text-end text-nowrap">
+                  <a class="btn btn-sm btn-outline-primary" href="{% url 'rider_detail' r.id %}">Hisab</a>
+                  <form method="post" class="d-inline">{% csrf_token %}
+                    <input type="hidden" name="action" value="toggle"><input type="hidden" name="rider_id" value="{{ r.id }}">
+                    <button class="btn btn-sm {% if r.is_active %}btn-outline-secondary{% else %}btn-outline-success{% endif %}">{% if r.is_active %}Band{% else %}Chalu{% endif %}</button>
+                  </form>
+                  <button class="btn btn-sm btn-outline-dark" type="button" data-bs-toggle="collapse" data-bs-target="#pw{{ r.id }}">🔑</button>
+                </td>
+              </tr>
+              <tr class="collapse" id="pw{{ r.id }}">
+                <td colspan="7" class="bg-light">
+                  <form method="post" class="d-flex gap-2">{% csrf_token %}
+                    <input type="hidden" name="action" value="password"><input type="hidden" name="rider_id" value="{{ r.id }}">
+                    <input class="form-control form-control-sm" type="password" name="password" placeholder="Naya password" minlength="6" required>
+                    <button class="btn btn-sm btn-primary">Badlein</button>
+                  </form>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="7" class="text-center text-muted py-4">Abhi koi rider nahi.</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

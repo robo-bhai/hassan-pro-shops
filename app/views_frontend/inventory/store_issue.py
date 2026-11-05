@@ -540,6 +540,7 @@ def store_profile_list(request):
             'modules_is_default': not p.allowed_modules,
             'visible_now': p.available_in(mode),
             'members': StoreMember.objects.filter(warehouse=p.warehouse, is_active=True).count(),
+            'caps': p.capability_list(),
         })
     return render(request, 'store_issue/profiles.html', {
         'company_name': _si_company(), 'rows': rows, 'mode': mode,
@@ -593,7 +594,8 @@ def store_profile_form(request, pk=None):
                 keeper = User.objects.filter(pk=P.get('keeper'), is_active=True).first() if P.get('keeper') else None
                 profile.code, profile.store_type, profile.business_unit = code, store_type, unit
                 profile.allowed_modules = ','.join(modules)
-                profile.can_issue = P.get('can_issue') == 'on'
+                for _f, _lbl, _desc in StoreProfile.CAPABILITIES:
+                    setattr(profile, _f, P.get(_f) == 'on')
                 profile.is_active = P.get('is_active') == 'on'
                 profile.keeper = keeper
                 profile.save()
@@ -607,12 +609,16 @@ def store_profile_form(request, pk=None):
         if profile:
             form = {
                 'code': profile.code, 'store_type': profile.store_type, 'business_unit': profile.business_unit,
-                'can_issue': 'on' if profile.can_issue else '', 'is_active': 'on' if profile.is_active else '',
+                'is_active': 'on' if profile.is_active else '',
                 'keeper': str(profile.keeper_id or ''),
             }
+            for _f, _lbl, _desc in StoreProfile.CAPABILITIES:
+                form[_f] = 'on' if getattr(profile, _f) else ''
             selected = [k for k in (profile.allowed_modules or '').split(',') if k]
         else:
-            form = {'can_issue': 'on', 'is_active': 'on', 'store_type': 'GEN'}
+            form = {'is_active': 'on', 'store_type': 'GEN'}
+            for _f, _lbl, _desc in StoreProfile.CAPABILITIES:
+                form[_f] = 'on'
             selected = []
     else:
         selected = [m for m in form.getlist('modules')] if hasattr(form, 'getlist') else []
@@ -621,8 +627,9 @@ def store_profile_form(request, pk=None):
 
     return render(request, 'store_issue/profile_form.html', {
         'company_name': _si_company(), 'profile': profile,
-        'form': {k: _get(k) for k in ('code', 'store_type', 'business_unit', 'can_issue', 'is_active',
-                                      'keeper', 'warehouse', 'new_warehouse')},
+        'form': {k: _get(k) for k in ('code', 'store_type', 'business_unit', 'is_active', 'keeper',
+                                      'warehouse', 'new_warehouse') + tuple(f for f, _, _ in StoreProfile.CAPABILITIES)},
+        'capabilities': [(f, lbl, desc, bool(_get(f))) for f, lbl, desc in StoreProfile.CAPABILITIES],
         'selected': set(selected),
         'store_types': StoreProfile.STORE_TYPES,
         'units': StoreProfile.BUSINESS_UNIT_CHOICES,
@@ -632,3 +639,63 @@ def store_profile_form(request, pk=None):
         'type_defaults': {t: {'unit': STORE_TYPE_UNITS.get(t, 'both'), 'modules': STORE_TYPE_MODULES.get(t, [])}
                           for t in valid_types},
     })
+
+
+# ============================================================================
+# Delete a store (superuser only)
+#   Default : only the store profile + its team are removed. The warehouse, its stock and ALL history stay
+#             (it becomes an ordinary warehouse again).
+#   Option  : also delete the warehouse itself - only if nothing at all is linked to it.
+# ============================================================================
+def _wh_delete_blockers(wh):
+    """Readable list of what would be lost if this warehouse were deleted (empty list = safe)."""
+    from django.contrib.admin.utils import NestedObjects
+    from ...models import Inventory, StoreMember as _SM, StoreProfile as _SP
+    collector = NestedObjects(using='default')
+    collector.collect([wh])
+    blockers = []
+    if collector.protected:
+        blockers.append('records that are protected (issues / counts / shifts)')
+    harmless = {Warehouse, _SP, _SM}
+    for model, objs in collector.model_objs.items():
+        if model in harmless:
+            continue
+        if model is Inventory:
+            objs = [o for o in objs if (o.stock or 0) != 0]
+            if not objs:
+                continue
+            blockers.append(f'stock in {len(objs)} product(s)')
+            continue
+        blockers.append(f'{len(objs)} {model._meta.verbose_name_plural}')
+    return blockers
+
+
+@login_required
+@perm_required('manage_warehouse')
+@require_POST
+def store_profile_delete(request, pk):
+    if not request.user.is_superuser:
+        return _si_deny(request, 'delete a store')
+    profile = get_object_or_404(StoreProfile.objects.select_related('warehouse'), pk=pk)
+    wh, code = profile.warehouse, profile.code
+    also_wh = request.POST.get('delete_warehouse') == 'on'
+
+    if also_wh:
+        blockers = _wh_delete_blockers(wh)
+        if blockers:
+            messages.error(request, f'❌ The warehouse "{wh.name}" cannot be deleted because it has: '
+                                    + ', '.join(blockers) + '. You can still delete only the store (the warehouse stays).')
+            return redirect('store_profile_list')
+
+    with transaction.atomic():
+        StoreMember.objects.filter(warehouse=wh).delete()
+        profile.delete()
+        if also_wh:
+            wh.delete()
+    cache.delete('module_visibility')
+    if also_wh:
+        messages.success(request, f'🗑️ Store {code} and its warehouse were deleted.')
+    else:
+        messages.success(request, f'🗑️ Store {code} was deleted. The warehouse "{wh.name}" and all its stock/history are safe '
+                                  f'(it is an ordinary warehouse now).')
+    return redirect('store_profile_list')

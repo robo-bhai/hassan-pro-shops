@@ -29,14 +29,9 @@ TABS = [
     # ------------------------------------------------------------------ Modules
     {
         'key': 'modules', 'label': 'Modules', 'icon': 'bi-toggles',
-        'desc': 'Business mode and the Shop / Factory switch for each module',
+        'desc': 'Choose Full ERP or Lite and switch each module on or off',
         'access': 'superuser', 'store': 'system', 'special': 'modules',
-        'fields': [
-            {'name': 'business_mode', 'label': 'Business Mode', 'type': 'select', 'default': 'both',
-             'choices': [('both', 'Both (Shop + Factory)'), ('shop', 'Shop only'), ('factory', 'Factory only')],
-             'help': 'In Shop mode the Shop switches apply, in Factory mode the Factory ones, and in Both the module shows if any is ON.',
-             'group': 'Business Mode'},
-        ],
+        'fields': [],
     },
     # ------------------------------------------------------- Shareholders / Dividends
     {

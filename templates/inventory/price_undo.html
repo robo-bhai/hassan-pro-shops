@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% load dict_filters %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="container-fluid py-3" style="max-width:1100px;">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h4 class="mb-0">↩ {{ title }}</h4>
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'price_history' %}{% if run_id %}?run={{ run_id }}{% endif %}">← Price History</a>
+  </div>
+
+  <div class="row g-2 mb-3">
+    <div class="col-6 col-md-3"><div class="border rounded p-2 text-center"><div class="small text-muted">Rows</div><div class="fs-4 fw-bold">{{ summary.total }}</div></div></div>
+    <div class="col-6 col-md-3"><div class="border rounded p-2 text-center border-success"><div class="small text-muted">Will be reverted</div><div class="fs-4 fw-bold text-success">{{ summary.to_revert }}</div></div></div>
+    <div class="col-6 col-md-3"><div class="border rounded p-2 text-center"><div class="small text-muted">Skipped</div><div class="fs-4 fw-bold text-secondary">{{ summary.skipped }}</div></div></div>
+  </div>
+
+  <p class="small text-muted">
+    Only prices that still hold the value set by that change are reverted. If a price was changed again later,
+    or the old price would now be below cost, it is left untouched. The undo is saved in the history too.
+  </p>
+
+  <div class="table-responsive mb-3">
+    <table class="table table-sm align-middle">
+      <thead><tr><th>Product</th><th>Batch</th><th class="text-end">Now</th><th class="text-end">Will become</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for it in items %}
+        <tr class="{% if it.status == 'revert' %}table-success{% endif %}">
+          <td>{{ it.product_name|default:"—" }}</td>
+          <td>{{ it.batch_ref|default:"—" }}</td>
+          <td class="text-end">{{ it.current|default_if_none:"—" }}</td>
+          <td class="text-end fw-bold">{% if it.status == 'revert' %}{{ it.target }}{% else %}—{% endif %}</td>
+          <td>
+            <span class="badge {% if it.status == 'revert' %}bg-success{% else %}bg-secondary{% endif %}">{{ labels|get_item:it.status }}</span>
+            {% if it.message and it.status != 'revert' %}<div class="small text-muted">{{ it.message }}</div>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if summary.can_apply %}
+  <form method="post" class="d-flex flex-wrap gap-2 align-items-center">
+    {% csrf_token %}
+    <input type="text" name="reason" maxlength="200" class="form-control" style="max-width:360px;" placeholder="Reason (optional)">
+    <button type="submit" class="btn btn-warning fw-bold" onclick="return confirm('Revert {{ summary.to_revert }} price(s)?');">↩ Revert {{ summary.to_revert }} price(s)</button>
+    <a class="btn btn-outline-secondary" href="{% url 'price_history' %}">Cancel</a>
+  </form>
+  {% else %}
+  <div class="alert alert-info mb-0">Nothing can be reverted safely.</div>
+  {% endif %}
+</div>
+{% endblock %}
