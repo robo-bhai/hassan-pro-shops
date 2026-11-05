@@ -124,6 +124,7 @@ jobs:
              && [ "$(stat -c%s "$TMP")" -gt 5000 ]; then
             mv -f "$TMP" local_data_dump.sql.gz
             date +%s > cache_time.txt
+            echo "SNAP_TS=$(TZ=Asia/Karachi date +%Y-%m-%d_%H-%M-%S)" >> "$GITHUB_ENV"
             echo "Snapshot OK: $(stat -c%s local_data_dump.sql.gz) bytes"
             echo "DUMP_OK=true" >> "$GITHUB_ENV"
           else
@@ -212,9 +213,11 @@ jobs:
           path: |
             local_data_dump.sql.gz
             cache_time.txt
-          key: mysql-db-cache-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+          # Old "mysql-db-cache-*" caches are ignored on purpose. Only "dbsnap-v2-*" is used now.
+          # This key never exists, so restore-keys below picks the NEWEST dbsnap-v2 snapshot.
+          key: dbsnap-v2-${{ runner.os }}-restore-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            mysql-db-cache-${{ runner.os }}-
+            dbsnap-v2-${{ runner.os }}-
 
       - name: Load Cached Snapshot Into MySQL (or fresh start)
         if: ${{ env.RESTORE_DONE != 'true' }}
@@ -371,5 +374,5 @@ jobs:
           path: |
             local_data_dump.sql.gz
             cache_time.txt
-          # run_attempt makes the key unique on "Re-run jobs" (same run_id would silently NOT save)
-          key: mysql-db-cache-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+          # Name = dbsnap-v2-<OS>-<date>_<time>-<run id>-<attempt>  (always unique, so it always saves)
+          key: dbsnap-v2-${{ runner.os }}-${{ env.SNAP_TS }}-${{ github.run_id }}-${{ github.run_attempt }}
