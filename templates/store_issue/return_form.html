@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}Return to store - {{ company_name }}{% endblock %}
+{% block extra_css %}{% include 'store_issue/_styles.html' %}{% endblock %}
+{% block content %}
+<div class="container-fluid px-4 py-4 si-page">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <div><h1 class="h3 mb-1"><i class="bi bi-arrow-return-left text-success me-2"></i>Return to store</h1>
+      <p class="text-muted small mb-0">{{ issue.issue_no }} &middot; {{ issue.from_warehouse.name }} &middot; {{ issue.department.name|default:issue.received_by }}</p></div>
+    <a href="{% url 'store_issue_detail' issue.pk %}" class="btn btn-outline-secondary rounded-pill px-3">Back</a>
+  </div>
+  <form method="post">{% csrf_token %}
+    <div class="si-card"><div class="table-responsive"><table class="table si-table align-middle mb-0">
+      <thead><tr><th>Item</th><th class="si-num">Issued</th><th class="si-num">Returned before</th><th class="si-num">Can be returned</th><th style="width:160px">Returned now</th></tr></thead><tbody>
+      {% for it in items %}<tr><td class="fw-semibold">{{ it.product.name }} <span class="text-muted small">{{ it.product.unit.name|default:"" }}</span></td>
+        <td class="si-num">{{ it.qty|floatformat:"-3" }}</td><td class="si-num">{{ it.returned|floatformat:"-3" }}</td><td class="si-num">{{ it.room|floatformat:"-3" }}</td>
+        <td>{% if it.room > 0 %}<input type="number" step="any" min="0" max="{{ it.room }}" name="qty_{{ it.pk }}" class="form-control form-control-sm text-end" placeholder="0">{% else %}<span class="text-muted small">-</span>{% endif %}</td></tr>{% endfor %}
+      </tbody></table></div>
+      <div class="p-3 border-top row g-2">
+        <div class="col-md-4"><input name="returned_by" maxlength="100" class="form-control" placeholder="Who returned it"></div>
+        <div class="col-md-5"><input name="notes" maxlength="255" class="form-control" placeholder="Note (halat, wajah)"></div>
+        <div class="col-md-3 text-end"><button class="btn btn-success w-100"><i class="bi bi-box-arrow-in-down me-1"></i>Return to store</button></div>
+      </div>
+    </div>
+    <div class="small text-muted mt-2">The goods go back to the same batch they came from, at the same cost.</div>
+  </form>
+</div>
+{% endblock %}

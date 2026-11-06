@@ -2752,6 +2752,32 @@
         .app-bottom-nav a.active i { background: linear-gradient(135deg, #2563eb, #7c3aed); -webkit-background-clip: text; background-clip: text; color: transparent; }
         .app-bottom-nav .nav-badge { background: linear-gradient(135deg, #f43f5e, #e11d48); }
 
+        /* ===== Bottom nav: 5 items + full mobile responsive polish ===== */
+        .app-bottom-nav a { min-width: 0; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .app-bottom-nav a i { font-size: 21px; line-height: 1; }
+        .app-bottom-nav { -webkit-tap-highlight-color: transparent; }
+        @media (max-width: 360px) { .app-bottom-nav a { font-size: 10px; } .app-bottom-nav a i { font-size: 19px; } }
+        @media (max-width: 991.98px) {
+            html, body { max-width: 100%; overflow-x: hidden; }
+            body { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+            img, video, iframe, svg { max-width: 100%; }
+            img { height: auto; }
+            .container, .container-fluid, .shop-container { padding-left: 12px; padding-right: 12px; }
+            .table-responsive, .table-wrap { -webkit-overflow-scrolling: touch; }
+            table { max-width: 100%; }
+            .card, .modal-dialog { max-width: 100%; }
+            .modal-dialog { margin: 12px; }
+            .btn, .form-control, .form-select { min-height: 42px; }
+            input, select, textarea { font-size: 16px !important; } /* iOS auto-zoom band */
+            h1 { font-size: clamp(1.35rem, 5.5vw, 1.9rem); }
+            h2 { font-size: clamp(1.2rem, 4.8vw, 1.6rem); }
+            pre, code { white-space: pre-wrap; word-break: break-word; }
+        }
+        @media (max-width: 575.98px) {
+            .row > [class*="col-"] { min-width: 0; }
+            .toast-container, .toast { max-width: calc(100vw - 24px); }
+        }
+
         /* ===================================================== */
         /* PREMIUM BRAND: logo upar, company ka naam neeche       */
         /* ===================================================== */
@@ -4226,6 +4252,18 @@ document.addEventListener('DOMContentLoaded', function() {
     window.addEventListener('pageshow', function (e) { if (e.persisted) syncBottomNavCart(); });
 });
 </script>
+
+{% block bottom_nav %}
+{% with u=request.resolver_match.url_name|default:'none' %}
+<nav class="app-bottom-nav" aria-label="Quick navigation">
+    <a href="{% url 'shop_home' %}" class="{% if u == 'shop_home' or u == 'shop_product_detail' %}active{% endif %}"><i class="bi bi-house-door-fill"></i>Home</a>
+    <a href="{% url 'store_list' %}" class="{% if 'store' in u and 'vendor' not in u %}active{% endif %}"><i class="bi bi-shop"></i>Stores</a>
+    <a href="{% url 'my_orders' %}" class="{% if 'order' in u or 'track' in u %}active{% endif %}"><i class="bi bi-receipt"></i>Orders</a>
+    <a href="https://kwlconnect.online" target="_blank" rel="noopener noreferrer" class="nav-services"><i class="bi bi-grid-3x3-gap-fill"></i>Services</a>
+    <a href="{% url 'cart_view' %}" class="{% if u == 'cart_view' or u == 'checkout' %}active{% endif %}"><i class="bi bi-cart3"></i>Cart{% if cart_count %}<span class="nav-badge">{{ cart_count }}</span>{% endif %}</a>
+</nav>
+{% endwith %}
+{% endblock %}
 
 {% block extra_js %}{% endblock %}
 
