@@ -93,17 +93,31 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'info@uqn88.store')
 
 # --- SESSION CONFIGURATION ---
+# Session & CSRF Settings
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_COOKIE_AGE = 86400
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_SAVE_EVERY_REQUEST = False
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = 'Lax'
-SESSION_COOKIE_SECURE = HTTPS
-CSRF_COOKIE_SECURE = HTTPS
+
+# Updated Cookie Settings for Cross-Site / Frontend-Backend separation (e.g., React/Flutter & Django)
+SESSION_COOKIE_SAMESITE = "None"
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = "None"
+CSRF_COOKIE_SECURE = True
+
+# Security Settings
 SECURE_SSL_REDIRECT = HTTPS and not DEBUG
 SECURE_HSTS_SECONDS = 31536000 if (HTTPS and not DEBUG) else 0
 SECURE_CONTENT_TYPE_NOSNIFF = True
+
+
+
+FRAME_ANCESTORS = ["https://kwlconnect.online"]   # jahan se Khanewal Connect app khulti hai
+
+
+
+
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -140,8 +154,11 @@ MIDDLEWARE = [
     'app.middleware.SecurityMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'app.middleware.frame_embed.AllowAppFraming',
     'app.middleware.license_gate.LicenseMiddleware',
-    
+  #  "django.middleware.clickjacking.XFrameOptionsMiddleware",
+       # XFrameOptionsMiddleware ke BAAD likhein
+
     # Custom Middleware
     'app.middleware.ShareholderRestrictionMiddleware',
     'app.security.security_2fa.TwoFactorMiddleware',
