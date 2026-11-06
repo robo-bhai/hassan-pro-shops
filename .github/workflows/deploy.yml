@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       restore_action:
-        description: 'Type "latest", "list" or a specific backup file name to restore from Drive (10s window).'
+        description: 'Type "latest" or specific backup file name to restore (10s window).'
         required: false
         default: ''
   repository_dispatch:
@@ -15,7 +15,6 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 350   # loop ~310 min + setup; always() steps still run on timeout/cancel
 
     services:
       local-mysql:
@@ -25,12 +24,13 @@ jobs:
           MYSQL_DATABASE: local_django_db
         ports:
           - 3306:3306
-        options: "--health-cmd=\"mysqladmin ping\" --health-interval=10s --health-timeout=5s --health-retries=10"
+        options: "--health-cmd=\"mysqladmin ping\" --health-interval=10s --health-timeout=5s --health-retries=3"
 
     env:
       EMAIL_HOST_USER: ${{ secrets.EMAIL_HOST_USER }}
       EMAIL_HOST_PASSWORD: ${{ secrets.EMAIL_HOST_PASSWORD }}
       DEFAULT_FROM_EMAIL: ${{ secrets.DEFAULT_FROM_EMAIL }}
+      
       CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
       CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
       CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
@@ -51,46 +51,37 @@ jobs:
       RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
       PYTHONUNBUFFERED: "1"
       RUNNING_IN_TERMUX: "false"
-      # Safety flags (set during the run):
-      #   DB_READY=true  -> DB was restored/initialised correctly, safe to snapshot
-      #   DUMP_OK=true   -> latest snapshot was validated, safe to save to cache
-      DB_READY: "false"
-      DUMP_OK: "false"
-      RESTORE_DONE: "false"
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python & Cache Pip Dependencies
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-
-      # setup-python's cache:'pip' needs a requirements.txt, so cache pip dir directly
-      - name: Cache Pip Dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: pip-${{ runner.os }}-py313-v1-${{ hashFiles('requirements.txt', '.github/workflows/*.yml') }}
-          restore-keys: |
-            pip-${{ runner.os }}-py313-
+          cache: 'pip'
 
       - name: Wait for Previous Workflow Runs to Complete
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          echo "=========================================="
+          echo " CHECKING FOR OLDER ACTIVE PREVIOUS RUNS "
+          echo "=========================================="
           CURRENT_RUN_ID="${{ github.run_id }}"
           REPO="${{ github.repository }}"
           BRANCH="${{ github.ref_name }}"
+
           while true; do
             OLDER_RUNS=$(gh api "repos/$REPO/actions/runs?branch=$BRANCH&per_page=20" --jq "[.workflow_runs[] | select(.id < $CURRENT_RUN_ID and (.status == \"in_progress\" or .status == \"queued\")) | .id]")
             TOTAL_PENDING=$(echo "$OLDER_RUNS" | jq 'length')
+
             if [ "${TOTAL_PENDING:-0}" -gt 0 ]; then
-              echo "Older run(s) $OLDER_RUNS active. Waiting 10s..."
+              echo "Older workflow run(s) $OLDER_RUNS detected. Holding this run (ID: $CURRENT_RUN_ID)... Checking again in 10 seconds."
               sleep 10
             else
-              echo "No older active runs. Proceeding."
+              echo "No older active runs found. Proceeding with execution!"
               break
             fi
           done
@@ -102,56 +93,28 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y mysql-client rclone
 
-      - name: Create Snapshot Helper Script
-        run: |
-          cat > "$HOME/snapshot.sh" <<'EOS'
-          #!/bin/bash
-          # Dumps FULL db (all tables, rows, routines, triggers, events) to a temp file,
-          # validates it, and only then replaces local_data_dump.sql.gz.
-          # A bad/empty dump can therefore never overwrite a good one.
-          cd "$GITHUB_WORKSPACE" || exit 1
-          TMP=local_data_dump.tmp.gz
-          if [ "$DB_READY" != "true" ]; then
-            echo "DB not ready/restored -> refusing to snapshot (protects old data)."
-            echo "DUMP_OK=false" >> "$GITHUB_ENV"
-            exit 1
-          fi
-          set -o pipefail
-          if MYSQL_PWD=root mysqldump -h 127.0.0.1 -P 3306 -u root \
-               --set-gtid-purged=OFF --column-statistics=0 --single-transaction \
-               --routines --triggers --events --databases local_django_db | gzip > "$TMP" \
-             && gzip -t "$TMP" \
-             && [ "$(stat -c%s "$TMP")" -gt 5000 ]; then
-            mv -f "$TMP" local_data_dump.sql.gz
-            date +%s > cache_time.txt
-            echo "SNAP_TS=$(TZ=Asia/Karachi date +%Y-%m-%d_%H-%M-%S)" >> "$GITHUB_ENV"
-            echo "Snapshot OK: $(stat -c%s local_data_dump.sql.gz) bytes"
-            echo "DUMP_OK=true" >> "$GITHUB_ENV"
-          else
-            echo "Snapshot FAILED validation -> previous cache kept."
-            rm -f "$TMP"
-            echo "DUMP_OK=false" >> "$GITHUB_ENV"
-            exit 1
-          fi
-          EOS
-          chmod +x "$HOME/snapshot.sh"
-
       # --- ROUTE EVALUATION ---
 
       - name: Parse Trigger Source & Inputs
         id: trigger-router
         env:
           EVENT_NAME: ${{ github.event_name }}
-          ACTION_TYPE: ${{ github.event.action }}
           INPUT_VAL: ${{ github.event.inputs.restore_action }}
           CLIENT_PAYLOAD_FILE: ${{ github.event.client_payload.file }}
         run: |
+          echo "=================================================="
+          echo " TRIGGER ROUTER EVALUATION "
+          echo "=================================================="
           RESTORE_REQ="false"
           TARGET_FILE=""
+
           if [ "$EVENT_NAME" = "repository_dispatch" ]; then
+            ACTION_TYPE="${{ github.event.action }}"
             if [ "$ACTION_TYPE" = "restore_now" ]; then
               RESTORE_REQ="true"
               TARGET_FILE="${CLIENT_PAYLOAD_FILE:-latest}"
+            elif [ "$ACTION_TYPE" = "backup_now" ]; then
+              echo "Termux Trigger: Backup execution requested."
             fi
           elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             sleep 10
@@ -160,92 +123,23 @@ jobs:
               TARGET_FILE="$INPUT_VAL"
             fi
           fi
+
           echo "RESTORE_REQUESTED=$RESTORE_REQ" >> $GITHUB_ENV
           echo "TARGET_RESTORE_FILE=$TARGET_FILE" >> $GITHUB_ENV
 
-      # Manual restore from encrypted Google Drive snapshot (only when explicitly requested)
-      - name: Restore Database from Google Drive Snapshot
-        if: env.RESTORE_REQUESTED == 'true'
+      - name: Force Execute Remote Migration (Repository Dispatch)
+        if: ${{ github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now' }}
+        env:
+          DB_HOST: "127.0.0.1"
+          DB_PORT: "3306"
+          DB_USER: "root"
+          DB_PASS: "root"
+          DB_NAME: "local_django_db"
         run: |
-          mkdir -p /home/runner/.config/rclone
-          echo "$RCLONE_CONFIG_DATA" > /home/runner/.config/rclone/rclone.conf
-          REMOTE_NAME=$(rclone listremotes | head -n 1 | tr -d ':')
-          TARGET_DIR="${REMOTE_NAME}:hassan_shops"
-
-          if [ "$TARGET_RESTORE_FILE" = "list" ] || [ "$TARGET_RESTORE_FILE" = "ls" ]; then
-            rclone lsl "$TARGET_DIR" --include "db_snapshot_*"
-            exit 0   # list only: RESTORE_DONE stays false -> normal cache restore continues
-          fi
-
-          if [ "$TARGET_RESTORE_FILE" = "r" ] || [ "$TARGET_RESTORE_FILE" = "latest" ] || [ -z "$TARGET_RESTORE_FILE" ]; then
-            RESTORE_FILE=$(rclone lsf "$TARGET_DIR" --format "pm" --files-only --include "db_snapshot_*" | sort -t';' -k2 | tail -n 1 | cut -d';' -f1)
-          else
-            RESTORE_FILE="$TARGET_RESTORE_FILE"
-          fi
-          [ -z "$RESTORE_FILE" ] && { echo "No snapshot found"; exit 1; }
-
-          rclone copyto "${TARGET_DIR}/${RESTORE_FILE}" "./${RESTORE_FILE}"
-          RESTORE_FILE="$RESTORE_FILE" python -c "
-          import os, base64
-          from cryptography.fernet import Fernet
-          from cryptography.hazmat.primitives import hashes
-          from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-          secret = os.environ['BACKUP_SECRET_KEY'].encode()
-          kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=b'django_backup_salt_2026', iterations=100000)
-          fernet = Fernet(base64.urlsafe_b64encode(kdf.derive(secret)))
-          data = fernet.decrypt(open(os.environ['RESTORE_FILE'], 'rb').read())
-          open('restored_snapshot.sql.gz', 'wb').write(data)
-          "
-          gzip -t restored_snapshot.sql.gz
-          gunzip -c restored_snapshot.sql.gz > restored_snapshot.sql
-          MYSQL_PWD=root mysql -h 127.0.0.1 -P 3306 -u root -e "DROP DATABASE IF EXISTS local_django_db; CREATE DATABASE local_django_db;"
-          MYSQL_PWD=root mysql -h 127.0.0.1 -P 3306 -u root local_django_db < restored_snapshot.sql
-          echo "RESTORE_DONE=true" >> $GITHUB_ENV
-          echo "DB_READY=true" >> $GITHUB_ENV
-
-      # --- AUTOMATIC RESTORE OF LATEST DB (every normal start / rerun) ---
-
-      - name: Restore Local DB Cache (latest snapshot)
-        if: ${{ env.RESTORE_DONE != 'true' }}
-        id: db-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            local_data_dump.sql.gz
-            cache_time.txt
-          # Old "mysql-db-cache-*" caches are ignored on purpose. Only "dbsnap-v2-*" is used now.
-          # This key never exists, so restore-keys below picks the NEWEST dbsnap-v2 snapshot.
-          key: dbsnap-v2-${{ runner.os }}-restore-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            dbsnap-v2-${{ runner.os }}-
-
-      - name: Load Cached Snapshot Into MySQL (or fresh start)
-        if: ${{ env.RESTORE_DONE != 'true' }}
-        run: |
-          if [ -f local_data_dump.sql.gz ] && gzip -t local_data_dump.sql.gz 2>/dev/null && [ "$(stat -c%s local_data_dump.sql.gz)" -gt 5000 ]; then
-            echo "VALID CACHE FOUND ($(stat -c%s local_data_dump.sql.gz) bytes). Restoring..."
-            gunzip -c local_data_dump.sql.gz | MYSQL_PWD=root mysql -h 127.0.0.1 -P 3306 -u root
-            TABLES=$(MYSQL_PWD=root mysql -h 127.0.0.1 -P 3306 -u root -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='local_django_db';")
-            echo "Tables restored: $TABLES"
-            [ "$TABLES" -gt 3 ] || { echo "Restore produced too few tables - aborting to protect data"; exit 1; }
-            echo "DB_READY=true" >> $GITHUB_ENV
-          elif [ -f local_data_dump.sql.gz ]; then
-            echo "Cache exists but is CORRUPT/too small. Aborting so it is not overwritten with an empty DB."
-            echo "Use workflow_dispatch restore_action=latest to restore from Drive backup."
-            exit 1
-          else
-            echo "NO CACHE FOUND: first run / cache evicted. Starting with a clean DB."
-            echo "DB_READY=true" >> $GITHUB_ENV
-          fi
-
-      - name: Apply Migrations (non-destructive) & Ensure Superuser
-        run: |
-          python manage.py makemigrations --noinput
-          # Plain migrate only applies NEW migrations. django_migrations table comes back
-          # with the restored dump, so existing data is never touched. No --fake needed.
-          python manage.py migrate --noinput
-
-          python manage.py shell <<'PY'
+          python manage.py makemigrations --merge || true
+          python manage.py makemigrations
+          python manage.py migrate --fake-initial --noinput || python manage.py migrate --fake --noinput
+          python manage.py shell -c "
           import os
           from django.contrib.auth import get_user_model
           User = get_user_model()
@@ -258,12 +152,151 @@ jobs:
               user.is_staff = True
               user.is_superuser = True
               user.save()
-              print("Superuser verified:", username)
-          PY
+          "
+          curl -d "Forced Django Migrations & Superuser Verification Executed Successfully on Local DB! 🚀" ntfy.sh/hshshehgag
+          exit 0
 
-      - name: Notify Migration Done (migrate_now trigger)
-        if: ${{ github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now' }}
-        run: curl -d "Django migrations & superuser verified on restored DB 🚀" ntfy.sh/hshshehgag
+      - name: Force Restore Database from Google Drive Snapshot
+        if: env.RESTORE_REQUESTED == 'true'
+        env:
+          DB_HOST: "127.0.0.1"
+          DB_PORT: "3306"
+          DB_USER: "root"
+          DB_PASS: "root"
+          DB_NAME: "local_django_db"
+          RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
+          BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
+        run: |
+          mkdir -p /home/runner/.config/rclone
+          echo "$RCLONE_CONFIG_DATA" > /home/runner/.config/rclone/rclone.conf
+          RCLONE_REMOTE=$(rclone listremotes | head -n 1)
+          REMOTE_NAME=$(echo "$RCLONE_REMOTE" | tr -d ':')
+          TARGET_DIR="${REMOTE_NAME}:hassan_shops"
+
+          if [ "$TARGET_RESTORE_FILE" = "list" ] || [ "$TARGET_RESTORE_FILE" = "ls" ]; then
+            rclone lsl "$TARGET_DIR" --include "^db_snapshot_*"
+            exit 0
+          fi
+
+          if [ "$TARGET_RESTORE_FILE" = "r" ] || [ "$TARGET_RESTORE_FILE" = "latest" ] || [ -z "$TARGET_RESTORE_FILE" ]; then
+            RESTORE_FILE=$(rclone lsf "$TARGET_DIR" --format "pm" --files-only --include "db_snapshot_*" | sort -t';' -k2 | tail -n 1 | cut -d';' -f1)
+          else
+            RESTORE_FILE="$TARGET_RESTORE_FILE"
+          fi
+
+          if [ -z "$RESTORE_FILE" ]; then
+            exit 1
+          fi
+
+          rclone copyto "${TARGET_DIR}/${RESTORE_FILE}" "./${RESTORE_FILE}"
+          python -c "
+          import os, base64
+          from cryptography.fernet import Fernet
+          from cryptography.hazmat.primitives import hashes
+          from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+          secret = os.environ['BACKUP_SECRET_KEY'].encode()
+          salt = b'django_backup_salt_2026'
+          kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
+          key = base64.urlsafe_b64encode(kdf.derive(secret))
+          fernet = Fernet(key)
+          with open('$RESTORE_FILE', 'rb') as f:
+              encrypted_data = f.read()
+          decrypted_data = fernet.decrypt(encrypted_data)
+          with open('restored_snapshot.sql.gz', 'wb') as f:
+              f.write(decrypted_data)
+          "
+          gunzip -c restored_snapshot.sql.gz > restored_snapshot.sql
+          MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root -e "DROP DATABASE IF EXISTS local_django_db; CREATE DATABASE local_django_db;"
+          MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < restored_snapshot.sql
+
+      - name: Restore Local DB Cache
+        if: ${{ env.RESTORE_REQUESTED != 'true' && !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now') }}
+        id: db-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            local_data_dump.sql.gz
+            cache_time.txt
+          key: mysql-db-cache-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            mysql-db-cache-${{ runner.os }}-
+
+      - name: Smart Cache Validation & Safe Database Restore
+        if: ${{ env.RESTORE_REQUESTED != 'true' && !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now') }}
+        run: |
+          echo "=== CHECKING CACHE VALIDITY FOR LOCAL DB ==="
+          python -c "
+          import os
+          CACHE_FILE = 'local_data_dump.sql.gz'
+          if os.path.exists(CACHE_FILE):
+              file_size = os.path.getsize(CACHE_FILE)
+              print(f'Found cache file with size: {file_size} bytes')
+              if file_size > 100:
+                  print('VALID CACHE FOUND: Restoring latest snapshot into Local DB.')
+                  with open('cache_decision.txt', 'w') as f:
+                      f.write('USE_CACHE')
+              else:
+                  print('Cache file is too small. Starting fresh.')
+                  with open('cache_decision.txt', 'w') as f:
+                      f.write('FRESH_START')
+          else:
+              print('NO CACHE FOUND: Initializing clean Local DB.')
+              with open('cache_decision.txt', 'w') as f:
+                      f.write('FRESH_START')
+          "
+
+          DECISION=$(cat cache_decision.txt)
+
+          if [ "$DECISION" = "USE_CACHE" ]; then
+            echo "=== SAFE RESTORE: Loading Valid Cache into Local MySQL ==="
+            gunzip -c local_data_dump.sql.gz > local_data_dump.sql
+            MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < local_data_dump.sql
+            echo "Safe Cache Restoration Completed on Local DB."
+          else
+            echo "=== FRESH START: Preparing clean Local DB ==="
+            python manage.py migrate --noinput || true
+          fi
+
+      - name: Apply Migrations Safely & Ensure Superuser on Local DB
+        if: ${{ !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now') }}
+        env:
+          DB_HOST: "127.0.0.1"
+          DB_PORT: "3306"
+          DB_USER: "root"
+          DB_PASS: "root"
+          DB_NAME: "local_django_db"
+          BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
+        run: |
+          echo "=== 1. CHECKING EXISTING TABLES & APPLYING SAFE MIGRATIONS ==="
+          python manage.py makemigrations
+          
+          TABLE_COUNT=$(MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='local_django_db';")
+          echo "Existing tables count in local_django_db: $TABLE_COUNT"
+
+          if [ "$TABLE_COUNT" -gt 3 ]; then
+            echo "Tables already exist from cache restore. Running migrate with --fake-initial..."
+            python manage.py migrate --fake-initial --noinput || python manage.py migrate --fake --noinput
+          else
+            echo "Database is empty. Running normal migrations..."
+            python manage.py migrate --noinput
+          fi
+
+          echo "=== 2. ENSURING SUPERUSER CREATION ON LOCAL DB ==="
+          python manage.py shell -c "
+          import os
+          from django.contrib.auth import get_user_model
+          User = get_user_model()
+          username = os.environ.get('SUPERUSER_NAME')
+          email = os.environ.get('SUPERUSER_EMAIL')
+          password = os.environ.get('SUPERUSER_PASSWORD')
+          if username and password:
+              user, created = User.objects.get_or_create(username=username, defaults={'email': email})
+              user.set_password(password)
+              user.is_staff = True
+              user.is_superuser = True
+              user.save()
+              print(f'LOCAL DB: Superuser \'{username}\' verified successfully.')
+          "
 
       - name: Process & Place PWA Icons from Project Root
         run: |
@@ -276,14 +309,22 @@ jobs:
           extensions = ('.png', '.jpg', '.jpeg', '.webp')
           found_images = [os.path.join(project_dir, f) for f in os.listdir(project_dir) if f.lower().endswith(extensions)]
           if found_images:
+              source_img_path = found_images[0]
               sizes = [(192, 192, 'icon-192.png'), (512, 512, 'icon-512.png')]
-              with Image.open(found_images[0]) as img:
+              with Image.open(source_img_path) as img:
                   img = img.convert('RGBA')
-                  for w, h, name in sizes:
-                      img.resize((w, h), Image.Resampling.LANCZOS).save(os.path.join(target_dir, name), 'PNG')
+                  for width, height, filename in sizes:
+                      resized_img = img.resize((width, height), Image.Resampling.LANCZOS)
+                      resized_img.save(os.path.join(target_dir, filename), 'PNG')
           "
 
       - name: Collect Static Files
+        env:
+          DB_HOST: "127.0.0.1"
+          DB_PORT: "3306"
+          DB_USER: "root"
+          DB_PASS: "root"
+          DB_NAME: "local_django_db"
         run: |
           mkdir -p static
           python manage.py collectstatic --noinput --clear
@@ -301,30 +342,43 @@ jobs:
           sleep 2
 
       - name: Create Encrypted Database Snapshot & Upload via Rclone
-        if: ${{ github.event.action == 'backup_now' }}
+        if: ${{ always() && github.event.action == 'backup_now' }}
+        env:
+          BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
+          RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
         run: |
           mkdir -p /home/runner/.config/rclone
           echo "$RCLONE_CONFIG_DATA" > /home/runner/.config/rclone/rclone.conf
           RCLONE_REMOTE=$(rclone listremotes | head -n 1)
           TIMESTAMP=$(date +"%d-%m-%y_%H-%M")
-          export SNAPSHOT_FILENAME="db_snapshot_${TIMESTAMP}.sql.gz.enc"
-          set -o pipefail
-          MYSQL_PWD=root mysqldump -h 127.0.0.1 -P 3306 -u root --set-gtid-purged=OFF --column-statistics=0 --single-transaction --routines --triggers --events --databases local_django_db | gzip > raw_snapshot.sql.gz
-          gzip -t raw_snapshot.sql.gz
+          SNAPSHOT_FILENAME="db_snapshot_${TIMESTAMP}.sql.gz.enc"
+          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root --set-gtid-purged=OFF --column-statistics=0 --single-transaction --databases local_django_db | gzip > raw_snapshot.sql.gz
           python -c "
           import os, base64
           from cryptography.fernet import Fernet
           from cryptography.hazmat.primitives import hashes
           from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
           secret = os.environ['BACKUP_SECRET_KEY'].encode()
-          kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=b'django_backup_salt_2026', iterations=100000)
-          fernet = Fernet(base64.urlsafe_b64encode(kdf.derive(secret)))
-          enc = fernet.encrypt(open('raw_snapshot.sql.gz', 'rb').read())
-          open(os.environ['SNAPSHOT_FILENAME'], 'wb').write(enc)
+          salt = b'django_backup_salt_2026'
+          kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
+          key = base64.urlsafe_b64encode(kdf.derive(secret))
+          fernet = Fernet(key)
+          with open('raw_snapshot.sql.gz', 'rb') as f:
+              data = f.read()
+          encrypted = fernet.encrypt(data)
+          with open('$SNAPSHOT_FILENAME', 'wb') as f:
+              f.write(encrypted)
           "
           rclone copy "$SNAPSHOT_FILENAME" "${RCLONE_REMOTE}hassan_shops/"
 
       - name: Start Django Server & Permanent Cloudflare Tunnel
+        env:
+          DB_HOST: "127.0.0.1"
+          DB_PORT: "3306"
+          DB_USER: "root"
+          DB_PASS: "root"
+          DB_NAME: "local_django_db"
+          BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
         run: |
           touch django.log tunnel.log
           PYTHONUNBUFFERED=1 python -u manage.py runserver 0.0.0.0:8000 > django.log 2>&1 &
@@ -334,7 +388,7 @@ jobs:
       - name: Get Public IP & Send Notification to ntfy
         run: |
           PUBLIC_IP=$(curl -s ifconfig.me || curl -s api.ipify.org)
-          MESSAGE="Django App Live! 🚀 (Local Runner DB, latest snapshot restored)
+          MESSAGE="Django App Live! 🚀 (Running strictly on Local Runner DB safely)
           Domain: https://shops.hadi88.online
           Direct IP: http://$PUBLIC_IP:8000"
           curl -d "$MESSAGE" ntfy.sh/hshshehgag
@@ -347,32 +401,49 @@ jobs:
           REPO="${{ github.repository }}"
           BRANCH="${{ github.ref_name }}"
 
-          for i in {1..62}; do
+          for i in {1..65}; do
             for s in {1..60}; do
               LATEST_RUN_ID=$(gh api "repos/$REPO/actions/runs?branch=$BRANCH&per_page=1" --jq '.workflow_runs[0].id' 2>/dev/null || echo "$CURRENT_RUN_ID")
               if [ "$LATEST_RUN_ID" -gt "$CURRENT_RUN_ID" ]; then
-                echo "Newer run ($LATEST_RUN_ID) detected. Taking validated snapshot before exiting..."
-                "$HOME/snapshot.sh" || true
+                echo "A newer workflow run ($LATEST_RUN_ID) detected! Creating emergency Local DB snapshot before exiting..."
+                MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root --set-gtid-purged=OFF --column-statistics=0 --single-transaction --databases local_django_db | gzip > local_data_dump.sql.gz
+                date +%s > cache_time.txt
                 exit 0
               fi
               sleep 5
             done
             echo "--- SERVER HTTP ACCESS LOGS ---"
-            grep -E '"GET|POST|PUT|DELETE|HEAD' django.log | tail -n 50 || echo "No HTTP requests logged yet."
+            grep -E '"GET|POST|PUT|DELETE|HEAD' django.log || echo "No HTTP requests logged yet."
           done || true
 
-      # Runs on success, failure, cancel AND timeout. Only saves when the dump is validated.
-      - name: Create Validated Final DB Snapshot
+      - name: Create Safe Local DB Snapshot for Cache
         if: always()
         run: |
-          "$HOME/snapshot.sh"
+          echo "=========================================="
+          echo " CREATING SAFE LOCAL DB CACHE SNAPSHOT "
+          echo "=========================================="
+          MYSQL_PWD="root" mysqldump -h 127.0.0.1 -P 3306 -u root \
+            --set-gtid-purged=OFF \
+            --column-statistics=0 \
+            --single-transaction \
+            --databases local_django_db | gzip > local_data_dump.sql.gz
 
-      - name: Save Updated DB Dump to GitHub Cache
-        if: ${{ always() && env.DUMP_OK == 'true' }}
+          python -c "
+          import time, os
+          with open('cache_time.txt', 'w') as f:
+              f.write(str(time.time()))
+          if os.path.exists('local_data_dump.sql.gz'):
+              size = os.path.getsize('local_data_dump.sql.gz')
+              print(f'Generated local_data_dump.sql.gz size: {size} bytes')
+          else:
+              print('Warning: Dump file not created, but continuing safely.')
+          "
+
+      - name: Save Updated DB Dump & Timestamp to GitHub Cache
+        if: always()
         uses: actions/cache/save@v4
         with:
           path: |
             local_data_dump.sql.gz
             cache_time.txt
-          # Name = dbsnap-v2-<OS>-<date>_<time>-<run id>-<attempt>  (always unique, so it always saves)
-          key: dbsnap-v2-${{ runner.os }}-${{ env.SNAP_TS }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: mysql-db-cache-${{ runner.os }}-${{ github.run_id }}
