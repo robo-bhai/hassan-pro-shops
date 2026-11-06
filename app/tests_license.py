@@ -65,6 +65,14 @@ class TokenTests(SimpleTestCase):
         self.assertEqual(core.machine_id(), core.machine_id())
         self.assertRegex(core.machine_id(), r'^[0-9A-F]{4}(-[0-9A-F]{4}){3}$')
 
+    def test_machine_seed_gives_the_same_id_every_time_and_differs_per_seed(self):
+        from unittest import mock
+        with mock.patch.dict(os.environ, {'LICENSE_MACHINE_SEED': 'seed-one'}):
+            a = core.machine_id()
+            self.assertEqual(a, core.machine_id())
+        with mock.patch.dict(os.environ, {'LICENSE_MACHINE_SEED': 'seed-two'}):
+            self.assertNotEqual(a, core.machine_id())
+
 
 class EvaluateTests(SimpleTestCase):
     def ev(self, days, machine=ME, grace=7):

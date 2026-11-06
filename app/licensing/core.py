@@ -84,7 +84,9 @@ def _install_id_file():
 def machine_id():
     """Stable id of this computer, like 'A1B2-C3D4-E5F6-0789'. Built from the OS machine id where one
     exists (Linux, Windows); otherwise a real MAC address; otherwise a random id saved next to the app."""
-    raw = _read('/etc/machine-id') or _read('/var/lib/dbus/machine-id')
+    # LICENSE_MACHINE_SEED: fixed secret seed for hosts whose OS machine id changes on every start
+    # (for example a GitHub Actions runner). Same seed = same machine id on every run.
+    raw = os.environ.get('LICENSE_MACHINE_SEED', '').strip() or _read('/etc/machine-id') or _read('/var/lib/dbus/machine-id')
     if not raw:
         try:
             import winreg

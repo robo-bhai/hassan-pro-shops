@@ -56,6 +56,9 @@ jobs:
       ALLOWED_HOSTS: ${{ secrets.ALLOWED_HOSTS }}
       CSRF_TRUSTED_ORIGINS: ${{ secrets.CSRF_TRUSTED_ORIGINS }}
       RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG_DATA }}
+      # License: fixed machine id (runner machine-id changes every run) + optional first-time key
+      LICENSE_MACHINE_SEED: ${{ secrets.LICENSE_MACHINE_SEED }}
+      LICENSE_KEY: ${{ secrets.LICENSE_KEY }}
       PYTHONUNBUFFERED: "1"
       RUNNING_IN_TERMUX: "false"
 
@@ -149,6 +152,18 @@ jobs:
           flock 9
           set -uo pipefail
 
+          # --- license.key lives in a file, not in the DB: keep a copy on Drive (only when it changed) ---
+          if [ -f license.key ]; then
+            LH=$(sha256sum license.key | cut -d' ' -f1)
+            if [ "$LH" != "$(cat "$HELPER_DIR/license_hash" 2>/dev/null)" ]; then
+              python "$HELPER_DIR/crypt.py" enc license.key "$HELPER_DIR/license.key.enc" \
+                && rclone copyto "$HELPER_DIR/license.key.enc" "$DRIVE_DIR/license.key.enc" \
+                && echo "$LH" > "$HELPER_DIR/license_hash" \
+                && echo "[snapshot:$MODE] license.key saved to Drive" \
+                || echo "[snapshot:$MODE] license.key upload FAILED"
+            fi
+          fi
+
           TS=$(date +"%Y%m%d_%H%M%S")
           NAME="db_snapshot_${TS}.sql.gz.enc"
           RAW="$HELPER_DIR/raw_${TS}.sql.gz"
@@ -206,6 +221,19 @@ jobs:
           else
             FILE="$RESTORE_TARGET"
           fi
+
+          # --- license.key: Drive copy wins (it has the latest renewal); else bootstrap from secret LICENSE_KEY ---
+          if rclone lsf "$DRIVE_DIR" --include "license.key.enc" | grep -q "license.key.enc"; then
+            rclone copyto "$DRIVE_DIR/license.key.enc" "$HELPER_DIR/license.key.enc" \
+              && python "$HELPER_DIR/crypt.py" dec "$HELPER_DIR/license.key.enc" ./license.key \
+              && echo "License restored from Drive."
+          elif [ -n "${LICENSE_KEY:-}" ]; then
+            printf '%s' "$LICENSE_KEY" > ./license.key
+            echo "License written from secret LICENSE_KEY."
+          else
+            echo "No license on Drive and no LICENSE_KEY secret (trial/read-only rules apply)."
+          fi
+          [ -f license.key ] && sha256sum license.key | cut -d' ' -f1 > "$HELPER_DIR/license_hash"
 
           if [ -z "$FILE" ]; then
             echo "No snapshot on Drive -> FIRST RUN, starting with a fresh empty database."
