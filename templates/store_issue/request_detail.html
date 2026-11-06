@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block title %}{{ req.request_no }} - {{ company_name }}{% endblock %}
+{% block extra_css %}{% include 'store_issue/_styles.html' %}{% include 'store_issue/_styles_ops.html' %}{% endblock %}
+{% block content %}
+<div class="container-fluid px-4 py-4 si-page">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <div><h1 class="h3 mb-1"><i class="bi bi-check2-square text-primary me-2"></i>{{ req.request_no }} <span class="si-badge {{ req.status }} ms-2">{{ req.get_status_display }}</span></h1>
+      <p class="text-muted small mb-0">{{ req.requested_at|date:"d M Y, h:i A" }} &middot; {{ req.get_issue_type_label }}</p></div>
+    <div class="d-flex gap-2 flex-wrap"><a href="{% url 'store_request_list' %}" class="btn btn-outline-secondary rounded-pill px-3">Back</a>
+      {% if req.issue %}<a href="{% url 'store_issue_detail' req.issue_id %}" class="btn btn-outline-primary rounded-pill px-3">{{ req.issue.issue_no }}</a>{% endif %}</div>
+  </div>
+  {% if req.status == 'rejected' %}<div class="alert alert-danger border-0"><b>Reject</b> by {{ req.decided_by.get_username|default:"-" }}: {{ req.decision_note }}</div>{% endif %}
+  {% if req.status == 'approved' %}<div class="alert alert-success border-0"><b>Manzoor</b> by {{ req.decided_by.get_username|default:"-" }} {{ req.decided_at|date:"d M h:i A" }}. {{ req.decision_note }}</div>{% endif %}
+  {% if self_block %}<div class="alert alert-info border-0 small">You made this request yourself, so another manager must approve it.</div>{% endif %}
+  <div class="row g-3 mb-3">
+    <div class="col-lg-8"><div class="si-card p-3 h-100"><div class="row g-3">
+      <div class="col-sm-6"><div class="si-stat">Store<b>{{ req.from_warehouse.name }}</b></div></div>
+      <div class="col-sm-6"><div class="si-stat">Department<b>{{ req.department.name|default:"-" }}</b></div></div>
+      <div class="col-sm-6"><div class="si-stat">Received by<b>{{ req.received_by|default:"-" }}</b></div></div>
+      <div class="col-sm-6"><div class="si-stat">Requested by<b>{{ req.requested_by.get_username|default:"-" }}</b></div></div>
+      <div class="col-12"><div class="si-stat">Maqsad<b class="fw-normal">{{ req.purpose|default:"-"|linebreaksbr }}</b></div></div></div></div></div>
+    <div class="col-lg-4"><div class="si-card si-kpi h-100"><div class="ico bg-warning bg-opacity-10 text-warning"><i class="bi bi-cash-stack"></i></div>
+      <div><div class="lbl">Andaazi cost (FIFO)</div><div class="val">Rs. {{ req.est_cost|floatformat:2 }}</div></div></div></div>
+  </div>
+  <div class="si-card"><div class="table-responsive"><table class="table si-table align-middle mb-0">
+    <thead><tr><th>#</th><th>Item</th><th class="si-num">Qty</th><th>Unit</th><th>Remarks</th></tr></thead><tbody>
+    {% for it in items %}<tr><td>{{ forloop.counter }}</td><td class="fw-semibold">{{ it.product.name }}</td><td class="si-num">{{ it.qty|floatformat:"-3" }}</td><td>{{ it.product.unit.name|default:"" }}</td><td class="small text-muted">{{ it.remarks }}</td></tr>{% endfor %}
+    </tbody></table></div>
+    {% if can_decide or can_cancel %}
+    <div class="p-3 border-top d-flex flex-wrap gap-2 align-items-start">
+      {% if can_decide %}
+      <form method="post" action="{% url 'store_request_approve' req.pk %}" class="d-flex gap-2 flex-wrap">{% csrf_token %}
+        <input name="note" class="form-control" style="min-width:220px" placeholder="Note (optional)"><button class="btn btn-success"><i class="bi bi-check2-circle me-1"></i>Approve and issue</button></form>
+      <form method="post" action="{% url 'store_request_reject' req.pk %}" class="d-flex gap-2 flex-wrap">{% csrf_token %}
+        <input name="note" class="form-control" style="min-width:220px" placeholder="Reason for rejection (required)" required><button class="btn btn-outline-danger">Reject</button></form>
+      {% endif %}
+      {% if can_cancel %}<form method="post" action="{% url 'store_request_cancel' req.pk %}" onsubmit="return confirm('Request cancel karein?')">{% csrf_token %}<button class="btn btn-light">Cancel request</button></form>{% endif %}
+    </div>{% endif %}
+  </div>
+</div>
+{% endblock %}

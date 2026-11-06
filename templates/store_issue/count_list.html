@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}Stock Count - {{ company_name }}{% endblock %}
+{% block extra_css %}{% include 'store_issue/_styles.html' %}{% include 'store_issue/_styles_ops.html' %}{% endblock %}
+{% block content %}
+<div class="container-fluid px-4 py-4 si-page">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <div><h1 class="h3 mb-1"><i class="bi bi-clipboard-check text-primary me-2"></i>Physical Stock Count</h1>
+      <p class="text-muted small mb-0">Count the actual stock in the store, compare it with the system, and correct it with the reason for any difference</p></div>
+    {% if can_start %}<a href="{% url 'store_count_new' %}" class="btn btn-primary rounded-pill px-4"><i class="bi bi-plus-lg me-1"></i>New count</a>{% endif %}
+  </div>
+  <div class="btn-group mb-3">
+    <a class="btn btn-sm {% if not status %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?">Sab</a>
+    <a class="btn btn-sm {% if status == 'counting' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?status=counting">In progress</a>
+    <a class="btn btn-sm {% if status == 'submitted' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?status=submitted">Review</a>
+    <a class="btn btn-sm {% if status == 'posted' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?status=posted">Post</a>
+  </div>
+  <div class="si-card"><div class="table-responsive"><table class="table table-hover si-table align-middle mb-0">
+    <thead><tr><th>Ginti #</th><th>Date</th><th>Store</th><th class="si-num">Items</th><th class="si-num">Kam (loss)</th><th class="si-num">Zyada (gain)</th><th>Status</th></tr></thead><tbody>
+    {% for c in page_obj %}<tr><td><a class="fw-semibold text-decoration-none" href="{% url 'store_count_detail' c.pk %}">{{ c.count_no }}</a></td>
+      <td class="small text-nowrap">{{ c.count_date|date:"d M Y h:i A" }}</td><td>{{ c.warehouse.name }}</td><td class="si-num">{{ c.line_count }}</td>
+      <td class="si-num si-diff-neg">{{ c.loss_value|floatformat:2 }}</td><td class="si-num si-diff-pos">{{ c.gain_value|floatformat:2 }}</td>
+      <td><span class="si-badge {{ c.status }}">{{ c.get_status_display }}</span></td></tr>
+    {% empty %}<tr><td colspan="7"><div class="si-empty"><i class="bi bi-inbox"></i>No counts</div></td></tr>{% endfor %}
+    </tbody></table></div></div>
+</div>
+{% endblock %}

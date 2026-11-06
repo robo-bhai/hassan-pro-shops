@@ -195,24 +195,6 @@ DATABASES = {
     }
 }
 
-# ==========================================
-# ✅ DATABASE - MySQL (GitHub runner local MySQL)
-# Used only when DB_HOST is set (deploy.yml sets it). Without DB_HOST the SQLite above stays active,
-# so Termux / customer installs keep working unchanged. Needs: pip install mysqlclient
-# ==========================================
-if os.environ.get('DB_HOST'):
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': os.environ.get('DB_NAME', 'local_django_db'),
-            'USER': os.environ.get('DB_USER', 'root'),
-            'PASSWORD': os.environ.get('DB_PASS', ''),
-            'HOST': os.environ['DB_HOST'],
-            'PORT': os.environ.get('DB_PORT', '3306'),
-            'OPTIONS': {'charset': 'utf8mb4'},
-        }
-    }
-
 if not IS_TERMUX:
     # WAL lets readers and one writer work at the same time (several cashiers). Not used on Termux/shared
     # storage where WAL files are not supported. The backup system uses SQLite's own backup API, so it is safe with WAL.
