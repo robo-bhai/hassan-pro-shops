@@ -252,13 +252,14 @@ jobs:
             gunzip -c local_data_dump.sql.gz > local_data_dump.sql
             MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root local_django_db < local_data_dump.sql
             echo "Safe Cache Restoration Completed on Local DB."
+            echo "CACHE_RESTORED=true" >> $GITHUB_ENV
           else
             echo "=== FRESH START: Preparing clean Local DB ==="
-            python manage.py migrate --noinput || true
+            echo "CACHE_RESTORED=false" >> $GITHUB_ENV
           fi
 
       - name: Apply Migrations Safely & Ensure Superuser on Local DB
-        if: ${{ !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now') }}
+        if: ${{ env.CACHE_RESTORED != 'true' && !(github.event_name == 'repository_dispatch' && github.event.action == 'migrate_now') }}
         env:
           DB_HOST: "127.0.0.1"
           DB_PORT: "3306"
@@ -267,21 +268,10 @@ jobs:
           DB_NAME: "local_django_db"
           BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
         run: |
-          echo "=== 1. CHECKING EXISTING TABLES & APPLYING SAFE MIGRATIONS ==="
+          echo "=== CACHE NOT FOUND/INVALID: RUNNING MIGRATIONS & CREATING SUPERUSER ==="
           python manage.py makemigrations
-          
-          TABLE_COUNT=$(MYSQL_PWD="root" mysql -h 127.0.0.1 -P 3306 -u root -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='local_django_db';")
-          echo "Existing tables count in local_django_db: $TABLE_COUNT"
+          python manage.py migrate --noinput
 
-          if [ "$TABLE_COUNT" -gt 3 ]; then
-            echo "Tables already exist from cache restore. Running migrate with --fake-initial..."
-            python manage.py migrate --fake-initial --noinput || python manage.py migrate --fake --noinput
-          else
-            echo "Database is empty. Running normal migrations..."
-            python manage.py migrate --noinput
-          fi
-
-          echo "=== 2. ENSURING SUPERUSER CREATION ON LOCAL DB ==="
           python manage.py shell -c "
           import os
           from django.contrib.auth import get_user_model
