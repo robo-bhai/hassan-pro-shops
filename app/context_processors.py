@@ -76,6 +76,10 @@ def system_settings(request):
     # customer side (Owner + staff), so the sidebar flags below are all True for the Administrator.
     if getattr(user, 'is_superuser', False):
         vis = {k: (v if k == '_mode' else True) for k, v in vis.items()}
+    else:
+        # Role-wise access (Settings > Modules > Roles): hide modules the user's role may not use.
+        from .module_roles import apply_roles
+        vis = apply_roles(user, vis)
     _is_owner = bool(getattr(user, 'is_authenticated', False)
                      and user.groups.filter(name='Owner').exists())
 

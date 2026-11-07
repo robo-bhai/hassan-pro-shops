@@ -150,6 +150,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'app.module_access.ModuleAccessMiddleware',   # blocks URLs of OFF modules / roles without access
     'axes.middleware.AxesMiddleware',
     'app.middleware.SecurityMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',

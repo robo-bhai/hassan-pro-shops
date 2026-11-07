@@ -90,7 +90,7 @@ def default_language():
 
 def clear_cache():
     from django.core.cache import cache
-    for k in ('lite_edition_on', 'lite_default_language', 'module_visibility'):
+    for k in ('lite_edition_on', 'lite_default_language', 'module_visibility', 'shop_scope', 'module_roles_map'):
         cache.delete(k)
 
 
@@ -177,6 +177,10 @@ def disable_lite():
 # ----------------------------------------------------------------------------
 SHOP_MARKER = 'shop_edition_on'            # SystemSetting row: 'true' while Shop Edition is ON
 AGRI_MARKER = 'agri_edition_on'
+# Role-scoped Shop Edition: Shop applies ONLY to users of these roles (Django Groups); everybody else keeps the
+# normal module settings. No role chosen = Shop for everybody (old behaviour).
+SHOP_ROLES_KEY = 'shop_edition_roles'      # "salesman,warehouse"  (lower-case group names)
+SHOP_SHOW_KEY = 'shop_edition_show'        # modules the Shop roles may see
 
 # Zaroori: shop order -> SaleOrder (sales), stock (inventory), vendors (purchase), hisaab (accounts, cash)
 SHOP_CORE = ['sales', 'inventory', 'purchase', 'accounts', 'cash']
@@ -222,7 +226,7 @@ def validate_shop_also(also):
     return all_keys
 
 
-def enable_shop(also=(), only_core=False):
+def enable_shop(also=(), only_core=False, roles=()):
     """Shop Edition ON. Returns (show, hide). ValueError: bura module / pehle se ON / Lite ya Agri ON.
     Pehli values save hoti hain taake disable_shop() restore kar sake."""
     import json
@@ -237,6 +241,14 @@ def enable_shop(also=(), only_core=False):
         raise ValueError('Agri Edition ON hai. Pehle usay off karein.')
 
     show, hide = shop_plan(all_keys, list(also or ()), only_core)
+    roles = sorted({r.strip().lower() for r in (roles or ()) if r and r.strip()})
+    if roles:
+        # Role-scoped: the global module switches are NOT touched; the plan is stored and applied per user.
+        _set(SHOP_ROLES_KEY, ','.join(roles))
+        _set(SHOP_SHOW_KEY, ','.join(show))
+        _set(SHOP_MARKER, 'true')
+        clear_cache()
+        return show, hide
     prev = {}
     for k in shop_setting_keys_for(all_keys):
         row = SystemSetting.objects.filter(setting_key=k).first()
@@ -264,6 +276,12 @@ def disable_shop():
     marker = SystemSetting.objects.filter(setting_key=SHOP_MARKER).first()
     if not marker:
         return False
+    if SystemSetting.objects.filter(setting_key=SHOP_ROLES_KEY).exclude(setting_value='').exists():
+        # role-scoped Shop: nothing global was changed, so just remove the scope
+        SystemSetting.objects.filter(setting_key__in=[SHOP_ROLES_KEY, SHOP_SHOW_KEY]).delete()
+        marker.delete()
+        clear_cache()
+        return True
     try:
         with open(_shop_state_file()) as fh:
             prev = json.load(fh)
@@ -283,6 +301,15 @@ def disable_shop():
     return True
 
 
+def shop_roles_now():
+    """Roles the Shop Edition is scoped to (lower-case list); [] = Shop is for everybody."""
+    from app.models import SystemSetting
+    if not shop_marker_on():
+        return []
+    val = SystemSetting.get_value(SHOP_ROLES_KEY, '')
+    return [r for r in val.split(',') if r]
+
+
 def edition_context():
     """Template context for the Edition card (Settings > Modules)."""
     from app.models import SystemSetting
@@ -292,6 +319,8 @@ def edition_context():
     return {
         'lite_on': lite_on,
         'shop_on': shop_on,
+        'shop_roles': shop_roles_now(),
+        'edition_roles': __import__('app.module_roles', fromlist=['list_roles']).list_roles(),
         'edition_now': 'lite' if lite_on else ('shop' if shop_on else 'full'),
         'lite_lang': SystemSetting.get_value(LITE_LANG_KEY, LITE_DEFAULT_LANG),
         'lite_optional': [{'key': k, 'label': labels.get(k, k)} for k in LITE_OPTIONAL],
@@ -341,8 +370,21 @@ def apply_edition_post(post, user=None):
         return True, 'success', '✅ Lite Edition ON — sirf roz ke modules dikhaye ja rahe hain.'
 
     # edition == 'shop'
+    roles = sorted({r.strip().lower() for r in post.getlist('shop_roles') if r.strip()})
     if shop_on:
-        return False, 'success', ''
+        # Shop already ON: the roles tick-boxes may have changed
+        if post.get('shop_roles_form') != '1':
+            return False, 'success', ''
+        current = shop_roles_now()
+        if roles == sorted(current):
+            return False, 'success', ''
+        if current and roles:
+            _set(SHOP_ROLES_KEY, ','.join(roles))
+            clear_cache()
+            return True, 'success', '✅ Shop Edition ab sirf in roles par lagu hai: %s.' % ', '.join(roles)
+        if current and not roles:
+            return True, 'error', 'Kam az kam ek role chunen. Sab ke liye Shop chahiye to pehle Full ERP lagayen, phir Shop lagayen.'
+        return True, 'error', 'Shop pehle se sab par lagu hai. Role chunne ke liye pehle Full ERP lagayen, phir Shop + role chunen.'
     also = post.getlist('shop_also')
     only_core = post.get('shop_only_core') == '1'
     try:
@@ -351,9 +393,11 @@ def apply_edition_post(post, user=None):
             raise ValueError('Agri Edition ON hai. Pehle usay off karein.')
         if lite_on:
             disable_lite()
-        enable_shop(also, only_core)
+        enable_shop(also, only_core, roles)
     except ValueError as exc:
         return True, 'error', str(exc)
+    if roles:
+        return True, 'success', '✅ Shop Edition ON — sirf in roles par: %s. Baqi roles ko pehle jaisa poora menu milega.' % ', '.join(roles)
     return True, 'success', '✅ Shop Edition ON — sirf online shop order process ke modules dikhaye ja rahe hain.'
 
 

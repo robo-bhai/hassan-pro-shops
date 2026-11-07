@@ -26,6 +26,8 @@ class Command(BaseCommand):
         parser.add_argument('action', choices=['on', 'off', 'status'])
         parser.add_argument('--also', nargs='*', default=[], metavar='MODULE',
                             help='extra modules ON rakho (jaise: %s)' % ' '.join(SHOP_OPTIONAL))
+        parser.add_argument('--roles', nargs='*', default=[], metavar='ROLE',
+                            help='Shop sirf in roles par lagao (jaise: salesman warehouse); baqi roles ko poora menu')
         parser.add_argument('--only-core', action='store_true',
                             help='sirf zaroori modules ON (%s)' % ' '.join(SHOP_CORE))
 
@@ -36,6 +38,8 @@ class Command(BaseCommand):
         if action == 'status':
             self.stdout.write('Shop Edition: %s' % ('ON' if is_on else 'OFF'))
             self.stdout.write('business_mode = %s' % SystemSetting.get_value('business_mode', 'both'))
+            from app.lite_edition import shop_roles_now
+            self.stdout.write('roles = %s' % (', '.join(shop_roles_now()) or 'sab'))
             return
 
         if action == 'on':
@@ -44,7 +48,7 @@ class Command(BaseCommand):
                     'Shop Edition pehle se ON hai. Module list badalni ho to pehle `shop_edition off` chalayein.'))
                 return
             try:
-                show, hide = enable_shop([m.strip().lower() for m in opts['also']], opts['only_core'])
+                show, hide = enable_shop([m.strip().lower() for m in opts['also']], opts['only_core'], opts['roles'])
             except ValueError as exc:
                 raise CommandError(str(exc))
             self.stdout.write(self.style.SUCCESS('Shop Edition ON.'))

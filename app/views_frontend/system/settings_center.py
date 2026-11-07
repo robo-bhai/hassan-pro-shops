@@ -24,6 +24,7 @@ from django.urls import NoReverseMatch, reverse
 
 from ...models import CompanyInfo, DeliverySettings, SecuritySettings, SystemSetting
 from ...module_catalog import MODULE_GROUPS, get_module_catalog, get_module_keys
+from ...module_roles import clear_cache as clear_roles_cache, list_roles, roles_map, save_roles
 from ...settings_catalog import TAB_BY_KEY, TABS
 
 logger = logging.getLogger(__name__)
@@ -181,9 +182,11 @@ def _modules_context():
         'description': m['description'], 'group': m['group'],
         'shop': unit_enabled(m['key'], 'shop'),
         'visible': visible.get(m['key'], True),
+        'roles': roles_map().get(m['key'], []),
     } for m in get_module_catalog()]
     groups = [{'name': g, 'items': [r for r in rows if r['group'] == g]} for g in MODULE_GROUPS]
-    return {'module_groups': [g for g in groups if g['items']], 'module_count': len(rows)}
+    return {'module_groups': [g for g in groups if g['items']], 'module_count': len(rows),
+            'module_roles': list_roles()}
 
 
 def _save_modules(request):
@@ -193,6 +196,9 @@ def _save_modules(request):
         SystemSetting.set_value('mode_shop_%s' % k, shop_on, request.user)
         # old global switch in sync (for old code)
         SystemSetting.set_value('show_%s_module' % k, shop_on, request.user)
+        # which roles get this module (none selected = every role)
+        save_roles(k, request.POST.getlist('roles_%s' % k), request.user)
+    clear_roles_cache()
     cache.delete('module_visibility')
 
 

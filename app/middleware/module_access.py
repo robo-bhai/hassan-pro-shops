@@ -9,6 +9,7 @@ On those URLs it shows the "Module is disabled" page (or JSON for AJAX).
 In settings.py, add this line to the MIDDLEWARE list, AFTER AuthenticationMiddleware:
     'app.module_access.ModuleAccessMiddleware',
 """
+from ..module_roles import role_allows
 from django.http import HttpResponse, JsonResponse
 from django.urls import reverse
 from django.utils.html import escape
@@ -70,15 +71,17 @@ class ModuleAccessMiddleware:
                 key, label = hit
                 if not vis.get(key, True):
                     return self._blocked(request, user, label, vis.get('_mode', 'both'))
+                if not role_allows(user, key):
+                    return self._blocked(request, user, label, vis.get('_mode', 'both'), by_role=True)
         return self.get_response(request)
 
     @staticmethod
-    def _blocked(request, user, label, mode):
+    def _blocked(request, user, label, mode, by_role=False):
         wants_json = (request.headers.get('x-requested-with') == 'XMLHttpRequest'
                       or 'application/json' in request.headers.get('accept', '')
                       or request.path.startswith(('/ajax/', '/api/')))
         if wants_json:
-            return JsonResponse({'success': False, 'message': 'The %s module is disabled.' % label}, status=403)
+            return JsonResponse({'success': False, 'message': ('You do not have access to the %s module.' if by_role else 'The %s module is disabled.') % label}, status=403)
         link = hint = ''
         if user.is_superuser:
             try:
