@@ -43,7 +43,7 @@ from django.views.decorators.http import require_POST
 from ..decorators import vendor_login_required
 from ..vendor_commission import commission_percent, reprice_open_batches, vendor_earnings, vendor_share
 from ..models import (
-    Brand, Category, CompanyInfo, DeliveryInfo, Inventory, OrderReview, Product, RiderProfile, SaleOrder,
+    Brand, Category, CompanyInfo, DeliveryArea, DeliveryInfo, Inventory, OrderReview, Product, RiderProfile, SaleOrder,
     StockBatch, StoreCategory, Unit, Vendor, VendorProfile, Warehouse,
 )
 from . import store_orders
@@ -257,6 +257,29 @@ def _form_context(request, product=None, data=None):
 # 1. REGISTER
 # ============================================
 
+def _areas_from_post(post):
+    """Dropdown/checkbox list se chune hue areas (sirf admin ki list wale), warna purana text field.
+    Admin ne list nahi banayi to purana textarea chalta hai."""
+    if post.get('areas_mode') == 'pick':
+        valid = DeliveryArea.valid_labels()
+        picks = [a for a in post.getlist('delivery_areas_pick') if a in valid]
+        extra = post.get('delivery_areas_extra', '')
+        return ', '.join(picks + ([extra] if extra.strip() else []))
+    return post.get('delivery_areas', '')
+
+
+def _area_context(profile=None):
+    """Template ke liye: shehar-wise areas, aur vendor ne jo chune hain."""
+    groups = DeliveryArea.grouped()
+    chosen = {a.lower() for a in VendorProfile.clean_areas(profile.delivery_areas)} if profile else set()
+    listed = {a.label.lower() for _, items in groups for a in items}
+    return {
+        'area_groups': [(c, [(a.label, a.label.lower() in chosen) for a in items]) for c, items in groups],
+        'area_extra': ', '.join(a for a in VendorProfile.clean_areas(profile.delivery_areas)
+                                if a.lower() not in listed) if profile else '',
+    }
+
+
 def vendor_register(request):
     """Vendor account banao. Admin approve karega (ya auto-approve setting)."""
     if request.user.is_authenticated and hasattr(request.user, 'vendor_profile'):
@@ -268,7 +291,7 @@ def vendor_register(request):
         phone = request.POST.get('phone', '').strip()[:20]
         email = request.POST.get('email', '').strip()[:100]
         city = request.POST.get('city', '').strip()[:100]
-        delivery_areas = ', '.join(VendorProfile.clean_areas(request.POST.get('delivery_areas', '')))
+        delivery_areas = ', '.join(VendorProfile.clean_areas(_areas_from_post(request.POST)))
         address = request.POST.get('address', '').strip()[:500]
         store_category = StoreCategory.objects.filter(
             pk=request.POST.get('store_category') or 0, is_active=True).first()
@@ -352,6 +375,7 @@ def vendor_register(request):
         'page_title': 'Vendor Registration',
         'store_categories': StoreCategory.objects.filter(is_active=True),
         'company_name': _company_name(),
+        **_area_context(),
     })
 
 
@@ -799,7 +823,7 @@ def vendor_store_settings(request):
             t_min, t_max = profile.delivery_time_min, profile.delivery_time_max
             errors.append('Delivery time minutes mein likhein (min, max se chhota ya barabar)')
 
-        raw_areas = post.get('delivery_areas', '')
+        raw_areas = _areas_from_post(post)
         area_list = VendorProfile.clean_areas(raw_areas)
         if len([x for x in raw_areas.replace('\n', ',').replace(';', ',').split(',') if x.strip()]) > VendorProfile.MAX_AREAS:
             errors.append(f'Zyada se zyada {VendorProfile.MAX_AREAS} areas likh sakte hain')
@@ -839,6 +863,7 @@ def vendor_store_settings(request):
         'profile': profile,
         'store_categories': StoreCategory.objects.filter(is_active=True),
         'company_name': _company_name(),
+        **_area_context(profile),
     })
 
 

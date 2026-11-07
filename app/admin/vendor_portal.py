@@ -17,6 +17,19 @@ class StoreCategoryAdmin(admin.ModelAdmin):
         return obj.stores.count()
 
 
+@admin.register(DeliveryArea, site=admin.site)
+class DeliveryAreaAdmin(admin.ModelAdmin):
+    list_display = ('name', 'city', 'sort_order', 'is_active')
+    list_editable = ('sort_order', 'is_active')
+    list_filter = ('city', 'is_active')
+    search_fields = ('name', 'city')
+    actions = ['bulk_note']
+
+    @admin.action(description='Tip: ek saath bohat areas ke liye "Add" mein ek ek karke ya shell se import karein')
+    def bulk_note(self, request, queryset):
+        messages.info(request, 'Bulk import ke liye: python manage.py import_areas file.csv (city,area)')
+
+
 @admin.register(VendorProfile, site=admin.site)
 class VendorProfileAdmin(admin.ModelAdmin):
     list_display = ('business_name', 'vendor', 'user', 'city', 'store_category', 'is_approved', 'store_status', 'created_at', 'last_login_at')

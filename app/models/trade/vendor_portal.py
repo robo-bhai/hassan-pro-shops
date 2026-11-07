@@ -25,6 +25,42 @@ class StoreCategory(models.Model):
         return f"{self.icon} {self.name}".strip()
 
 
+class DeliveryArea(models.Model):
+    """Admin ki banayi hui areas ki master list (shehar -> area).
+    Vendor aur customer isi list se chunte hain, is liye spelling ka masla nahi aata.
+    VendorProfile.delivery_areas mein label ('Gulberg (Lahore)') text ki tarah save hota hai,
+    is liye purana matching logic jyon ka tyon chalta hai."""
+    city = models.CharField(max_length=100, db_index=True)
+    name = models.CharField(max_length=100, help_text="Area, mohalla ya gaon ka naam")
+    sort_order = models.PositiveSmallIntegerField(default=0, help_text="Chhota number pehle nazar aata hai")
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = 'Delivery Area'
+        verbose_name_plural = '3.3 Delivery Areas'
+        ordering = ['city', 'sort_order', 'name']
+        unique_together = [('city', 'name')]
+
+    def __str__(self):
+        return self.label
+
+    @property
+    def label(self):
+        return f"{self.name} ({self.city})"
+
+    @classmethod
+    def grouped(cls):
+        """[(city, [DeliveryArea, ...]), ...] - sirf active areas, shehar ke hisab se."""
+        out = {}
+        for a in cls.objects.filter(is_active=True).order_by('city', 'sort_order', 'name'):
+            out.setdefault(a.city, []).append(a)
+        return list(out.items())
+
+    @classmethod
+    def valid_labels(cls):
+        return {a.label for a in cls.objects.filter(is_active=True)}
+
+
 class VendorProfile(models.Model):
     """Portal account of a Vendor. Customer side ke CustomerProfile jaisa."""
     vendor = models.OneToOneField(

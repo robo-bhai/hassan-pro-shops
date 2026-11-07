@@ -1700,7 +1700,17 @@
             {% for c in delivery_cities %}<button type="button" class="area-chip{% if c == delivery_area %} on{% endif %}" data-area="{{ c }}">{{ c }}</button>{% endfor %}
         </div>
         {% endif %}
-        <input type="text" class="area-input" id="areaInput" maxlength="100" value="{{ delivery_area }}" placeholder="Shehar ya area" autocomplete="off">
+        {% if delivery_area_groups %}
+        <select class="area-input" id="areaSelect" aria-label="Area chunein">
+            <option value="">-- Apna area chunein --</option>
+            {% for city, areas in delivery_area_groups %}
+            <optgroup label="{{ city }}">
+                {% for a in areas %}<option value="{{ a }}"{% if a == delivery_area %} selected{% endif %}>{{ a }}</option>{% endfor %}
+            </optgroup>
+            {% endfor %}
+        </select>
+        {% endif %}
+        <input type="text" class="area-input" id="areaInput" maxlength="100" value="{{ delivery_area }}" placeholder="{% if delivery_area_groups %}List mein nahi? Yahan likhein{% else %}Shehar ya area{% endif %}" autocomplete="off">
         <div class="area-actions">
             <button type="button" class="area-clear" id="areaClear">Clear</button>
             <button type="button" class="area-save" id="areaSave">Save</button>
@@ -1931,6 +1941,8 @@ function getCookie(name) {
     if(/[?&]pick_area=1/.test(location.search)){ open(); try{history.replaceState(null,'',location.pathname);}catch(e){} }
     ov.addEventListener('click',function(e){ if(e.target===ov) close(); });
     document.addEventListener('keydown',function(e){ if(e.key==='Escape') close(); });
+    var sel=document.getElementById('areaSelect');
+    if(sel){ sel.addEventListener('change',function(){ input.value=sel.value; }); }
     var chips=document.querySelectorAll('#areaChips .area-chip');
     chips.forEach(function(c){ c.addEventListener('click',function(){
         input.value=c.dataset.area;
@@ -1947,7 +1959,7 @@ function getCookie(name) {
           }).catch(function(){ alert('Network error, dobara koshish karein.'); });
     }
     document.getElementById('areaSave').addEventListener('click',function(){ save(input.value.trim()); });
-    document.getElementById('areaClear').addEventListener('click',function(){ input.value=''; chips.forEach(function(x){x.classList.remove('on');}); save(''); });
+    document.getElementById('areaClear').addEventListener('click',function(){ input.value=''; if(sel) sel.value=''; chips.forEach(function(x){x.classList.remove('on');}); save(''); });
 })();
 </script>
 {% endblock %}

@@ -49,7 +49,7 @@ from ..models import (
     CustomerOrder, CustomerOrderItem, OrderStatusHistory,
     Notification, Inventory, StockBatch, RecentlyViewed,
     LiveVisitor, ChatConversation, ChatMessage, ChatTypingStatus,
-    AdminPresence, DeliverySettings
+    AdminPresence, DeliverySettings, DeliveryArea
 )
 
 from ..decorators import customer_login_required
@@ -903,6 +903,7 @@ def shop_home(request):
         'delivery_settings': delivery_settings,
         'delivery_area': get_delivery_area(request),
         'delivery_cities': [c.title() for c in (delivery_settings.get('city_charges') or {}).keys() if c != 'other'],
+        'delivery_area_groups': [(c, [a.label for a in items]) for c, items in DeliveryArea.grouped()],
     }
     return render(request, 'customer_portal/shop.html', context)
 
