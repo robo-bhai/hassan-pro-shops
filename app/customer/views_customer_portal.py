@@ -52,6 +52,7 @@ from ..models import (
     AdminPresence, DeliverySettings, DeliveryArea
 )
 
+from .payment_options import get_payment_options, clean_payment_method
 from ..decorators import customer_login_required
 from ..security.security_utils import safe_error
 from . import store_orders
@@ -1458,10 +1459,8 @@ def checkout(request):
         else:
             otp_masked_email = email
     
-    # Sirf Cash on Delivery (JazzCash / EasyPaisa / Bank hata diye gaye)
-    payment_methods = [
-        ('cod', '💵 Cash on Delivery', 'Ghar par cash dein'),
-    ]
+    # COD + JazzCash/EasyPaisa (sirf jab company settings mein number likha ho). Bank nahi.
+    payment_methods, payment_numbers = get_payment_options()
     
     company = CompanyInfo.objects.first()
     
@@ -1483,6 +1482,7 @@ def checkout(request):
         'skip_otp': skip_otp,
         'order_verified': order_verified,
         'payment_methods': payment_methods,
+        'payment_numbers': payment_numbers,
         'otp_remaining_seconds': otp_remaining_seconds,
         'otp_is_active': otp_is_active,
         'otp_masked_email': otp_masked_email,
@@ -1534,9 +1534,7 @@ def place_order(request):
         payment_method = request.POST.get('payment_method', 'cod')
         delivery_type = request.POST.get('delivery_type', 'standard')
         
-        valid_methods = ['cod']  # sirf Cash on Delivery
-        if payment_method not in valid_methods:
-            payment_method = 'cod'
+        payment_method = clean_payment_method(payment_method)
         
         valid_delivery = ['standard', 'express', 'pickup']
         if delivery_type not in valid_delivery:

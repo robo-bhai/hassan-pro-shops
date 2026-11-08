@@ -779,6 +779,27 @@
                         </label>
                     </div>
                     {% endfor %}
+
+                    {% if payment_numbers.jazzcash %}
+                    <div class="pay-number" data-for="jazzcash" style="display:none; margin-top:10px; padding:14px; border:2px dashed #d97706; border-radius:12px; background:#fffbeb;">
+                        <div class="small text-muted">📱 JazzCash par is number par payment bhejein:</div>
+                        <div class="d-flex align-items-center justify-content-between gap-2">
+                            <div class="fw-bold" style="font-size:22px; letter-spacing:1px;" id="num_jazzcash">{{ payment_numbers.jazzcash }}</div>
+                            <button type="button" class="btn btn-sm btn-outline-dark" onclick="copyPayNumber('num_jazzcash', this)">Copy</button>
+                        </div>
+                        <div class="small text-muted mt-1">{{ company.name }} &bull; Payment bhejne ke baad order karein. Rider ko ya shop ko transaction ID/screenshot dikha dein.</div>
+                    </div>
+                    {% endif %}
+                    {% if payment_numbers.easypaisa %}
+                    <div class="pay-number" data-for="easypaisa" style="display:none; margin-top:10px; padding:14px; border:2px dashed #059669; border-radius:12px; background:#ecfdf5;">
+                        <div class="small text-muted">📱 EasyPaisa par is number par payment bhejein:</div>
+                        <div class="d-flex align-items-center justify-content-between gap-2">
+                            <div class="fw-bold" style="font-size:22px; letter-spacing:1px;" id="num_easypaisa">{{ payment_numbers.easypaisa }}</div>
+                            <button type="button" class="btn btn-sm btn-outline-dark" onclick="copyPayNumber('num_easypaisa', this)">Copy</button>
+                        </div>
+                        <div class="small text-muted mt-1">{{ company.name }} &bull; Payment bhejne ke baad order karein. Rider ko ya shop ko transaction ID/screenshot dikha dein.</div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
             
@@ -1220,6 +1241,15 @@ function selectDelivery(type) {
 document.addEventListener('DOMContentLoaded', function() {
     
     // Payment method selection
+    function showPayNumber(v) {
+        document.querySelectorAll('.pay-number').forEach(function(e) {
+            e.style.display = (e.dataset.for === v) ? 'block' : 'none';
+        });
+    }
+    window.copyPayNumber = function(id, btn) {
+        var t = document.getElementById(id).textContent.trim();
+        if (navigator.clipboard) { navigator.clipboard.writeText(t).then(function() { btn.textContent = 'Copied'; setTimeout(function() { btn.textContent = 'Copy'; }, 1500); }); }
+    };
     const paymentRadios = document.querySelectorAll('input[name="payment_method"]');
     paymentRadios.forEach(radio => {
         radio.addEventListener('change', function() {
@@ -1227,6 +1257,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 opt.classList.remove('selected');
             });
             this.closest('.payment-option').classList.add('selected');
+            showPayNumber(this.value);
             
             fetch('/shop/save-payment-method/', {
                 method: 'POST',
@@ -1239,6 +1270,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         if (radio.checked) {
             radio.closest('.payment-option').classList.add('selected');
+            showPayNumber(radio.value);
         }
     });
     

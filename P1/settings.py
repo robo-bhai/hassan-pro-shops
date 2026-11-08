@@ -84,13 +84,32 @@ if BEHIND_PROXY:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # --- EMAIL CONFIGURATION ---
-EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+def _env_first(*names):
+    """Pehla non-empty environment variable (GitHub Secrets / .env)."""
+    for n in names:
+        v = os.environ.get(n, '').strip()
+        if v:
+            return v
+    return ''
+
+# Brevo API (GitHub Secrets se): key + sender name + sender email
+BREVO_API_KEY = _env_first('BREVO_API_KEY', 'BREVO_KEY', 'SENDINBLUE_API_KEY')
+BREVO_SENDER_NAME = _env_first('BREVO_SENDER_NAME', 'SENDER_NAME', 'EMAIL_SENDER_NAME') or 'UQN88 Store'
+BREVO_SENDER_EMAIL = _env_first('BREVO_SENDER_EMAIL', 'SENDER_EMAIL', 'EMAIL_SENDER_EMAIL')
+
+# Purana SMTP tareeqa (sirf tab jab Brevo API ki secrets maujood na hon)
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp-relay.brevo.com')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() in ('true', '1', 't')
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'info@uqn88.store')
+
+if BREVO_API_KEY and BREVO_SENDER_EMAIL:
+    EMAIL_BACKEND = 'app.utils.brevo_backend.BrevoAPIEmailBackend'
+    DEFAULT_FROM_EMAIL = BREVO_SENDER_EMAIL      # sirf email (display name backend lagata hai)
+else:
+    EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+    DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'info@uqn88.store')
 
 # --- SESSION CONFIGURATION ---
 # Session & CSRF Settings

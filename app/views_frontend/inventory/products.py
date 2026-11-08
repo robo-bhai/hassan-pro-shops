@@ -1880,3 +1880,83 @@ def product_set_discount(request, pk):
         'batch_price': batch_price,
     }
     return render(request, 'products/set_discount.html', context)
+
+
+# ============================================================
+# PRODUCT DELETE (safe)
+# ============================================================
+# In models ki rows product ke saath mitaayi ja sakti hain (stock/alias/log).
+_DELETE_SAFE_MODELS = {
+    'ProductAlias', 'OcrAliasSuggestion', 'OcrScanLog', 'PriceChangeLog',
+    'SalesTarget', 'ServiceInventory', 'Inventory', 'StockBatch',
+}
+
+
+def _product_delete_blockers(product):
+    """Wo cheezein jin ki wajah se product mitana theek nahi (sale/purchase/order history,
+    ya abhi stock maujood). Khali list = delete safe hai."""
+    blockers = []
+    for rel in Product._meta.related_objects:
+        if not (rel.one_to_many or rel.one_to_one):
+            continue
+        model = rel.related_model
+        qs = model._base_manager.filter(**{rel.field.name: product})
+        if model.__name__ in _DELETE_SAFE_MODELS:
+            # stock rows tab hi mitayen jab stock zero ho
+            if model.__name__ == 'StockBatch':
+                n = qs.filter(remaining_qty__gt=0).count()
+                if n:
+                    blockers.append(f'stock batches {n}')
+            elif model.__name__ == 'Inventory':
+                n = qs.filter(stock__gt=0).count()
+                if n:
+                    blockers.append('stock maujood hai')
+            continue
+        n = qs.count()
+        if n:
+            blockers.append(f'{model._meta.verbose_name_plural} {n}')
+    return blockers
+
+
+@login_required
+@perm_required('manage_products')
+@require_POST
+def product_delete(request, pk):
+    """Product delete karo. Agar sale/purchase/order history ya stock hai to mitane ki
+    jagah Inactive kar do (shop par nazar nahi aayega, hisaab kharab nahi hoga)."""
+    from django.db import IntegrityError
+    from django.db.models.deletion import ProtectedError
+    from django.utils.http import url_has_allowed_host_and_scheme
+
+    product = get_object_or_404(Product, pk=pk)
+    name = product.name
+
+    nxt = request.POST.get('next') or ''
+    if not url_has_allowed_host_and_scheme(nxt, allowed_hosts={request.get_host()}):
+        nxt = ''
+
+    def _back():
+        return redirect(nxt) if nxt else redirect('product_list')
+
+    def _hide(reason):
+        Product.objects.filter(pk=product.pk).update(is_active=False)
+        messages.warning(
+            request,
+            f"⚠️ '{name}' delete nahi hua ({reason}). Isay Inactive kar diya gaya hai, "
+            f"ab shop par nazar nahi aayega."
+        )
+
+    blockers = _product_delete_blockers(product)
+    if blockers:
+        _hide(', '.join(blockers[:4]))
+        return _back()
+
+    try:
+        with transaction.atomic():
+            product.delete()
+    except (ProtectedError, IntegrityError):
+        _hide('database mein is se juda record hai')
+        return _back()
+
+    messages.success(request, f"🗑️ '{name}' delete ho gaya.")
+    return _back()

@@ -263,6 +263,7 @@ urlpatterns = [
     path('products/', views_frontend.product_list, name='product_list'),
     path('products/create/', views_frontend.product_create, name='product_create'),
     path('products/<int:pk>/update/', views_frontend.product_update, name='product_update'),
+    path('products/<int:pk>/delete/', views_frontend.product_delete, name='product_delete'),
     
     # ============================================
     # INVENTORY
@@ -1141,6 +1142,9 @@ urlpatterns = [
 
      
      path('shop/login/', views_customer_auth.customer_login, name='customer_login'),
+     path('shop/forgot-password/', views_customer_auth.customer_forgot_password, name='customer_forgot_password'),
+     path('shop/forgot-password/verify/', views_customer_auth.customer_forgot_verify, name='customer_forgot_verify'),
+     path('shop/forgot-password/reset/', views_customer_auth.customer_reset_password, name='customer_reset_password'),
      
      path('shop/logout/', views_customer_auth.customer_logout, name='customer_logout'),
      path('shop/account/', views_customer_auth.my_account, name='my_account'),
