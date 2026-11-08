@@ -97,7 +97,7 @@ def auto_place_order(request, customer):
             
             # Step 3: Payment method
             payment_method = request.session.get('selected_payment', 'cod')
-            valid_methods = ['cod', 'jazzcash', 'easypaisa', 'bank']
+            valid_methods = ['cod']  # sirf Cash on Delivery
             if payment_method not in valid_methods:
                 payment_method = 'cod'
             
@@ -760,7 +760,7 @@ def save_payment_method(request):
         data = json.loads(request.body)
         payment_method = data.get('payment_method', 'cod')
         
-        valid_methods = ['cod', 'jazzcash', 'easypaisa', 'bank']
+        valid_methods = ['cod']  # sirf Cash on Delivery
         if payment_method not in valid_methods:
             payment_method = 'cod'
         
@@ -915,7 +915,7 @@ def place_order_direct(request):
             body = json.loads(request.body) if request.body else {}
         except (ValueError, TypeError):
             body = {}
-        if body.get('payment_method') in ('cod', 'jazzcash', 'easypaisa', 'bank'):
+        if body.get('payment_method') in ('cod',):
             request.session['selected_payment'] = body['payment_method']
         if body.get('delivery_type') in ('standard', 'express', 'pickup'):
             request.session['delivery_type'] = body['delivery_type']

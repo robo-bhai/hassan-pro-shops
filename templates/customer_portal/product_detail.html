@@ -361,6 +361,19 @@
         .pd-bar .pd-note { margin-bottom: 8px; }
     }
     @media (min-width: 992px) { body { padding-bottom: 0; } }
+    /* ===== Add to Cart + Buy Now (mobile: bottom nav ke UPAR) ===== */
+    .pd-qtyrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 6px 0 14px; }
+    .pd-qtyrow .pd-total { font-weight: 800; color: #1e2a78; font-size: 15px; }
+    .pd-actions { gap: 10px; margin: 0 0 16px; }
+    .pd-add, .pd-buy { flex: 1 1 0; width: auto; height: 50px; padding: 0 12px; border-radius: 28px; font-weight: 800; font-size: 15px;
+        display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; white-space: nowrap; }
+    .pd-buy { border: 0; background: linear-gradient(135deg, #f59e0b, #ef4444); color: #fff; box-shadow: 0 6px 16px rgba(239,68,68,.3); }
+    .pd-buy:hover { color: #fff; }
+    @media (max-width: 991.98px) {
+        .pd-bar { bottom: var(--pd-nav-h, 64px) !important; z-index: 1031 !important; border-radius: 16px 16px 0 0; }
+        body { padding-bottom: calc(var(--pd-nav-h, 64px) + 90px) !important; }
+    }
+    @media (min-width: 992px) { .pd-bar { position: static; } }
 </style>
 
 <div class="container py-3">
@@ -508,6 +521,14 @@
                     </div>
                     
                     {% if product.available_stock > 0 %}
+                    <div class="pd-qtyrow">
+                        <div class="pd-qty">
+                            <button type="button" id="pdMinus" aria-label="Kam karein">&minus;</button>
+                            <span id="pdQty">1</span>
+                            <button type="button" id="pdPlus" aria-label="Zyada karein">+</button>
+                        </div>
+                        <div class="pd-total">Total: Rs. <span id="pdTotal">{{ product.price|floatformat:0 }}</span></div>
+                    </div>
                     <div class="pd-bar" id="pdBar" data-product-id="{{ product.id }}" data-price="{{ product.price|stringformat:'.2f' }}"
                          data-max="{% if product.available_stock > 99 %}99{% else %}{{ product.available_stock|floatformat:0 }}{% endif %}">
                         <div class="pd-note {% if in_cart_qty %}show{% endif %}" id="pdNote">
@@ -515,16 +536,12 @@
                             <a href="{% url 'cart_view' %}">View Cart</a>
                         </div>
                         <div class="pd-actions">
-                            <div class="pd-qty">
-                                <button type="button" id="pdMinus" aria-label="Kam karein">&minus;</button>
-                                <span id="pdQty">1</span>
-                                <button type="button" id="pdPlus" aria-label="Zyada karein">+</button>
-                            </div>
                             <button type="button" class="pd-add" id="pdAdd">
                                 <span id="pdAddText"><i class="bi bi-cart-plus"></i> Add to Cart</span>
-                                <span>Rs. <span id="pdTotal">{{ product.price|floatformat:0 }}</span></span>
                             </button>
-                            <a href="{% url 'buy_now' product.id %}" class="pd-buy" title="Buy Now" aria-label="Buy Now"><i class="bi bi-lightning-charge-fill"></i></a>
+                            <a href="{% url 'buy_now' product.id %}" class="pd-buy" id="pdBuy">
+                                <i class="bi bi-lightning-charge-fill"></i> Buy Now
+                            </a>
                         </div>
                     </div>
                     {% else %}
@@ -700,7 +717,8 @@ document.addEventListener('DOMContentLoaded', function() {
     var qEl=document.getElementById('pdQty'), tEl=document.getElementById('pdTotal'), addBtn=document.getElementById('pdAdd'),
         addTxt=document.getElementById('pdAddText'), note=document.getElementById('pdNote'), noteTxt=document.getElementById('pdNoteText');
     var minus=document.getElementById('pdMinus'), plus=document.getElementById('pdPlus');
-    function render(){ qEl.textContent=qty; tEl.textContent=Math.round(price*qty).toLocaleString(); minus.disabled=qty<=1; plus.disabled=qty>=max; }
+    var buy=document.getElementById('pdBuy'), buyBase=buy?buy.getAttribute('href').split('?')[0]:'';
+    function render(){ qEl.textContent=qty; tEl.textContent=Math.round(price*qty).toLocaleString(); minus.disabled=qty<=1; plus.disabled=qty>=max; if(buy) buy.setAttribute('href', buyBase+'?qty='+qty); }
     minus.addEventListener('click',function(){ if(qty>1){qty--;render();} });
     plus.addEventListener('click',function(){ if(qty<max){qty++;render();} });
     function add(replace){
@@ -726,6 +744,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }).catch(function(){ addBtn.disabled=false; addTxt.innerHTML=old; alert('Network error, dobara koshish karein.'); });
     }
     addBtn.addEventListener('click',function(){ add(false); });
+    function navH(){ var n=document.querySelector('.app-bottom-nav'); var h=(n&&n.offsetHeight)?n.offsetHeight:64; document.documentElement.style.setProperty('--pd-nav-h', h+'px'); }
+    navH(); window.addEventListener('resize',navH); window.addEventListener('load',navH);
     render();
 })();
 </script>

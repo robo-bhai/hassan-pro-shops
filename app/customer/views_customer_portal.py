@@ -419,6 +419,19 @@ def get_cart_count_value(request):
     return sum(item.get('quantity', 0) for item in cart.values())
 
 
+def get_checkout_cart(request):
+    """Buy Now mode mein sirf wahi ek product (customer ki asli cart mehfooz rehti hai);
+    warna normal cart."""
+    if request.session.get('buy_now_mode'):
+        item = request.session.get('buy_now_item')
+        if item:
+            return item
+        request.session.pop('buy_now_mode', None)
+        request.session.pop('buy_now_product_id', None)
+        request.session.modified = True
+    return request.session.get('cart', {})
+
+
 def get_client_ip(request):
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
     if x_forwarded_for:
@@ -1046,15 +1059,22 @@ def buy_now(request, product_id):
         if total_stock <= 0:
             messages.error(request, f'{product.name} is out of stock!')
             return redirect('shop_product_detail', pk=product.id)
+
+        # Product page se chuni hui quantity (1 se 99, stock se zyada nahi)
+        try:
+            qty = int(request.GET.get('qty', 1))
+        except (TypeError, ValueError):
+            qty = 1
+        qty = max(1, min(qty, 99, int(total_stock)))
         
         final_price = get_product_final_price(product)
         
-        request.session['cart'] = {
+        request.session['buy_now_item'] = {
             str(product_id): {
                 'product_id': product.id,
                 'name': product.name,
                 'price': float(final_price),
-                'quantity': 1,
+                'quantity': qty,
                 'image': product.image.url if product.image else None,
                 'vendor_id': product.vendor_id or 0,
             }
@@ -1090,6 +1110,7 @@ def add_to_cart(request):
             del request.session['buy_now_mode']
         if request.session.get('buy_now_product_id'):
             del request.session['buy_now_product_id']
+        request.session.pop('buy_now_item', None)
         
         try:
             product_id = int(data.get('product_id'))
@@ -1187,6 +1208,9 @@ def add_to_cart(request):
 def cart_view(request):
     """Cart page — with delivery options and free progress"""
     
+    request.session.pop('buy_now_mode', None)
+    request.session.pop('buy_now_product_id', None)
+    request.session.pop('buy_now_item', None)
     cart = request.session.get('cart', {})
     
     if not cart:
@@ -1356,7 +1380,7 @@ def set_delivery_type(request):
         request.session.modified = True
         
         # ✅ Recalculate
-        cart = request.session.get('cart', {})
+        cart = get_checkout_cart(request)
         customer = None
         if request.user.is_authenticated and hasattr(request.user, 'customer_profile'):
             customer = request.user.customer_profile.customer
@@ -1385,7 +1409,7 @@ def set_delivery_type(request):
 @customer_login_required
 def checkout(request):
     """Checkout page — with delivery options"""
-    cart = request.session.get('cart', {})
+    cart = get_checkout_cart(request)
     if not cart:
         messages.warning(request, 'Cart is empty!')
         return redirect('shop_home')
@@ -1434,11 +1458,9 @@ def checkout(request):
         else:
             otp_masked_email = email
     
+    # Sirf Cash on Delivery (JazzCash / EasyPaisa / Bank hata diye gaye)
     payment_methods = [
         ('cod', '💵 Cash on Delivery', 'Ghar par cash dein'),
-        ('jazzcash', '📱 JazzCash', 'Mobile payment'),
-        ('easypaisa', '📱 EasyPaisa', 'Mobile payment'),
-        ('bank', '🏦 Bank Transfer', 'Bank se transfer'),
     ]
     
     company = CompanyInfo.objects.first()
@@ -1512,7 +1534,7 @@ def place_order(request):
         payment_method = request.POST.get('payment_method', 'cod')
         delivery_type = request.POST.get('delivery_type', 'standard')
         
-        valid_methods = ['cod', 'jazzcash', 'easypaisa', 'bank']
+        valid_methods = ['cod']  # sirf Cash on Delivery
         if payment_method not in valid_methods:
             payment_method = 'cod'
         
@@ -1520,7 +1542,8 @@ def place_order(request):
         if delivery_type not in valid_delivery:
             delivery_type = 'standard'
         
-        cart = request.session.get('cart', {})
+        cart = get_checkout_cart(request)
+        was_buy_now = bool(request.session.get('buy_now_mode'))
         if not cart:
             messages.error(request, 'Cart is empty!')
             return redirect('shop_home')
@@ -1634,8 +1657,10 @@ def place_order(request):
         request.session.pop('order_token', None)
         request.session.pop('buy_now_mode', None)
         request.session.pop('buy_now_product_id', None)
+        request.session.pop('buy_now_item', None)
         request.session.pop('delivery_type', None)
-        request.session['cart'] = {}
+        if not was_buy_now:
+            request.session['cart'] = {}  # Buy Now order mein customer ki cart wese hi rehti hai
         request.session.modified = True
         request.session.save()
         
