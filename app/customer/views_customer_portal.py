@@ -53,6 +53,7 @@ from ..models import (
 )
 
 from .payment_options import get_payment_options, clean_payment_method
+from .checkout_cart import get_checkout_cart
 from ..decorators import customer_login_required
 from ..security.security_utils import safe_error
 from . import store_orders
@@ -418,19 +419,6 @@ def find_typo_correction(query, max_suggestions=3):
 def get_cart_count_value(request):
     cart = request.session.get('cart', {})
     return sum(item.get('quantity', 0) for item in cart.values())
-
-
-def get_checkout_cart(request):
-    """Buy Now mode mein sirf wahi ek product (customer ki asli cart mehfooz rehti hai);
-    warna normal cart."""
-    if request.session.get('buy_now_mode'):
-        item = request.session.get('buy_now_item')
-        if item:
-            return item
-        request.session.pop('buy_now_mode', None)
-        request.session.pop('buy_now_product_id', None)
-        request.session.modified = True
-    return request.session.get('cart', {})
 
 
 def get_client_ip(request):

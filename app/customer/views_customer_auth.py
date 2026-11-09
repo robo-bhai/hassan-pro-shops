@@ -34,6 +34,7 @@ from ..models import (
 )
 
 from .payment_options import get_payment_options, clean_payment_method
+from .checkout_cart import get_checkout_cart
 from ..decorators import customer_login_required
 from ..security.security_utils import safe_error
 
@@ -86,7 +87,8 @@ def auto_place_order(request, customer):
     try:
         with transaction.atomic():
             # Step 1: Cart check
-            cart = request.session.get('cart', {})
+            cart = get_checkout_cart(request)          # Buy Now mein sirf wahi ek product
+            was_buy_now = bool(request.session.get('buy_now_mode'))
             if not cart:
                 logger.warning(f"Cart is empty for {customer.name}")
                 return None, "Cart is empty"
@@ -181,7 +183,11 @@ def auto_place_order(request, customer):
             customer.portal_profile.record_successful_order()
             
             # Step 9: Clear cart + session
-            request.session['cart'] = {}
+            if not was_buy_now:
+                request.session['cart'] = {}   # Buy Now order mein customer ki cart wese hi rehti hai
+            request.session.pop('buy_now_mode', None)
+            request.session.pop('buy_now_product_id', None)
+            request.session.pop('buy_now_item', None)
             request.session.pop('order_verified', None)
             request.session.pop('order_verified_at', None)
             request.session.pop('order_otp_phone', None)
