@@ -1099,6 +1099,8 @@ urlpatterns = [
      path('ai/emergency-fund/settings/', views_frontend.emergency_fund_settings, name='emergency_fund_settings'),
      path('reports/business-ratios/', views_frontend.business_ratios_dashboard, name='business_ratios_dashboard'),
      
+     path('robots.txt', views_frontend.robots_txt, name='robots_txt'),
+     path('sitemap.xml', views_frontend.sitemap_xml, name='sitemap_xml'),
      path('shop/', views_customer_portal.shop_home, name='shop_home'),
      path('shop/product/<int:pk>/', views_customer_portal.product_detail, name='shop_product_detail'),
      path('shop/stores/', views_stores.store_list, name='store_list'),
