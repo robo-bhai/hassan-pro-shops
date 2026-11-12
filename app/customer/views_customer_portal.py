@@ -1632,6 +1632,7 @@ def place_order(request):
 
         # ✅ Vendor ko naye order ki khabar
         store_orders.notify_vendor_new_order(order)
+        store_orders.email_new_order(order, request)   # vendor + admin ko email
         
         profile.record_successful_order()
         
@@ -1692,23 +1693,7 @@ def place_order(request):
                         address=customer_address
                     )
 
-                admin_emails = list(
-                    User.objects.filter(is_superuser=True, is_active=True, email__gt='')
-                    .values_list('email', flat=True)
-                )
-
-                if admin_emails and send_admin_order_notification:
-                    admin_order_link = request.build_absolute_uri(f'/orders/sale/{order.id}/')
-                    send_admin_order_notification(
-                        admin_emails=admin_emails,
-                        order_no=order.order_no,
-                        customer_name=customer.name,
-                        customer_phone=customer_phone,
-                        total_amount=float(final_total),
-                        items_count=len(order_summary),
-                        payment_method=payment_method,
-                        order_link=admin_order_link
-                    )
+                # Admin + vendor ko email: store_orders.email_new_order (upar)
             except Exception as e:
                 logger.error(f"Order email sending error: {e}")
 

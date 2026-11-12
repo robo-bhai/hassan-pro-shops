@@ -24,6 +24,8 @@ class CustomerOTP(models.Model):
         ('login', 'Login'),
         ('forgot_password', 'Forgot Password'),
         ('order', 'Order Verification'),
+        ('rider_reset', 'Rider Password Reset'),
+        ('admin_reset', 'Admin Password Reset'),
     ]
     
     # Basic info
@@ -204,7 +206,7 @@ class CustomerOTP(models.Model):
         """
         Generate OTP, save to DB, send email with verification link, and notify admin.
         """
-        import random
+        import secrets
         import hashlib
         from django.utils.timezone import now
         from datetime import timedelta
@@ -225,7 +227,7 @@ class CustomerOTP(models.Model):
         cls.objects.filter(phone=phone, purpose=purpose, is_used=False).delete()
         
         # Generate 6-digit
-        otp_code = str(random.randint(100000, 999999))
+        otp_code = str(secrets.randbelow(900000) + 100000)  # cryptographically secure
         otp_hash = hashlib.sha256(otp_code.encode()).hexdigest()
         
         otp = cls.objects.create(
@@ -257,7 +259,7 @@ class CustomerOTP(models.Model):
         # ✅ EMAIL OTP TO CUSTOMER (WITH VERIFICATION LINK)
         if customer_email:
             try:
-                from ..utils.email_helper import send_otp_email
+                from app.utils.email_helper import send_otp_email
                 
                 email_sent = send_otp_email(
                     recipient_email=customer_email,
@@ -286,6 +288,7 @@ class CustomerOTP(models.Model):
                 'register': 'Registration',
                 'login': 'Login',
                 'forgot_password': 'Password Reset',
+                'rider_reset': 'Rider Password Reset',
                 'order': 'Order Verification'
             }
             

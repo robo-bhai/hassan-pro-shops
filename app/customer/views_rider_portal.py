@@ -495,7 +495,17 @@ def rider_manage(request):
         r.bal = rider_balances(r)
         r.live = bool(r.is_online and r.last_seen_at and r.last_seen_at >= online_cut)
         r.rating = rider_rating(r)
+    # Password-reset codes jo rider ko automatic (WhatsApp/email) nahi gaye: manager phone par batayega
+    from ..models import CustomerOTP
+    pending_resets = []
+    by_phone = {r.phone: r for r in riders}
+    for otp in CustomerOTP.objects.filter(purpose='rider_reset', is_used=False,
+                                          expires_at__gt=now()).order_by('-created_at')[:20]:
+        rider = by_phone.get(otp.phone)
+        if rider and not otp.is_sent_to_customer:
+            pending_resets.append({'rider': rider, 'code': otp.otp_code, 'expires_at': otp.expires_at})
     return render(request, 'customer_portal/rider/manage.html', {
+        'pending_resets': pending_resets,
         'riders': riders,
         'total_cash': sum((r.bal['cash_in_hand'] for r in riders), Decimal('0')),
         'total_due': sum((r.bal['due'] for r in riders), Decimal('0')),

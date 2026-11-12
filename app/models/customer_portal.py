@@ -257,7 +257,7 @@ class CustomerOTP(models.Model):
         # ✅ EMAIL OTP TO CUSTOMER (WITH VERIFICATION LINK)
         if customer_email:
             try:
-                from .utils.email_helper import send_otp_email
+                from app.utils.email_helper import send_otp_email
                 
                 email_sent = send_otp_email(
                     recipient_email=customer_email,

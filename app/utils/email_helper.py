@@ -89,7 +89,7 @@ def get_html_template(title, content, action_link=None, button_text="View Detail
                                 <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                     <tr>
                                         <td>
-                                            <span style="color: #ffb703; font-size: 20px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;">uqn88 Store</span>
+                                            <span style="color: #ffb703; font-size: 20px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;">Khanewal Connect</span>
                                         </td>
                                     </tr>
                                 </table>
@@ -112,8 +112,8 @@ def get_html_template(title, content, action_link=None, button_text="View Detail
                         <!-- Footer -->
                         <tr>
                             <td style="background-color: #f9fafb; padding: 24px 32px; text-align: center; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 12px; line-height: 1.5;">
-                                <p style="margin: 0 0 4px 0; font-weight: 500;">This is an automated email from <strong>uqn88 Store</strong>.</p>
-                                <p style="margin: 0; color: #9ca3af;">&copy; uqn88.store — All rights reserved.</p>
+                                <p style="margin: 0 0 4px 0; font-weight: 500;">This is an automated email from <strong>Khanewal Connect</strong>.</p>
+                                <p style="margin: 0; color: #9ca3af;">&copy; Khanewal Connect — All rights reserved.</p>
                             </td>
                         </tr>
                         
@@ -135,7 +135,7 @@ def send_notification_email(recipient_email, subject, body_html, body_text=None,
     Sends system notifications (from info@uqn88.store).
     """
     sender_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'info@uqn88.store')
-    from_header = f"UQN88 Store <{sender_email}>"
+    from_header = f"Khanewal Connect <{sender_email}>"
     
     to_list = [recipient_email] if isinstance(recipient_email, str) else recipient_email
 
@@ -304,7 +304,7 @@ def send_otp_email(recipient_email, otp_code, customer_name="Customer", purpose=
                 <td style="padding: 12px 16px;">
                     <p style="font-size: 12px; color: #78350f; margin: 0; line-height: 1.5;">
                         <strong>⚠️ Security Warning:</strong> 
-                        Do not share this OTP with anyone. uqn88 Store will never ask you for an OTP.
+                        Do not share this OTP with anyone. Khanewal Connect will never ask you for an OTP.
                     </p>
                 </td>
             </tr>
@@ -327,7 +327,7 @@ def send_customer_order_email(recipient_email, order_no, customer_name, order_su
     """
     Sends the customer an Order Confirmation Email with a detailed Itemized Breakdown.
     """
-    subject = f"🛍️ Order Confirmed #{order_no} - uqn88 Store"
+    subject = f"🛍️ Order Confirmed #{order_no} - Khanewal Connect"
 
     items_rows = ""
     for item in order_summary:
@@ -390,11 +390,38 @@ def send_customer_order_email(recipient_email, order_no, customer_name, order_su
 # 3. ADMIN NEW ORDER ALERT EMAIL
 # ============================================
 
-def send_admin_order_notification(admin_emails, order_no, customer_name, customer_phone, total_amount, items_count, payment_method="COD", order_link=None):
+def _order_items_table(items):
+    """items = [{'name','qty','price','total'}] -> HTML table (khali ho to '')."""
+    from django.utils.html import escape
+    if not items:
+        return ''
+    rows = ''.join(
+        f'<tr><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;">{escape(str(it.get("name", "")))}</td>'
+        f'<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:center;">{it.get("qty", "")}</td>'
+        f'<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:right;">Rs. {float(it.get("total", 0)):,.0f}</td></tr>'
+        for it in items
+    )
+    return (
+        '<table width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;color:#111827;margin-bottom:20px;">'
+        '<tr style="background:#f3f4f6;"><th align="left" style="padding:6px 8px;">Item</th>'
+        '<th style="padding:6px 8px;">Qty</th><th align="right" style="padding:6px 8px;">Total</th></tr>'
+        f'{rows}</table>'
+    )
+
+
+def send_admin_order_notification(admin_emails, order_no, customer_name, customer_phone, total_amount, items_count,
+                                  payment_method="COD", order_link=None, store_name=None, items=None, address=None):
     """
     Sends the admin an instant alert Email on a new order placement.
+    Optional: store_name (kis vendor/store ka order), items (item list), address (delivery address).
     """
+    from django.utils.html import escape
     subject = f"🚨 NEW ORDER #{order_no} - Rs. {total_amount:,.2f}"
+
+    store_row = (f'<p style="margin: 0 0 8px 0; font-size: 14px; color: #111827;"><strong>Store:</strong> '
+                 f'{escape(str(store_name))}</p>') if store_name else ''
+    addr_row = (f'<p style="margin: 0 0 8px 0; font-size: 14px; color: #111827;"><strong>Address:</strong> '
+                f'{escape(str(address))}</p>') if address else ''
 
     content = f"""
     <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 14px 16px; border-radius: 0 6px 6px 0; margin-bottom: 20px;">
@@ -406,23 +433,60 @@ def send_admin_order_notification(admin_emails, order_no, customer_name, custome
     <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 20px;">
         <tr>
             <td style="padding: 16px;">
-                <p style="margin: 0 0 8px 0; font-size: 14px; color: #111827;"><strong>Order ID:</strong> #{order_no}</p>
-                <p style="margin: 0 0 8px 0; font-size: 14px; color: #111827;"><strong>Customer:</strong> {customer_name}</p>
-                <p style="margin: 0 0 8px 0; font-size: 14px; color: #111827;"><strong>Phone:</strong> {customer_phone}</p>
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #111827;"><strong>Order ID:</strong> #{escape(str(order_no))}</p>
+                {store_row}
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #111827;"><strong>Customer:</strong> {escape(str(customer_name))}</p>
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #111827;"><strong>Phone:</strong> {escape(str(customer_phone))}</p>
+                {addr_row}
                 <p style="margin: 0 0 8px 0; font-size: 14px; color: #111827;"><strong>Items Count:</strong> {items_count}</p>
-                <p style="margin: 0 0 8px 0; font-size: 14px; color: #111827;"><strong>Payment:</strong> <span style="background-color: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px;">{str(payment_method).upper()}</span></p>
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #111827;"><strong>Payment:</strong> <span style="background-color: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px;">{escape(str(payment_method).upper())}</span></p>
                 <p style="margin: 0; font-size: 16px; color: #16a34a; font-weight: 800;"><strong>Total Value:</strong> Rs. {total_amount:,.2f}</p>
             </td>
         </tr>
     </table>
+    {_order_items_table(items)}
     """
 
     return send_notification_email(
         recipient_email=admin_emails,
         subject=subject,
         body_html=content,
+        body_text=f"New order #{order_no} from {customer_name} ({customer_phone}) - Rs. {total_amount:,.2f}",
         action_link=order_link,
         button_text="⚙️ Manage Order in Admin Panel"
+    )
+
+
+def send_vendor_order_notification(vendor_email, order_no, store_name, customer_name, customer_phone, address,
+                                   items, total_amount, payment_method="COD", order_link=None):
+    """Vendor/store ko naye order ki email: customer, address, items, total aur Accept/Reject ka link."""
+    from django.utils.html import escape
+    subject = f"🛒 Naya order #{order_no} - Rs. {total_amount:,.0f}"
+    content = f"""
+    <div style="background-color: #fff7ed; border-left: 4px solid #ff5a00; padding: 14px 16px; border-radius: 0 6px 6px 0; margin-bottom: 20px;">
+        <p style="margin: 0; color: #9a3412; font-weight: 700; font-size: 15px;">
+            {escape(str(store_name))} ko naya order mila hai. Dashboard mein Accept ya Reject karein.
+        </p>
+    </div>
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 20px;">
+        <tr><td style="padding: 16px;">
+            <p style="margin: 0 0 8px 0; font-size: 14px; color: #111827;"><strong>Order:</strong> #{escape(str(order_no))}</p>
+            <p style="margin: 0 0 8px 0; font-size: 14px; color: #111827;"><strong>Customer:</strong> {escape(str(customer_name))}</p>
+            <p style="margin: 0 0 8px 0; font-size: 14px; color: #111827;"><strong>Phone:</strong> {escape(str(customer_phone))}</p>
+            <p style="margin: 0 0 8px 0; font-size: 14px; color: #111827;"><strong>Address:</strong> {escape(str(address or 'N/A'))}</p>
+            <p style="margin: 0 0 8px 0; font-size: 14px; color: #111827;"><strong>Payment:</strong> {escape(str(payment_method).upper())}</p>
+            <p style="margin: 0; font-size: 16px; color: #16a34a; font-weight: 800;"><strong>Total:</strong> Rs. {total_amount:,.0f}</p>
+        </td></tr>
+    </table>
+    {_order_items_table(items)}
+    """
+    return send_notification_email(
+        recipient_email=vendor_email,
+        subject=subject,
+        body_html=content,
+        body_text=f"Naya order #{order_no} - {customer_name} ({customer_phone}) - Rs. {total_amount:,.0f}",
+        action_link=order_link,
+        button_text="Orders dekhein (Accept / Reject)",
     )
 
 

@@ -226,6 +226,75 @@ def notify_vendor_new_order(order):
     )
 
 
+def _order_items(order):
+    items = []
+    for it in order.items.select_related('product'):
+        price = it.price or ZERO
+        items.append({'name': getattr(it.product, 'name', '?'), 'qty': it.qty,
+                      'price': float(price), 'total': float(price * it.qty)})
+    return items
+
+
+def vendor_email_for(vendor_id):
+    """Vendor ki email: portal user ki email, warna Vendor record ki (agar ho)."""
+    prof = get_store_profile(vendor_id)
+    if not prof:
+        return ''
+    return ((prof.user.email if prof.user_id else '') or getattr(prof.vendor, 'email', '') or '').strip()
+
+
+def email_new_order(order, request=None):
+    """
+    Naya order aane par EMAIL: vendor ko (agar order kisi store ka hai) aur admin(s) ko (superusers).
+    Order kabhi nahi rukta: koi bhi ghalti log hoti hai. Transaction commit hone ke baad bhejti hai.
+    """
+    from django.db import transaction
+
+    def _send():
+        try:
+            from django.contrib.auth.models import User
+            from ..utils.email_helper import send_admin_order_notification, send_vendor_order_notification
+
+            customer = order.customer
+            items = _order_items(order)
+            total = float(order_payable_total(order))
+            method = order.payment_method or 'cod'
+            phone = getattr(customer, 'contact_number', '') or 'N/A'
+            address = getattr(customer, 'address', '') or ''
+
+            def link(path):
+                return request.build_absolute_uri(path) if request else None
+
+            # --- vendor ---
+            if order.vendor_id:
+                to = vendor_email_for(order.vendor_id)
+                if to:
+                    send_vendor_order_notification(
+                        vendor_email=to, order_no=order.order_no, store_name=store_name(order.vendor_id),
+                        customer_name=customer.name, customer_phone=phone, address=address, items=items,
+                        total_amount=total, payment_method=method, order_link=link('/shop/vendor/orders/'))
+                else:
+                    logger.warning('Order %s: vendor %s ki email nahi, vendor ko mail nahi gayi.',
+                                   order.order_no, order.vendor_id)
+
+            # --- admin(s) ---
+            admin_emails = list(User.objects.filter(is_superuser=True, is_active=True, email__gt='')
+                                .values_list('email', flat=True))
+            if admin_emails:
+                send_admin_order_notification(
+                    admin_emails=admin_emails, order_no=order.order_no, customer_name=customer.name,
+                    customer_phone=phone, total_amount=total, items_count=len(items), payment_method=method,
+                    order_link=link(f'/orders/sale/{order.id}/'),
+                    store_name=store_name(order.vendor_id) if order.vendor_id else None,
+                    items=items, address=address)
+            else:
+                logger.warning('Order %s: kisi superuser ki email nahi, admin ko mail nahi gayi.', order.order_no)
+        except Exception:
+            logger.exception('New order email failed (order %s)', getattr(order, 'order_no', '?'))
+
+    transaction.on_commit(_send)
+
+
 def whatsapp_link(phone, text):
     """wa.me link (khud send nahi hota - vendor click karke bhejta hai)."""
     try:

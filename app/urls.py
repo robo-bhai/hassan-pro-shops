@@ -6,6 +6,9 @@ from .customer import views_customer_portal
 from app.customer import views_customer_auth
 from app.customer import views_vendor_portal
 from app.customer import views_rider_portal
+from app.customer import views_password_reset
+from app.customer import views_rider_password_reset
+from app.security import views_admin_reset
 from app.customer import views_reviews
 from app.customer import views_stores
 from app.security import views_admin_otp
@@ -41,6 +44,8 @@ urlpatterns = [
     path('settings/translations/import/', views_frontend.translation_import, name='translation_import'),
     path('i18n/dictionary/<str:code>.js', views_frontend.i18n_dictionary, name='i18n_dictionary'),
     path('i18n/collect/', views_frontend.i18n_collect, name='i18n_collect'),
+    path('login/forgot/', views_admin_reset.admin_forgot_password, name='admin_forgot_password'),
+    path('login/reset/', views_admin_reset.admin_reset_password, name='admin_reset_password'),
     path('login/', auth_views.LoginView.as_view(
         template_name='auth/login.html',
         redirect_authenticated_user=True
@@ -1142,9 +1147,11 @@ urlpatterns = [
 
      
      path('shop/login/', views_customer_auth.customer_login, name='customer_login'),
-     path('shop/forgot-password/', views_customer_auth.customer_forgot_password, name='customer_forgot_password'),
-     path('shop/forgot-password/verify/', views_customer_auth.customer_forgot_verify, name='customer_forgot_verify'),
-     path('shop/forgot-password/reset/', views_customer_auth.customer_reset_password, name='customer_reset_password'),
+     path('shop/forgot-password/', views_password_reset.forgot_password, name='customer_forgot_password'),
+     path('shop/forgot-password/verify/', RedirectView.as_view(pattern_name='customer_reset_password'), name='customer_forgot_verify'),
+     path('shop/forgot-password/reset/', views_password_reset.reset_password, name='customer_reset_password'),
+     path('shop/rider/forgot-password/', views_rider_password_reset.rider_forgot_password, name='rider_forgot_password'),
+     path('shop/rider/reset-password/', views_rider_password_reset.rider_reset_password, name='rider_reset_password'),
      
      path('shop/logout/', views_customer_auth.customer_logout, name='customer_logout'),
      path('shop/account/', views_customer_auth.my_account, name='my_account'),
