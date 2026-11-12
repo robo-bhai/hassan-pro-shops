@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 # BASE HTML TEMPLATE (Modern & Bulletproof)
 # ============================================
 
+from html import escape as html_escape
+
+
 def get_html_template(title, content, action_link=None, button_text="View Details", accent_color="#ffb703"):
     """
     Professional responsive HTML email layout with Dark Mode & Outlook compatibility.
@@ -494,15 +497,16 @@ def send_vendor_order_notification(vendor_email, order_no, store_name, customer_
 # 4. ORDER STATUS UPDATE EMAIL
 # ============================================
 
-def send_order_status_update_email(recipient_email, order_no, customer_name, new_status, tracking_url=None):
+def send_order_status_update_email(recipient_email, order_no, customer_name, new_status, tracking_url=None, note=None, store_name=None):
     """
     Order Status Change hone par Customer ko Email notification bheje ga.
     """
     status_config = {
-        'confirmed': ('Order Confirmed', '✅', '#16a34a'),
+        'confirmed': ('Order Accepted', '✅', '#16a34a'),
         'processing': ('Processing & Packing', '⚙️', '#2563eb'),
         'ready': ('Ready to Ship', '📦', '#8b5cf6'),
         'dispatched': ('Out for Delivery', '🚚', '#0284c7'),
+        'partially_delivered': ('Partially Delivered', '📬', '#0284c7'),
         'delivered': ('Delivered Successfully', '🎉', '#16a34a'),
         'cancelled': ('Order Cancelled', '❌', '#dc2626'),
     }
@@ -525,6 +529,11 @@ def send_order_status_update_email(recipient_email, order_no, customer_name, new
         </span>
     </div>
     """
+    if store_name:
+        content += f'<p style="font-size: 13px; color: #6b7280; text-align: center;">Store: <strong>{html_escape(str(store_name))}</strong></p>'
+    if note:
+        content += (f'<div style="background:#f3f4f6;border-radius:10px;padding:12px 16px;font-size:14px;color:#374151;">'
+                    f'{html_escape(str(note))}</div>')
 
     return send_notification_email(
         recipient_email=recipient_email,

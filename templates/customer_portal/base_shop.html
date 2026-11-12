@@ -1,10 +1,27 @@
 {% load static %}
+{% load pwa %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#1e3a8a">
+    {% progressive_web_app_meta %}
+    <link rel="apple-touch-icon" href="{% static 'icons/apple-touch-icon.png' %}">
+    <link rel="icon" type="image/png" sizes="48x48" href="{% static 'icons/favicon-48.png' %}">
+    <script>
+    /* PWA install prompt: page load se pehle hi pakad lo */
+    window.__pwaPrompt = null;
+    window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        window.__pwaPrompt = e;
+        document.dispatchEvent(new Event('pwa-installable'));
+    });
+    window.addEventListener('appinstalled', function () {
+        window.__pwaPrompt = null;
+        document.dispatchEvent(new Event('pwa-installed'));
+    });
+    </script>
     <meta name="description" content="{% block meta_description %}{{ company_name }} - Quality products, best prices, fast delivery.{% endblock %}">
     <title>{% block title %}{{ company_name }}{% endblock %}</title>
     {% if company_logo %}<link rel="icon" href="{{ company_logo }}">{% endif %}
@@ -163,6 +180,28 @@
             .shop-brand .brand-name { max-width: 100px; }
         }
         
+        /* ===== PWA install button (top bar, right corner) ===== */
+        .pwa-install-btn {
+            display: none;
+            align-items: center; justify-content: center;
+            width: 40px; height: 40px; flex-shrink: 0;
+            border: none; border-radius: 50%; cursor: pointer;
+            color: #fff; font-size: 1.15rem; line-height: 1;
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+            box-shadow: 0 3px 10px rgba(249, 115, 22, .45);
+            animation: pwaNudge 2.4s ease-in-out infinite;
+        }
+        .pwa-install-btn.show { display: inline-flex; }
+        .pwa-install-btn:active { transform: scale(.92); }
+        @keyframes pwaNudge { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(2px); } }
+        .pwa-ios-tip {
+            position: fixed; left: 12px; right: 12px; bottom: 76px; z-index: 99999;
+            background: #fff; color: #1f2937; border-radius: 14px; padding: 14px 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,.28); font-size: .9rem; line-height: 1.5; display: none;
+        }
+        .pwa-ios-tip.show { display: block; }
+        .pwa-ios-tip button { float: right; border: none; background: none; font-size: 1.2rem; line-height: 1; }
+
         /* ✅ RIGHT SIDE NAV - Better aligned */
         .navbar-right-group {
             display: flex;
@@ -2856,6 +2895,10 @@
 
         <!-- RIGHT: Track, Chat, Voice, User, Cart -->
         <div class="navbar-right-group">
+            <!-- PWA install: sirf tab dikhta hai jab app install ho sakti ho -->
+            <button type="button" class="pwa-install-btn" id="pwaInstallBtn" aria-label="Install app" title="Install app">
+                <i class="bi bi-download"></i>
+            </button>
             
             <a href="{% url 'track_order' %}" class="nav-action-btn d-none d-md-inline-flex">
                 <i class="bi bi-truck"></i>
@@ -4264,6 +4307,45 @@ document.addEventListener('DOMContentLoaded', function() {
 </nav>
 {% endwith %}
 {% endblock %}
+
+<div class="pwa-ios-tip" id="pwaIosTip" role="dialog" aria-label="Install app">
+    <button type="button" id="pwaIosClose" aria-label="Close">&times;</button>
+    <strong>App install karein</strong><br>
+    Safari mein neeche <b>Share</b> (&#11014;&#65039;) dabayen, phir <b>Add to Home Screen</b> chunein.
+</div>
+<script>
+(function () {
+    var btn = document.getElementById('pwaInstallBtn');
+    var tip = document.getElementById('pwaIosTip');
+    if (!btn) return;
+    var standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    if (standalone) return;                                   // pehle se install hai
+    var isIos = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+
+    function show() { btn.classList.add('show'); }
+    function hide() { btn.classList.remove('show'); }
+
+    if (window.__pwaPrompt) show();
+    document.addEventListener('pwa-installable', show);
+    document.addEventListener('pwa-installed', hide);
+    if (isIos) show();                                        // iOS mein prompt nahi hota: guide dikhate hain
+
+    btn.addEventListener('click', function () {
+        var p = window.__pwaPrompt;
+        if (p) {
+            p.prompt();
+            p.userChoice.then(function (r) {
+                window.__pwaPrompt = null;
+                if (r && r.outcome === 'accepted') hide();
+            });
+        } else if (isIos && tip) {
+            tip.classList.add('show');
+        }
+    });
+    var close = document.getElementById('pwaIosClose');
+    if (close) close.addEventListener('click', function () { tip.classList.remove('show'); });
+})();
+</script>
 
 {% block extra_js %}{% endblock %}
 

@@ -429,19 +429,23 @@ BACKUP_INCLUDE_MEDIA = True       # media/ folder (logo, documents) bhi backup h
 BACKUP_MAX_AGE_HOURS = 26         # is se purana last backup = "unhealthy"
 BACKUP_NOTIFY_EMAIL = []          # backup fail ho to email, e.g. ['owner@example.com']
 
-PWA_APP_NAME = 'Business Management System'
-PWA_APP_SHORT_NAME = 'BMS App'
-PWA_APP_DESCRIPTION = "Executive & Business Management Platform"
-PWA_APP_THEME_COLOR = '#0d6efd'
+PWA_APP_NAME = 'Khanewal Connect'
+PWA_APP_SHORT_NAME = 'Khanewal Connect'
+PWA_APP_DESCRIPTION = "Khanewal Connect - Delivery, Home Services, Relocation"
+PWA_APP_THEME_COLOR = '#1e3a8a'
 PWA_APP_BACKGROUND_COLOR = '#ffffff'
 PWA_APP_DISPLAY = 'standalone'
 PWA_APP_SCOPE = '/'
 PWA_APP_ORIENTATION = 'any'
-PWA_APP_START_URL = '/'
+PWA_APP_START_URL = '/shop/'
 PWA_APP_STATUS_BAR_COLOR = 'default'
 PWA_APP_ICONS = [
-    {'src': '/static/ceo/images/icon-192.png', 'sizes': '192x192', 'type': 'image/png'},
-    {'src': '/static/ceo/images/icon-512.png', 'sizes': '512x512', 'type': 'image/png'}
+    {'src': '/static/icons/icon-192x192.png', 'sizes': '192x192', 'type': 'image/png', 'purpose': 'any'},
+    {'src': '/static/icons/icon-512x512.png', 'sizes': '512x512', 'type': 'image/png', 'purpose': 'any'},
+    {'src': '/static/icons/icon-maskable-512x512.png', 'sizes': '512x512', 'type': 'image/png', 'purpose': 'maskable'},
+]
+PWA_APP_ICONS_APPLE = [
+    {'src': '/static/icons/apple-touch-icon.png', 'sizes': '180x180', 'type': 'image/png'},
 ]
 PWA_APP_DIR = 'ltr'
 PWA_APP_LANG = 'en-US'
