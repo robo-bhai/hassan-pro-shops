@@ -202,23 +202,15 @@ def auto_place_order(request, customer):
             store_orders.notify_vendor_new_order(order)
             store_orders.email_new_order(order, request)   # vendor + admin ko email
             
-            # Step 10: Notify admin
+            # Step 10: Notify admin + shop admin (superuser + staff) - bell; email alag se email_new_order bhejta hai
             try:
-                admins = User.objects.filter(is_superuser=True)
-                for admin in admins:
-                    Notification.send(
-                        user=admin,
-                        title=f'🛒 New Order - {customer.name}',
-                        message=(
-                            f'Order #{order.order_no}\n'
-                            f'Amount: Rs. {total_amount:,.2f}\n'
-                            f'Phone: {customer.contact_number}\n'
-                            f'Items: {len(order_summary)}'
-                        ),
-                        notification_type='sale',
-                        category='sales',
-                        link=f'/orders/sale/{order.id}/'
-                    )
+                store_orders.notify_admins(
+                    f'🛒 New Order - {customer.name}',
+                    (f'Order #{order.order_no}\n'
+                     f'Amount: Rs. {total_amount:,.2f}\n'
+                     f'Phone: {customer.contact_number}\n'
+                     f'Items: {len(order_summary)}'),
+                    link=f'/orders/sale/{order.id}/', kind='sale', email=False)
             except Exception as e:
                 logger.error(f"Notification error: {e}")
             

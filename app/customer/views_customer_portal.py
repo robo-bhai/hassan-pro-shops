@@ -1654,24 +1654,16 @@ def place_order(request):
         company = CompanyInfo.objects.first()
         company_name_str = company.name if company else 'Shop'
 
-        # ✅ Notify admins
+        # ✅ Notify admins + shop admins (superuser + staff) - bell; email email_new_order se jati hai
         try:
-            admins = User.objects.filter(is_superuser=True)
-            for admin in admins:
-                Notification.send(
-                    user=admin,
-                    title=f'🛒 New Web Order - {customer.name}',
-                    message=(
-                        f'Order #{order.order_no}\n'
-                        f'Amount: Rs. {final_total:,.2f}\n'
-                        f'Delivery: {delivery_type} (Rs. {delivery_charges:,.2f})\n'
-                        f'Phone: {customer.contact_number}\n'
-                        f'Items: {len(order_summary)}'
-                    ),
-                    notification_type='sale',
-                    category='sales',
-                    link=f'/orders/sale/{order.id}/'
-                )
+            store_orders.notify_admins(
+                f'🛒 New Web Order - {customer.name}',
+                (f'Order #{order.order_no}\n'
+                 f'Amount: Rs. {final_total:,.2f}\n'
+                 f'Delivery: {delivery_type} (Rs. {delivery_charges:,.2f})\n'
+                 f'Phone: {customer.contact_number}\n'
+                 f'Items: {len(order_summary)}'),
+                link=f'/orders/sale/{order.id}/', kind='sale', email=False)
         except Exception as e:
             logger.error(f"Notification error: {e}")
 
@@ -1967,18 +1959,14 @@ def cancel_order_customer(request, order_id):
         )
         
         try:
-            from django.contrib.auth.models import User
-            admins = User.objects.filter(is_superuser=True)
-            for admin in admins:
-                Notification.send(
-                    user=admin,
-                    title=f'❌ Order Cancelled - #{order.order_no}',
-                    message=f'Customer: {customer.name}\nReason: {reason}',
-                    notification_type='warning',
-                    category='sales',
-                )
+            cancel_msg = f'Customer: {customer.name}\nReason: {reason}'
+            store_orders.notify_admins(f'❌ Order Cancelled - #{order.order_no}', cancel_msg,
+                                       link=f'/orders/sale/{order.id}/', kind='warning')
+            # Store (shop owner) ko bhi batao ke customer ne order cancel kar diya
+            store_orders.notify_vendor_user(order, f'❌ Order #{order.order_no} cancel ho gaya',
+                                            cancel_msg, kind='warning')
         except Exception:
-            pass
+            logger.exception('Cancel notify error')
         
         return JsonResponse({
             'success': True,

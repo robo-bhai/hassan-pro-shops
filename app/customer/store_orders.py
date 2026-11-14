@@ -191,13 +191,77 @@ def order_payable_total(order):
     return order.total_after_discount() + (order.delivery_fee or ZERO)
 
 
-def _notify(user, title, message, link=None, kind='info'):
+# ============================================================
+# ORDER ALERT RECIPIENTS (admin / shop admin)
+# ============================================================
+
+def order_admin_users():
+    """
+    Naye order / cancel / refund ki khabar kin ko milni chahiye: superuser + shop admin (staff) users.
+    Vendor, customer, rider aur shareholder accounts is list mein nahi aate.
+    Pehle sirf superuser the - is liye shop admin (staff) ko bell/email nahi milti thi.
+    """
+    from django.contrib.auth.models import User
+    from django.db.models import Q
+    users = User.objects.filter(is_active=True).filter(Q(is_superuser=True) | Q(is_staff=True))
+    return [u for u in users.distinct()
+            if u.is_superuser or not any(hasattr(u, rel) for rel in
+                                         ('vendor_profile', 'customer_profile', 'rider_profile',
+                                          'shareholder_profile'))]
+
+
+def admin_alert_emails():
+    """
+    Order alert email ke address (duplicates ke baghair). Sources:
+      1. superuser + staff users ki email
+      2. settings.ORDER_ALERT_EMAILS (.env: ORDER_ALERT_EMAILS=a@x.com,b@y.com)
+      3. Agar upar se kuch na mile to Company ki email (taake alert kabhi gum na ho)
+    """
+    from django.conf import settings
+    seen, out = set(), []
+
+    def add(addr):
+        addr = (addr or '').strip()
+        if addr and '@' in addr and addr.lower() not in seen:
+            seen.add(addr.lower())
+            out.append(addr)
+
+    for u in order_admin_users():
+        add(u.email)
+    for addr in (getattr(settings, 'ORDER_ALERT_EMAILS', None) or []):
+        add(addr)
+    if not out:
+        try:
+            from ..models import CompanyInfo
+            company = CompanyInfo.objects.first()
+            add(getattr(company, 'email', ''))
+        except Exception:
+            pass
+    return out
+
+
+def notify_admins(title, message, link=None, kind='info', email=True):
+    """Sab admin / shop admin users ko in-app (bell) notification."""
+    for admin in order_admin_users():
+        _notify(admin, title, message, link, kind, email=email)
+
+
+def notify_vendor_user(order, title, message, link='/shop/vendor/orders/', kind='info'):
+    """Order ke store (vendor) ko bell notification."""
+    if not order.vendor_id:
+        return
+    prof = get_store_profile(order.vendor_id)
+    if prof:
+        _notify(prof.user, title, message, link, kind)
+
+
+def _notify(user, title, message, link=None, kind='info', email=True):
     if not user:
         return
     try:
         from ..models import Notification
         Notification.send(user=user, title=title, message=message,
-                          notification_type=kind, category='sales', link=link)
+                          notification_type=kind, category='sales', link=link, send_email=email)
     except Exception as exc:  # notification se order kabhi na rukey
         logger.error("Notification error: %s", exc)
 
@@ -223,6 +287,7 @@ def notify_vendor_new_order(order):
          f'Dashboard mein Accept ya Reject karein.'),
         link='/shop/vendor/orders/',
         kind='sale',
+        email=False,   # vendor ko dedicated email email_new_order se jati hai
     )
 
 
@@ -278,8 +343,7 @@ def email_new_order(order, request=None):
                                    order.order_no, order.vendor_id)
 
             # --- admin(s) ---
-            admin_emails = list(User.objects.filter(is_superuser=True, is_active=True, email__gt='')
-                                .values_list('email', flat=True))
+            admin_emails = admin_alert_emails()
             if admin_emails:
                 send_admin_order_notification(
                     admin_emails=admin_emails, order_no=order.order_no, customer_name=customer.name,
@@ -288,7 +352,7 @@ def email_new_order(order, request=None):
                     store_name=store_name(order.vendor_id) if order.vendor_id else None,
                     items=items, address=address)
             else:
-                logger.warning('Order %s: kisi superuser ki email nahi, admin ko mail nahi gayi.', order.order_no)
+                logger.warning('Order %s: admin ki koi email nahi (user email / ORDER_ALERT_EMAILS / company email), admin ko mail nahi gayi.', order.order_no)
         except Exception:
             logger.exception('New order email failed (order %s)', getattr(order, 'order_no', '?'))
 
@@ -438,7 +502,7 @@ def auto_invoice_delivered(order, user):
         logger.error("Auto invoice failed for order %s: %s", order.order_no, exc)
         try:
             from django.contrib.auth.models import User
-            for admin in User.objects.filter(is_superuser=True, is_active=True):
+            for admin in order_admin_users():
                 _notify(admin, f'⚠️ Order #{order.order_no} ka invoice khud nahi bana',
                         f'Wajah: {exc}\nOrder Delivered hai, manually "Convert to Invoice" karein.',
                         f'/orders/sale/{order.id}/', 'warning')
@@ -465,7 +529,7 @@ def after_vendor_action(order, action, user):
                 f'{shop} ka order aap tak pahunch gaya. Shukriya!', link, 'success')
         try:
             from django.contrib.auth.models import User
-            for admin in User.objects.filter(is_superuser=True, is_active=True):
+            for admin in order_admin_users():
                 _notify(admin, f'✅ Order #{order.order_no} deliver ho gaya',
                         f'{shop} ne order deliver mark kiya. Rs. {order_payable_total(order):,.0f} '
                         f'({(order.payment_method or "cod").upper()}). '
@@ -481,7 +545,7 @@ def after_vendor_action(order, action, user):
         if (order.payment_method or 'cod') != 'cod':
             try:
                 from django.contrib.auth.models import User
-                for admin in User.objects.filter(is_superuser=True, is_active=True):
+                for admin in order_admin_users():
                     _notify(admin, f'💰 Refund karna hai - #{order.order_no}',
                             f'{shop} ne order reject kiya ({order.reject_reason}).\n'
                             f'Payment: {order.payment_method}, Rs. {order_payable_total(order):,.0f}',

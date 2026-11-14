@@ -63,3 +63,24 @@ class OrderEmailTests(TestCase):
     def test_vendor_without_email_does_not_break_order(self):
         self._run(fake_order(), vendor_email='')
         self.assertEqual([m.to for m in mail.outbox], [['boss@x.com']])
+
+
+@override_settings(EMAIL_BACKEND=MAIL, ORDER_ALERT_EMAILS=['owner@x.com'])
+class AdminRecipientTests(TestCase):
+    """Superuser ki email na ho, shop admin (staff) ho, ya sirf ORDER_ALERT_EMAILS ho - alert phir bhi jaye."""
+
+    def test_staff_and_setting_emails_are_included(self):
+        User.objects.create_user('root', '', 'x', is_superuser=True, is_staff=True)   # email nahi
+        User.objects.create_user('shopadmin', 'shopadmin@x.com', 'x', is_staff=True)  # shop admin
+        User.objects.create_user('plain', 'plain@x.com', 'x')                          # normal user: nahi
+        emails = store_orders.admin_alert_emails()
+        self.assertIn('shopadmin@x.com', emails)
+        self.assertIn('owner@x.com', emails)
+        self.assertNotIn('plain@x.com', emails)
+
+    def test_order_admin_users_has_staff_but_not_plain(self):
+        User.objects.create_user('shopadmin', 's@x.com', 'x', is_staff=True)
+        User.objects.create_user('plain', 'p@x.com', 'x')
+        names = {u.username for u in store_orders.order_admin_users()}
+        self.assertIn('shopadmin', names)
+        self.assertNotIn('plain', names)

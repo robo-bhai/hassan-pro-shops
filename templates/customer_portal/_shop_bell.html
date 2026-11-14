@@ -1,0 +1,81 @@
+{# 🔔 Notification bell for shop pages (vendor / shop owner / customer / staff). Uses the same /api/notifications/ endpoints as the admin navbar. #}
+{% if user.is_authenticated %}
+<style>
+    .sb-wrap { position: relative; display: inline-flex; }
+    .sb-btn { position: relative; width: 40px; height: 40px; border-radius: 12px; border: 0; cursor: pointer;
+              background: rgba(255,255,255,.18); color: inherit; display: inline-flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+    .sb-btn:hover { background: rgba(255,255,255,.3); }
+    .sb-badge { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+                background: #ef4444; color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; display: none; }
+    .sb-drop { display: none; position: absolute; right: 0; top: 48px; width: 340px; max-width: calc(100vw - 16px); background: #fff; color: #111827;
+               border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.25); z-index: 5000; overflow: hidden; }
+    .sb-drop.show { display: block; }
+    .sb-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; font-weight: 700; border-bottom: 1px solid #eee; }
+    .sb-head button { border: 0; background: none; color: #2563eb; font-size: 12px; cursor: pointer; }
+    .sb-list { max-height: 360px; overflow-y: auto; }
+    .sb-item { padding: 10px 14px; border-bottom: 1px solid #f1f1f1; cursor: pointer; }
+    .sb-item.unread { background: #eff6ff; }
+    .sb-item .t { font-weight: 600; font-size: 13px; }
+    .sb-item .m { font-size: 12px; color: #4b5563; white-space: pre-line; }
+    .sb-item .s { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+    .sb-empty { padding: 24px; text-align: center; color: #9ca3af; font-size: 13px; }
+    @media (max-width: 480px) { .sb-drop { position: fixed; left: 8px; right: 8px; top: 62px; width: auto; max-width: none; } }
+</style>
+<div class="sb-wrap" id="sbWrap">
+    <button type="button" class="sb-btn" id="sbBtn" aria-label="Notifications" aria-expanded="false">
+        <i class="bi bi-bell-fill" aria-hidden="true"></i>
+        <span class="sb-badge" id="sbBadge">0</span>
+    </button>
+    <div class="sb-drop" id="sbDrop" role="dialog" aria-label="Notifications">
+        <div class="sb-head"><span>🔔 Notifications</span><button type="button" id="sbReadAll">Mark all read</button></div>
+        <div class="sb-list" id="sbList"><div class="sb-empty">Loading...</div></div>
+    </div>
+</div>
+<script>
+(function () {
+    var btn = document.getElementById('sbBtn'), drop = document.getElementById('sbDrop'),
+        badge = document.getElementById('sbBadge'), list = document.getElementById('sbList');
+    if (!btn || !drop) return;
+    function csrf() { var m = document.cookie.match(/csrftoken=([^;]+)/); return m ? decodeURIComponent(m[1]) : ''; }
+    function api(url, method) {
+        return fetch(url, { method: method || 'GET', credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': csrf() } })
+            .then(function (r) { return r.json(); });
+    }
+    function esc(t) { var d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML; }
+    function setBadge(n) { badge.textContent = n > 99 ? '99+' : n; badge.style.display = n > 0 ? 'block' : 'none'; }
+    function refreshCount() { api('/api/notifications/unread-count/').then(function (d) { setBadge(d.unread_count || 0); }).catch(function () {}); }
+    function render(items) {
+        if (!items || !items.length) { list.innerHTML = '<div class="sb-empty">Koi notification nahi</div>'; return; }
+        list.innerHTML = items.map(function (n) {
+            return '<div class="sb-item ' + (n.is_read ? '' : 'unread') + '" data-id="' + n.id + '" data-link="' + esc(n.link || '') + '">' +
+                '<div class="t">' + esc(n.title) + '</div><div class="m">' + esc((n.message || '').substring(0, 160)) + '</div>' +
+                '<div class="s">' + esc(n.time_ago) + '</div></div>';
+        }).join('');
+    }
+    function load() {
+        api('/api/notifications/').then(function (d) { render(d.notifications); setBadge(d.unread_count || 0); })
+            .catch(function () { list.innerHTML = '<div class="sb-empty">Notifications load nahi huin</div>'; });
+    }
+    btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var open = drop.classList.toggle('show');
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) load();
+    });
+    document.addEventListener('click', function (e) { if (!drop.contains(e.target)) drop.classList.remove('show'); });
+    document.getElementById('sbReadAll').addEventListener('click', function () {
+        api('/api/notifications/mark-all-read/', 'POST').then(load);
+    });
+    list.addEventListener('click', function (e) {
+        var it = e.target.closest('.sb-item'); if (!it) return;
+        var link = it.getAttribute('data-link');
+        api('/api/notifications/' + it.getAttribute('data-id') + '/mark-read/', 'POST').catch(function () {}).then(function () {
+            if (link) window.location.href = link; else load();
+        });
+    });
+    refreshCount();
+    setInterval(refreshCount, 30000);   // naya order aate hi badge khud update
+})();
+</script>
+{% endif %}

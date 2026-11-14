@@ -80,7 +80,8 @@ def get_notifications_api(request):
 def mark_notification_read(request, pk):
     """Mark a single notification as read"""
     try:
-        notification = Notification.objects.get(pk=pk)
+        notification = Notification.objects.get(
+            models.Q(user=request.user) | models.Q(user__isnull=True), pk=pk)   # sirf apni notification
         notification.is_read = True
         notification.save()
         return JsonResponse({'success': True})

@@ -98,6 +98,10 @@ BREVO_SENDER_NAME = _env_first('BREVO_SENDER_NAME', 'SENDER_NAME', 'EMAIL_SENDER
 BREVO_SENDER_EMAIL = _env_first('BREVO_SENDER_EMAIL', 'SENDER_EMAIL', 'EMAIL_SENDER_EMAIL')
 
 # Purana SMTP tareeqa (sirf tab jab Brevo API ki secrets maujood na hon)
+# Naye order ki admin email (comma separated). Admin/staff users ki email ke ilawa yahan bhi bhej sakte hain.
+# .env mein: ORDER_ALERT_EMAILS=owner@example.com,manager@example.com
+ORDER_ALERT_EMAILS = [e.strip() for e in os.environ.get('ORDER_ALERT_EMAILS', '').split(',') if e.strip()]
+
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp-relay.brevo.com')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() in ('true', '1', 't')

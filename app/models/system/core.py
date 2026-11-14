@@ -179,7 +179,7 @@ class Notification(models.Model):
         return f"{self.title} - {self.created_at.strftime('%d-%m-%Y %I:%M %p')}"
     
     @classmethod
-    def send(cls, user, title, message, notification_type='info', category='all', link=None):
+    def send(cls, user, title, message, notification_type='info', category='all', link=None, send_email=True):
         """Create in-app notification and trigger email dispatch via email_helper."""
         notification = cls.objects.create(
             user=user,
@@ -191,7 +191,7 @@ class Notification(models.Model):
         )
         
         # Email Dispatch Logic connected to email_helper.py
-        if user and user.email:
+        if send_email and user and user.email:
             try:
                 base_url = getattr(settings, 'SITE_URL', 'https://uqn88.store')
                 action_link = None
